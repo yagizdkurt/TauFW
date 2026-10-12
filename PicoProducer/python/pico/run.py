@@ -3,7 +3,8 @@ import os, sys
 from TauFW.common.tools.utils import execute
 from TauFW.PicoProducer.analysis.utils import ensuremodule
 from TauFW.PicoProducer.storage.utils import getsamples, print_no_samples
-from TauFW.PicoProducer.pico.common import *
+from TauFW.common.tools.log import bold
+from TauFW.PicoProducer.pico.common import CONFIG, LOG
 
 
 
@@ -137,7 +138,7 @@ def main_run(args):
             print(">>> ]")
         
         # RUN
-        python = "python2" if sys.version_info.major<3 else "python3"
+        python = "python3"
         runcmd = "%s %s"%(python,processor)
         if procopts:
           runcmd += " %s"%(procopts)

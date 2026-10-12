@@ -8,13 +8,12 @@ from math import sqrt, exp, cos
 from ROOT import TLorentzVector, TVector3
 from PhysicsTools.NanoAODTools.postprocessing.framework.eventloop import Module
 from PhysicsTools.NanoAODTools.postprocessing.framework.datamodel import Collection, Event
-from TauFW.PicoProducer.corrections.PileupTool import *
-from TauFW.PicoProducer.corrections.RecoilCorrectionTool import *
+from TauFW.PicoProducer.corrections.PileupTool import PileupWeightTool
+from TauFW.PicoProducer.corrections.RecoilCorrectionTool import ZptCorrectionTool, getTopPtWeight, gettoppt, getzboson
 #from TauFW.PicoProducer.corrections.PreFireTool import *
 from TauFW.PicoProducer.corrections.BTagTool import BTagWeightTool, BTagWPs
 from TauFW.common.tools.log import header
 from TauFW.PicoProducer.analysis.utils import ensurebranches, redirectbranch, deltaPhi, getmet, getmetfilters, correctmet, getlepvetoes
-__metaclass__ = type # to use super() with subclasses from CommonProducer
 tauSFVersion  = { 2016: '2016Legacy', 2017: '2017ReReco', 2018: '2018ReReco' }
 
 

@@ -2,10 +2,11 @@
 # Description: Simple module to pre-select mutau events
 import sys
 import numpy as np
-from TauFW.PicoProducer.analysis.TreeProducerMuTau import *
-from TauFW.PicoProducer.analysis.ModuleTauPair import *
-from TauFW.PicoProducer.analysis.utils import LeptonTauPair, loosestIso, idIso, matchgenvistau, matchtaujet, filtermutau
-from TauFW.PicoProducer.corrections.MuonSFs import *
+from TauFW.PicoProducer.analysis.TreeProducerMuTau import TreeProducerMuTau
+from PhysicsTools.NanoAODTools.postprocessing.framework.datamodel import Collection
+from TauFW.PicoProducer.analysis.ModuleTauPair import ModuleTauPair
+from TauFW.PicoProducer.corrections.MuonSFs import MuonSFs
+from TauFW.PicoProducer.analysis.utils import LeptonTauPair, loosestIso, idIso, matchgenvistau, matchtaujet, filtermutau, getlepvetoes
 #from TauFW.PicoProducer.corrections.TrigObjMatcher import loadTriggerDataFromJSON, TrigObjMatcher
 from TauPOG.TauIDSFs.TauIDSFTool import TauIDSFTool, TauESTool
 

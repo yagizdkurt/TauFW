@@ -6,7 +6,6 @@
 #   root://t3dcachedb.psi.ch:1094/ # PSI T3
 #   root://storage01.lcg.cscs.ch/  # PSI T2
 #   root://cmseos.fnal.gov/        # Fermi lab
-from past.builtins import basestring, unicode # for python2 compatibility
 import os, re, json
 import gzip
 import importlib
@@ -147,7 +146,7 @@ class Sample(object):
       with open(cfgname,'r') as file:
         jobcfg = json.load(file)
     for key, value in jobcfg.items():
-      if isinstance(value,unicode):
+      if isinstance(value,str):
         jobcfg[key] = str(value)
     for key in ['group','name','paths','try','channel','chunkdict','dtype','extraopts']:
       LOG.insist(key in jobcfg,"Did not find key '%s' in job configuration %s"%(key,cfgname))

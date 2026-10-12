@@ -4,8 +4,9 @@ import sys
 import numpy as np
 import math
 from TauFW.PicoProducer import datadir
-from TauFW.PicoProducer.analysis.TreeProducerTauNu import *
-from TauFW.PicoProducer.analysis.ModuleHighPT import *
+from TauFW.PicoProducer.analysis.TreeProducerTauNu import TreeProducerTauNu
+from PhysicsTools.NanoAODTools.postprocessing.framework.datamodel import Collection
+from TauFW.PicoProducer.analysis.ModuleHighPT import ModuleHighPT
 from TauFW.PicoProducer.analysis.utils import loosestIso, idIso, matchgenvistau, matchtaujet
 from TauFW.PicoProducer.corrections.TrigObjMatcher import TrigObjMatcher
 from TauFW.PicoProducer.corrections.TauTriggerSFs import TauTriggerSFs

@@ -10,9 +10,8 @@ from TauFW.common.tools.LoadingBar import LoadingBar
 from TauFW.PicoProducer.batch.utils import getbatch, getcfgsamples, chunkify_by_evts, evtsplitexp
 from TauFW.PicoProducer.storage.utils import getstorage, getsamples, isvalid, itervalid, print_no_samples
 from TauFW.PicoProducer.pico.run import getmodule
-from TauFW.PicoProducer.pico.common import *
-if sys.version_info.major<3: # for compatiblity with python2
-  input = raw_input
+from TauFW.common.tools.log import color, bold
+from TauFW.PicoProducer.pico.common import CONFIG, LOG
 
 
 ####################
@@ -290,7 +289,7 @@ def preparejobs(args):
                 filetag  += "_%d"%(firstevt/maxevts__)
               
               # BUILD COMMAND
-              python      = "python2" if sys.version_info.major<3 else "python3"
+              python      = "python3"
               jobcmd      = "%s %s"%(python,processor)
               if procopts:
                 jobcmd   += " %s"%(procopts)

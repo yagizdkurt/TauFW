@@ -2,11 +2,13 @@
 # Description: Module to preselect W*->mu+v events
 import sys
 import numpy as np
-from TauFW.PicoProducer.analysis.TreeProducerMuNu import *
-from TauFW.PicoProducer.analysis.ModuleHighPT import *
+from TauFW.PicoProducer.analysis.TreeProducerMuNu import TreeProducerMuNu
+from PhysicsTools.NanoAODTools.postprocessing.framework.datamodel import Collection
+from TauFW.PicoProducer.analysis.ModuleHighPT import ModuleHighPT
+from TauFW.PicoProducer.corrections.MuonSFs import MuonSFs
+import os
+from TauFW.PicoProducer.corrections.WmassCorrection import WStarWeight
 from TauFW.PicoProducer.analysis.utils import idIso, matchtaujet 
-from TauFW.PicoProducer.corrections.MuonSFs import *
-from TauFW.PicoProducer.corrections.WmassCorrection import *
 from TauFW.PicoProducer.corrections.TrigObjMatcher import loadTriggerDataFromJSON, TrigObjMatcher
 from TauPOG.TauIDSFs.TauIDSFTool import TauIDSFTool, TauESTool
 from TauFW.PicoProducer import datadir

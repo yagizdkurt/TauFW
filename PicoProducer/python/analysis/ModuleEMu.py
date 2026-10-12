@@ -2,11 +2,12 @@
 # Description: Simple module to pre-select mumu events
 import sys
 import numpy as np
-from TauFW.PicoProducer.analysis.TreeProducerEMu import *
-from TauFW.PicoProducer.analysis.ModuleTauPair import *
-from TauFW.PicoProducer.analysis.utils import LeptonPair, idIso, matchtaujet
-from TauFW.PicoProducer.corrections.MuonSFs import *
-from TauFW.PicoProducer.corrections.ElectronSFs import *
+from TauFW.PicoProducer.analysis.TreeProducerEMu import TreeProducerEMu
+from PhysicsTools.NanoAODTools.postprocessing.framework.datamodel import Collection
+from TauFW.PicoProducer.analysis.ModuleTauPair import ModuleTauPair
+from TauFW.PicoProducer.corrections.MuonSFs import MuonSFs
+from TauFW.PicoProducer.corrections.ElectronSFs import ElectronSFs
+from TauFW.PicoProducer.analysis.utils import LeptonPair, idIso, matchtaujet, getlepvetoes
 from TauPOG.TauIDSFs.TauIDSFTool import TauIDSFTool, TauESTool
 
 

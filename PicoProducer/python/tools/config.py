@@ -1,6 +1,5 @@
 #! /usr/bin/env python
 # Author: Izaak Neutelings (May 2020)
-from past.builtins import basestring, unicode # for python2 compatibility
 import os, sys, re, glob, json
 from datetime import datetime
 import importlib
@@ -85,7 +84,7 @@ def getconfig(verb=0,refresh=False):
   cfgname  = os.path.join(cfgdir,"config.json")
   bkpname  = os.path.join(cfgdir,"config.json.bkp") # back up to recover config if reset
   cfgdict  = cfgdefaults.copy()
-  rqdstrs  = [k for k,v in cfgdefaults.items() if isinstance(v,basestring)] # required string type
+  rqdstrs  = [k for k,v in cfgdefaults.items() if isinstance(v,str)] # required string type
   rqddicts = [k for k,v in cfgdefaults.items() if isinstance(v,dict)] # required dictionary type
   
   # GET CONFIG
@@ -119,7 +118,7 @@ def getconfig(verb=0,refresh=False):
   # SANITY CHECKS - format of values for required keys
   for key in rqdstrs:
     assert key in cfgdict, "Required key '%s' not found in the configuration file..."%(key)
-    assert isinstance(cfgdict[key],basestring),\
+    assert isinstance(cfgdict[key],str),\
       "Required value for '%s' must be a string or unicode! Instead is of type %s: %r"%(key,type(cfgdict[key]),key)
   for key in rqddicts:
     assert key in cfgdict, "Required key '%s' not found in the configuration file..."%(key)
@@ -159,16 +158,16 @@ class Config(object):
     self._dict = cfgdict
     self._path    = path
     for key in list(self._dict.keys()):
-      if isinstance(self._dict[key],unicode):
+      if isinstance(self._dict[key],str):
         self._dict[str(key)] = str(self._dict[key]) # convert unicode to str
       elif isinstance(self._dict[key],dict):
         for subkey in list(self._dict[key].keys()):
           item = self._dict[key][subkey]
-          if isinstance(item,unicode):
+          if isinstance(item,str):
             item = str(item)
           self._dict[str(key)].pop(subkey,None)
           self._dict[str(key)][str(subkey)] = item # convert unicode to str
-      elif isinstance(key,unicode):
+      elif isinstance(key,str):
         self._dict[str(key)] = self._dict[key] # convert unicode to str
   
   def __str__(self):

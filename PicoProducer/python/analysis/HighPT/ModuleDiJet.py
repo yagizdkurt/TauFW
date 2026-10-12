@@ -2,10 +2,10 @@
 # Description: Module to pre-select dijets events for FF measurement
 import sys
 import numpy as np
-from TauFW.PicoProducer.analysis.TreeProducerDiJet import *
-from TauFW.PicoProducer.analysis.ModuleHighPT import *
+from TauFW.PicoProducer.analysis.TreeProducerDiJet import TreeProducerDiJet
+from PhysicsTools.NanoAODTools.postprocessing.framework.datamodel import Collection
+from TauFW.PicoProducer.analysis.ModuleHighPT import ModuleHighPT
 from TauFW.PicoProducer.analysis.utils import idIso, matchtaujet 
-from TauFW.PicoProducer.corrections.MuonSFs import *
 from TauFW.PicoProducer.corrections.TrigObjMatcher import loadTriggerDataFromJSON, TrigObjMatcher
 
 class ModuleDiJet(ModuleHighPT):

@@ -1,7 +1,6 @@
 #! /usr/bin/env python
 # Author: Izaak Neutelings (May 2020)
 # Description: Skim nanoAOD file and store locally: pre-select events, filter branches, add jet/MET corrections, ...
-from __future__ import print_function
 import os, re
 import time; time0 = time.time()
 import ROOT; ROOT.PyConfig.IgnoreCommandLineOptions = True

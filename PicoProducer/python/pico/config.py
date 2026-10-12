@@ -1,11 +1,12 @@
 # Author: Izaak Neutelings (February 2022)
-from past.builtins import basestring # for python2 compatibility
 import os, glob, json
 from TauFW.common.tools.file import ensurefile, ensureinit
 from TauFW.common.tools.string import repkey, rreplace, lreplace
 from TauFW.PicoProducer.analysis.utils import ensuremodule
 from TauFW.PicoProducer.storage.utils import getsamples
-from TauFW.PicoProducer.pico.common import *
+from TauFW.common.tools.log import color, bold
+import TauFW.PicoProducer.tools.config as GLOB
+from TauFW.PicoProducer.pico.common import CONFIG, LOG
 
 
 
@@ -31,10 +32,10 @@ def main_list(args):
     if isinstance(value,dict):
       print(">>>  %s:"%(variable))
       for key, item in value.items():
-        if isinstance(item,basestring): item = str(item)
+        if isinstance(item,str): item = str(item)
         print(">>>    %-12r -> %r"%(str(key),str(item)))
     else:
-      if isinstance(value,basestring): value = str(value)
+      if isinstance(value,str): value = str(value)
       print(">>>  %-24s = %r"%(variable,value))
   
 

@@ -1,6 +1,5 @@
 #! /usr/bin/env python
 # Author: Sebastian Brommer (July 2020)
-from past.builtins import basestring # for python2 compatibility
 import os
 from TauFW.common.tools.utils import execute
 from TauFW.PicoProducer.storage.StorageSystem import StorageSystem
@@ -59,7 +58,7 @@ class GridKA_NRG(StorageSystem):
             tmpdir = os.path.join(self.tmpdir, os.environ['USER'])
             self.ensure_local_temp_dir(tmpdir, verb=verb)
             htarget = os.path.join(tmpdir, os.path.basename(target))
-        if isinstance(sources, basestring):
+        if isinstance(sources, str):
           sources = [sources]
         source = ""
         for i, file in enumerate(sources, 1):

@@ -1,5 +1,4 @@
 # Author: Izaak Neutelings (May 2020)
-from past.builtins import basestring # for python2 compatibility
 import os, glob
 import getpass, platform
 import importlib

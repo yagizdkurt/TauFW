@@ -14,6 +14,7 @@ Sections are in the order the work was done. Each lists the relevant commits.
 | 3 | [Removal of legacy Python 2 scripts](#3-removal-of-legacy-python-2-scripts) | 2026-10-12 |
 | 4 | [Utilities package for future development](#4-utilities-package-for-future-development) | 2026-10-12 |
 | 5 | [PicoProducer cleanup, session 1: command-level BBB tests and bug register](#5-picoproducer-cleanup-session-1-command-level-bbb-tests-and-bug-register) | 2026-10-12 |
+| 6 | [PicoProducer cleanup, session 2: legacy area, explicit imports, no import-time side effects](#6-picoproducer-cleanup-session-2-legacy-area-explicit-imports-no-import-time-side-effects) | 2026-10-12 |
 
 The reference environment for all of this is `CMSSW_14_1_0_pre4` (Python 3.9, ROOT 6.30).
 
@@ -287,4 +288,72 @@ Ground rules for the cleanup:
   existing baseline files are unchanged.
 - Before session 6, add a `ModuleTauPair`-based channel case. It needs a larger synthetic NanoAOD and the
   jsonpog/TauIDSFs payloads.
+
+---
+
+## 6. PicoProducer cleanup, session 2: legacy area, explicit imports, no import-time side effects
+
+**Date:** 2026-10-12
+**Details:** [PicoProducer/python/legacy/README.md](../PicoProducer/python/legacy/README.md),
+[PicoProducer/docs/BUGS.md](../PicoProducer/docs/BUGS.md)
+
+**None of these changes alters behavior.** Every changed file was checked statically: it parses as Python 3.9,
+and `pyflakes` shows that no name lost its definition.
+
+### What changed
+
+1. **`legacy/` area.** 23 unmaintained or forked files moved to `PicoProducer/python/legacy/` (with `git mv`,
+   so their history follows them). The README lists each file's origin, last change and reason. The files:
+   - the `MuTauFakeRate` and `puppiMET` forks of `ModuleTauPair`;
+   - the `JetTauFakeRate` producers;
+   - `ModuleMuTau_nanoV10_DeepTau2p1`, `TauES/ModuleMuTau`, `CheckMuTrigger`, `StitchEffs`;
+   - the generator studies (`GenFilterMuTau`, `GenMatcher`, `LQ`, `gmin2`);
+   - `BeamSpotTool`, `METCorrectionTool`, `PreFireTool`, `MuonSFs_ROOT`, `dumpGen`;
+   - the Python 2 launcher `pico2.py`, renamed `pico2.sh` because it is a shell script and `scram b` would try
+     to compile it.
+
+   References were updated in the README, the JetToTauFR README, the processors README, `pico.py`'s
+   import-error message and `Tests/PicoProducer/testSFs.py` (recorded in `Tests/migration.json`). Legacy files
+   are not maintained, not tested and not runnable through `pico.py`. The CMSDAS2020 tutorial module stays
+   because `docs/CMSDAS2020` links to it.
+2. **Tracked packages.** `analysis/`, `corrections/`, `storage/`, `pico/`, `tools/` and `legacy/` now have
+   tracked `__init__.py` files that describe each package. `.gitignore` has an exception for
+   `PicoProducer/python/**/__init__.py`, like the one for `Utilities`.
+3. **No working-directory change on import.** `pico/common.py` no longer calls `os.chdir`. `scripts/pico.py`
+   changes to `PicoProducer/` explicitly at startup, at the same point in the import sequence as before, then
+   loads the configuration. The redundant second `chdir` before dispatch was removed.
+4. **Explicit imports.** Every `from ... import *` outside `legacy/` was replaced: 22 analysis modules and the
+   four `pico` command modules. A small static resolver (pyflakes plus a simulation of each module's namespace)
+   found, for each name, which wildcard supplied it at runtime and the module that actually defines it. So the
+   new imports bind the same objects as before, including `datadir`: every maintained module still sees the
+   base `TauFW.PicoProducer.datadir`. The replacement imports keep the original import order.
+5. **Python 2 leftovers removed** (17 files):
+   - `past.builtins` replaced by `str`, `unicode` likewise (`past.builtins.basestring` also matched `bytes`;
+     none of these values can be bytes);
+   - `from __future__ import print_function`;
+   - the `raw_input` shim;
+   - `"python2" if ... else "python3"` (now `python3`);
+   - the no-op `__metaclass__ = type`.
+
+   `BatchSystem`'s `__metaclass__ = ABCMeta` stays until session 3, because making it effective is a behavior
+   change (BUGS S03).
+
+### Why
+
+- **Dead code makes cleanup harder.** Legacy code and its wildcard-import chains made searches, audits and
+  refactoring decisions harder. Moving it out (not deleting it) makes the maintained surface explicit.
+- **Wildcard imports hid where names come from.** A module's dependencies were invisible, and the `datadir`
+  rebinding leaked between modules (BUGS A13). Explicit imports make each file readable on its own and allow
+  safe moves in later sessions.
+- **Importing should not change process state** (architecture finding A01). The working directory is now an
+  explicit decision of the CLI entry point.
+
+### Bugs
+
+- **No bug was fixed in this session.** A11, C10 and W03 are only moved to `legacy/`.
+- **One new bug was found** while resolving names: A14, an undefined `fes` in `ETauFakeRate/ModuleETau.py`.
+
+### Check
+
+Run `python3 Tests/run.py bbb check` on lxplus. All 18 cases must pass unchanged.
 

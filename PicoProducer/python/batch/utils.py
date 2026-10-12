@@ -1,5 +1,4 @@
 # Author: Izaak Neutelings (May 2020)
-from past.builtins import basestring # for python2 compatibility
 import os, re, glob
 import importlib
 import platform
@@ -114,7 +113,7 @@ def chunkify_by_evts(fnames,maxevts,evenly=True,evtdict=None,verb=0):
 
 def getbatch(arg,verb=0):
   """Get BatchSystem (subclass) instance and check if it exists."""
-  if isinstance(arg,basestring):
+  if isinstance(arg,str):
     system = arg
   elif hasattr(arg,'batch'):
     system = arg.batch

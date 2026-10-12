@@ -11,7 +11,7 @@ These files are **unmaintained**. They were moved here on 2026-10-12 during the 
 - **To revive a file,** move it back next to the maintained code, update its imports, add a BBB case, and
   record the change in `docs/Refactor-2025.md`.
 
-The originals were under `PicoProducer/python/` (`PicoProducer/scripts/` for `pico2.py`).
+The originals were under `PicoProducer/python/` (`PicoProducer/scripts/` for `pico2.sh`).
 
 | Legacy path | Original location | Last change | Reason |
 |---|---|---|---|
@@ -31,6 +31,6 @@ The originals were under `PicoProducer/python/` (`PicoProducer/scripts/` for `pi
 | `corrections/PreFireTool.py` | `corrections/` | 2020-06-21 | Cannot be imported (`from corrections import ...`, BUGS C10); only commented-out uses |
 | `corrections/MuonSFs_ROOT.py` | `corrections/` | 2024-05-03 | ROOT-based predecessor of the correctionlib `MuonSFs`; only `Tests/PicoProducer/testSFs.py` uses it |
 | `processors/dumpGen.py` | `processors/` | 2023-10-19 | Stand-alone LHE dumper; the `gen` channel uses `analysis/GenDumper.py` |
-| `scripts/pico2.py` | `scripts/` | 2023-05-31 | Python 2 launcher for `pico.py`; Python 2 releases are no longer supported |
+| `scripts/pico2.sh` | `scripts/pico2.py` | 2023-05-31 | Python 2 launcher for `pico.py` (a shell script; renamed so `scram b` does not compile it as Python); Python 2 releases are no longer supported |
 
 The tutorial module `analysis/CMSDAS2020/` was **not** moved, because `docs/CMSDAS2020/` still links to it.

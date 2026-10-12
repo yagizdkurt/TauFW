@@ -8,11 +8,14 @@ try:
   from TauFW.PicoProducer import basedir
   from TauFW.PicoProducer.analysis.utils import ensuremodule
   from TauFW.PicoProducer.storage.utils import getsamples
-  from TauFW.PicoProducer.pico.common import *
+  from TauFW.PicoProducer.storage.utils import LOG as SLOG
+  import TauFW.PicoProducer.tools.config as GLOB
 except ImportError as err:
   print("\033[1m\033[31mImportError for TauFW modules: Please check if you compiled with `scram b`."
         "Releases older than CMSSW_12_X (python2) are no longer supported.\033[0m")
   raise err
+os.chdir(basedir) # all relative paths (config, samples, processors, job output) are relative to PicoProducer/
+from TauFW.PicoProducer.pico.common import CONFIG # loads config/config.json (created or repaired if needed)
   
 
 ###############
@@ -220,7 +223,6 @@ if __name__ == "__main__":
     SLOG.setverbosity(args.verbosity-1)
   
   # SUBCOMMAND MAINs
-  os.chdir(basedir) #CONFIG.basedir
   if args.subcommand=='install':
     main_install(args)
   if args.subcommand=='list':

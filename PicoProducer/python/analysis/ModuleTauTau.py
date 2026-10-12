@@ -3,9 +3,11 @@
 import sys
 import numpy as np
 from TauFW.PicoProducer import datadir
-from TauFW.PicoProducer.analysis.TreeProducerTauTau import *
-from TauFW.PicoProducer.analysis.ModuleTauPair import *
-from TauFW.PicoProducer.analysis.utils import DiTauPair, loosestIso, idIso, matchgenvistau, matchtaujet
+from TauFW.PicoProducer.analysis.TreeProducerTauTau import TreeProducerTauTau
+import os
+from PhysicsTools.NanoAODTools.postprocessing.framework.datamodel import Collection
+from TauFW.PicoProducer.analysis.ModuleTauPair import ModuleTauPair, tauSFVersion
+from TauFW.PicoProducer.analysis.utils import DiTauPair, loosestIso, idIso, matchgenvistau, matchtaujet, getlepvetoes
 from TauFW.PicoProducer.corrections.TrigObjMatcher import TrigObjMatcher
 from TauFW.PicoProducer.corrections.TauTriggerSFs import TauTriggerSFs
 from TauPOG.TauIDSFs.TauIDSFTool import TauIDSFTool, TauESTool, TauFESTool

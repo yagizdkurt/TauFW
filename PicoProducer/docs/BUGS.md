@@ -66,13 +66,13 @@ the baseline, and fixing it changes that baseline on purpose.
 |---|---|---|---|---|---|---|---|
 | W01 | `processors/skimjob.py:24` | `-E/--opts` is parsed and never used | latent | no | S5 | | |
 | W02 | `processors/picojob.py:3` | Description line was copied from skimjob | latent | no | S5 | | |
-| W03 | `processors/dumpGen.py` | Not referenced anywhere (moves to `legacy/`) | latent | no | S2 | | |
+| W03 | `processors/dumpGen.py` | Not referenced anywhere | latent | no | S2 | moved to `legacy/processors/` (not fixed) | none |
 
 ## Analysis modules and writers
 
 | ID | Location | Symptom | Severity | BBB | Session | Fix | Output impact |
 |---|---|---|---|---|---|---|---|
-| A01 | `analysis/ModuleMuTau.py:168`, `ModuleETau.py:155`, `ModuleEMu.py:133`, `ModuleTauTau.py:131`, `ModuleMuTau_nanoV10_*.py:172`, `TauES/ModuleMuTau.py:161`, `MuTauFakeRate/ModuleMuTau.py:177`, `ETauFakeRate/ModuleETau.py:201` | `getlepvetoes(...)` is called without the now-required `era` argument (changed in `eb15fdc`), so a `TypeError` is raised on the first event that reaches the vetoes | crash | no | S6 | | |
+| A01 | `analysis/ModuleMuTau.py:168`, `ModuleETau.py:155`, `ModuleEMu.py:133`, `ModuleTauTau.py:131`, `ModuleMuTau_nanoV10_DeepTau2p5.py:172`, `ETauFakeRate/ModuleETau.py:201` (and the `legacy/` copies `ModuleMuTau_nanoV10_DeepTau2p1`, `TauES/ModuleMuTau`, `MuTauFakeRate/ModuleMuTau`) | `getlepvetoes(...)` is called without the now-required `era` argument (changed in `eb15fdc`), so a `TypeError` is raised on the first event that reaches the vetoes | crash | no | S6 | | |
 | A02 | `analysis/ModuleMuTau.py:40-46` vs `285-302` | Tau ID / e→τ / μ→τ SF tools are commented out but still used for MC with genmatch 1–5 (`AttributeError`); the comments at 293/298 swap muon and electron | crash | no | S6 | | |
 | A03 | `analysis/TreeProducerTauPair.py` vs `ModuleTauPair.py:562-566` | With `jec=True`, `met_<unc>`, `mt_1_<unc>` and `dzeta_<unc>` are filled but never declared, and `pzeta_vis` is undefined (the variable is `pzetavis`) | crash | no | S6 | | |
 | A04 | `analysis/ModuleEMu.py:198` | Writes `idiso_2`, which `TreeProducerEMu` does not define (probably `idiso_3`) | crash | no | S6 | | |
@@ -82,9 +82,10 @@ the baseline, and fixing it changes that baseline on purpose.
 | A08 | `analysis/utils.py:294,348` | `getmet`/`getmetfilters` always print, ignoring `verb` | wrong (cosmetic) | no | S6 | | |
 | A09 | `analysis/utils.py:355` | `loosestIso` hard-codes DeepTau2017v2p1 | wrong | no | S6 | | |
 | A10 | `analysis/Run3_DEV/ModuleMuTau.py:34,44` | No trigger for 2025 (`self.trigger` unset); `self.muSFs = 1` for 2024 | crash | no | S6 | | |
-| A11 | `analysis/CheckMuTrigger.py:26` | Trigger threshold attributes are assigned but unused (hard-coded 24 GeV); `trigsf` stays 1.0 | wrong | no | S2 (legacy) | | |
+| A11 | `legacy/analysis/CheckMuTrigger.py:26` | Trigger threshold attributes are assigned but unused (hard-coded 24 GeV); `trigsf` stays 1.0 | wrong | no | S2 | moved to `legacy/` (not fixed) | none |
 | A12 | `ModuleTauPair.py:51` and variants | `recoil` option is stored, but the tool and calls are commented out | latent | no | S6 | | |
-| A13 | 32 files with `import *` | `datadir` is rebound by BTagTool/PileupTool/JetVetoMapTool/TauTriggerSFs and leaks through star imports. JetTauFakeRate works around it with `replace("/pileup","")` | wrong | no | S6 | | |
+| A13 | `import *` chains (now only in `legacy/`) | `datadir` is rebound by BTagTool/PileupTool/JetVetoMapTool/TauTriggerSFs and leaks through star imports. JetTauFakeRate works around it with `replace("/pileup","")`. Session 2 replaced every star import outside `legacy/` by explicit imports of the *same* objects: all maintained modules see the base `datadir`, as before | wrong | no | S6 | | |
+| A14 | `analysis/ETauFakeRate/ModuleETau.py:172-174` | Uses an undefined name `fes` (`NameError` on that path); found while resolving star imports | crash | no | S6 | | |
 
 ## Corrections
 
@@ -99,7 +100,7 @@ the baseline, and fixing it changes that baseline on purpose.
 | C07 | `corrections/ElectronSFs.py:11-14,89` | Stray no-op string literals; no 2024/2025 branch (assertion fails); the 2023 message says "MuonSFs" | crash | no | S6 | | |
 | C08 | `corrections/JetVetoMapTool.py` | No 2024 branch, although `Winter24Prompt24_*.root` is in `data/` | wrong | no | S6 | | |
 | C09 | `corrections/era_config.py:104-105` | `getjmecalib`: `jmeUncs`/`MET` are used before assignment in the data branch (not called) | latent | no | S6 | | |
-| C10 | `corrections/PreFireTool.py:7,10` | `from corrections import ...` fails, and CMSSW_BASE path building raises without CMSSW (moves to `legacy/`) | crash | no | S2 | | |
+| C10 | `legacy/corrections/PreFireTool.py:7,10` | `from corrections import ...` fails, and CMSSW_BASE path building raises without CMSSW | crash | no | S2 | moved to `legacy/` (not fixed) | none |
 | C11 | `corrections/RecoilCorrectionTool.py:12` | A correction imports `analysis.utils` (layering inversion); the `RecoilCorrectionTool` class itself is unused | latent | no | S6 | | |
 | C12 | `corrections/MetTriggerSF.py:8`, `WmassCorrection.py:7` | Paths are built from `os.getenv('CMSSW_BASE')+…`, bypassing `datadir`; `TypeError` without CMSSW; `data/Wstar/` and `trigger/mettrigger_<era>.root` are absent | crash | no | S6 | | |
 | C13 | `corrections/MuonSFs.py:27`, `DYandRecoilCorrlib.py:27` | `getcorr()` is duplicated verbatim; DYandRecoilCorrlib docstrings still say "muon" | latent | no | S6 | | |

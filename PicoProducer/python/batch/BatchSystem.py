@@ -1,5 +1,4 @@
 # Author: Izaak Neutelings (May 2020)
-from past.builtins import basestring # for python2 compatibility
 #import os, re, shutil
 import os, re
 import importlib
@@ -113,7 +112,7 @@ class Job(object):
     self.name   = kwargs.get('name',   "none" )
     self.args   = kwargs.get('args',   ""     )
     self.status = kwargs.get('status', None   )
-    if isinstance(self.taskid,basestring):
+    if isinstance(self.taskid,str):
       if self.taskid.isdigit():
         self.taskid = int(self.taskid)
       else:

@@ -1,6 +1,5 @@
 #! /usr/bin/env python
 # Author: Andrea Cardini (September 2020)
-from past.builtins import basestring # for python2 compatibility
 import os
 import glob
 from TauFW.common.tools.utils import execute
@@ -77,7 +76,7 @@ class T2_DESY(StorageSystem):
     verb    = kwargs.get('verb',   self.verbosity)
     fileurl = kwargs.get('url',    self.fileurl)
     tmpdir  = kwargs.get('tmpdir', target.startswith(self.parent) and self.cpurl!='')
-    if isinstance(sources,basestring):
+    if isinstance(sources,str):
       sources = [ sources ]
     source = ""
     for i, file in enumerate(sources,1):

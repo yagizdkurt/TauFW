@@ -1,7 +1,6 @@
 # Author: Izaak Neutelings (May 2020)
 # Description: Superclass of a generic storage system with common operations like
 #              ls, cp, rm, mkdir, etc. to allow for easy implementation of storage system plug-ins.
-from past.builtins import basestring # for python2 compatibility
 import os
 from fnmatch import fnmatch # for glob pattern
 from TauFW.common.tools.utils import execute, ensurelist
@@ -145,7 +144,7 @@ class StorageSystem(object):
     path     = self.expandpath(*paths)
     filelist = self.ls(path,**kwargs)
     if fileurl and path.startswith(self.parent):
-      if not isinstance(fileurl,basestring):
+      if not isinstance(fileurl,str):
         fileurl = self.fileurl
     else:
       fileurl = ""
@@ -177,7 +176,7 @@ class StorageSystem(object):
         tmpdir = self.tmpdir
       tmpdir  = ensuredir(tmpdir,verb=verb)
       htarget = os.path.join(tmpdir,os.path.basename(target))
-    if isinstance(sources,basestring):
+    if isinstance(sources,str):
       sources = [ sources ]
     source = ""
     for i, file in enumerate(sources,1):
