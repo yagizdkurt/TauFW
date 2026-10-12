@@ -468,6 +468,18 @@ sites, other batch systems, error paths) or do not change any value.
 The commit of A recorded eight renamed modules under their old capitalized names: `batch/HTCondor.py`,
 `SGE.py`, `SLURM.py`, `storage/EOS.py`, `GridKA_NRG.py`, `T2_DESY.py`, `T2_PSI.py` and `T3_PSI.py`. The code
 imports `batch.htcondor`, `storage.eos` and so on. Windows file systems ignore case (`core.ignorecase=true`), so
-this was invisible on Windows, but a Linux checkout of A cannot import these modules. This commit renames
-them in Git to `htcondor.py`, `sge.py`, `slurm.py`, `eos.py`, `gridka_nrg.py`, `t2_desy.py`, `t2_psi.py` and
-`t3_psi.py`. A scan of all tracked paths finds no other case mismatch.
+this was invisible on Windows, but a Linux checkout of A cannot import these modules (`bbb check` on lxplus:
+`ModuleNotFoundError: No module named 'TauFW.PicoProducer.batch.htcondor'` in `pico.jobs` and `pico.merge`).
+
+A first rename staged on Windows was lost again when B was committed (`d8046af`), because Windows Git treats both
+spellings as the same file. The rename was therefore done on lxplus, where file names are case-sensitive, in
+commit `ae0d9bf` ("Fix file-name case of 8 PicoProducer modules"). It renames the files to `htcondor.py`,
+`sge.py`, `slurm.py`, `eos.py`, `gridka_nrg.py`, `t2_desy.py`, `t2_psi.py` and `t3_psi.py`. A scan of all
+tracked paths finds no other case mismatch.
+
+**Rule from now on:** do case-only renames on Linux (`git mv`), or check them on Windows with `git ls-files`
+before committing.
+
+**Result:** after `ae0d9bf`, `bbb check` on lxplus showed only the intended P17 difference
+(`pico.config`, `fresh.values.eras`); the other 17 cases passed. The baseline was re-locked in `c2d8296`
+(only `pico.config.json` and `manifest.json` changed).
