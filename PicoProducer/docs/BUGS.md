@@ -37,7 +37,7 @@ the baseline, and fixing it changes that baseline on purpose.
 | P14 | `scripts/pico.py:158` | `install` choice is misspelled `'cmmsw'` | latent | no | S5 | | |
 | P15 | `scripts/pico.py:85-108` | `status`/`hadd`/`clean` parsers are built before `--prompt`, `-m`, ... are added to the job parent, so these options are missing there. This looks intentional for `-m` (reused for `--maxopenfiles`) but is undocumented | latent | yes | S5 | | |
 | P16 | `settings/model.py` (`Config.__setattr__`; was `tools/config.py:192`) | `key in self._dict[key]` should be `key in self._dict`: setting a private attribute such as `CONFIG._path` raised `KeyError` | latent | no | S3 | Part 3B: `key in self._dict` | none (no caller sets private attributes) |
-| P17 | `settings/defaults.py` (was `tools/config.py:33-37`) | Default eras pointed to `samples_2016.py`/`samples_2017.py`/`samples_2018.py`, which do not exist; `config/config_example.json` pointed to the missing `samples_UL2016.py` and `tutorial/samples_2022_postEE.py` | wrong | yes | S3 | Part 3B: defaults are the catalogs that exist (`UL2016_preVFP`, `UL2016_postVFP`, `UL2017`, `UL2018`, `2022_preEE`, `2022_postEE`, `2023C`, `2023D`, `2024`, `2025`); example config updated | **BBB `pico.config`**: `fresh.values.eras` changes (re-lock). Only fresh installations are affected; existing `config.json` files keep their eras |
+| P17 | `settings/defaults.py` (was `tools/config.py:33-37`) | Default eras pointed to `samples_2016.py`/`samples_2017.py`/`samples_2018.py`, which do not exist; `config/config_example.json` pointed to the missing `samples_UL2016.py` and `tutorial/samples_2022_postEE.py` | wrong | yes | S3 | Part 3B: defaults are the catalogs that exist (`UL2016_preVFP`, `UL2016_postVFP`, `UL2017`, `UL2018`, `2022_preEE`, `2022_postEE`, `2023C`, `2023D`, `2024`, `2025`); example config updated | **BBB `pico.config`**: `fresh.values.eras` changes (re-lock). Only fresh installations are affected; existing `config.json` files keep their eras. See [details](#p17-default-eras-pointed-to-deleted-catalogs) |
 | P18 | `settings/store.py` (was `tools/config.py:76-117`) | Reading the config created or rewrote `config/config.json`, also from a batch worker (`picojob.py -c`), Plotter (`$PICODIR`) or a script | wrong | yes | S3 | Part 3B: `getconfig(write=False)` by default; only `pico.py` (`pico/common.py`) passes `write=True`. Library readers get missing keys repaired in memory and a warning if the file is missing | none for `pico.py` (BBB unchanged); workers/Plotter/scripts no longer write the file |
 | P19 | `pico/job.py:975` | `TODO: check if hadd was succesful`: cleanup after `haddclean` is gated only on the command's exit code, not on the merged file (A04) | wrong | yes | S4 | | |
 
@@ -115,3 +115,60 @@ the baseline, and fixing it changes that baseline on purpose.
   NanoAOD (jets, MET, PV, electrons, trigger objects, pileup, gen particles) plus jsonpog/correctionlib and
   TauIDSFs payloads. A `pico.channel_tau_pair` case is a **prerequisite for Session 6**, before any analysis or
   corrections code moves. Fixes A01–A13 and C01–C13 must each be checked against that case.
+
+## Details of fixes that change a BBB baseline
+
+### P17: default eras pointed to deleted catalogs
+
+**Fixed in:** Part 3B (`d8046af`), `settings/defaults.py` and `config/config_example.json`.
+
+**Origin.**
+- The defaults in `getdefaultconfig` (formerly `tools/config.py`) map eras `2016`, `2017` and `2018` to
+  `samples_2016.py`, `samples_2017.py` and `samples_2018.py`. These catalogs were deleted on 2024-02-19
+  (`c663833`, "remove old sample lists"), but the defaults were not updated.
+- `config/config_example.json` refers to `samples_UL2016.py`, which was split into `UL2016_preVFP`/`UL2016_postVFP`
+  in 2021 (`7d1d5d4`). It also refers to `tutorial/samples_2022_postEE.py`, which does not exist (the catalog is
+  `samples/samples_2022_postEE.py`).
+
+**Symptom.** In a fresh installation (no `config/config.json`), `pico.py` created the configuration with these
+eras. Any command that reads samples for them then failed, for example:
+```
+pico.py run -y 2018 -c mutau
+IOError: Did not find file samples/samples_2018.py.
+```
+Users only got a working setup by linking eras themselves (`pico.py era <era> <catalog>`).
+
+**Fix.** The default eras are now the top-level catalogs in `PicoProducer/samples/` (nanoAOD-version variants
+such as `*_nanoV10.py` and `samples_2024v15.py` are left for explicit linking):
+
+| Era | Catalog |
+|---|---|
+| `UL2016_preVFP` | `samples_UL2016_preVFP.py` |
+| `UL2016_postVFP` | `samples_UL2016_postVFP.py` |
+| `UL2017` | `samples_UL2017.py` |
+| `UL2018` | `samples_UL2018.py` |
+| `2022_preEE` | `samples_2022_preEE.py` |
+| `2022_postEE` | `samples_2022_postEE.py` |
+| `2023C` | `samples_2023C.py` |
+| `2023D` | `samples_2023D.py` |
+| `2024` | `samples_2024.py` |
+| `2025` | `samples_2025.py` |
+
+The example config now lists `UL2016_preVFP`, `UL2016_postVFP`, `UL2017`, `UL2018` and `2022_postEE` with
+existing catalogs.
+
+**Who is affected.**
+- **Fresh installations only.** An existing `config/config.json` is never overwritten; missing keys are filled
+  in, but an existing `eras` dictionary is kept as it is.
+- To adopt the new defaults, link single eras with `pico.py era UL2018 samples_UL2018.py`, or reset the whole
+  configuration with `pico.py set all default`. That also resets channels and paths, so check `pico.py list`
+  first.
+
+**Baseline change (BBB `pico.config`).** Only `$.output.fresh.values.eras` differs:
+- removed: `2016: samples_2016.py`, `2017: samples_2017.py`, `2018: samples_2018.py`;
+- added: the ten eras in the table above.
+
+`fresh.keys`, `recovered`, `edits` and `list` are unchanged, because those steps use the test's own
+configuration. The baseline was re-locked with `python3 Tests/run.py bbb lock --replace`. Only
+`Tests/BBB/baselines/pico.config.json` and `manifest.json` change.
+
