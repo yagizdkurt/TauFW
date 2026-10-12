@@ -10,7 +10,7 @@ Outputs: (total number of events, list of chunks).
 
 Public API:
   evtsplitexp                                         regex matching 'fname:firstevt:maxevts'
-  chunkify_by_evts(fnames, maxevts, evenly, evtdict, verb)
+  chunkify_by_evts(fnames, maxevts, evenly, evtdict, verb, progress)
 """
 
 # ===== Imports =====
@@ -30,12 +30,13 @@ evtsplitexp = re.compile(r"(.+\.root):(\d+):(\d+)$") # input file split by event
 
 # ===== Public API =====
 
-def chunkify_by_evts(fnames,maxevts,evenly=True,evtdict=None,verb=0):
+def chunkify_by_evts(fnames,maxevts,evenly=True,evtdict=None,verb=0,progress=None):
   """Split list of files into chunks with total events per chunks less than given maximum,
   and update input fnames to bookkeep first event and maximum events.
   E.g. ['nano_1.root','nano_2.root','nano_3.root','nano_4.root']
         -> [ ['nano_1.root:0:1000'], ['nano_1.root:1000:1000'], # 'fname:firstevt:maxevts'
              ['nano_2.root','nano_3.root','nano_4.root'] ] # group files with <maxevts events each
+  progress: factory with LoadingBar's arguments for the progress bar (default: LoadingBar), e.g. a reporter's.
   """ 
   result   = [ ] # list of chunks
   nlarge   = { }
@@ -43,7 +44,7 @@ def chunkify_by_evts(fnames,maxevts,evenly=True,evtdict=None,verb=0):
   ntot     = 0
   bar      = None # loading bar
   if verb<=0 and len(fnames)>=5:
-    bar = LoadingBar(len(fnames),width=20,pre=">>> Checking number of events: ",counter=True,remove=True)
+    bar = (progress or LoadingBar)(len(fnames),width=20,pre=">>> Checking number of events: ",counter=True,remove=True)
   elif verb>=4:
     print(">>> chunkify_by_evts: events per file:")
   for fname in fnames[:]:

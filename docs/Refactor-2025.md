@@ -626,3 +626,40 @@ part of the BBB baselines (`pico.jobs`, `pico.run`). The known differences betwe
 processor options, tmpdir, prefetch, preselection, event ranges, test runs, extra options, single/multiple input
 files): all strings are identical. `resolve_worker` gives the same result and errors as `getmodule`.
 
+### A2. Submission pipeline: planner, pipeline, reporter, request
+
+`preparejobs` (a 320-line generator in `pico/job.py`) and the submit loop of `main_submit` are split by
+responsibility:
+
+| Module | Contents |
+|---|---|
+| `jobs/request.py` | `JobRequest`: all settings of a (re)submission in one record, built by `pico.py` with `JobRequest.from_args(args)`. The job functions no longer read the argparse namespace |
+| `jobs/planner.py` | pure planning: `sample_layout` (try number, job name, option precedence, output/job/config/log directories, job config and job list names) and `assign_chunks` (chunk numbers and worker command lines). No file access, no output |
+| `jobs/pipeline.py` | `iter_plans` (sample selection, input files, chunking, directories, job list; yields one `SamplePlan` per sample), `submit_plan`, `record_submission` |
+| `jobs/reporting.py` | `Reporter` (silent) and `ConsoleReporter` (prints exactly what `pico.py` printed). The pipeline reports through it instead of printing |
+| `jobs/jobconfig.py` | `JOBCFG_KEYS` (the job config keys in file order), `make_jobcfg`, `write_jobcfg` |
+| `jobs/status.py` | `checkchunks`, moved unchanged except that it takes the configuration as an argument; A3 restructures it |
+
+- **Explicit configuration.** The pipeline, planner and status functions take the configuration as an argument
+  instead of importing the global `CONFIG`.
+- **No writes in planning mode.** `iter_plans(..., materialize=False)` creates no directories and writes no job
+  list. `pico.py submit` uses `materialize=True`: directories, the output directory and the job list are created at
+  the same points as before.
+- **Prompts are callables.** The `--prompt` questions (existing job config, confirm submission) moved to a small
+  `_Prompt` class in `pico/job.py`; the pipeline only receives the answers. Answering `all` still stops all
+  further questions.
+- `chunkify_by_evts` takes an optional `progress` factory, so a silent caller can suppress its progress bar.
+- `pico/job.py` keeps `main_submit` (about 15 lines) and `main_status`; `preparejobs` and `checkchunks` are gone.
+
+**Known bugs kept as they are** (marked `# BUGS <ID>`, fixed in B): P01, P02 (the `--prompt` dialog for an
+existing job config still crashes, now with `NameError` instead of `TypeError`/`UnboundLocalError`), P03, P04, P05,
+P06. **New:** P20, the answers of that dialog are inverted (`y` skips, `n` submits), found while moving it.
+
+**Check:** a comparison harness ran the old (`3c401cd`) and new `main_submit`/`main_status` side by side on
+Windows, with ROOT, the sample catalog, storage, the batch system and the queue replaced by fakes:
+152 scenarios (verbosity 0-3 each): file and event splitting, test runs, user/sample/config `nfilesperjob` and
+`maxevts`, option merging, skims with prefetch/preselection/tmpdir, dry runs, empty samples, existing job configs
+with and without `--force`, `--prompt` answers, resubmission with good/pending/corrupt/missing chunks and `--split`,
+and `status` (with log lookup, and for all eras/channels). The terminal output, the job lists, the job configs
+(without `time`) and the scheduler calls are identical. The only difference is the exception type of P02.
+
