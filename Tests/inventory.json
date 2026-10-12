@@ -353,7 +353,8 @@
         "numpy",
         "past"
       ],
-      "fixture": "storage"
+      "fixture": "storage",
+      "stdin": "y\n"
     },
     {
       "id": "plotter.plotpico",

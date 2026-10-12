@@ -3,7 +3,6 @@
     "skim": "skimjob.py",
     "skim-jec": "skimjob.py --jec-sys",
     "gen": "GenDumper",
-    "test": "test.py",
     "mutau": "ModuleMuTauSimple"
   },
   "eras": {

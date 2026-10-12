@@ -74,10 +74,13 @@ def _histsets(result):
 
 
 def _sample_state(sample):
+    from TauFW.Plotter.sample.MergedSample import MergedSample
+    # A plain Sample sets samples=[self]; only a MergedSample has real children.
+    children = sample.samples if isinstance(sample, MergedSample) else []
     return {"name": sample.name, "norm": sample.norm, "scale": sample.scale,
             "xsec": sample.xsec, "events": sample.nevents, "sumweights": sample.sumweights,
             "weight": sample.weight, "extraweight": sample.extraweight, "cuts": sample.cuts,
-            "children": [_sample_state(child) for child in getattr(sample, "samples", [])]}
+            "children": [_sample_state(child) for child in children]}
 
 
 def plotter_histograms(workspace):
@@ -109,7 +112,7 @@ def plotter_merge_split(workspace):
 
 
 def plotter_stitch(workspace):
-    from TauFW.Plotter.sample.utils import Sample, SampleSet
+    from TauFW.Plotter.sample.utils import Sample, SampleSet, MergedSample
     from TauFW.Plotter.plot.Variable import Variable
     from TauFW.Plotter.plot.Selection import Selection
     samples, files = _samples(workspace)
@@ -118,7 +121,7 @@ def plotter_stitch(workspace):
                                             ("DY2JetsToLL", 0.003), ("DY3JetsToLL", 0.002),
                                             ("DY4JetsToLL", 0.001))], loadingbar=False)
     stitched.stitch("DY*JetsToLL", incl="DYJetsToLL", name="DY_stitched", kfactor=1.25)
-    if len(stitched.expsamples) != 1 or not hasattr(stitched.expsamples[0], "samples"):
+    if len(stitched.expsamples) != 1 or not isinstance(stitched.expsamples[0], MergedSample):
         raise RuntimeError("Stitching did not materialize a merged sample; refusing a no-op baseline.")
     histograms = stitched.gethists([Variable("m_vis", 8, 0, 160)], [Selection("baseline", "pt_1>20")], nthreads=1)
     return {"state": [_sample_state(sample) for sample in stitched.expsamples], "histograms": _histsets(histograms)}

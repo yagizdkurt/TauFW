@@ -44,7 +44,8 @@ def execute_scripts(cases, extra_args):
             env.update(PYTHONDONTWRITEBYTECODE="1", PYTHONHASHSEED="1777")
             command = [sys.executable, "-B", str(TESTS / "support" / "launch.py"),
                        "normal", case["id"], directory, "--"] + extra_args
-            result = subprocess.run(command, cwd=directory, env=env)
+            # Scripted answers only; an unexpected prompt hits EOF instead of hanging.
+            result = subprocess.run(command, cwd=directory, env=env, input=case.get("stdin", ""), text=True)
         if result.returncode:
             failures += 1
             print("FAIL %s (exit %s)" % (case["id"], result.returncode), flush=True)

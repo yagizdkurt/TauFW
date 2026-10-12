@@ -193,7 +193,7 @@ def unpack_gethist_args(*args,**kwargs):
     - a list of Selection objects,
     - a boolean to flag a single variable was passed
     - a boolean to flag a single selection was passed
-  For testing, see test/testUnpacking.py.
+  For testing, see Tests/Plotter/testUnpacking.py.
   """
   verbosity = LOG.getverbosity(kwargs)
   varlist   = None  # list of Variable objects
@@ -244,7 +244,7 @@ def unpack_gethist2D_args(*args,**kwargs):
     - a list of Selection objects,
     - a boolean to flag a single variable was passed
     - a boolean to flag a single selection was passed
-  For testing, see test/testUnpacking.py.
+  For testing, see Tests/Plotter/testUnpacking.py.
   """
   verbosity = LOG.getverbosity(kwargs)
   varlist   = None  # list of pairs of Variable objects
