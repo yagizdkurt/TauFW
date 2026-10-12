@@ -3,8 +3,10 @@ from array import array
 import hashlib
 import json
 from pathlib import Path
+import shutil
 
 DEFINITION = Path(__file__).resolve().parents[1] / "fixtures" / "events.json"
+UNROLL_INPUT = Path(__file__).resolve().parents[1] / "Plotter" / "DYJetsToLL_M-50_mumu.root"
 ARRAY_TYPES = {"F": "f", "D": "d", "I": "i", "L": "q", "l": "Q", "O": "b", "b": "B"}
 
 
@@ -143,7 +145,10 @@ def write_shapes(path):
 def make_normal_inputs(kind, cwd):
     cwd = Path(cwd)
     if kind == "unroll":
-        write_tree(cwd / "test" / "DYJetsToLL_M-50_mumu.root")
+        # The script's hard-coded relative path, filled with the committed DY sample it was written for.
+        target = cwd / "test" / UNROLL_INPUT.name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(UNROLL_INPUT, target)
         return []
     if kind == "rdf":
         return ["-i", str(write_tree(cwd / "fixtures" / "pico.root"))]

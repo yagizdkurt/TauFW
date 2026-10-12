@@ -32,7 +32,9 @@ runs in its own process and temporary workspace. The runner uses fresh copies of
 the current source, preserving its contents and package layout while isolating
 config writes, generated plots/files, and C++ compilation. Existing compiled
 libraries are not reused. Calibration/data directories are read through links;
-normal synthetic input cases do not need real ROOT datasets or remote storage.
+normal cases do not need remote storage. `plotter.unroll` reads the committed
+`Tests/Plotter/DYJetsToLL_M-50_mumu.root`, copied to the relative path the script
+expects; the other normal input cases use small synthetic files.
 Sibling imports such as `pseudoSamples` and relative macro paths remain valid.
 Missing dependencies and failed subprocesses return a nonzero exit status.
 
@@ -62,8 +64,7 @@ this migration.
 | --- | --- |
 | `common.table`, `common.loadingbar` | Python 2 print syntax; the Python 3.9 runner reports them as legacy. |
 | `pico.sample` | Unclosed parenthesis at line 88; also uses real DAS discovery. |
-| `plotter.rdataframe` | Its main passes filename strings to a tuple loop; the implementation references undefined variables including `res_dict`, `sname`, and `xvar`. |
-| `plotter.sampleset` | Its sample-set constructor helper formats a string with no placeholders using `% expsamples`, which raises `TypeError`. |
+| `plotter.rdataframe` | Fails at import with `NameError`: line 17 uses `kBlue`/`kRed`/`kGreen`/`kMagenta`, which are never imported from ROOT. Beyond that, its main passes filename strings to a tuple loop, the implementation references undefined variables including `res_dict`, `sname`, and `xvar`, and its default inputs are on `/scratch`. |
 
 These files were moved unchanged and are excluded from normal execution.
 Selecting them explicitly fails with their classification and reason. Modern

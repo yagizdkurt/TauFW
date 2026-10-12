@@ -154,7 +154,7 @@
       "path": "Plotter/testRDataFrame.py",
       "package": "Plotter",
       "group": "broken",
-      "reason": "Pre-existing runtime defects: main passes filename strings to a tuple loop; res_dict, sname, xvar, wname and other identifiers are undefined.",
+      "reason": "Pre-existing runtime defects: NameError at import (line 17 uses kBlue etc., never imported from ROOT); main passes filename strings to a tuple loop; res_dict, sname, xvar, wname and other identifiers are undefined; default inputs are on /scratch.",
       "dependencies": [
         "ROOT",
         "numpy",
@@ -189,8 +189,8 @@
       "id": "plotter.sampleset",
       "path": "Plotter/testSampleSet.py",
       "package": "Plotter",
-      "group": "broken",
-      "reason": "Pre-existing TypeError at line 56: formats a string without placeholders using % expsamples.",
+      "group": "local",
+      "reason": "Synthetic/local inputs; existing script behavior preserved.",
       "dependencies": [
         "ROOT",
         "numpy",
@@ -274,7 +274,7 @@
       "path": "Plotter/testUnroll.py",
       "package": "Plotter",
       "group": "local",
-      "reason": "Synthetic/local inputs; existing script behavior preserved.",
+      "reason": "Local input: the committed Tests/Plotter/DYJetsToLL_M-50_mumu.root, copied to the script's relative path.",
       "dependencies": [
         "ROOT",
         "numpy",

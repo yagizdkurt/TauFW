@@ -79,7 +79,7 @@ class HarnessChecks(unittest.TestCase):
             self.assertEqual(execute.call_args[0][0][0]["id"], "plotter.variables")
 
     def test_explicit_legacy_broken_and_integration_selection(self):
-        for name in ("common.table", "pico.sample", "plotter.rdataframe", "plotter.sampleset", "pico.batch"):
+        for name in ("common.table", "pico.sample", "plotter.rdataframe", "pico.batch"):
             with self.assertRaises(ValueError):
                 run.select_cases(run.inventory(), "normal", [name])
         with self.assertRaises(ValueError):
