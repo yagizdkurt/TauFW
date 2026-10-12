@@ -11,6 +11,7 @@
 *.json
 core.*
 __init__.py
+!Utilities/python/**/__init__.py
 */compare
 config.json
 PicoProducer/config

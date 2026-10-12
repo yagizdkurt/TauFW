@@ -42,7 +42,7 @@ def prepare(workspace, resources=True):
     mirror = workspace / "TauFW"
     mirror.mkdir()
     _package("TauFW", mirror)
-    for name in ("common", "Plotter", "PicoProducer", "Fitter"):
+    for name in ("common", "Plotter", "PicoProducer", "Fitter", "Utilities"):
         source = REPO / name
         target = mirror / name
         target.mkdir()
