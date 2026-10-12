@@ -10,7 +10,7 @@ import tempfile
 import time
 
 from support.bootstrap import MISSING_DEPENDENCY_EXIT
-from support.progress import elapsed, mark, reset_logs, section, tail
+from support.progress import Lines, elapsed, file_groups, paint, reset_logs, section, tail
 
 TESTS = Path(__file__).resolve().parent
 
@@ -58,30 +58,35 @@ def execute_scripts(cases, extra_args, quiet=False, tail_lines=80):
     logs = reset_logs("normal") if quiet else None
     if quiet:
         print("Running %s cases (quiet; logs in %s)" % (len(cases), logs), flush=True)
+    groups = file_groups(cases, lambda case: case["path"], lambda case: case["id"])
+    lines = Lines([label for label, _ in groups])
     results = []  # (case, status, seconds, log)
     started = time.monotonic()
     interrupted = False
     try:
-        for case in cases:
-            log = logs / (case["id"] + ".log") if quiet else None
-            if not quiet:
-                print("RUN %s" % case["id"], flush=True)
-            began = time.monotonic()
-            code = run_case(case, extra_args, log)
-            status = "PASS" if code == 0 else "SKIP" if code == MISSING_DEPENDENCY_EXIT else "FAIL"
-            results.append((case, status, time.monotonic() - began, log))
+        for label, members in groups:
             if quiet:
-                mark(status[0])
-            elif status == "PASS":
-                print("PASS %s (script exited successfully)" % case["id"], flush=True)
-            elif status == "SKIP":
-                print("SKIP %s (missing dependency)" % case["id"], flush=True)
-            else:
-                print("FAIL %s (exit %s)" % (case["id"], code), flush=True)
+                lines.begin(label)
+            for case in members:
+                log = logs / (case["id"] + ".log") if quiet else None
+                if not quiet:
+                    print("RUN %s" % case["id"], flush=True)
+                began = time.monotonic()
+                code = run_case(case, extra_args, log)
+                status = "PASS" if code == 0 else "SKIP" if code == MISSING_DEPENDENCY_EXIT else "FAIL"
+                results.append((case, status, time.monotonic() - began, log))
+                if quiet:
+                    lines.mark(status[0])
+                elif status == "PASS":
+                    print("PASS %s (script exited successfully)" % case["id"], flush=True)
+                elif status == "SKIP":
+                    print("SKIP %s (missing dependency)" % case["id"], flush=True)
+                else:
+                    print("FAIL %s (exit %s)" % (case["id"], code), flush=True)
     except KeyboardInterrupt:
         interrupted = True
+    lines.end()
     if quiet:
-        print("  [%s/%s]  %s" % (len(results), len(cases), elapsed(time.monotonic() - started)))
         for case, status, seconds, log in results:
             if status == "FAIL":
                 section("FAIL %s (%s)" % (case["id"], elapsed(seconds)), tail(log, tail_lines),
@@ -92,13 +97,14 @@ def execute_scripts(cases, extra_args, quiet=False, tail_lines=80):
             if status == "SKIP":
                 skipped.setdefault(tail(log, 1), []).append(case["id"])
         for reason, names in skipped.items():
-            print("SKIP %s: %s\n  %s" % (len(names), reason, ", ".join(names)))
+            print("%s %s: %s\n  %s" % (paint("SKIP", "S"), len(names), reason, ", ".join(names)))
     if interrupted:
         print("\nInterrupted after %s of %s cases." % (len(results), len(cases)))
     counts = {status: [case["id"] for case, result, _, _ in results if result == status]
               for status in ("PASS", "FAIL", "SKIP")}
-    print("%s executed, %s passed, %s failed, %s skipped" % (len(results), len(counts["PASS"]),
-                                                          len(counts["FAIL"]), len(counts["SKIP"])))
+    print("%s executed, %s passed, %s failed, %s skipped in %s"
+          % (len(results), len(counts["PASS"]), len(counts["FAIL"]), len(counts["SKIP"]),
+             elapsed(time.monotonic() - started)))
     if counts["FAIL"]:
         print("Failed: %s" % ", ".join(counts["FAIL"]))
     if interrupted:

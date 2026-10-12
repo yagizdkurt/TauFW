@@ -9,7 +9,7 @@ import sys
 import tempfile
 
 from BBB.snapshot import canonical_bytes, difference
-from support.progress import mark, reset_logs, section, tail
+from support.progress import Lines, file_groups, reset_logs, section, tail
 
 TESTS = Path(__file__).resolve().parents[1]
 BASELINES = Path(__file__).resolve().parent / "baselines"
@@ -150,6 +150,11 @@ def main(action, requested, replace=False, quiet=False, tail_lines=80):
                          % sorted(set(expected) ^ set(all_names)))
     validate_target()
     logs = reset_logs("bbb") if quiet else None
+    # Every BBB case lives in BBB/cases.py, so a multi-case check is one line of letters.
+    groups = file_groups(names, lambda name: "BBB/cases.py", lambda name: name)
+    lines = Lines([label for label, _ in groups])
+    if quiet:
+        lines.begin(groups[0][0])
     failures = []  # (name, details, log of a failed worker)
     for name in names:
         log = logs / (name + ".log") if quiet else None
@@ -168,9 +173,9 @@ def main(action, requested, replace=False, quiet=False, tail_lines=80):
             if not quiet:
                 print("FAIL %s: %s" % (name, error))
         if quiet:
-            mark("F" if failures and failures[-1][0] == name else "P")
+            lines.mark("F" if failures and failures[-1][0] == name else "P")
+    lines.end()
     if quiet:
-        print("  [%s/%s]" % (len(names), len(names)))
         for name, details, log in failures:
             body = "\n".join(details)
             if log is not None:

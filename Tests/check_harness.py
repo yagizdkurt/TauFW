@@ -7,6 +7,7 @@ import hashlib
 import io
 import json
 import math
+import re
 from pathlib import Path
 import tempfile
 import unittest
@@ -97,9 +98,9 @@ class HarnessChecks(unittest.TestCase):
         with mock.patch.object(run.subprocess, "run", return_value=mock.Mock(returncode=7)):
             self.assertEqual(run.execute_scripts(case, []), 1)
 
-    def quiet_run(self, outcomes, tail_lines=80):
+    def quiet_run(self, outcomes, tail_lines=80, cases=None):
         """Run mocked workers in quiet mode; outcomes are (exit status, printed text) per case."""
-        cases = run.select_cases(run.inventory(), "normal", [])[:len(outcomes)]
+        cases = cases or run.select_cases(run.inventory(), "normal", [])[:len(outcomes)]
         calls = iter(outcomes)
 
         def worker(*args, **kwargs):
@@ -121,13 +122,21 @@ class HarnessChecks(unittest.TestCase):
             [(0, "passing chatter\n"), (1, "early line\nTraceback: boom\n"), (skip, "ERROR: Missing/unusable ROOT\n")],
             tail_lines=1)
         self.assertEqual(status, 1)
-        self.assertIn("PFS", output)
+        for case, letter in zip(cases, "PFS"):
+            self.assertRegex(output, r"(?m)^%s \.{3,} %s$" % (re.escape(case["id"]), letter))
         self.assertNotIn("passing chatter", output)
         self.assertIn("Traceback: boom", output)
         self.assertNotIn("early line", output)
         self.assertIn("SKIP 1: ERROR: Missing/unusable ROOT\n  %s" % cases[2]["id"], output)
         self.assertIn("Rerun:    python3 Tests/run.py normal --case %s" % cases[1]["id"], output)
         self.assertEqual(logs[cases[0]["id"]], "passing chatter\n")
+
+    def test_cases_sharing_a_file_share_one_line(self):
+        first, second, other = (dict(case) for case in run.select_cases(run.inventory(), "normal", [])[:3])
+        second["path"] = first["path"]
+        output = self.quiet_run([(0, ""), (1, ""), (0, "")], cases=[first, other, second])[1]
+        # Same-file cases run together under the file name; a lone case keeps its own name.
+        self.assertRegex(output, r"(?m)^%s \.{3,} PF\n%s \.{3,} P$" % (re.escape(first["path"]), re.escape(other["id"])))
 
     def test_skips_do_not_fail_but_all_skipped_does(self):
         skip = run.MISSING_DEPENDENCY_EXIT

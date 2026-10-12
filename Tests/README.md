@@ -48,8 +48,12 @@ python3 Tests/run.py normal -q --tail 200
 python3 Tests/run.py bbb check -q
 ```
 
-`-q`/`--quiet` prints one character per case as it finishes (`P` pass,
-`F` fail, `S` missing dependency) and hides the scripts' output. At the end,
+`-q`/`--quiet` hides the scripts' output and prints one line per case,
+`name ....... P`, with the letter appearing when the case finishes: `P` pass
+(green), `F` fail (red), `S` missing dependency (yellow). Several selected cases
+from the same file share one line under the file name, e.g.
+`BBB/cases.py ... PPFPP`. Colors are used only on a terminal; set `NO_COLOR=1`
+to turn them off. At the end,
 each failure is shown with the last 80 lines of its combined stdout/stderr
 (`--tail N`; `--tail 0` shows everything), its log path, and the command to
 rerun it alone. Skips are grouped by reason. Every case's full output is kept in
