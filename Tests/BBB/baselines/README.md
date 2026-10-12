@@ -1,4 +1,4 @@
-Capture real expectations on lxplus with Python 3.9 before refactoring:
+Capture real expectations on lxplus in `CMSSW_14_1_0_pre4` (Python 3.9) before refactoring:
 
 ```bash
 python3 Tests/run.py bbb lock

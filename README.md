@@ -15,41 +15,18 @@ Framework for tau analysis using NanoAOD at CMS. Three main packages are
 * [TauPOG corrections](#TauPOG-corrections)<br>
 
 ### CMSSW environment
-First, setup a CMSSW release. For example,
-<table>
-<tr>
-<td> nanoAODv10 (python3) </td> <td> Older versions (python2) </td>
-</tr>
-<tr>
-<td>
-
+First, setup the reference CMSSW release, `CMSSW_14_1_0_pre4` (Python 3.9, ROOT 6.30):
 ```bash
-export CMSSW=CMSSW_12_4_8
-export SCRAM_ARCH=slc7_amd64_gcc10
-cmsrel $CMSSW
-cd $CMSSW/src
+export SCRAM_ARCH=el9_amd64_gcc12 # on an EL8 node, use el8_amd64_gcc12 instead
+cmsrel CMSSW_14_1_0_pre4
+cd CMSSW_14_1_0_pre4/src
 cmsenv
 ```
-</td>
-<td>
 
-```bash
-export CMSSW=CMSSW_11_3_4
-export SCRAM_ARCH=slc7_amd64_gcc900
-cmsrel $CMSSW
-cd $CMSSW/src
-cmsenv
-```
-</td>
-</tr>
-</table>
-
-On a Linux 8 node like `lxplus8`, you can use the `el8_amd64_gcc10` architecture instead of `slc7_*`.
-
-Which CMSSW release should not really matter for post-processing of nanoAOD,
-but if you like to use `combine` in the same repository, it is better to use at least the
-[recommended release for the latest Combine version](https://cms-analysis.github.io/HiggsAnalysis-CombinedLimit/#setting-up-the-environment-and-installation),
-see below.
+TauFW and its [tests](Tests/README.md) are validated with this release.
+Other releases may work, but are not tested; some features need at least ROOT 6.30.
+Older python2 releases (e.g. `CMSSW_11_3_4`) are no longer supported by `pico.py`;
+use `pico2.py` with python2 for those.
 
 ### TauFW
 To install `TauFW`:
@@ -60,17 +37,34 @@ scram b -j4
 ```
 With each new session, do
 ```
-export SCRAM_ARCH=slc7_amd64_gcc700
-cd $CMSSW/src
+cd CMSSW_14_1_0_pre4/src
 cmsenv
 ```
 
 ### PicoProducer
-If you want to process nanoAOD using `PicoProducer`, install [`NanoAODTools`](https://github.com/cms-nanoAOD/nanoAOD-tools):
+`PicoProducer` uses the `NanoAODTools` framework, which is part of CMSSW since `CMSSW_13_3_0`
+(`PhysicsTools/NanoAODTools`), so no separate installation is needed.
+This covers all analysis channels and the `skim` channel.
+Do not clone the standalone [`nanoAOD-tools`](https://github.com/cms-nanoAOD/nanoAOD-tools) repository by default:
+it overrides the release's framework with an older version
+(e.g. no LFN-to-PFN conversion of `/store/` input paths, no `Short_t` output branches).
+
+#### Run 2 jet/MET corrections (backward compatibility)
+Re-applying Run 2 JEC/JER and their uncertainties uses the JME modules (`modules/jme`)
+that exist only in the standalone repository. This concerns
+* the `skim-jec` channel, or `skimjob.py` with `--jec`/`--jec-sys`, which adds branches like `Jet_pt_nom`;
+* analysis modules run with `jec=True` on such skims (e.g. `ModuleHighPT`, where it is the default).
+
+Only if you need these Run 2 workflows, install the standalone repository:
 ```
 cd $CMSSW_BASE/src/
 git clone https://github.com/cms-nanoAOD/nanoAOD-tools.git PhysicsTools/NanoAODTools
 scram b -j4
+```
+To return to the release's version, remove `$CMSSW_BASE/src/PhysicsTools/NanoAODTools` and run `scram b` again.
+To check which version is used:
+```
+python3 -c "import PhysicsTools.NanoAODTools.postprocessing.framework.postprocessor as m; print(m.__file__)"
 ```
 If you want to use tau ID SFs, please install [`TauIDSFs` tool](https://github.com/cms-tau-pog/TauIDSFs):
 ```
@@ -95,15 +89,14 @@ cd $CMSSW_BASE/src
 git clone https://github.com/cms-analysis/HiggsAnalysis-CombinedLimit.git HiggsAnalysis/CombinedLimit
 cd HiggsAnalysis/CombinedLimit
 git fetch origin
-git checkout v8.1.0 # for CMSSW_10_X
-git checkout v9.1.0 # for CMSSW_11_X
+git checkout <v10.x tag> # Combine v10 series for CMSSW_14_1_X; check the Combine docs for the exact tag
 ```
 and then [`CombineHarvester`](https://github.com/cms-analysis/CombineHarvester),
+using the version its documentation recommends for Combine v10:
 ```
 cd $CMSSW_BASE/src
 git clone https://github.com/cms-analysis/CombineHarvester.git CombineHarvester
 scramv1 b clean; scramv1 b
-git checkout v2.0.0 # for CMSSW_11_X only
 ```
 
 ### TauPOG corrections

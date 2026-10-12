@@ -6,7 +6,6 @@ import os, glob
 import time; time0 = time.time()
 import ROOT; ROOT.PyConfig.IgnoreCommandLineOptions = True
 from PhysicsTools.NanoAODTools.postprocessing.framework.postprocessor import PostProcessor
-from PhysicsTools.NanoAODTools.postprocessing.modules.jme.jetmetHelperRun2 import createJMECorrector as getjmecalib
 from TauFW.PicoProducer.processors import moddir, ensuredir
 from TauFW.PicoProducer.corrections.era_config import getjson, getperiod #, getjmecalib
 from TauFW.common.tools.utils import getyear
@@ -75,6 +74,12 @@ if dtype==None: # guess type
 #modules.append(Bookkeeper(verb=2))
 
 # JET/MET CORRECTIONS & SYSTEMATICS
+if doJEC or doJECSys: # Run 2 only: JME modules exist only in the standalone nanoAOD-tools repository
+  try:
+    from PhysicsTools.NanoAODTools.postprocessing.modules.jme.jetmetHelperRun2 import createJMECorrector as getjmecalib
+  except ImportError as error:
+    raise ImportError("skimjob.py --jec/--jec-sys needs the Run 2 JME modules of the standalone nanoAOD-tools"
+                      " repository, see the TauFW README (PicoProducer section): %s"%(error))
 if 'UL' in era:
   MET = 'MET'
   era = era.replace("_postVFP","") # remove for getjmecalib

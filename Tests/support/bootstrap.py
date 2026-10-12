@@ -71,8 +71,8 @@ def dependencies(names):
             if name == "ROOT":
                 module.PyConfig.IgnoreCommandLineOptions = True
         except (ImportError, OSError) as error:
-            raise MissingDependency("Missing/unusable %s: %s. Activate the lxplus Python 3.9/PyROOT environment; "
-                               "NanoAODTools cases also require PhysicsTools.NanoAODTools."
+            raise MissingDependency("Missing/unusable %s: %s. Run cmsenv in CMSSW_14_1_0_pre4 on lxplus "
+                               "(Python 3.9/PyROOT, includes PhysicsTools.NanoAODTools)."
                                % (name, error)) from error
 
 

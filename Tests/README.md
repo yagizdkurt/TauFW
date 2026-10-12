@@ -1,9 +1,11 @@
 # TauFW tests
 
-Use the lxplus **Python 3.9** environment with matching PyROOT, NumPy, and `future`
-(`past`). NanoAODTools cases additionally require
-`PhysicsTools.NanoAODTools` on the Python path. Activate your existing CMSSW/LCG
-environment first and verify the interpreter you will use:
+The reference environment is **`CMSSW_14_1_0_pre4`** on lxplus (see the
+[installation instructions](../README.md#CMSSW-environment)). It provides Python 3.9.14,
+ROOT 6.30.07, NumPy 1.24.3, `future` (`past`) 1.0.0 and `PhysicsTools.NanoAODTools`,
+which NanoAODTools cases require. Older releases such as `CMSSW_12_4_8` (ROOT 6.24) are
+not supported: `plotter.tgaxis` needs ROOT 6.30. Run `cmsenv` in the release first and
+verify the interpreter you will use:
 
 ```bash
 python3 -c 'import sys, ROOT, numpy; print(sys.version); print(ROOT.gROOT.GetVersion()); print(numpy.__version__)'
