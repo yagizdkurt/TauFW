@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 # Author: P.Mastrapasqua, O. Poncet (May 2023)
-# Usage: python TauES_ID/createJSON_TES.py -y UL2018 -c ./TauES_ID/config/FitSetup_mutau_9pt_40-200.yml
+# Usage: python3 createroot_TES.py -c TauES_ID/config/config_coarse_TT.yml -j Medium -e VVLoose -f root -y 2024
 '''This script makes pt-dependants TES json/root files from config file.'''
 import ROOT
 import os, sys, yaml, glob

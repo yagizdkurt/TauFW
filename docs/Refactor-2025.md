@@ -2,7 +2,7 @@
 
 **Author:** Yagizhan Dinckurt ([@yagizdkurt](https://github.com/yagizdkurt))
 **Branch:** `Refactor-2025`
-**Last updated:** 2026-10-12
+**Last updated:** 2026-10-13
 
 This document records the changes made on the `Refactor-2025` branch: what changed and why.
 Sections are in the order the work was done. Each lists the relevant commits.
@@ -16,6 +16,7 @@ Sections are in the order the work was done. Each lists the relevant commits.
 | 5 | [PicoProducer cleanup, Part 1: command-level BBB tests and bug register](#5-picoproducer-cleanup-part-1-command-level-bbb-tests-and-bug-register) | 2026-10-12 |
 | 6 | [PicoProducer cleanup, Part 2: legacy area, explicit imports, no import-time side effects](#6-picoproducer-cleanup-part-2-legacy-area-explicit-imports-no-import-time-side-effects) | 2026-10-12 |
 | 7 | [PicoProducer cleanup, Part 3: settings, datasets, storage, batch and jobs packages](#7-picoproducer-cleanup-part-3-settings-datasets-storage-batch-and-jobs-packages) | 2026-10-12 |
+| 8 | [Fitter cleanup: legacy area](#8-fitter-cleanup-legacy-area) | 2026-10-13 |
 
 The reference environment for all of this is `CMSSW_14_1_0_pre4` (Python 3.9, ROOT 6.30).
 
@@ -170,12 +171,11 @@ The reference environment for all of this is `CMSSW_14_1_0_pre4` (Python 3.9, RO
 - **Python 2 scripts kept for migration to Python 3:**
   `Fitter/ETauFR/writedatacard.py` (active, high priority), `Fitter/Zpt/utils.py` and `Fitter/Zpt/config/samples.py`
   (imported by `measureZpt*.py`, high priority), `Fitter/HighPT/createinputs.py`,
-  `PicoProducer/utils/{checkEvents,compareNano,comparePico,convertGENSIM,getDASParents}.py`,
-  `Fitter/scripts/{plotBiasTest,plotChannelCompatibility}.py`.
+  `PicoProducer/utils/{checkEvents,compareNano,comparePico,convertGENSIM,getDASParents}.py`.
+  (`Fitter/scripts/{plotBiasTest,plotChannelCompatibility}.py` were unused and moved to `Fitter/Legacy/` in section 8.)
 - **References to removed scripts that still need cleaning up:**
-  `Fitter/TauES/doTES.sh` (legacy TES-only workflow), `Fitter/ETauFR/Fitting.sh` (calls `compare.py`; use
-  `diffNuisances.py`), `Fitter/TauID/README.md` (`plotfit*.py`), `Fitter/paper/postfit.sh` (`writecards.py`),
-  and the link to `paper/plotpostfit.py` in `Fitter/ETauFR/README.md`.
+  `Fitter/TauID/README.md` (`plotfit*.py`) and the link to `paper/plotpostfit.py` in `Fitter/ETauFR/README.md`.
+  (`Fitter/TauES/doTES.sh`, `Fitter/ETauFR/Fitting.sh` and `Fitter/paper/postfit.sh` were moved to `Fitter/Legacy/` in section 8.)
 
 ---
 
@@ -483,3 +483,54 @@ before committing.
 **Result:** after `ae0d9bf`, `bbb check` on lxplus showed only the intended P17 difference
 (`pico.config`, `fresh.values.eras`); the other 17 cases passed. The baseline was re-locked in `c2d8296`
 (only `pico.config.json` and `manifest.json` changed).
+
+---
+
+## 8. Fitter cleanup: legacy area
+
+**Date:** 2026-10-13
+**Details:** [Fitter/Legacy/README.md](../Fitter/Legacy/README.md)
+
+### What changed
+
+- 32 broken, superseded or unused files were moved with `git mv` to `Fitter/Legacy/`, keeping their path relative
+  to `Fitter/` (e.g. `TauES/doTES.sh` → `Legacy/TauES/doTES.sh`). Nothing was deleted.
+  - Fitter root: `createJSON_TES.py`, `run_createroot_TES.py`, `run_workflow.sh`.
+  - `TauES/`: `doTES.sh`, `harvestDatacards_TES.py`, `run_createinputsTES.py`, `config/defaultFitSetupTES_mutau_v10_2p5.yml`,
+    `correctionlib/{tau_createJSONsTauES,tau_tes}.py`.
+  - `TauES_ID/`: `saveSFs_root_JSON.py`, `printParamWorkspace.py`, `WriteSFsFit.py`, `shape_syt.py`,
+    `run_makecombinedfitTES_SF.py`, `plot2DParabola_FitDiagnostics.py`,
+    `config/Default_FitSetupTES_mutau_DM_{pt,mt40_JetM_muVT}.yml`.
+  - `scripts/`: `plotBiasTest.py`, `plotChannelCompatibility.py`, `pulls.py`, `project_bins.py`.
+  - `ETauFR/`: `Fitting.sh`, `runAll.sh`, `doImpacts.sh`, `doImpacts2.sh`, `doFitPlots.sh`, `text2wp.sh`,
+    `Plotter/{PlotShapes.C,FastPlot.sh}`.
+  - `HighPT/combine_logger.out`, `TauID/takeZmu.py`, `paper/postfit.sh`.
+- `Fitter/python/models/TagAndProbeModel.py` → `Fitter/python/legacy/models/TagAndProbeModel.py`
+  (still importable as `TauFW.Fitter.legacy.models.TagAndProbeModel`).
+- READMEs updated: new `Fitter/Legacy/README.md` (reason and replacement for each file); `Fitter/README.md` (workflow
+  index, legacy link); `Fitter/TauES/README.md` (the TES-only fit is now legacy; points to the combined TES+ID fit);
+  `Fitter/ETauFR/README.md` (old flow and deprecated plotters moved).
+- Two stale usage comments fixed: `Fitter/createroot_TES.py` (referred to `createJSON_TES.py`) and
+  `Fitter/run_workflow_zmm.sh` (referred to `run_workflow.sh`).
+- `Utilities/IOInventory.md` regenerated. The diff also contains path changes from sections 6 and 7, which had not
+  been regenerated yet.
+
+### Why
+
+- **Scope.** The active Fitter pipeline is `run_inputs*.sh` → `run_workflow_zmm*.sh` (TauES + TauES_ID, the root
+  scripts and `python/plot`). The other measurements (ETauFR, HighPT, MuTauFR, TauID, Zpt, paper, tutorial) stay in
+  place; only the dead files inside them moved.
+- **Criteria.** A file moved only if it was broken (SyntaxError, missing import, or calling a removed script),
+  superseded by a script the active pipeline uses, junk output, or referenced only by other legacy files.
+  Documented entry points stay, even if no script calls them (e.g. `TauES_ID/makefit_PODAS23.py` for
+  `docs/CMSPODAS23`, and `TauES/correctionlib/utils.py`, which `tau_tid_2024.py` → `make_tid_2025.py` uses).
+- **Same reason as section 3.** Dead code shows up in searches and in the I/O inventory, and makes the live
+  workflow harder to see.
+
+### Check
+
+- `git grep -w` for each moved file: no live script, shell driver, config or Python import refers to an old path.
+- All remaining `Fitter/**/*.py` parse in Python 3, except the known Python 2 files listed in section 3.
+  All remaining `Fitter/**/*.sh` pass `bash -n`.
+- The BBB Fitter cases (`fitter.shapes`, `fitter.rebin`) import only `TauFW.Fitter.plot.{datacard,rebinning}`,
+  which did not move.

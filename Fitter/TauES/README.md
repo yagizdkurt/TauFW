@@ -9,7 +9,7 @@ See [the README.md in the parent directory](../../../#taufw).
 * important information about samples, processes, systematics, variations etc. given in config file in yaml format
 * an example yaml file is given in TauES/config/defaultFitSetupTES_mutau.yml 
   -- explanations are given as comments within the file
-* this file is currently being used in TauES/createInputsTES.py, TauES/harvestDatacards_TES.py and ../Plotter/plot.py
+* this file is currently being used in TauES/createinputsTES.py and as the default `-c` of the TauES_ID harvest/fit scripts
   -- it can (and will) be used in further scipts / routines in the future
 * each config file defines the setup for one specific channel
   -- combinations of channels can be done at datacard level, e.g. to include a mumu-CR
@@ -21,5 +21,7 @@ See [the README.md in the parent directory](../../../#taufw).
 
 ## Running the fit:
 
-python makeFitTES.py -y UL2018 -c TauES/config/defaultFitSetupTES_mutau.yml
--> for more information on the different parts, please look into the python script
+The TES-only fit (`doTES.sh`, `harvestDatacards_TES.py`, `makeFitTES.py`) is no longer maintained.
+Its remaining scripts are in [../Legacy/TauES/](../Legacy/TauES/).
+The current measurement is the combined TES + TauID fit; see
+[../TauES_ID/README_2DTES_TauID_Fit.md](../TauES_ID/README_2DTES_TauID_Fit.md).
