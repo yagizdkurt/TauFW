@@ -368,6 +368,13 @@ def gethistratio(histnum,histden,**kwargs):
     histden = histden.GetStack().Last() # should already have correct bin content and error
   if isinstance(histnum,THStack):
     histnum = histnum.GetStack().Last()
+  if isinstance(histden,TGraph): # e.g. data graph after dividebybinsize: fill TH1 with numerator's binning
+    graphden = histden
+    histden  = histnum.Clone(hname+"_den")
+    histden.SetDirectory(0)
+    histden.Reset()
+    for xval, yval in zip(graphden.GetX(),graphden.GetY()):
+      histden.SetBinContent(histden.GetXaxis().FindFixBin(xval),yval)
   rhist = histnum.Clone(hname)
   ncells = rhist.GetNcells() # GetNcells = GetNbinsX for TH1
   LOG.verb("gethistratio: Making ratio of num=%r w.r.t. den=%r in ncells=%s"%(histnum,histden,ncells),verbosity,2)
