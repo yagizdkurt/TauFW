@@ -28,7 +28,8 @@ def execute_case(name, log=None):
     with tempfile.TemporaryDirectory(prefix="taufw-bbb-") as directory:
         output = Path(directory) / "result.json"
         env = os.environ.copy()
-        env.update(PYTHONDONTWRITEBYTECODE="1", PYTHONHASHSEED="1777", OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1")
+        env.update(PYTHONDONTWRITEBYTECODE="1", PYTHONHASHSEED="1777", OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1",
+                   PYTHONUNBUFFERED="1", PYTHONFAULTHANDLER="1")  # Logs in true order; Python stack on ROOT crashes.
         command = [sys.executable, "-B", str(TESTS / "support" / "launch.py"), "bbb", name, directory, str(output)]
         if log is None:
             result = subprocess.run(command, cwd=directory, env=env)

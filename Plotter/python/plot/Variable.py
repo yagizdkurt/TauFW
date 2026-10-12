@@ -324,7 +324,9 @@ class Variable(object):
   
   def getnametitle(self,name=None,title=None,tag=None):
     """Help function to create name and title."""
-    if tag and tag[0]!='_':
+    if not tag:
+      tag   = ''
+    elif tag[0]!='_':
       tag   = '_'+tag
     if name==None:
       name  = self.filename+tag

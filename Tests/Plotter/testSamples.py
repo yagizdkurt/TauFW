@@ -50,15 +50,15 @@ def plotsamples_stack(datasample,expsamples,outdir="plots/test",tag=""):
   for selection, weight in selections:
     histdict = { }
     for sample in [datasample]+expsamples:
-      hists = sample.gethist(variables,selection)
+      hists = sample.gethist(variables,selection) # { variable: hist }
       histdict[sample] = hists
-      print(">>> %r: %s"%(sample.name,[repr(h.GetName()) for h in hists]))
-    
+      print(">>> %r: %s"%(sample.name,[repr(h.GetName()) for h in hists.values()]))
+
     # PLOT
-    for i, variable in enumerate(variables):
+    for variable in variables:
       #LOG.header(variable)
-      datahist = histdict[datasample][i]
-      exphists = [histdict[s][i] for s in expsamples]
+      datahist = histdict[datasample][variable]
+      exphists = [histdict[s][variable] for s in expsamples]
       plot = Stack(variable,datahist,exphists)
       plot.draw(ratio=True)
       plot.drawlegend(position=position)
@@ -73,9 +73,9 @@ def plotsamples2D(datasample,expsamples):
   for selection, weight in selections:
     histdict = { }
     for sample in [datasample]+expsamples:
-      hists = sample.gethist2D(variables2D,selection)
+      hists = sample.gethist2D(variables2D,selection) # { (xvar,yvar): hist }
       histdict[sample] = hists
-      print(">>> %r: %s"%(sample.name,[repr(h.GetName()) for h in hists]))
+      print(">>> %r: %s"%(sample.name,[repr(h.GetName()) for h in hists.values()]))
   
 
 def testMergedSamples(datasample,expsamples):

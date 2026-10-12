@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import signal
 import subprocess
 import sys
 import tempfile
@@ -39,11 +40,23 @@ def select_cases(cases, group, requested):
     return result
 
 
+def describe_exit(code):
+    """Worker exit status for reports; a negative code is the signal that killed it (e.g. a ROOT segfault)."""
+    if code >= 0:
+        return "exit %s" % code
+    try:
+        return "killed by %s" % signal.Signals(-code).name
+    except ValueError:
+        return "killed by signal %s" % -code
+
+
 def run_case(case, extra_args, log=None):
     """Return the worker's exit status; with a log path, its output goes there instead of the terminal."""
     with tempfile.TemporaryDirectory(prefix="taufw-normal-") as directory:
         env = os.environ.copy()
-        env.update(PYTHONDONTWRITEBYTECODE="1", PYTHONHASHSEED="1777")
+        # Unbuffered so logs keep stdout and stderr (tracebacks, ROOT messages) in true order;
+        # faulthandler dumps the Python stack if ROOT crashes the interpreter.
+        env.update(PYTHONDONTWRITEBYTECODE="1", PYTHONHASHSEED="1777", PYTHONUNBUFFERED="1", PYTHONFAULTHANDLER="1")
         command = [sys.executable, "-B", str(TESTS / "support" / "launch.py"),
                    "normal", case["id"], directory, "--"] + extra_args
         # Scripted answers only; an unexpected prompt hits EOF instead of hanging.
@@ -60,7 +73,7 @@ def execute_scripts(cases, extra_args, quiet=False, tail_lines=80):
         print("Running %s cases (quiet; logs in %s)" % (len(cases), logs), flush=True)
     groups = file_groups(cases, lambda case: case["path"], lambda case: case["id"])
     lines = Lines([label for label, _ in groups])
-    results = []  # (case, status, seconds, log)
+    results = []  # (case, status, seconds, log, code)
     started = time.monotonic()
     interrupted = False
     try:
@@ -74,7 +87,7 @@ def execute_scripts(cases, extra_args, quiet=False, tail_lines=80):
                 began = time.monotonic()
                 code = run_case(case, extra_args, log)
                 status = "PASS" if code == 0 else "SKIP" if code == MISSING_DEPENDENCY_EXIT else "FAIL"
-                results.append((case, status, time.monotonic() - began, log))
+                results.append((case, status, time.monotonic() - began, log, code))
                 if quiet:
                     lines.mark(status[0])
                 elif status == "PASS":
@@ -82,25 +95,25 @@ def execute_scripts(cases, extra_args, quiet=False, tail_lines=80):
                 elif status == "SKIP":
                     print("SKIP %s (missing dependency)" % case["id"], flush=True)
                 else:
-                    print("FAIL %s (exit %s)" % (case["id"], code), flush=True)
+                    print("FAIL %s (%s)" % (case["id"], describe_exit(code)), flush=True)
     except KeyboardInterrupt:
         interrupted = True
     lines.end()
     if quiet:
-        for case, status, seconds, log in results:
+        for case, status, seconds, log, code in results:
             if status == "FAIL":
-                section("FAIL %s (%s)" % (case["id"], elapsed(seconds)), tail(log, tail_lines),
+                section("FAIL %s (%s, %s)" % (case["id"], elapsed(seconds), describe_exit(code)), tail(log, tail_lines),
                         ("Full log: %s" % log, "Rerun:    python3 Tests/run.py %s --case %s"
                          % ("integration" if case["group"] == "integration" else "normal", case["id"])))
         skipped = {}  # Identical missing-dependency messages are reported once.
-        for case, status, seconds, log in results:
+        for case, status, seconds, log, code in results:
             if status == "SKIP":
                 skipped.setdefault(tail(log, 1), []).append(case["id"])
         for reason, names in skipped.items():
             print("%s %s: %s\n  %s" % (paint("SKIP", "S"), len(names), reason, ", ".join(names)))
     if interrupted:
         print("\nInterrupted after %s of %s cases." % (len(results), len(cases)))
-    counts = {status: [case["id"] for case, result, _, _ in results if result == status]
+    counts = {status: [case["id"] for case, result, _, _, _ in results if result == status]
               for status in ("PASS", "FAIL", "SKIP")}
     print("%s executed, %s passed, %s failed, %s skipped in %s"
           % (len(results), len(counts["PASS"]), len(counts["FAIL"]), len(counts["SKIP"]),

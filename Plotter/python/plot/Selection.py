@@ -187,7 +187,7 @@ class Selection(object):
     name       = ", ".join([s.name     for s in selections if s.name    ])
     title      = ", ".join([s.title    for s in selections if s.title   ])
     filename   = "_".join( [s.filename for s in selections if s.filename])
-    cuts       = joincuts(*[s.cut for s in selections])
+    cuts       = joincuts(*[s.selection for s in selections])
     sum        = Selection(name,cuts,title=title,filename=filename)
     return sum
   

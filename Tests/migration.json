@@ -113,7 +113,8 @@
       "original": "Plotter/test/testSamples.py",
       "moved": "Tests/Plotter/testSamples.py",
       "sha256": "7022b5eae6fbe943fb9cc79aed7ea1872e1b9ac7bafc82ad4c2d3fdf577ba283",
-      "canonical_sha256": "ec21ae1bcc09cf81309ed65882c36cf1f59d2d10e534cb7e7c0abef4918d0c88"
+      "canonical_sha256": "ec21ae1bcc09cf81309ed65882c36cf1f59d2d10e534cb7e7c0abef4918d0c88",
+      "edited": "Updated after migration for the dict returned by Sample.gethist/gethist2D."
     },
     {
       "original": "Plotter/test/testSampleSet.py",

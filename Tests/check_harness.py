@@ -38,12 +38,14 @@ class HarnessChecks(unittest.TestCase):
         self.assertEqual(len(migration["files"]), 38)
         for record in migration["files"]:
             moved = TESTS.parent / record["moved"]
+            self.assertFalse((TESTS.parent / record["original"]).exists())
+            if record.get("edited"):  # Deliberately changed after migration; the hashes describe the original.
+                continue
             data = moved.read_bytes()
             digest = hashlib.sha256(data).hexdigest()
             if digest != record["sha256"]:
                 # Git may change text line endings on a Linux checkout.
                 self.assertEqual(hashlib.sha256(data.replace(b"\r\n", b"\n")).hexdigest(), record["canonical_sha256"], str(moved))
-            self.assertFalse((TESTS.parent / record["original"]).exists())
 
     def test_python39_syntax(self):
         preserved = {str((TESTS.parent / record["moved"]).resolve())
