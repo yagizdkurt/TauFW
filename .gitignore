@@ -26,3 +26,10 @@ Fitter/*.log
 Fitter/output*
 Fitter/*.out
 Fitter/Zpt/weights
+LocalR/
+
+# Centralized test artifacts (BBB expectations and fixture definitions stay tracked).
+Tests/**/__pycache__/
+Tests/.artifacts/
+!Tests/**/*.json
+!Tests/Plotter/DYJetsToLL_M-50_mumu.root

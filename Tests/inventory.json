@@ -1,0 +1,451 @@
+{
+  "cases": [
+    {
+      "id": "common.loadingbar",
+      "path": "common/testLoadingBar.py",
+      "package": "common",
+      "group": "legacy",
+      "reason": "Python 2 print syntax; preserved unchanged; not runnable by the Python 3.9 harness.",
+      "dependencies": []
+    },
+    {
+      "id": "common.table",
+      "path": "common/testTable.py",
+      "package": "common",
+      "group": "legacy",
+      "reason": "Python 2 print syntax; preserved unchanged; not runnable by the Python 3.9 harness.",
+      "dependencies": []
+    },
+    {
+      "id": "plotter.cmsstyle",
+      "path": "Plotter/testCMSStyle.py",
+      "package": "Plotter",
+      "group": "local",
+      "reason": "Synthetic/local inputs; existing script behavior preserved.",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past"
+      ]
+    },
+    {
+      "id": "plotter.colors",
+      "path": "Plotter/testColors.py",
+      "package": "Plotter",
+      "group": "local",
+      "reason": "Synthetic/local inputs; existing script behavior preserved.",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past"
+      ]
+    },
+    {
+      "id": "plotter.latex",
+      "path": "Plotter/testLatex.py",
+      "package": "Plotter",
+      "group": "local",
+      "reason": "Synthetic/local inputs; existing script behavior preserved.",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past"
+      ]
+    },
+    {
+      "id": "plotter.legend",
+      "path": "Plotter/testLegend.py",
+      "package": "Plotter",
+      "group": "local",
+      "reason": "Synthetic/local inputs; existing script behavior preserved.",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past"
+      ]
+    },
+    {
+      "id": "plotter.macros",
+      "path": "Plotter/testMacros.py",
+      "package": "Plotter",
+      "group": "integration",
+      "reason": "Default pileup macro test reads actual calibration ROOT files.",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past"
+      ]
+    },
+    {
+      "id": "plotter.methods",
+      "path": "Plotter/testMethods.py",
+      "package": "Plotter",
+      "group": "local",
+      "reason": "Synthetic/local inputs; existing script behavior preserved.",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past"
+      ]
+    },
+    {
+      "id": "plotter.multidraw",
+      "path": "Plotter/testMultiDraw.py",
+      "package": "Plotter",
+      "group": "local",
+      "reason": "Synthetic/local inputs; existing script behavior preserved.",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past"
+      ]
+    },
+    {
+      "id": "plotter.multithread",
+      "path": "Plotter/testMultiThread.py",
+      "package": "Plotter",
+      "group": "local",
+      "reason": "Synthetic/local inputs; existing script behavior preserved.",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past"
+      ],
+      "fixture": "multithread"
+    },
+    {
+      "id": "plotter.panels",
+      "path": "Plotter/testPanels.py",
+      "package": "Plotter",
+      "group": "local",
+      "reason": "Synthetic/local inputs; existing script behavior preserved.",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past"
+      ]
+    },
+    {
+      "id": "plotter.plot",
+      "path": "Plotter/testPlot.py",
+      "package": "Plotter",
+      "group": "local",
+      "reason": "Synthetic/local inputs; existing script behavior preserved.",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past"
+      ]
+    },
+    {
+      "id": "plotter.ratio",
+      "path": "Plotter/testRatio.py",
+      "package": "Plotter",
+      "group": "local",
+      "reason": "Synthetic/local inputs; existing script behavior preserved.",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past"
+      ]
+    },
+    {
+      "id": "plotter.rdataframe",
+      "path": "Plotter/testRDataFrame.py",
+      "package": "Plotter",
+      "group": "broken",
+      "reason": "Pre-existing runtime defects: main passes filename strings to a tuple loop; res_dict, sname, xvar, wname and other identifiers are undefined.",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past"
+      ]
+    },
+    {
+      "id": "plotter.rdataframe_sample",
+      "path": "Plotter/testRDataFrame_Sample.py",
+      "package": "Plotter",
+      "group": "local",
+      "reason": "Synthetic/local inputs; existing script behavior preserved.",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past"
+      ]
+    },
+    {
+      "id": "plotter.samples",
+      "path": "Plotter/testSamples.py",
+      "package": "Plotter",
+      "group": "local",
+      "reason": "Synthetic/local inputs; existing script behavior preserved.",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past"
+      ]
+    },
+    {
+      "id": "plotter.sampleset",
+      "path": "Plotter/testSampleSet.py",
+      "package": "Plotter",
+      "group": "broken",
+      "reason": "Pre-existing TypeError at line 56: formats a string without placeholders using % expsamples.",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past"
+      ]
+    },
+    {
+      "id": "plotter.selection",
+      "path": "Plotter/testSelection.py",
+      "package": "Plotter",
+      "group": "local",
+      "reason": "Synthetic/local inputs; existing script behavior preserved.",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past"
+      ]
+    },
+    {
+      "id": "plotter.stack",
+      "path": "Plotter/testStack.py",
+      "package": "Plotter",
+      "group": "local",
+      "reason": "Synthetic/local inputs; existing script behavior preserved.",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past"
+      ]
+    },
+    {
+      "id": "plotter.stitching",
+      "path": "Plotter/testStitching.py",
+      "package": "Plotter",
+      "group": "local",
+      "reason": "Synthetic/local inputs; existing script behavior preserved.",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past"
+      ]
+    },
+    {
+      "id": "plotter.tgaxis",
+      "path": "Plotter/testTGAxis.py",
+      "package": "Plotter",
+      "group": "local",
+      "reason": "Synthetic/local inputs; existing script behavior preserved.",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past"
+      ]
+    },
+    {
+      "id": "plotter.tlatex",
+      "path": "Plotter/testTLaTeX.py",
+      "package": "Plotter",
+      "group": "local",
+      "reason": "Synthetic/local inputs; existing script behavior preserved.",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past"
+      ]
+    },
+    {
+      "id": "plotter.unpacking",
+      "path": "Plotter/testUnpacking.py",
+      "package": "Plotter",
+      "group": "local",
+      "reason": "Synthetic/local inputs; existing script behavior preserved.",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past"
+      ]
+    },
+    {
+      "id": "plotter.unroll",
+      "path": "Plotter/testUnroll.py",
+      "package": "Plotter",
+      "group": "local",
+      "reason": "Synthetic/local inputs; existing script behavior preserved.",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past"
+      ],
+      "fixture": "unroll"
+    },
+    {
+      "id": "plotter.variables",
+      "path": "Plotter/testVariables.py",
+      "package": "Plotter",
+      "group": "local",
+      "reason": "Synthetic/local inputs; existing script behavior preserved.",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past"
+      ]
+    },
+    {
+      "id": "pico.batch",
+      "path": "PicoProducer/testBatch.py",
+      "package": "PicoProducer",
+      "group": "integration",
+      "reason": "Requires a scheduler; existing script can submit jobs.",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past"
+      ]
+    },
+    {
+      "id": "pico.eventbased",
+      "path": "PicoProducer/testEventBased.py",
+      "package": "PicoProducer",
+      "group": "integration",
+      "reason": "Default splitting scenario discovers a real DAS dataset; separate local comparison case is available.",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past"
+      ]
+    },
+    {
+      "id": "pico.sample",
+      "path": "PicoProducer/testSample.py",
+      "package": "PicoProducer",
+      "group": "broken",
+      "reason": "Pre-existing unclosed parenthesis at line 88; also queries DAS.",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past"
+      ]
+    },
+    {
+      "id": "pico.sfs",
+      "path": "PicoProducer/testSFs.py",
+      "package": "PicoProducer",
+      "group": "integration",
+      "reason": "Requires actual calibration payloads, correctionlib and optional TauPOG dependencies.",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past"
+      ]
+    },
+    {
+      "id": "pico.storage",
+      "path": "PicoProducer/testStorage.py",
+      "package": "PicoProducer",
+      "group": "local",
+      "reason": "Synthetic/local inputs; existing script behavior preserved.",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past"
+      ],
+      "fixture": "storage"
+    },
+    {
+      "id": "plotter.plotpico",
+      "path": "Plotter/plotPico.py",
+      "package": "Plotter",
+      "group": "integration",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past"
+      ],
+      "reason": "Analysis demonstration configured for actual pico datasets."
+    },
+    {
+      "id": "plotter.wstarplotpico",
+      "path": "Plotter/WstarplotPico.py",
+      "package": "Plotter",
+      "group": "integration",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past"
+      ],
+      "reason": "Analysis demonstration configured for actual pico datasets."
+    },
+    {
+      "id": "pico.processor.test",
+      "path": "PicoProducer/processors/test.py",
+      "package": "PicoProducer",
+      "group": "local",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past",
+        "PhysicsTools.NanoAODTools.postprocessing.framework.postprocessor"
+      ],
+      "reason": "Existing CLI supplied a tiny synthetic NanoAOD input.",
+      "fixture": "processor"
+    },
+    {
+      "id": "pico.processor.testbookkeeper",
+      "path": "PicoProducer/processors/testBookkeeper.py",
+      "package": "PicoProducer",
+      "group": "local",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past",
+        "PhysicsTools.NanoAODTools.postprocessing.framework.postprocessor"
+      ],
+      "reason": "Existing CLI supplied a tiny synthetic NanoAOD input.",
+      "fixture": "bookkeeper"
+    },
+    {
+      "id": "pico.processor.test_coffea",
+      "path": "PicoProducer/processors/test_coffea.py",
+      "package": "PicoProducer",
+      "group": "integration",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past",
+        "coffea"
+      ],
+      "reason": "Historical coffea API and hard-coded external datasets."
+    },
+    {
+      "id": "pico.testmodule",
+      "path": "PicoProducer/analysis/TestModule.py",
+      "package": "PicoProducer",
+      "group": "local",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past",
+        "PhysicsTools.NanoAODTools.postprocessing.framework.postprocessor"
+      ],
+      "reason": "Relocated demo module; existing CLI supplied a tiny synthetic NanoAOD input.",
+      "fixture": "processor"
+    },
+    {
+      "id": "pico.eventcomparison",
+      "path": "PicoProducer/testEventBased.py",
+      "package": "PicoProducer",
+      "group": "local",
+      "dependencies": [
+        "ROOT",
+        "numpy",
+        "past"
+      ],
+      "fixture": "event_comparison",
+      "reason": "Existing comparison CLI mode with two identical synthetic local trees."
+    }
+  ]
+}

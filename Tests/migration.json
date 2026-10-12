@@ -1,0 +1,233 @@
+{
+  "description": "Content hashes captured before relocation; existing test bodies and assets are unchanged.",
+  "files": [
+    {
+      "original": "common/test/testLoadingBar.py",
+      "moved": "Tests/common/testLoadingBar.py",
+      "sha256": "268d8546993636b91e4bc8eb9beb865ef0841c63c16a57007d9f59d80890a080",
+      "canonical_sha256": "a6c275696ebe85c710e09e2c09f2a103c44a20248cda852a0b0435df70e7df71"
+    },
+    {
+      "original": "common/test/testTable.py",
+      "moved": "Tests/common/testTable.py",
+      "sha256": "95d1b225c667099f9b7017ea388b0eb5a002433ed830e6184545296aa79c9c7b",
+      "canonical_sha256": "a610d8dcfdb95ee98557895b7868c0a5d3ba049f990511aa11478d4868441b45"
+    },
+    {
+      "original": "Plotter/test/DYJetsToLL_M-50_mumu.root",
+      "moved": "Tests/Plotter/DYJetsToLL_M-50_mumu.root",
+      "sha256": "d9b72ad735220a181fd6dbfdc24f4ccb461e4f260e503690510dc669939eeede",
+      "canonical_sha256": "d9b72ad735220a181fd6dbfdc24f4ccb461e4f260e503690510dc669939eeede"
+    },
+    {
+      "original": "Plotter/test/plotPico.py",
+      "moved": "Tests/Plotter/plotPico.py",
+      "sha256": "02e946adb69173ff73564f09bd3daba769d1d92151ab187b87d32ea4f5767889",
+      "canonical_sha256": "6ab86fe07ae469d2a98c8f2f6a210f6513b9e626f01cf77cf67a42fcf8b42349"
+    },
+    {
+      "original": "Plotter/test/pseudoSamples.py",
+      "moved": "Tests/Plotter/pseudoSamples.py",
+      "sha256": "5a30334e73e40d1423ae7f1e05d733e212479d641801e0e5b3a8fb43a5ea3cbd",
+      "canonical_sha256": "9371dd256d5c71a4b7eae312072b3ea59d4174080d9697ef697d3416db2257a5"
+    },
+    {
+      "original": "Plotter/test/testCMSStyle.py",
+      "moved": "Tests/Plotter/testCMSStyle.py",
+      "sha256": "18360e53afe2ce0e1e053b37a3bada2790ec2db3a0ed57e25998ade80bb10c4c",
+      "canonical_sha256": "6977175c1c7ec8ed3f3d4cb0cd73c9427a6e22f21628c0642914a78beb8ef5ec"
+    },
+    {
+      "original": "Plotter/test/testColors.py",
+      "moved": "Tests/Plotter/testColors.py",
+      "sha256": "7069fb45a26adc38e0d0a803e086d38fd905a0f88bdddcac52f839219000682f",
+      "canonical_sha256": "8208e17c1ff18f5a6c44de4cf30483ab813c0d19e5a96865ba4eab8a68dfb6f3"
+    },
+    {
+      "original": "Plotter/test/testLatex.py",
+      "moved": "Tests/Plotter/testLatex.py",
+      "sha256": "29f107e9a53a580189c803792918466297ebe15208ec43a71d4264a7f6f71c63",
+      "canonical_sha256": "ac8b56f4f3b22227538fa900e84cbe7004753399acc4f5eb6e4e8d4d83aa0a2a"
+    },
+    {
+      "original": "Plotter/test/testLegend.py",
+      "moved": "Tests/Plotter/testLegend.py",
+      "sha256": "2c14cf563250b4a78f32f04cb90e8198037e5fe723cf0399ccce876665d3847e",
+      "canonical_sha256": "5a4b42da0dc6800004f1a8622bf2465e7140991d133af6069a3023cc2bb090c9"
+    },
+    {
+      "original": "Plotter/test/testMacros.py",
+      "moved": "Tests/Plotter/testMacros.py",
+      "sha256": "c63695d16b7426453df9052be2d518d059b734e3006172dfd8039c30789bd226",
+      "canonical_sha256": "b20756b92d6dfdf390cd227b67db0fc64e928aab728789dde0457dac7efff15e"
+    },
+    {
+      "original": "Plotter/test/testMethods.py",
+      "moved": "Tests/Plotter/testMethods.py",
+      "sha256": "9c81c8281ff536eaf7da5331ad2df6da2de7a36b475a3ba14472b42ff7e89333",
+      "canonical_sha256": "c647799fd76190d440e2ffa2c8d7415cdf2bced29d2b136edded848532c943cf"
+    },
+    {
+      "original": "Plotter/test/testMultiDraw.py",
+      "moved": "Tests/Plotter/testMultiDraw.py",
+      "sha256": "9b4d5c0d33993005946ad0238888fe05d979c21bbb3f934fd18c6b3567013c6d",
+      "canonical_sha256": "a717aa4c06570a06df586034537c58cb921dddd404696a9494afc3d3e862f308"
+    },
+    {
+      "original": "Plotter/test/testMultiThread.py",
+      "moved": "Tests/Plotter/testMultiThread.py",
+      "sha256": "08539a69549e260a97a721eeab5024c15e955546a5ed624849653a1ac46bdae0",
+      "canonical_sha256": "ec8a55aad6a1ad481b0d0979b270c39ca132dacdd62ed76774d217ff3f4388aa"
+    },
+    {
+      "original": "Plotter/test/testPanels.py",
+      "moved": "Tests/Plotter/testPanels.py",
+      "sha256": "98c474b2cb72602100d77b0fc374ce48255f7dad47c76ac860b042aadb4a6186",
+      "canonical_sha256": "a45ee249ba359a89f4022eba4cbfc6a0e9f713323aa0f627c4a9dee63615ab29"
+    },
+    {
+      "original": "Plotter/test/testPlot.py",
+      "moved": "Tests/Plotter/testPlot.py",
+      "sha256": "9da0ce3d727cd7c20d0abd62736076d14ee87cb29d046dac7e1e26cd7c917b26",
+      "canonical_sha256": "1a4aa1a7f6427437b6f276eb9e8eaa8051b525acff9f92df207ee203fa3d5a2e"
+    },
+    {
+      "original": "Plotter/test/testRatio.py",
+      "moved": "Tests/Plotter/testRatio.py",
+      "sha256": "dfdd8bb38f5dd3b9f687d70abbe9a7ddbd2315389a6513d505ff946b7dce7cf8",
+      "canonical_sha256": "b872d9becbbbc6ad66963e0b2817a3855c2d29196111f62dad170d47841447bc"
+    },
+    {
+      "original": "Plotter/test/testRDataFrame.py",
+      "moved": "Tests/Plotter/testRDataFrame.py",
+      "sha256": "8dc5acb9b1b3afe08bd2a1bc5ed0324ee37027120769320f3198c28b9e1433a5",
+      "canonical_sha256": "fc9e90e624feff6798ffa817eee2b271ff5624423e6c1ea55473fc11ce5f5311"
+    },
+    {
+      "original": "Plotter/test/testRDataFrame_Sample.py",
+      "moved": "Tests/Plotter/testRDataFrame_Sample.py",
+      "sha256": "9b2c1b2355c993ffbbe224cc864d5ed30412d26797c3ba47fd685772fa08cfbd",
+      "canonical_sha256": "1095d0d84d1f48774c7a62249a37c0b8ce7f8127da855d2b3f294cb2ba73f0a0"
+    },
+    {
+      "original": "Plotter/test/testSamples.py",
+      "moved": "Tests/Plotter/testSamples.py",
+      "sha256": "7022b5eae6fbe943fb9cc79aed7ea1872e1b9ac7bafc82ad4c2d3fdf577ba283",
+      "canonical_sha256": "ec21ae1bcc09cf81309ed65882c36cf1f59d2d10e534cb7e7c0abef4918d0c88"
+    },
+    {
+      "original": "Plotter/test/testSampleSet.py",
+      "moved": "Tests/Plotter/testSampleSet.py",
+      "sha256": "af8f44d4b87c6e2d63163535014e7042d49eafd15960636098006e09d394cd0c",
+      "canonical_sha256": "268297ea2ab3535dfe6292959306291df97daa3fc70a9bbea584b09f882dd243"
+    },
+    {
+      "original": "Plotter/test/testSelection.py",
+      "moved": "Tests/Plotter/testSelection.py",
+      "sha256": "b042110a022cb331438db412ef413755676112357840669f206514abb3fb69cc",
+      "canonical_sha256": "b57d8a75f8232c20dfd4aa7e1f51bd5d6031ddc71a06c54bcd95f813731a6831"
+    },
+    {
+      "original": "Plotter/test/testStack.py",
+      "moved": "Tests/Plotter/testStack.py",
+      "sha256": "e58562eecb94d9a25da6f72f081787548395096d984c945226f7dcd99d713c23",
+      "canonical_sha256": "9e7eecb845b669a52086b384b0c71ff0bcd73fe2f2ab842324153f4ea3188329"
+    },
+    {
+      "original": "Plotter/test/testStitching.py",
+      "moved": "Tests/Plotter/testStitching.py",
+      "sha256": "7c5f214c246899c48644a15cfb6b4aa551cbb7f2f2967e9f27fa7f844cf6beb9",
+      "canonical_sha256": "4f698961d07b1f8de61774877b7f94822270aaa06b7844af329f311cf645bedc"
+    },
+    {
+      "original": "Plotter/test/testTGAxis.py",
+      "moved": "Tests/Plotter/testTGAxis.py",
+      "sha256": "55cb92877b99c17ce1c4742708b20f6615e4d5845ef6a17aa153ffbf84eb6131",
+      "canonical_sha256": "195a33fdafbb4bb839d80108493c41531341086ae15483cf056d263e3f019b77"
+    },
+    {
+      "original": "Plotter/test/testTLaTeX.py",
+      "moved": "Tests/Plotter/testTLaTeX.py",
+      "sha256": "c96736106d87adbcc8d9ceab8603e05718f993b06dba4923247c7d38be1ca65f",
+      "canonical_sha256": "fa9e528a3150ce78530180656c2795b2d872cd14bea8d27e1650c81dbdec41f2"
+    },
+    {
+      "original": "Plotter/test/testUnpacking.py",
+      "moved": "Tests/Plotter/testUnpacking.py",
+      "sha256": "40c95fcd968af08001ff442265af597c18207d7b093c9d19b4865f2f392af45f",
+      "canonical_sha256": "d7bd9933ae7155df37a243cb678e5098bba210edede90846be025a0db2e07449"
+    },
+    {
+      "original": "Plotter/test/testUnroll.py",
+      "moved": "Tests/Plotter/testUnroll.py",
+      "sha256": "32a0fe4a5e484483323ba92d92aac55a98563f733014422bbc9c04c36c31ef5c",
+      "canonical_sha256": "6ca45ecd68efdf3d14e626391839ce16e6f1a58cf29fc3b3b409296f3208e1ac"
+    },
+    {
+      "original": "Plotter/test/testVariables.py",
+      "moved": "Tests/Plotter/testVariables.py",
+      "sha256": "6027a9c0eeb80c635c7bf7019ddd8e29d4548a9657da7e3c6c95f2f3a272d5c2",
+      "canonical_sha256": "2384944f342e99267815151a5024041a348ac54ddf26d2aa8e0194e039ea1cd2"
+    },
+    {
+      "original": "Plotter/test/WstarplotPico.py",
+      "moved": "Tests/Plotter/WstarplotPico.py",
+      "sha256": "a73b1dbb0372190229242214179b3c0ef1ca971cf8436a9197397bb487cca3f8",
+      "canonical_sha256": "31990ab9555ad80c4933ade2990230205a1d5c57a5ddaeac29a276b06a775ce2"
+    },
+    {
+      "original": "PicoProducer/test/testBatch.py",
+      "moved": "Tests/PicoProducer/testBatch.py",
+      "sha256": "6c8e231c821d2452885de1af942b3bf3f164fa589641b52f48e5c61bb4afe13d",
+      "canonical_sha256": "2af70b4772e56d5175c71ac97d63d5b7dcbd1f51865cc81283379897c7b50405"
+    },
+    {
+      "original": "PicoProducer/test/testEventBased.py",
+      "moved": "Tests/PicoProducer/testEventBased.py",
+      "sha256": "f6a1f5baeac911ae08b636c1d2770d00b2e167f53e45ed91b1e08be529f44c6c",
+      "canonical_sha256": "f761b2b72ffbf3c7fde8bc041463dc6fdd0b5bddd448fe9bd69918e940085739"
+    },
+    {
+      "original": "PicoProducer/test/testSample.py",
+      "moved": "Tests/PicoProducer/testSample.py",
+      "sha256": "3b89be74f383e458bc312d901d60842a49f85e223e3efe0005fe61b227248de7",
+      "canonical_sha256": "646af2d3162fbb3b45eb99fdd3beeaf38ff807225adc9186af4a72a7308ce9a3"
+    },
+    {
+      "original": "PicoProducer/test/testSFs.py",
+      "moved": "Tests/PicoProducer/testSFs.py",
+      "sha256": "c5dba27fa3a17740647b278a73b8796c318494476e2d2ddebd6fa3109ba32507",
+      "canonical_sha256": "38465fc0c860765ea3a1ee281e25999c7b4d5ade29244d27a4f34c725b73158f"
+    },
+    {
+      "original": "PicoProducer/test/testStorage.py",
+      "moved": "Tests/PicoProducer/testStorage.py",
+      "sha256": "4a24c8e195764e21637de3fe38b958f6ba701fd4b48129fc4b70fcef9b8d383e",
+      "canonical_sha256": "729150cc6b949e3d9d51b5b48dbce58176d7c61da0370a19f540c3727c553eaa"
+    },
+    {
+      "original": "PicoProducer/python/processors/test.py",
+      "moved": "Tests/PicoProducer/processors/test.py",
+      "sha256": "af199a5e2a1cab2519a14260224b055abf44078e1acedf87e392916ffca93052",
+      "canonical_sha256": "013bff48116a30d7e15419807f63b875493bd02b625b2a41f137f27a1710aa89"
+    },
+    {
+      "original": "PicoProducer/python/processors/testBookkeeper.py",
+      "moved": "Tests/PicoProducer/processors/testBookkeeper.py",
+      "sha256": "5a1770d8415b217aafd29268178b867a1b4b67daf2fe9e85853bff1af6b8735c",
+      "canonical_sha256": "d433e6b77961ca1929f0af63fbb9839eb5aeb4dff8160f5618bc528f97c734ca"
+    },
+    {
+      "original": "PicoProducer/python/processors/test_coffea.py",
+      "moved": "Tests/PicoProducer/processors/test_coffea.py",
+      "sha256": "0c11c685559b6cd5d5a7360524167d120d7867330b59ab815c2adddf581a08f0",
+      "canonical_sha256": "ff794d8d77518da749bb1019cc7b46359afd8f32f16131c7f2fab2be395fc7b3"
+    },
+    {
+      "original": "PicoProducer/python/analysis/TestModule.py",
+      "moved": "Tests/PicoProducer/analysis/TestModule.py",
+      "sha256": "6950c0cd20b301f3bcc547225ecd7085c9e57a0b173e0c3e7007a34f6bc452b6",
+      "canonical_sha256": "d05ede0bd3ad37fadf917a6272ae945dd1d4032b55b715a9db4c6f36cbd1b146"
+    }
+  ]
+}
