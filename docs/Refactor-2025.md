@@ -17,6 +17,7 @@ Sections are in the order the work was done. Each lists the relevant commits.
 | 6 | [PicoProducer cleanup, Part 2: legacy area, explicit imports, no import-time side effects](#6-picoproducer-cleanup-part-2-legacy-area-explicit-imports-no-import-time-side-effects) | 2026-10-12 |
 | 7 | [PicoProducer cleanup, Part 3: settings, datasets, storage, batch and jobs packages](#7-picoproducer-cleanup-part-3-settings-datasets-storage-batch-and-jobs-packages) | 2026-10-12 |
 | 8 | [Fitter cleanup: legacy area](#8-fitter-cleanup-legacy-area) | 2026-10-13 |
+| 9 | [PicoProducer cleanup, Part 4: jobs package](#9-picoproducer-cleanup-part-4-jobs-package) | 2026-10-13 |
 | 9 | [Plotter cleanup: legacy area](#9-plotter-cleanup-legacy-area) | 2026-10-13 |
 
 The reference environment for all of this is `CMSSW_14_1_0_pre4` (Python 3.9, ROOT 6.30).
@@ -592,3 +593,36 @@ before committing.
 - The test mirror copies only `Plotter/python/`, and no test or BBB case uses a moved file.
   `python Tests/check_harness.py` passes. Run `python3 Tests/run.py bbb check` and `python3 Tests/run.py normal` on
   lxplus: the results must be unchanged.
+
+---
+
+## 9. PicoProducer cleanup, Part 4: jobs package
+
+**Date:** 2026-10-13
+**Details:** [PicoProducer/docs/BUGS.md](../PicoProducer/docs/BUGS.md)
+
+Part 4 splits `pico/job.py` and `pico/run.py` into the `jobs/` package: one worker command builder, pure
+planning and status functions, and a merge step with a validated cleanup gate. These are the pieces the public
+PicoProducer API (Part 5) and the `Framework` orchestrator build on. The restructuring steps (A1-A5) do not
+change behavior: all `pico.*` BBB cases must pass unchanged. Bug fixes follow in their own commits (B).
+
+### A1. One worker command builder
+
+The command line of a worker (`picojob.py`/`skimjob.py`) was built twice: once for batch jobs
+(`pico/job.py`, one line per chunk in the job list) and once for local runs (`pico/run.py`, the
+"Executing:" line). Both now come from `jobs/worker_command.py`:
+
+| Function | Replaces | Output |
+|---|---|---|
+| `resolve_worker(config, channel, extraopts)` | `pico.run.getmodule` (removed) | `WorkerSpec(module, processor, procopts, extrachopts)`; takes the configuration as an argument instead of the global `CONFIG` |
+| `job_command(WorkerOptions)` | the command block in `preparejobs` | one job-list line |
+| `run_command(WorkerOptions)` | the command block in `main_run` | the local run command |
+
+`WorkerOptions` is a single option record; each formatter keeps its own flag order, because both strings are
+part of the BBB baselines (`pico.jobs`, `pico.run`). The known differences between the two (BUGS P10:
+`run` passes `-m` whenever `maxevts` is set, including `-1`) are kept and fixed in B.
+
+**Check:** a comparison script ran the old and new builders over 8064 option combinations (skim/analysis,
+processor options, tmpdir, prefetch, preselection, event ranges, test runs, extra options, single/multiple input
+files): all strings are identical. `resolve_worker` gives the same result and errors as `getmodule`.
+

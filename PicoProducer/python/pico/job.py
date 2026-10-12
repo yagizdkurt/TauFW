@@ -13,7 +13,7 @@ from TauFW.PicoProducer.jobs.jobconfig import getcfgsamples
 from TauFW.PicoProducer.storage.factory import getstorage
 from TauFW.PicoProducer.storage.validation import isvalid, itervalid
 from TauFW.PicoProducer.datasets.catalog import getsamples, print_no_samples
-from TauFW.PicoProducer.pico.run import getmodule
+from TauFW.PicoProducer.jobs.worker_command import resolve_worker, job_command, WorkerOptions
 from TauFW.common.tools.log import color, bold
 from TauFW.PicoProducer.pico.common import CONFIG, LOG
 
@@ -67,7 +67,7 @@ def preparejobs(args):
       
       # MODULE & PROCESSOR
       skim = 'skim' in channel.lower()
-      module, processor, procopts, extrachopts = getmodule(channel,extraopts)
+      module, processor, procopts, extrachopts = resolve_worker(CONFIG,channel,extraopts)
       if verbosity>=1:
         print('-'*80)
         print(">>> %-12s = %r"%('channel',channel))
@@ -279,11 +279,11 @@ def preparejobs(args):
               evtmatch    = evtsplitexp.match(fchunk[0]) # $fname:$firstevt:$maxevts
               if evtmatch:
                 LOG.insist(len(fchunk)==1,"Chunks of event-split files can only have one input file: %s"%(fchunk))
-                jobfiles  = evtmatch.group(1) # input file
+                jobfiles  = [evtmatch.group(1)] # input file
                 firstevt  = int(evtmatch.group(2))
                 maxevts__ = int(evtmatch.group(3)) # limit number of events
               else:
-                jobfiles  = ' '.join(fchunk) # list of input files
+                jobfiles  = fchunk # list of input files
                 firstevt  = -1
                 maxevts__ = -1 # do not limit number of events
               filetag     = postfix
@@ -293,31 +293,11 @@ def preparejobs(args):
                 filetag  += "_%d"%(firstevt/maxevts__)
               
               # BUILD COMMAND
-              python      = "python3"
-              jobcmd      = "%s %s"%(python,processor)
-              if procopts:
-                jobcmd   += " %s"%(procopts)
-              if skim:
-                jobcmd   += " -y %s -d '%s' -t %s --copydir %s"%(era,dtype,filetag,outdir)
-                if tmpdir:
-                  jobcmd += " -o %s"%(tmpdir) # temporary file for job output before copying
-              ###elif channel=='test':
-              ###  jobcmd += " -o %s -t %s -i %s"%(outdir,filetag)
-              else:
-                jobcmd   += " -y %s -d %r -c %s -M %s --copydir %s -t %s"%(era,dtype,channel,module,outdir,filetag)
-              if prefetch_:
-                jobcmd   += " -p"
-              if preselect and skim:
-                jobcmd   += " --preselect '%s'"%(preselect)
-              if firstevt>=0:
-                jobcmd   += " --firstevt %d"%(firstevt) # start at this entry (for event-based splitting)
-              if testrun: # override maxevts
-                jobcmd   += " -m %d"%(testrun) # process a limited amount of events for test jobs
-              elif maxevts__>0:
-                jobcmd   += " -m %d"%(maxevts__) # process a limited amount of events for event-based splitting
-              if extraopts_:
-                jobcmd   += " --opt '%s'"%("' '".join(extraopts_))
-              jobcmd     += " -i %s"%(jobfiles) # add last
+              jobcmd      = job_command(WorkerOptions(processor=processor,procopts=procopts,era=era,skim=skim,
+                                                      channel=channel,module=module,dtype=dtype,filetag=filetag,
+                                                      outdir=outdir,tmpdir=tmpdir,prefetch=prefetch_,preselect=preselect,
+                                                      firstevt=firstevt,maxevts=maxevts__,testrun=testrun,
+                                                      extraopts=extraopts_,infiles=jobfiles))
               if args.verbosity>=1:
                 print(">>> chunk=%d, jobcmd=%r"%(ichunk,jobcmd))
               listfile.write(jobcmd+'\n')

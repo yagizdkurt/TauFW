@@ -1,8 +1,8 @@
 # Author: Izaak Neutelings (April 2020)
 import os
 from TauFW.common.tools.utils import execute
-from TauFW.PicoProducer.analysis.utils import ensuremodule
 from TauFW.PicoProducer.datasets.catalog import getsamples, print_no_samples
+from TauFW.PicoProducer.jobs.worker_command import resolve_worker, run_command, WorkerOptions
 from TauFW.common.tools.log import bold
 from TauFW.PicoProducer.pico.common import CONFIG, LOG
 
@@ -52,7 +52,7 @@ def main_run(args):
       
       # MODULE & PROCESSOR
       skim = 'skim' in channel.lower()
-      module, processor, procopts, extrachopts = getmodule(channel,extraopts)
+      module, processor, procopts, extrachopts = resolve_worker(CONFIG,channel,extraopts)
       
       # VERBOSE
       if verbosity>=1:
@@ -138,65 +138,13 @@ def main_run(args):
             print(">>> ]")
         
         # RUN
-        python = "python3"
-        runcmd = "%s %s"%(python,processor)
-        if procopts:
-          runcmd += " %s"%(procopts)
-        if skim:
-          runcmd += " -y %s -o %s"%(era,outdir)
-          if preselect:
-            runcmd += " --preselect '%s'"%(preselect)
-        ###elif 'test' in channel:
-        ###  runcmd += " -o %s"%(outdir)
-        else: # analysis
-          runcmd += " -y %s -c %s -M %s -o %s"%(era,channel,module,outdir)
-        if dtype:
-          runcmd += " -d %r"%(dtype)
-        if filetag:
-          runcmd += " -t %r"%(filetag) # postfix
-        if maxevts:
-          runcmd += " -m %s"%(maxevts)
-        if infiles:
-          runcmd += " -i %s"%(' '.join(infiles))
-        if prefetch:
-          runcmd += " -p"
-        if extraopts_:
-          runcmd += " --opt '%s'"%("' '".join(extraopts_))
-        #elif nfiles:
-        #  runcmd += " --nfiles %s"%(nfiles)
+        runcmd = run_command(WorkerOptions(processor=processor,procopts=procopts,era=era,skim=skim,
+                                           channel=channel,module=module,outdir=outdir,preselect=preselect,
+                                           dtype=dtype,filetag=filetag,maxevts=maxevts,infiles=infiles,
+                                           prefetch=prefetch,extraopts=extraopts_))
         print(">>> Executing: "+bold(runcmd))
         if not dryrun:
           #execute(runcmd,dry=dryrun,verb=verbosity+1) # real-time print out does not work well with python script 
           os.system(runcmd)
         print('')
       
-
-
-##################
-#   GET MODULE   #
-##################
-
-def getmodule(channel,extraopts):
-  """Help function to get the module and processor."""
-  LOG.insist(channel in CONFIG.channels,"Channel '%s' not found in the configuration file. Available: %s"%(channel,CONFIG.channels))
-  module      = CONFIG.channels[channel]
-  procopts    = "" # extra options for processor
-  extrachopts = extraopts[:] # extra options for module (per channel)
-  if 'skim' in channel.lower():
-    parts     = module.split(' ') # "PROCESSOR [--FLAG[=VALUE] ...]"
-    processor = parts[0]
-    procopts  = ' '.join(parts[1:])
-  ###elif channel=='test':
-  ###  processor = module
-  else:
-    parts     = module.split(' ') # "MODULE [KEY=VALUE ...]"
-    processor = "picojob.py"
-    module    = parts[0]
-    ensuremodule(module) # sanity check
-    extrachopts.extend(parts[1:])
-  procpath  = os.path.join("python/processors",processor)
-  if not os.path.isfile(procpath):
-    LOG.throw(IOError,"Processor '%s' does not exist in '%s'..."%(processor,procpath))
-  processor = os.path.abspath(procpath)
-  return module, processor, procopts, extrachopts
-  
