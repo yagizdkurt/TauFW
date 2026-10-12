@@ -141,9 +141,10 @@ def main(argv=None):
         child = sub.add_parser(command)
         child.add_argument("--case", action="append", default=[], help="Exact inventory ID; repeat to select cases")
     bbb = sub.add_parser("bbb", help="Separately invoked exact regression suite")
-    bbb.add_argument("action", choices=("list", "lock", "check"))
+    bbb.add_argument("action", choices=("list", "lock", "check", "diff"))
     bbb.add_argument("--case", action="append", default=[])
     bbb.add_argument("--replace", action="store_true", help="Explicitly replace an existing lock (lock only)")
+    bbb.add_argument("--ref", default="HEAD", help="Git revision whose lock 'diff' compares against (default HEAD)")
     for child in (sub.choices["normal"], sub.choices["integration"], bbb):
         child.add_argument("-q", "--quiet", action="store_true",
                            help="Print one character per case (P/F/S) and show captured output only for problems")
@@ -160,7 +161,9 @@ def main(argv=None):
             if extra:
                 raise ValueError("BBB does not accept legacy script arguments.")
             from BBB.runner import main as run_bbb
-            return run_bbb(args.action, args.case, args.replace, args.quiet, tail_lines)
+            if args.ref != "HEAD" and args.action != "diff":
+                raise ValueError("--ref applies only to bbb diff.")
+            return run_bbb(args.action, args.case, args.replace, args.quiet, tail_lines, args.ref)
         cases = inventory()
         if args.command == "list":
             if extra:

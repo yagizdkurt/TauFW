@@ -117,7 +117,50 @@ def compare(name, expected, actual):
     return details or ["%s: canonical snapshot bytes differ" % name]
 
 
-def main(action, requested, replace=False, quiet=False, tail_lines=80):
+def committed_baseline(ref, filename):
+    """Bytes of a baseline file at a Git revision, or None when it does not exist there."""
+    result = subprocess.run(["git", "show", "%s:./%s" % (ref, filename)], cwd=str(BASELINES),
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if result.returncode:
+        if b"exists on disk, but not in" in result.stderr or b"does not exist in" in result.stderr:
+            return None
+        raise RuntimeError("git show %s:%s failed: %s" % (ref, filename, result.stderr.decode().strip()))
+    return result.stdout
+
+
+def diff_lock(ref):
+    """Compare the working-tree lock with the one at ref. Added cases pass; changed or removed ones fail."""
+    current = load_lock(BASELINES)  # Also proves the new lock is complete and self-consistent.
+    manifest = committed_baseline(ref, "manifest.json")
+    previous = json.loads(manifest)["cases"] if manifest is not None else {}
+    counts = {"same": 0, "ADDED": 0, "CHANGED": 0, "REMOVED": 0}
+    details = []
+    for name in sorted(set(previous) | set(current)):
+        if name not in previous:
+            status = "ADDED"
+        elif name not in current:
+            status = "REMOVED"
+        elif hashlib.sha256(current[name]).hexdigest() == previous[name]:
+            status = "same"
+        else:
+            status = "CHANGED"
+            old = committed_baseline(ref, name + ".json")
+            details.append((name, compare(name, old, current[name])))
+        counts[status] += 1
+        print("  %-8s %s" % (status, name))
+    for name, lines in details:
+        print("\n%s:\n  %s" % (name, "\n  ".join(lines)))
+    failed = counts["CHANGED"] or counts["REMOVED"]
+    print("\nBBB DIFF vs %s: %s (%s same, %s added, %s changed, %s removed)"
+          % (ref, "FAIL" if failed else "PASS", counts["same"], counts["ADDED"], counts["CHANGED"], counts["REMOVED"]))
+    return 1 if failed else 0
+
+
+def main(action, requested, replace=False, quiet=False, tail_lines=80, ref="HEAD"):
+    if action == "diff":
+        if requested or replace or quiet:
+            raise ValueError("bbb diff compares the whole lock; it takes only --ref.")
+        return diff_lock(ref)
     names = selected_cases(requested)
     if quiet and action != "check":
         raise ValueError("--quiet applies only to bbb check.")
