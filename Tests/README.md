@@ -170,6 +170,29 @@ python3 Tests/run.py bbb lock --replace
 This initial suite characterizes the listed boundaries; it is not coverage of
 every channel, calibration, production workflow, or fit.
 
+### PicoProducer command cases (black box)
+
+`pico.config`, `pico.run`, `pico.jobs`, `pico.merge` and `pico.workers` drive the
+real user surfaces: `PicoProducer/scripts/pico.py` and the job workers. Each
+command runs in a fresh child process (`BBB/pico_entry.py`) against the
+workspace mirror, like a command typed in a shell. `BBB/pico_harness.py` gives
+every case:
+
+- a fixed `config.json`;
+- its own sample catalog (`samples/bbb/samples_2018.py`) over Local storage;
+- synthetic NanoAOD inputs;
+- fake `condor_submit`/`condor_q` executables on `PATH`. These record the
+  submission command lines and report a scripted queue.
+
+The cases snapshot only artifacts: config JSON and backups, job configs (without
+their creation time), task lists, scheduler command lines, status summary lines,
+`run --dry` command lines, merged and worker ROOT outputs, and file listings after
+cleanup. They import no PicoProducer internals. Workspace paths are written as
+`$WS`, and script locations inside `PicoProducer/python` are reduced to
+`<pico>/<file name>`. So restructuring the package keeps the baselines, while a
+changed command line, option, file name or output does not. Known bugs whose
+behavior these baselines record are listed in `PicoProducer/docs/BUGS.md`.
+
 ## Small validation commands
 
 ```bash

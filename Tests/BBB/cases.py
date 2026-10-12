@@ -4,6 +4,7 @@ Imports of ROOT and production code occur only inside separately selected worker
 """
 import contextlib
 import io
+import re
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -237,6 +238,126 @@ def pico_scale_factors(workspace):
             "product": [(tool * tool).getSF(pt, eta) for pt, eta in points]}
 
 
+# ===== PicoProducer commands (black box: pico.py and job workers in child processes) =====
+
+def pico_config(workspace):
+    import json
+    from BBB.pico_harness import PicoWorkspace
+    ws = PicoWorkspace(workspace, config=False)
+    # A fresh installation creates defaults; site/user-dependent guesses (paths, batch) are excluded.
+    ws.pico("list")
+    created = json.loads(ws.config_path.read_text(encoding="utf-8"))
+    stable = ("channels", "eras", "jobdir", "tmpskimdir", "queue", "batchopts", "nfilesperjob", "maxevtsperjob",
+              "filelistdir", "maxopenfiles", "haddcmd", "ncores")
+    result = {"fresh": {"keys": list(created), "values": {key: created[key] for key in stable}}}
+    # A config reset to a few keys is recovered from its backup.
+    full = ws.config()
+    ws.write_config({key: full[key] for key in ("channels", "eras", "jobdir", "outdir")}, backup=full)
+    ws.pico("list")
+    result["recovered"] = ws.read_config()
+    edits = [("channel", "mutau2", "ModuleMuTauSimple a=1"), ("era", "2017", "samples/bbb/samples_2018.py"),
+             ("set", "nfilesperjob", "3"), ("set", "queue", "longlunch"), ("set", "channel", "skim2", "skimjob.py --jec"),
+             ("rm", "channel", "mutau2"), ("rm", "haddcmd")]
+    result["edits"] = []
+    for edit in edits:
+        ws.pico(*edit)
+        result["edits"].append({"command": list(edit), "config": ws.read_config()})
+    result["list"] = ws.pico("list")["lines"]
+    return result
+
+
+def pico_run(workspace):
+    from BBB.pico_harness import PicoWorkspace
+    ws = PicoWorkspace(workspace)
+    commands = [("run", "-y", "2018", "-c", "mutau", "-s", "DY", "--dry", "-E", "a=1", "b=2"),
+                ("run", "-y", "2018", "-c", "mutau", "-s", "Single", "--dry", "-t", "test", "-n", "2", "-m", "100", "-p"),
+                ("run", "-y", "2018", "-c", "skim", "-s", "TT", "--dry", "--preselect", "Muon_pt>20"),
+                ("run", "-y", "2018", "-c", "mutau", "--dry", "-i", "a.root", "b.root")]
+    result = {"run": [{"command": list(command), "executed": [line for line in ws.pico(*command)["lines"]
+                                                               if "Executing:" in line]} for command in commands]}
+    result["get"] = [{"command": list(command), "lines": ws.pico(*command)["lines"]}
+                     for command in (("get", "samples", "-y", "2018"), ("get", "files", "-y", "2018", "-s", "DY"))]
+    return result
+
+
+def pico_jobs(workspace):
+    from BBB.pico_harness import PicoWorkspace
+    ws = PicoWorkspace(workspace)
+    result = {}
+    ws.pico("submit", "-y", "2018", "-c", "mutau", "-s", "DY")              # cluster 1001: file chunks
+    ws.pico("submit", "-y", "2018", "-c", "mutau", "-s", "Single", "-m", "3")  # cluster 1002: event chunks
+    ws.pico("submit", "-y", "2018", "-c", "skim", "-s", "TT", "-E", "x=1")  # cluster 1003: skim chunks
+    ws.pico("submit", "-y", "2018", "-c", "mutau", "-s", "DY")              # existing job config: skipped
+    result["submitted"] = {"jobs": ws.jobfiles(), "scheduler": ws.submissions()}
+    # Job outcomes: good, corrupt, pending (in the fake queue) and missing chunks.
+    out = ws.root / "jobout" / "2018" / "mutau"
+    ws.write_pico(out / "DYJetsToLL_M-50" / "pico_mutau_0.root")
+    ws.write_pico(out / "DYJetsToLL_M-50" / "pico_mutau_1.root", valid=False)
+    for chunk in (0, 1, 2):
+        ws.write_pico(out / "SingleMuon_Run2018A" / ("pico_mutau_%d.root" % chunk))
+    ws.write_pico(out / "SingleMuon_Run2018A" / "pico_mutau_4.root", valid=False)
+    skimdir = ws.root / "nanoout" / "2018" / "TTTo2L2Nu_BBB" / "RunIIBBB-v1" / "NANOAODSIM"
+    ws.write_skim(skimdir / "nano_0_skim.root")
+    ws.queue([(1002, 3, 2, "python3 picojob.py -y 2018 -t _mutau_3 -i x.root"),
+              (1003, 1, 1, "python3 skimjob.py -t _skim -i %s" % ws.inputs["TTTo2L2Nu"][1])])
+    summary = r"SUCCESS|PEND|FAIL|MISS"
+    result["status"] = {channel: [line for line in ws.pico("status", "-y", "2018", "-c", channel)["lines"]
+                                  if re.search(summary, line)] for channel in ("mutau", "skim")}
+    ws.pico("resubmit", "-y", "2018", "-c", "mutau")
+    ws.pico("resubmit", "-y", "2018", "-c", "skim")
+    result["resubmitted"] = {"jobs": ws.jobfiles(), "scheduler": ws.submissions()}
+    return result
+
+
+def pico_merge(workspace):
+    from BBB.pico_harness import PicoWorkspace
+    from BBB.snapshot import file_snapshot
+    ws = PicoWorkspace(workspace)
+    for sample in ("DY", "TT", "Single"):  # clusters 1001-1003, two chunks each
+        ws.pico("submit", "-y", "2018", "-c", "mutau", "-s", sample)
+    out = ws.root / "jobout" / "2018" / "mutau"
+    for sample, chunks in (("DYJetsToLL_M-50", (0, 1)), ("TTTo2L2Nu", (0, 1)), ("SingleMuon_Run2018A", (0,))):
+        for chunk in chunks:
+            ws.write_pico(out / sample / ("pico_mutau_%d.root" % chunk))
+    roots = (ws.basedir / "output", ws.root / "jobout", ws.root / "pico")
+    result = {}
+    ws.pico("hadd", "-y", "2018", "-c", "mutau", "-s", "Single")  # refused: a chunk is missing
+    result["refused"] = ws.tree(*roots)
+    ws.pico("hadd", "-y", "2018", "-c", "mutau", "-s", "DY")
+    result["hadd"] = {"merged": file_snapshot(ws.root / "pico" / "2018" / "DY" / "DYJetsToLL_M-50_mutau.root"),
+                      "files": ws.tree(*roots)}
+    ws.pico("haddclean", "-y", "2018", "-c", "mutau", "-s", "TT")
+    result["haddclean"] = {"merged": file_snapshot(ws.root / "pico" / "2018" / "TT" / "TTTo2L2Nu_mutau.root"),
+                           "files": ws.tree(*roots)}
+    ws.pico("clean", "-y", "2018", "-c", "mutau", "-s", "Single", "-f")
+    result["clean"] = ws.tree(*roots)
+    return result
+
+
+def pico_workers(workspace):
+    from BBB.pico_harness import PicoWorkspace, write_nano
+    from BBB.snapshot import file_snapshot
+    ws = PicoWorkspace(workspace)
+    first = write_nano(ws.root / "worker" / "nano_A.root", 40, seed=3)
+    second = write_nano(ws.root / "worker" / "nano_B.root", 40, seed=4)
+    (ws.root / "copied").mkdir()
+    ws.worker("picojob.py", "-i", first, "-o", "out_full", "-y", "2018", "-M", "ModuleMuTauSimple",
+              "-t", "full", "-d", "mc", "-E", "tes=1.0")
+    ws.worker("picojob.py", "-i", first, second, "-o", "out_range", "-y", "2018", "-M", "ModuleMuTauSimple",
+              "-t", "_range", "--firstevt", "5", "-m", "20")
+    ws.worker("picojob.py", "-i", second, "-o", "out_copy", "-C", ws.root / "copied", "-y", "2018", "-c", "mutau",
+              "-M", "ModuleMuTauSimple", "-d", "mc", "-t", "_mutau_0", "--opt", "tes=1.0", "zpt=True")
+    ws.worker("skimjob.py", "-i", first, second, "-o", "out_skim", "-y", "2018", "-d", "mc", "-t", "skim",
+              "--preselect", "HLT_IsoMu24 && Muon_pt[0]>25")
+    ws.worker("skimjob.py", "-i", first, "-o", "out_skimrange", "-y", "2018", "-d", "mc",
+              "--firstevt", "10", "-m", "15")
+    outputs = ["out_full/pico_full.root", "out_range/pico_range.root", "copied/pico_mutau_0.root",
+               "out_skim/nano_A_skim.root", "out_skim/nano_B_skim.root", "out_skimrange/nano_A_skim.root"]
+    return {"files": ws.tree(ws.root / "out_full", ws.root / "out_range", ws.root / "out_copy", ws.root / "copied",
+                             ws.root / "out_skim", ws.root / "out_skimrange"),
+            "outputs": {name: file_snapshot(ws.root / name) for name in outputs}}
+
+
 def fitter_shapes(workspace):
     from TauFW.Fitter.plot.datacard import createinputs
     from TauFW.Plotter.plot.Variable import Variable
@@ -273,6 +394,7 @@ def fitter_rebin(workspace):
 
 ROOT_DEPS = ["ROOT", "numpy", "past"]
 NANO_DEPS = ROOT_DEPS + ["PhysicsTools.NanoAODTools.postprocessing.framework.postprocessor"]
+PICO_DEPS = NANO_DEPS
 CASES = {
     "common.formatting": {"run": common_formatting, "dependencies": ["past"], "description": "Exact table and loading-bar text"},
     "common.chunking": {"run": common_chunking, "dependencies": ["past"], "description": "Chunking, partitioning, argument and path formatting"},
@@ -285,6 +407,11 @@ CASES = {
     "pico.writer": {"run": pico_writer, "dependencies": ROOT_DEPS, "description": "Tree schema, arrays, defaults, aliases, 64-bit IDs and cutflow"},
     "pico.bookkeeper": {"run": pico_bookkeeper, "dependencies": NANO_DEPS, "description": "Real NanoAODTools event loop, selections, ranges and weight bookkeeping"},
     "pico.scale_factors": {"run": pico_scale_factors, "dependencies": ROOT_DEPS, "description": "Local synthetic scale-factor lookup and boundary clamping"},
+    "pico.config": {"run": pico_config, "dependencies": PICO_DEPS, "description": "pico.py config creation, backup recovery, channel/era links, set and rm"},
+    "pico.run": {"run": pico_run, "dependencies": PICO_DEPS, "description": "pico.py run worker command lines and sample/file listing"},
+    "pico.jobs": {"run": pico_jobs, "dependencies": PICO_DEPS, "description": "pico.py submit/status/resubmit: job configs, task lists, chunking, scheduler calls"},
+    "pico.merge": {"run": pico_merge, "dependencies": PICO_DEPS, "description": "pico.py hadd/haddclean/clean: merge gate, merged tuple and cleanup"},
+    "pico.workers": {"run": pico_workers, "dependencies": PICO_DEPS, "description": "picojob.py/skimjob.py outputs, ranges, options, copy and preselection"},
     "fitter.shapes": {"run": fitter_shapes, "dependencies": ROOT_DEPS, "description": "Nominal/systematic shape naming and negative-bin sanitation"},
     "fitter.rebin": {"run": fitter_rebin, "dependencies": ROOT_DEPS, "description": "Adaptive rebinning and non-ZTT background subtraction"}
 }

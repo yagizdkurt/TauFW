@@ -8,6 +8,7 @@ import types
 
 TESTS = Path(__file__).resolve().parents[1]
 REPO = TESTS.parent
+PACKAGES = ("common", "Plotter", "PicoProducer", "Fitter", "Utilities")
 
 
 # Worker exit status for a missing declared dependency; normal runs report it as a skip.
@@ -41,8 +42,7 @@ def prepare(workspace, resources=True):
     workspace = Path(workspace).resolve()
     mirror = workspace / "TauFW"
     mirror.mkdir()
-    _package("TauFW", mirror)
-    for name in ("common", "Plotter", "PicoProducer", "Fitter", "Utilities"):
+    for name in PACKAGES:
         source = REPO / name
         target = mirror / name
         target.mkdir()
@@ -51,10 +51,18 @@ def prepare(workspace, resources=True):
         for resource in (("data", "samples") if resources else ()):
             if (source / resource).exists():
                 (target / resource).symlink_to(source / resource, target_is_directory=True)
+    return attach(mirror)
+
+
+def attach(mirror):
+    """Register an already prepared mirror as the TauFW package (used again by child processes)."""
+    mirror = Path(mirror).resolve()
+    _package("TauFW", mirror)
+    for name in PACKAGES:
         # PicoProducer's initializer otherwise selects CMSSW_BASE's checkout.
         cmssw = os.environ.pop("CMSSW_BASE", None)
         try:
-            _package("TauFW." + name, target / "python", initialize=True)
+            _package("TauFW." + name, mirror / name / "python", initialize=True)
         finally:
             if cmssw is not None:
                 os.environ["CMSSW_BASE"] = cmssw

@@ -13,6 +13,7 @@ Sections are in the order the work was done. Each lists the relevant commits.
 | 2 | [FastSetup script](#2-fastsetup-script) | 2026-10-12 |
 | 3 | [Removal of legacy Python 2 scripts](#3-removal-of-legacy-python-2-scripts) | 2026-10-12 |
 | 4 | [Utilities package for future development](#4-utilities-package-for-future-development) | 2026-10-12 |
+| 5 | [PicoProducer cleanup, session 1: command-level BBB tests and bug register](#5-picoproducer-cleanup-session-1-command-level-bbb-tests-and-bug-register) | 2026-10-12 |
 
 The reference environment for all of this is `CMSSW_14_1_0_pre4` (Python 3.9, ROOT 6.30).
 
@@ -215,3 +216,75 @@ The reference environment for all of this is `CMSSW_14_1_0_pre4` (Python 3.9, RO
 - **Adding before connecting.** The packages and the inventory come first so that each framework module can be
   migrated in a separate, reviewable step. Because the BBB baselines (section 1) are already locked, every such
   migration can be verified to leave the outputs unchanged.
+
+---
+
+## 5. PicoProducer cleanup, session 1: command-level BBB tests and bug register
+
+**Date:** 2026-10-12
+**Details:** [Tests/README.md](../Tests/README.md#picoproducer-command-cases-black-box),
+[PicoProducer/docs/BUGS.md](../PicoProducer/docs/BUGS.md)
+
+This is the first step of a multi-session PicoProducer cleanup. The planned order is:
+
+1. tests and bug register (this session);
+2. foundations and `legacy/`;
+3. settings, datasets, storage and batch;
+4. `jobs/`;
+5. workers, CLI and a public `api.py`;
+6. analysis and corrections;
+7. callers and docs.
+
+Ground rules for the cleanup:
+- **Folders and names:** they may change. All in-repo callers are updated, and no compatibility shims are kept.
+- **Bugs:** each one is fixed in its own documented commit.
+- **Physics output:** it must stay the same. BBB proves this.
+
+### What changed
+
+- **Five new BBB cases** (`pico.config`, `pico.run`, `pico.jobs`, `pico.merge`, `pico.workers`) test PicoProducer
+  from the outside. They run `pico.py` and the job workers in fresh child processes with:
+  - a fixed configuration;
+  - a test sample catalog over Local storage;
+  - synthetic NanoAOD;
+  - fake `condor_submit`/`condor_q`.
+
+  They snapshot what the commands produce:
+  - config JSON and its backup, job configs and task lists;
+  - scheduler command lines and status summaries;
+  - `run --dry` command lines, merged tuples, worker outputs, and the files left after cleanup.
+
+  Together they cover:
+  - config creation, backup recovery, `channel`/`era`/`set`/`rm`;
+  - file- and event-based chunking, `-E`/sample/channel option merging, skipping existing job configs;
+  - good/corrupt/pending/missing chunk classification, resubmission, the hadd refusal gate, `hadd`/`haddclean`/`clean`;
+  - `picojob.py` (`ModuleMuTauSimple`, ranges, `--opt`, copy to storage) and `skimjob.py` (preselection with `Bookkeeper`, ranges).
+- **New test files:**
+  - `Tests/BBB/pico_harness.py`: the workspace, fixtures, fake scheduler and normalization.
+  - `Tests/BBB/pico_entry.py`: the child-process entry.
+  - `Tests/support/bootstrap.py`: gains `attach()`, so a child process can reuse a prepared mirror without copying it.
+- **`PicoProducer/docs/BUGS.md`** lists 60+ defects with location, severity, BBB coverage and the session in which
+  each will be fixed. Examples:
+  - Run 2 `ModuleMuTau`/`ETau`/`TauTau`/`EMu` crash at `getlepvetoes` (missing `era`);
+  - `SGE`/`T2_PSI`/`T3_PSI` cannot be constructed;
+  - channel options override user `-E` options;
+  - `haddclean` cleanup is not gated on a validated merge.
+
+### Why
+
+- **The old baselines did not cover the refactor.** The existing PicoProducer BBB cases cover only
+  `TreeProducer`, `Bookkeeper` and `ScaleFactorTool`. The cleanup rewrites configuration, job planning, status and
+  merging, and none of that was protected.
+- **Testing through the commands keeps the baselines valid.** The cases call the commands, not internal
+  functions. Package-internal script paths are normalized to their file names, so baselines stay valid while
+  modules move. A changed command line, job config, option order or output still fails.
+- **Some baselines record buggy behavior on purpose.** Each such case is marked in BUGS.md. When a bug is fixed,
+  the baseline change is explicit and reviewable.
+
+### Still to do
+
+- Lock the new baselines on lxplus: `python3 Tests/run.py bbb lock --replace`. In the Git diff, check that the 13
+  existing baseline files are unchanged.
+- Before session 6, add a `ModuleTauPair`-based channel case. It needs a larger synthetic NanoAOD and the
+  jsonpog/TauIDSFs payloads.
+
