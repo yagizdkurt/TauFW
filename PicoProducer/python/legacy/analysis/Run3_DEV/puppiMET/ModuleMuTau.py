@@ -3,7 +3,7 @@
 import sys
 import numpy as np
 from TauFW.PicoProducer.analysis.TreeProducerMuTau import *
-from TauFW.PicoProducer.analysis.Run3_DEV.puppiMET.ModuleTauPair import *
+from TauFW.PicoProducer.legacy.analysis.Run3_DEV.puppiMET.ModuleTauPair import *
 from TauFW.PicoProducer.analysis.utils import LeptonTauPair, loosestIso, idIso, matchgenvistau, matchtaujet, filtermutau
 from TauFW.PicoProducer.corrections.MuonSFs import *
 #from TauFW.PicoProducer.corrections.TrigObjMatcher import loadTriggerDataFromJSON, TrigObjMatcher

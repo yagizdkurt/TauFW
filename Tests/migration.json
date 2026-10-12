@@ -199,7 +199,7 @@
       "moved": "Tests/PicoProducer/testSFs.py",
       "sha256": "c5dba27fa3a17740647b278a73b8796c318494476e2d2ddebd6fa3109ba32507",
       "canonical_sha256": "38465fc0c860765ea3a1ee281e25999c7b4d5ade29244d27a4f34c725b73158f",
-      "edited": "Updated after migration: without -t, the import block crashed on tools=None (TypeError)."
+      "edited": "Updated after migration: without -t, the import block crashed on tools=None (TypeError). MuonSFs_ROOT import follows its move to PicoProducer/python/legacy/ (2026-10-12)."
     },
     {
       "original": "PicoProducer/test/testStorage.py",

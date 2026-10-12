@@ -38,8 +38,8 @@ cmsenv
 
 TauFW and its [tests](Tests/README.md) are validated with this release.
 Other releases may work, but are not tested; some features need at least ROOT 6.30.
-Older python2 releases (e.g. `CMSSW_11_3_4`) are no longer supported by `pico.py`;
-use `pico2.py` with python2 for those.
+Older python2 releases (e.g. `CMSSW_11_3_4`) are no longer supported by `pico.py`.
+The old python2 launcher `pico2.py` is kept, unmaintained, in `PicoProducer/python/legacy/scripts/`.
 
 #### TauFW
 To install `TauFW`:

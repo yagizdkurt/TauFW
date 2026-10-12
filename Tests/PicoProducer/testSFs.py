@@ -291,7 +291,7 @@ if __name__ == "__main__":
   
   if 'muroot' in tools:
     start1 = time.time()
-    from TauFW.PicoProducer.corrections.MuonSFs_ROOT import MuonSFs as MuonSFs_ROOT
+    from TauFW.PicoProducer.legacy.corrections.MuonSFs_ROOT import MuonSFs as MuonSFs_ROOT
     print(">>>   Imported MuonSFs_ROOT classes after %.1f seconds"%(time.time()-start1))
   
   if 'ele' in tools:
