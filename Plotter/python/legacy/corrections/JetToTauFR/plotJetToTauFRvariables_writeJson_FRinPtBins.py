@@ -6,7 +6,7 @@ from TauFW.Plotter.config.samples import *
 from TauFW.Plotter.plot.string import filtervars
 from TauFW.Plotter.plot.utils import LOG as PLOG
 
-import TauFW.Plotter.corrections.JetToTauFR.tools.jsonWriter as jsonWriter 
+import TauFW.Plotter.legacy.corrections.JetToTauFR.tools.jsonWriter as jsonWriter 
 #import os
 import ROOT
 import math

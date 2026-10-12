@@ -7,7 +7,7 @@ from TauFW.Plotter.plot.string import invertcharge
 from TauFW.Plotter.sample.SampleSet import LOG, SampleSet, Variable, deletehist, getcolor, makehistname
 
 from TauFW.Plotter.sample.utils import LOG, STYLE, ensuredir, repkey, joincuts, joinweights, ensurelist, setera, getyear, loadmacro, Sel
-import TauFW.Plotter.corrections.JetToTauFR.tools.fakeFactors as fakeFactors
+import TauFW.Plotter.legacy.corrections.JetToTauFR.tools.fakeFactors as fakeFactors
 
 
 def JetToTau_MisID(self, variables, selection, **kwargs):

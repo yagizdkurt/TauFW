@@ -21,12 +21,12 @@ from optparse import OptionParser
 ROOT.gROOT.SetBatch(True)
 ROOT.PyConfig.IgnoreCommandLineOptions = True
 
-import TauFW.Plotter.corrections.JetToTauFR.tools.tdrstyle as tdrstyle
-import TauFW.Plotter.corrections.JetToTauFR.tools.styles as styles
-import TauFW.Plotter.corrections.JetToTauFR.tools.histograms as histograms
-import TauFW.Plotter.corrections.JetToTauFR.tools.plots as plots
-import TauFW.Plotter.corrections.JetToTauFR.tools.fakeFactors as fakeFactors
-import TauFW.Plotter.corrections.JetToTauFR.tools.ShellStyles as ShellStyles
+import TauFW.Plotter.legacy.corrections.JetToTauFR.tools.tdrstyle as tdrstyle
+import TauFW.Plotter.legacy.corrections.JetToTauFR.tools.styles as styles
+import TauFW.Plotter.legacy.corrections.JetToTauFR.tools.histograms as histograms
+import TauFW.Plotter.legacy.corrections.JetToTauFR.tools.plots as plots
+import TauFW.Plotter.legacy.corrections.JetToTauFR.tools.fakeFactors as fakeFactors
+import TauFW.Plotter.legacy.corrections.JetToTauFR.tools.ShellStyles as ShellStyles
 
 #================================================================================================
 # Variable definition

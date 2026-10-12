@@ -19,14 +19,14 @@ All scripts and tools needed for perfoming Jet to Tau Fake Rate measurements are
 The goal of these measurements is to measure and compare the fake rate probability for a given jet
 faking a tau in both Data and MC.  In order to proceed with the FR measurements and plotting, one should
 first produce the dedicated pico tuple, using the analyzers in 
-['JetTauFakeRate'](../../../../PicoProducer/python/legacy/analysis/JetTauFakeRate)
+['JetTauFakeRate'](../../../../../PicoProducer/python/legacy/analysis/JetTauFakeRate)
 (unmaintained since 2022, kept in PicoProducer's `legacy/` area).
 
 ## Scripts and tools
 
 ### plot_forTauFR
 A simple script for plotting basic distributions and comparing Data/MC.
-This script was based on the original ['plot.py'](../../../plot.py).
+This script was based on the original ['plot.py'](../../../../plot.py).
 An important addition was the Closure option (-C) but this works
 only after the whole "Jet To Tau FakeRate measurement" has been performed
 and the corresponding json file with the FRs exist.

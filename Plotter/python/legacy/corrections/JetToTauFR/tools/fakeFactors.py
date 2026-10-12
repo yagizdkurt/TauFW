@@ -19,7 +19,7 @@ import re
 import ROOT
 ROOT.gROOT.SetBatch(True)
 
-import TauFW.Plotter.corrections.JetToTauFR.tools.ShellStyles as ShellStyles
+import TauFW.Plotter.legacy.corrections.JetToTauFR.tools.ShellStyles as ShellStyles
 
 
 #================================================================================================ 

@@ -6,7 +6,7 @@ import sys
 import os
 import ROOT
 
-import TauFW.Plotter.corrections.JetToTauFR.tools.ShellStyles as ShellStyles
+import TauFW.Plotter.legacy.corrections.JetToTauFR.tools.ShellStyles as ShellStyles
 
 #================================================================================================   
 # Shell Colour Aliases

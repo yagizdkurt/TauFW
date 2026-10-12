@@ -11,6 +11,7 @@ from samples import *
 
 from TauFW.Plotter.plot.string import filtervars
 from TauFW.Plotter.plot.utils import LOG as PLOG
+import TauFW.Plotter.legacy.methods.JetToTau_MisID # adds SampleSet.JetToTau_MisID (not found by name in legacy/)
 
 def plot(sampleset,channel,parallel=True,tag="",extratext="",outdir="plots",era="",
          varfilter=None,selfilter=None,fraction=False,pdf=False,closure=False):
