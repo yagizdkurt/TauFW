@@ -7,14 +7,27 @@ Framework for tau analysis using NanoAOD at CMS. Three main packages are
 
 ## Installation
 
-### Table of Contents  
-* [CMSSW environment](#CMSSW-environment)<br>
-* [TauFW](#TauFW-1)<br>
-* [PicoProducer](#PicoProducer)<br>
-* [Combine](#Combine)<br>
-* [TauPOG corrections](#TauPOG-corrections)<br>
+### Automatic
 
-### CMSSW environment
+```bash
+git clone https://github.com/cms-tau-pog/TauFW TauFW
+cd TauFW
+bash FastSetup.sh
+```
+
+See the [FastSetup documentation](docs/FastSetup.md) for requirements and options.
+
+### Manual
+
+#### Table of Contents
+
+* [CMSSW environment](#cmssw-environment)<br>
+* [TauFW](#taufw-1)<br>
+* [PicoProducer](#picoproducer)<br>
+* [Combine](#combine)<br>
+* [TauPOG corrections](#taupog-corrections)<br>
+
+#### CMSSW environment
 First, setup the reference CMSSW release, `CMSSW_14_1_0_pre4` (Python 3.9, ROOT 6.30):
 ```bash
 export SCRAM_ARCH=el9_amd64_gcc12 # on an EL8 node, use el8_amd64_gcc12 instead
@@ -28,7 +41,7 @@ Other releases may work, but are not tested; some features need at least ROOT 6.
 Older python2 releases (e.g. `CMSSW_11_3_4`) are no longer supported by `pico.py`;
 use `pico2.py` with python2 for those.
 
-### TauFW
+#### TauFW
 To install `TauFW`:
 ```
 cd $CMSSW_BASE/src/
@@ -41,7 +54,7 @@ cd CMSSW_14_1_0_pre4/src
 cmsenv
 ```
 
-### PicoProducer
+#### PicoProducer
 `PicoProducer` uses the `NanoAODTools` framework, which is part of CMSSW since `CMSSW_13_3_0`
 (`PhysicsTools/NanoAODTools`), so no separate installation is needed.
 This covers all analysis channels and the `skim` channel.
@@ -49,7 +62,7 @@ Do not clone the standalone [`nanoAOD-tools`](https://github.com/cms-nanoAOD/nan
 it overrides the release's framework with an older version
 (e.g. no LFN-to-PFN conversion of `/store/` input paths, no `Short_t` output branches).
 
-#### Run 2 jet/MET corrections (backward compatibility)
+##### Run 2 jet/MET corrections (backward compatibility)
 Re-applying Run 2 JEC/JER and their uncertainties uses the JME modules (`modules/jme`)
 that exist only in the standalone repository. This concerns
 * the `skim-jec` channel, or `skimjob.py` with `--jec`/`--jec-sys`, which adds branches like `Jet_pt_nom`;
@@ -80,7 +93,7 @@ rm -rf HTT
 git clone https://github.com/CMS-HTT/LeptonEfficiencies HTT
 ```
 
-### Combine
+#### Combine
 If you want to use the `combine` tools in `Fitter`, install combine following the
 [latest instructions](https://cms-analysis.github.io/HiggsAnalysis-CombinedLimit/#setting-up-the-environment-and-installation),
 for example
@@ -99,7 +112,7 @@ git clone https://github.com/cms-analysis/CombineHarvester.git CombineHarvester
 scramv1 b clean; scramv1 b
 ```
 
-### TauPOG corrections
+#### TauPOG corrections
 For TauPOG-internal work: To create JSON files with TauPOG corrections for
 [`correctionlib`](https://github.com/cms-nanoAOD/correctionlib),
 please follow the instructions
