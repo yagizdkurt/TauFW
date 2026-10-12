@@ -29,7 +29,7 @@ class T3_PSI(StorageSystem):
       self.cpcmd   = 'xrdcp -f'
       self.cpurl   = "root://t3dcachedb03.psi.ch/"
     self.fileurl = "root://t3dcachedb03.psi.ch/"
-    self.tmpdir  = os.path('/scratch/',os.environ.get('USER','TauFW'))
+    self.tmpdir  = os.path.join('/scratch/',os.environ.get('USER','TauFW')) # BUGS S05: was os.path(...)
     if ensure:
       self.ensuredir(self.path)
     

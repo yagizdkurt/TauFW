@@ -8,6 +8,7 @@ Public API:
 # ===== Imports =====
 import os
 import glob
+from TauFW.common.tools.string import isglob # BUGS S07: was missing
 from TauFW.PicoProducer.storage.base import StorageSystem
 
 __all__ = ['T2_DESY']

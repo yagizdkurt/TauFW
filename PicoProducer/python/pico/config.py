@@ -310,7 +310,7 @@ def main_link(args):
     CONFIG[varkey] = { }
   LOG.insist(isinstance(CONFIG[varkey],dict),"%s in %s has to be a dictionary"%(varkey,cfgname))
   oldval = value
-  for char in '/\,:;!?\'" ':
+  for char in '/\\,:;!?\'" ':
     if char in key:
       LOG.throw(IOError,"Given key '%s', but keys cannot contain any of these characters: %s"%(key,char))
   if varkey=='channels':

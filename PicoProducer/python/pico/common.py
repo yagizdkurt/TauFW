@@ -6,5 +6,5 @@ Importing this module does not change the working directory: scripts/pico.py doe
 """
 from TauFW.common.tools.log import Logger
 from TauFW.PicoProducer.settings import getconfig
-CONFIG = getconfig(verb=0) # load once
+CONFIG = getconfig(verb=0,write=True) # load once; the CLI creates/repairs config/config.json
 LOG    = Logger()

@@ -1,11 +1,13 @@
 # PicoProducer bug register
 
 Defects found during the 2026 PicoProducer cleanup (branch `Refactor-2025`). They were found by reading the
-source; none have been fixed yet unless the **Fix** column names a commit.
+source. A bug is fixed when the **Fix** column names the part that fixed it.
 
-Policy (agreed 2026-10-12): bugs are fixed during the refactor, **one fix per commit**, each recorded here.
-If a fix changes a BBB baseline, the same commit re-locks it (`python3 Tests/run.py bbb lock --replace`) and
-the **Output impact** column explains the difference. A refactor commit never changes a baseline.
+Policy (agreed 2026-10-12): bugs are fixed during the refactor and each fix is recorded here. A restructuring
+commit never changes behavior or a BBB baseline. The fixes of a part are applied together, after its
+restructuring, in a separate commit (e.g. Part 3B), with `# BUGS <ID>` comments at the changed lines.
+If a fix changes a BBB baseline, that commit re-locks it (`python3 Tests/run.py bbb lock --replace`) and the
+**Output impact** column explains the difference.
 
 **Severity:**
 - **crash:** raises an exception on a reachable path.
@@ -34,31 +36,31 @@ the baseline, and fixing it changes that baseline on purpose.
 | P13 | `scripts/pico.py:226` | `if` instead of `elif` after `install`: `pico.py install` also prints "subcommand 'install' not implemented!" | wrong | no | S5 | | |
 | P14 | `scripts/pico.py:158` | `install` choice is misspelled `'cmmsw'` | latent | no | S5 | | |
 | P15 | `scripts/pico.py:85-108` | `status`/`hadd`/`clean` parsers are built before `--prompt`, `-m`, ... are added to the job parent, so these options are missing there. This looks intentional for `-m` (reused for `--maxopenfiles`) but is undocumented | latent | yes | S5 | | |
-| P16 | `tools/config.py:192` | `Config.__setattr__`: `key in self._dict[key]` should be `key in self._dict` | latent | no | S3 | | |
-| P17 | `tools/config.py:33-37` | Default eras point to `samples_2016.py`/`samples_2017.py`/`samples_2018.py`, which do not exist | wrong | yes | S3 | | |
-| P18 | `tools/config.py:76-117` | Reading the config writes `config/config.json` (create/repair). A worker given `-c` can write it on a batch node | wrong | yes | S3 | | |
+| P16 | `settings/model.py` (`Config.__setattr__`; was `tools/config.py:192`) | `key in self._dict[key]` should be `key in self._dict`: setting a private attribute such as `CONFIG._path` raised `KeyError` | latent | no | S3 | Part 3B: `key in self._dict` | none (no caller sets private attributes) |
+| P17 | `settings/defaults.py` (was `tools/config.py:33-37`) | Default eras pointed to `samples_2016.py`/`samples_2017.py`/`samples_2018.py`, which do not exist; `config/config_example.json` pointed to the missing `samples_UL2016.py` and `tutorial/samples_2022_postEE.py` | wrong | yes | S3 | Part 3B: defaults are the catalogs that exist (`UL2016_preVFP`, `UL2016_postVFP`, `UL2017`, `UL2018`, `2022_preEE`, `2022_postEE`, `2023C`, `2023D`, `2024`, `2025`); example config updated | **BBB `pico.config`**: `fresh.values.eras` changes (re-lock). Only fresh installations are affected; existing `config.json` files keep their eras |
+| P18 | `settings/store.py` (was `tools/config.py:76-117`) | Reading the config created or rewrote `config/config.json`, also from a batch worker (`picojob.py -c`), Plotter (`$PICODIR`) or a script | wrong | yes | S3 | Part 3B: `getconfig(write=False)` by default; only `pico.py` (`pico/common.py`) passes `write=True`. Library readers get missing keys repaired in memory and a warning if the file is missing | none for `pico.py` (BBB unchanged); workers/Plotter/scripts no longer write the file |
 | P19 | `pico/job.py:975` | `TODO: check if hadd was succesful`: cleanup after `haddclean` is gated only on the command's exit code, not on the merged file (A04) | wrong | yes | S4 | | |
 
 ## Storage and batch
 
 | ID | Location | Symptom | Severity | BBB | Session | Fix | Output impact |
 |---|---|---|---|---|---|---|---|
-| S01 | `batch/SGE.py:7` | Defines `class HTCondor` (copy-paste), so `getbatch('SGE')` fails at `getattr(module,'SGE')`. The body also calls `condor_submit` | crash | no | S3 | | |
-| S02 | `batch/utils.py:122` | `getbatch(dict)`: `arg[batch]` raises `NameError` (should be `arg['batch']`) | crash | no | S3 | | |
-| S03 | `batch/BatchSystem.py:13` | `__metaclass__ = ABCMeta` has no effect in Python 3, so the abstract methods are not enforced | latent | no | S3 | | |
-| S04 | `batch/HTCondor.py:15`, `SLURM.py:14`, `SGE.py:29` | Regex strings with `\d` are not raw strings (DeprecationWarning; a future SyntaxError) | latent | yes | S3 | | |
-| S05 | `storage/T2_PSI.py:22`, `T3_PSI.py:22` | `os.path('/scratch/',…)` raises `TypeError` when the class is created, and `T2_PSI` does not import `os` | crash | no | S3 | | |
-| S06 | `storage/EOS.py:21` | Assigns `"eos rm"` to `lscmd` instead of `rmcmd`, which breaks `ls` with `eos=True` | wrong | no | S3 | | |
-| S07 | `storage/StorageSystem.py:185`, `T2_DESY.py:85` | `isglob` is used but not imported (`hadd` with `$PATH` sources) | crash | no | S3 | | |
-| S08 | `storage/StorageSystem.py:112-114` | `cd()`: `ret` is unbound when the storage is not mounted | crash | no | S3 | | |
-| S09 | `storage/GridKA_NRG.py` | `rmurl` contains `ls`; `hadd` sources are concatenated without separators | wrong | no | S3 | | |
-| S10 | `storage/Sample.py:54` | `dtype = 'mc' # TODO: remove` overrides automatic data type detection for `Sample(...)` without `dtype` | wrong | no | S3 | | |
-| S11 | `storage/Sample.py:456` | `self.nevents == nevents` (a comparison) should be an assignment | wrong | no | S3 | | |
-| S12 | `storage/Sample.py:391-392` | `loadfiles` docstring comes after a statement, so it is not a docstring | latent | no | S3 | | |
-| S13 | `storage/Sample.py:474` | Class name typo `Embdedded` | latent | no | S3 | | |
-| S14 | `storage/utils.py:77` | Mutable default `moddict={}` is used as a hidden module cache | latent | yes | S3 | | |
-| S15 | `storage/utils.py:161,195` | Production validation imports Plotter's `MultiProcessor` (package cycle A03) | latent | no | S3 | | |
-| S16 | `batch/utils.py:25-26` | `HTCondor_NAF` can never be guessed (branch commented out) | latent | no | S3 | | |
+| S01 | `batch/sge.py` (was `batch/SGE.py:7`) | Defined `class HTCondor` (copy-paste of the HTCondor adapter), so `getbatch('SGE')` failed; the body called `condor_submit` | crash | no | S3 | Part 3B: rewritten as a real `SGE` adapter: `qsub -t 1-N` array jobs (N = lines in the task list), `-N/-q/-l h_rt/-o` options, `qstat -u $USER` parsing with task ranges; registered in `batch.factory.SYSTEMS`. **Not run on an SGE site** (none available) | none (was unusable) |
+| S02 | `batch/factory.py` (was `batch/utils.py:122`) | `getbatch(dict)`: `arg[batch]` raised `NameError` | crash | no | S3 | Part 3B: `arg['batch']` | none |
+| S03 | `batch/base.py` (was `batch/BatchSystem.py:13`) | Python 2 `__metaclass__ = ABCMeta` has no effect in Python 3, so the abstract methods were not enforced | latent | no | S3 | Part 3B: `class BatchSystem(object,metaclass=ABCMeta)`. All adapters implement `submit`, `status` and `jobs` | none |
+| S04 | `batch/htcondor.py`, `batch/slurm.py`, `processors/skimjob.py:104`, `pico/config.py:313` (was `batch/HTCondor.py:15`, `SLURM.py:14`, `SGE.py:29`) | Non-raw strings with invalid escapes (`\d`, `\$`, `\,`): `SyntaxWarning` since Python 3.12, a future `SyntaxError` | latent | yes | S3 | Part 3B: raw strings, or an escaped backslash; the string values are identical | none |
+| S05 | `storage/t2_psi.py`, `storage/t3_psi.py` (was `T2_PSI.py:22`, `T3_PSI.py:22`) | `os.path('/scratch/',…)` raised `TypeError` when the adapter was created; `T2_PSI` did not import `os` | crash | no | S3 | Part 3B: `os.path.join(...)`; `import os` | none (was unusable) |
+| S06 | `storage/eos.py` (was `EOS.py:21`) | With `eos=True`, `"eos rm"` was assigned to `lscmd`, so listing ran `eos rm` and removal used the default command | wrong | no | S3 | Part 3B: `rmcmd = "eos rm -r"` (`-r`, like the default `rm -rf`) | none (`eos=True` is not used by pico.py) |
+| S07 | `storage/base.py`, `storage/t2_desy.py` (was `StorageSystem.py:185`, `T2_DESY.py:85`) | `isglob` used but not imported: `hadd` of `$PATH` glob sources with a file URL raised `NameError` | crash | no | S3 | Part 3B: `from TauFW.common.tools.string import isglob` | none |
+| S08 | `storage/base.py` (was `StorageSystem.py:112-114`) | `cd()`: `ret` was unbound when the storage is not mounted (`UnboundLocalError`) | crash | no | S3 | Part 3B: `ret = None` first | none |
+| S09 | `storage/gridka_nrg.py` (was `GridKA_NRG.py`) | `rmurl` contained `ls` (removal listed instead); `hadd` sources were concatenated without separators | wrong | no | S3 | Part 3B: `rmurl = 'root://cmsxrootd-kit.gridka.de/ rm '`; a space after each source | GridKA only: `rm` removes, multi-file `hadd` works |
+| S10 | `datasets/sample.py` (was `storage/Sample.py:54`) | `dtype = 'mc' # TODO: remove` overrode automatic data type detection for `Sample(...)` without `dtype` | wrong | no | S3 | Part 3B: detection restored ('embed' for Embed paths, 'data' for `/Run20xx`, otherwise 'mc' as before), with a **warning** whenever it is not 'mc' | `Sample(...)` without `dtype` on a data/embedded DAS path is now 'data'/'embed'. No catalog in the repository is affected (all use `MC`/`Data`); private catalogs see the warning |
+| S11 | `datasets/sample.py` (`loadfiles`; was `storage/Sample.py:456`) | `self.nevents == nevents` (a comparison) after the mismatch warning: the stored count was kept | wrong | no | S3 | Part 3B: `self.nevents = nevents` | Samples with an explicit `nevents` that disagrees with the per-file counts in their file list now use the file sum (after the existing warning) |
+| S12 | `datasets/sample.py` (`loadfiles`; was `storage/Sample.py:391-392`) | Docstring placed after a statement, so it was not a docstring | latent | no | S3 | Part 3B: moved first | none |
+| S13 | `datasets/sample.py` (was `storage/Sample.py:474`) | Class name typo `Embdedded` | latent | no | S3 | Part 3B: renamed `Embedded`; the old name is only kept in the compatibility re-export `storage/Sample.py` | none |
+| S14 | `datasets/catalog.py` (was `storage/utils.py:77`) | Mutable default `moddict={}` was a hidden module cache shared by all calls | latent | yes | S3 | Part 3B: `moddict=None` gives a fresh dictionary; callers that pass one (pico run/submit) are unchanged | none (Python caches imported modules anyway) |
+| S15 | `storage/validation.py` (was `storage/utils.py:161,195`) | Production validation imported Plotter's `MultiProcessor` (package cycle A03) | latent | no | S3 | Part 3A: `MultiProcessor` moved to `TauFW.common.tools.parallel` | none |
+| S16 | `settings/defaults.py` (`guess_batch`; was `batch/utils.py:25-26`) | `HTCondor_NAF` can never be guessed (branch commented out) | latent | no | S3 | Won't fix: the commented branch tested `'etp'`, which the KIT branch already matches; NAF users select it explicitly (`pico.py set batch HTCondor_NAF`) | none |
 
 ## Workers
 

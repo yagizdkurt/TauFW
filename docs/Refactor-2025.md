@@ -413,3 +413,61 @@ docs that link to the templates.
 | A custom batch system class in `batch/<Name>.py` | Add it to `SYSTEMS` in `batch/factory.py`, and put its template in `batch/templates/` |
 
 `config/config.json` keys and values do not change; `batch` still names the batch system class.
+
+### B. Bug fixes
+
+All defects registered for Part 3 in [BUGS.md](../PicoProducer/docs/BUGS.md) are fixed together in one commit,
+after the restructuring in A. Each changed line carries a `# BUGS <ID>` comment, and each BUGS.md row now
+gives the fix and its output impact.
+
+**Only one of these fixes changes a BBB baseline: P17.** The case `pico.config` records the default eras of a
+fresh installation, so it has to be re-locked. All other fixes are on paths that BBB does not exercise (other
+sites, other batch systems, error paths) or do not change any value.
+
+#### Batch systems
+
+| ID | Before | After | Who notices |
+|---|---|---|---|
+| S01 | `batch/sge.py` was a copy of the HTCondor adapter with the class name `HTCondor`, so selecting `SGE` always failed, and the code would have called `condor_submit`. | A real SGE adapter: `qsub -t 1-N` array jobs (N defaults to the number of lines in the task list, because `pico.py submit` only passes an array size for SLURM), `-N` name, `-q` queue, `-l h_rt` time limit, `-o` log, and `qstat -u $USER` parsing that expands pending task ranges (`1-10:1`). Registered as `SGE` in `batch.factory.SYSTEMS`. | SGE sites. **Not run on an SGE site** (none available); please report problems. |
+| S02 | `getbatch({'batch': ...})` raised `NameError` (`arg[batch]`). | `arg['batch']`. | Callers that pass a dict (none in the repository). |
+| S03 | `__metaclass__ = ABCMeta` (Python 2 syntax) did nothing, so a subclass missing `submit`/`status`/`jobs` was only discovered when called. | `class BatchSystem(object,metaclass=ABCMeta)`: an incomplete subclass fails when it is created. Every adapter in the repository implements all three. | Authors of new batch adapters. |
+| S04 | Regex and replacement strings such as `"(\d+)"` were not raw strings: `SyntaxWarning` since Python 3.12, a `SyntaxError` in a future Python. Same in `skimjob.py` (`'\$'`) and `pico/config.py` (`'/\,...'`). | Raw strings, or an explicitly escaped backslash. The string values are byte-for-byte the same. | Nobody, apart from the missing warnings. |
+
+#### Storage systems
+
+| ID | Before | After | Who notices |
+|---|---|---|---|
+| S05 | `T2_PSI`/`T3_PSI` could not be created: `os.path('/scratch/', ...)` raised `TypeError` (and `T2_PSI` did not import `os`). | `os.path.join('/scratch/', $USER)`. | PSI users: both adapters work again. |
+| S06 | `EOS(..., eos=True)` assigned `"eos rm"` to the *list* command, so listing deleted nothing but failed, and removal used the generic command. | `rmcmd = "eos rm -r"`; listing keeps `eos ls`. | Only explicit `eos=True` users (`pico.py` does not use it). |
+| S07 | `hadd` with `$PATH` glob sources and a file URL raised `NameError: isglob` (generic adapter and `T2_DESY`). | `isglob` is imported. | Remote-storage merges with glob sources. |
+| S08 | `StorageSystem.cd()` raised `UnboundLocalError` when the storage is not mounted. | Returns `None`, as `os.chdir` does. | Nobody in the repository calls it. |
+| S09 | GridKA: `rm` ran `xrdfs ... ls` (nothing was removed); `hadd` joined source paths without spaces, so multi-file merges got one invalid path. | `xrdfs ... rm`; one space after each source. | GridKA/KIT users: cleanup and multi-file merges work. |
+
+#### Datasets
+
+| ID | Before | After | Who notices |
+|---|---|---|---|
+| S10 | A leftover `dtype = 'mc' # TODO: remove` forced every `Sample(...)` without `dtype` to be MC, discarding the detection just above it. | Detection is restored: `Embed` in the path gives 'embed', a `/Run20xx` path gives 'data', otherwise 'mc' (the previous result). Whenever the detected type is not 'mc', a **warning** names the sample, the type and the path, and suggests `dtype=...` or `MC`/`Data`/`Embedded`. | Catalogs that use plain `Sample(...)` for data or embedded samples: they now get the right type (the JSON certification mask and data/MC-specific processing). **All catalogs in the repository use `MC`/`Data` and are unaffected.** |
+| S11 | `loadfiles`: after warning that the stored `nevents` differs from the sum in the file list, `self.nevents == nevents` (a comparison) kept the stored value. | The sum of the per-file counts is used, as the warning implies. | Samples with an explicit `nevents=` that disagrees with their `:NEVTS` file list. |
+| S12 | The `loadfiles` docstring came after a statement. | Docstring first. | Nobody (documentation tools only). |
+| S13 | Class name typo `Embdedded`. | `Embedded`. The old name survives only in the compatibility re-export `storage/Sample.py` (`Embdedded = Embedded`), so old catalogs keep working. | Nobody. |
+| S14 | `getsamples(..., moddict={})`: a mutable default shared between all calls acted as a hidden cache. | `moddict=None` creates a fresh dictionary; `pico.py run/submit` pass their own, as before. Python's module cache still avoids importing a catalog twice. | Nobody. |
+| S15 | Producer validation imported Plotter's `MultiProcessor`. | Fixed in A (`TauFW.common.tools.parallel`). | Nobody. |
+| S16 | `HTCondor_NAF` can never be guessed from the host name. | **Won't fix.** The commented-out branch tested `'etp'`, which the KIT branch already matches, so it could never have worked. NAF users set it explicitly: `pico.py set batch HTCondor_NAF`. | Nobody. |
+
+#### Configuration
+
+| ID | Before | After | Who notices |
+|---|---|---|---|
+| P16 | `Config.__setattr__` looked up `key in self._dict[key]`, so setting a private attribute such as `CONFIG._path` raised `KeyError`. | `key in self._dict`. | Nobody in the repository. |
+| P17 | A fresh installation's default eras pointed to `samples_2016.py`, `samples_2017.py` and `samples_2018.py`, which do not exist. `config/config_example.json` pointed to the missing `samples_UL2016.py` and `tutorial/samples_2022_postEE.py`. | Defaults are the top-level catalogs that exist: `UL2016_preVFP`, `UL2016_postVFP`, `UL2017`, `UL2018`, `2022_preEE`, `2022_postEE`, `2023C`, `2023D`, `2024`, `2025`. The example config is corrected. | Fresh installations only; an existing `config/config.json` keeps its own eras. **BBB `pico.config` changes (`fresh.values.eras`).** |
+| P18 | Every `getconfig()` call could create or rewrite `config/config.json`: from `pico.py`, but also from a batch worker (`picojob.py -c`), from Plotter resolving `$PICODIR`, or from a script. | `getconfig(write=False)` by default: missing keys are repaired in memory, and a missing file gives a warning plus the defaults. Only the CLI (`pico/common.py`) passes `write=True`, so `pico.py` creates and repairs the file exactly as before. | Workers, Plotter and scripts no longer write files in `PicoProducer/config/`. |
+
+#### File-name case correction for A
+
+The commit of A recorded eight renamed modules under their old capitalized names: `batch/HTCondor.py`,
+`SGE.py`, `SLURM.py`, `storage/EOS.py`, `GridKA_NRG.py`, `T2_DESY.py`, `T2_PSI.py` and `T3_PSI.py`. The code
+imports `batch.htcondor`, `storage.eos` and so on. Windows file systems ignore case (`core.ignorecase=true`), so
+this was invisible on Windows, but a Linux checkout of A cannot import these modules. This commit renames
+them in Git to `htcondor.py`, `sge.py`, `slurm.py`, `eos.py`, `gridka_nrg.py`, `t2_desy.py`, `t2_psi.py` and
+`t3_psi.py`. A scan of all tracked paths finds no other case mismatch.

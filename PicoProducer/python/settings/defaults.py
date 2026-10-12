@@ -83,10 +83,17 @@ def getdefaultconfig(verb=0):
     LOG.verb(">>> getdefaultconfig: _cfgdefaults already initiated",verb,level=3)
   else:
     LOG.verb(">>> getdefaultconfig: Initiating _cfgdefaults...",verb,level=3)
-    eras          = OrderedDict([
-      ('2016','samples_2016.py'),
-      ('2017','samples_2017.py'),
-      ('2018','samples_2018.py')
+    eras          = OrderedDict([ # BUGS P17: were samples_2016/2017/2018.py, which do not exist
+      ('UL2016_preVFP', 'samples_UL2016_preVFP.py'),
+      ('UL2016_postVFP','samples_UL2016_postVFP.py'),
+      ('UL2017',        'samples_UL2017.py'),
+      ('UL2018',        'samples_UL2018.py'),
+      ('2022_preEE',    'samples_2022_preEE.py'),
+      ('2022_postEE',   'samples_2022_postEE.py'),
+      ('2023C',         'samples_2023C.py'),
+      ('2023D',         'samples_2023D.py'),
+      ('2024',          'samples_2024.py'),
+      ('2025',          'samples_2025.py'),
     ])
     channels      = OrderedDict([
       ('skim',    'skimjob.py'),

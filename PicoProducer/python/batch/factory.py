@@ -12,6 +12,7 @@ Public API:
 # ===== Imports =====
 from TauFW.PicoProducer.batch.htcondor import HTCondor, HTCondor_CMG, HTCondor_DESY, HTCondor_KIT, HTCondor_NAF
 from TauFW.PicoProducer.batch.slurm import SLURM, SLURM_UCL
+from TauFW.PicoProducer.batch.sge import SGE
 
 __all__ = ['SYSTEMS', 'getbatch']
 
@@ -19,7 +20,7 @@ __all__ = ['SYSTEMS', 'getbatch']
 # ===== Constants =====
 # The class name is also the batch system name in the configuration and selects its submit template.
 SYSTEMS = { cls.__name__: cls for cls in (HTCondor, HTCondor_CMG, HTCondor_DESY, HTCondor_KIT, HTCondor_NAF,
-                                          SLURM, SLURM_UCL) }
+                                          SLURM, SLURM_UCL, SGE) }
 
 
 # ===== Public API =====
@@ -31,7 +32,7 @@ def getbatch(arg,verb=0):
   elif hasattr(arg,'batch'):
     system = arg.batch
   elif isinstance(arg,dict) and 'batch' in arg:
-    system = arg[batch]
+    system = arg['batch'] # BUGS S02: was arg[batch] (NameError)
   else:
     raise IOError("Did not recognize argument",arg)
   assert system in SYSTEMS, "Did not find batch system '%s'. Available: %s"%(system,', '.join(SYSTEMS))

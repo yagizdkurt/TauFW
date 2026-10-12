@@ -25,8 +25,11 @@ __all__ = ['getsamples', 'print_no_samples']
 
 # ===== Public API =====
 
-def getsamples(era,channel="",tag="",dtype=[],filter=[],veto=[],dasfilter=[],dasveto=[],moddict={},split=False,verb=0):
-  """Help function to get samples from a sample list and filter if needed."""
+def getsamples(era,channel="",tag="",dtype=[],filter=[],veto=[],dasfilter=[],dasveto=[],moddict=None,split=False,verb=0):
+  """Help function to get samples from a sample list and filter if needed.
+  Pass a dictionary as moddict to reuse imported catalog modules between calls."""
+  if moddict is None: # BUGS S14: was a shared mutable default 'moddict={}'
+    moddict = { }
   CONFIG   = getconfig(verb=verb)
   if basedir not in sys.path: # catalogs are imported as samples.<...> from PicoProducer/
     sys.path.append(basedir)

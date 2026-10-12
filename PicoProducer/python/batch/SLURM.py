@@ -23,7 +23,7 @@ class SLURM(BatchSystem):
     super(SLURM,self).__init__(verb=verb)
     # http://pages.cs.wisc.edu/~adesmet/status.html
     self.statusdict = { 'q': ['PD'], 'r': ['R'], 'c': ['CD'], 'f': ['F','NF','CA'] }
-    self.jobidrexp  = re.compile("Submitted batch job (\d+)")
+    self.jobidrexp  = re.compile(r"Submitted batch job (\d+)")
     self.user       = getpass.getuser()
   
   def submit(self,script=None,taskfile=None,**kwargs):

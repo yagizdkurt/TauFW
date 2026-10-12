@@ -6,6 +6,7 @@ Public API:
 """
 
 # ===== Imports =====
+import os
 from TauFW.PicoProducer.storage.base import StorageSystem
 
 __all__ = ['T2_PSI']
@@ -28,7 +29,7 @@ class T2_PSI(StorageSystem):
     #self.cpurl   = "root://storage01.lcg.cscs.ch/"
     self.cpcmd   = "LD_LIBRARY_PATH='' PYTHONPATH='' gfal-copy --force"
     self.cpurl   = "gsiftp://storage01.lcg.cscs.ch/"
-    self.tmpdir  = os.path('/scratch/',os.environ.get('USER','TauFW'))
+    self.tmpdir  = os.path.join('/scratch/',os.environ.get('USER','TauFW')) # BUGS S05: was os.path(...)
     self.fileurl = "root://storage01.lcg.cscs.ch/"
     if ensure:
       self.ensuredir(self.path)

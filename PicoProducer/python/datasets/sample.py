@@ -17,7 +17,7 @@ Outputs: file lists, event counts, file-list text files (writefiles).
 
 Public API:
   Sample(group, name, *paths, **kwargs)   generic sample (dtype guessed from the path)
-  MC, Data, Embdedded                     samples with a fixed data type
+  MC, Data, Embedded                      samples with a fixed data type
   Sample.loadjson(cfgname)                sample (and job state) from a job config JSON
 """
 
@@ -35,7 +35,7 @@ from TauFW.PicoProducer.storage.factory import getstorage
 from TauFW.PicoProducer.storage.validation import getnevents, iterevts
 from TauFW.PicoProducer.datasets.das import getdasnevents, getdasfiles
 
-__all__ = ['Sample', 'Data', 'MC', 'Embdedded']
+__all__ = ['Sample', 'Data', 'MC', 'Embedded']
 
 
 # ===== Constants =====
@@ -71,7 +71,11 @@ class Sample(object):
         dtype = 'mc'
       elif re.search(r"/Run20\d\d",path):
         dtype = 'data'
-      dtype = 'mc' # TODO: remove
+      else: # nothing recognized: 'mc', as for every sample before 2026-10
+        dtype = 'mc'
+      if dtype!='mc': # BUGS S10: a leftover 'dtype = 'mc' # TODO: remove' used to force 'mc' for every sample
+        LOG.warning("Sample %r: data type %r guessed from DAS path %r. Until 2026-10 every Sample without dtype"
+                    " was treated as 'mc'. Pass dtype=... or use MC/Data/Embedded to make it explicit."%(name,dtype,path))
     LOG.insist(dtype in dtypes,"Given data type '%s' is not recongized! Please choose from %s..."%(dtype,', '.join(dtypes)))
     
     # ATTRIBUTES
@@ -408,8 +412,8 @@ class Sample(object):
       LOG.warning("Sample.writefiles: Written %d files with zero events. Use --skipempty to exclude."%(self.nempty))
   
   def loadfiles(self,listname_,**kwargs):
+    """Load filenames from text file for fast look up in future.""" # BUGS S12: was after a statement
     verbosity = LOG.getverbosity(self,kwargs)
-    """Load filenames from text file for fast look up in future."""
     listname  = repkey(listname_,ERA=self.era,GROUP=self.group,SAMPLE=self.name)
     LOG.verb("Sample.loadfiles: listname=%r -> %r, len(files)=%d, len(filenevts)=%d"%(
       listname_,listname,len(self.files),len(self.filenevts)),verbosity,1)
@@ -473,7 +477,7 @@ class Sample(object):
       self.nevents = nevents
     elif self.nevents!=nevents:
       LOG.warning("Sample.loadfiles: stored nevents=%d does not match the sum total of file events, %d!"%(self.nevents,nevents))
-      self.nevents == nevents
+      self.nevents = nevents # BUGS S11: was '==' (no effect)
     self.files = filelist
     self.files.sort()
     return self.files
@@ -491,9 +495,9 @@ class MC(Sample):
     super(MC,self).__init__(*args,**kwargs)
   
 
-class Embdedded(Sample):
+class Embedded(Sample): # BUGS S13: was misspelled 'Embdedded'
   def __init__(self,*args,**kwargs):
     kwargs['dtype'] = 'embed'
-    super(Embdedded,self).__init__(*args,**kwargs)
+    super(Embedded,self).__init__(*args,**kwargs)
   
 

@@ -2,10 +2,12 @@
 """Read, repair and persist the global configuration in PicoProducer/config/config.json.
 
 Inputs:  config/config.json and its backup config/config.json.bkp (both optional).
-Outputs: a cached Config; missing keys are restored from the backup or the defaults and written back.
+Outputs: a cached Config; missing keys are restored from the backup or the defaults.
+         Only getconfig(write=True) -- used by pico.py -- creates or rewrites the file; library callers
+         (workers, Plotter, scripts) get the repaired values in memory and leave the file untouched.
 
 Public API:
-  getconfig(verb, refresh)   load the configuration once (cached), creating or repairing the file if needed
+  getconfig(verb, refresh, write)   load the configuration once (cached); write=True creates/repairs the file
   setdefaultconfig(verb)     overwrite the configuration file with the defaults
 """
 
@@ -28,15 +30,16 @@ CONFIG = None # cache of the loaded configuration
 
 # ===== Public API =====
 
-def getconfig(verb=0,refresh=False):
-  """Get configuration from JSON file."""
+def getconfig(verb=0,refresh=False,write=False):
+  """Get configuration from JSON file. With write=True, create or repair the file (BUGS P18:
+  before, every read could write it, e.g. from a batch worker or Plotter)."""
   global CONFIG
   cfgdefaults = getdefaultconfig(verb=verb)
   if CONFIG and not refresh:
     return CONFIG
   
   # SETTING
-  cfgdir   = ensuredir(basedir,"config")
+  cfgdir   = ensuredir(basedir,"config") if write else os.path.join(basedir,"config")
   cfgname  = os.path.join(cfgdir,"config.json")
   bkpname  = os.path.join(cfgdir,"config.json.bkp") # back up to recover config if reset
   cfgdict  = cfgdefaults.copy()
@@ -63,13 +66,16 @@ def getconfig(verb=0,refresh=False):
           LOG.warning("Key '%s' not set in config file %s. Setting to default %r"%(key,os.path.relpath(cfgname),cfgdefaults[key]))
           cfgdict[key] = cfgdefaults[key]
           nmiss += 1
-      print(">>> Saving updated keys...")
-      with open(cfgname,'w') as file:
-        json.dump(cfgdict,file,indent=2)
-  else:
+      if write:
+        print(">>> Saving updated keys...")
+        with open(cfgname,'w') as file:
+          json.dump(cfgdict,file,indent=2)
+  elif write:
     LOG.color("Config file '%s' does not exist in %s. Creating with defaults..."%(cfgname,cfgdir),c='green')
     with open(cfgname,'w') as file:
       json.dump(cfgdict,file,indent=2)
+  else:
+    LOG.warning("Config file '%s' does not exist. Using defaults (run pico.py to create it)..."%(cfgname))
   
   # SANITY CHECKS - format of values for required keys
   for key in rqdstrs:

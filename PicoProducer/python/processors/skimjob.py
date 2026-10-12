@@ -101,7 +101,7 @@ elif doJEC or doJECSys:
 
 # PRE-SELECTION
 if presel:
-  presel = presel.replace('\$','$') # remove escape
+  presel = presel.replace(r'\$','$') # remove escape
 elif commonpresel: # common pre-selection for TauPOG studies
   presel = "Max$(Jet_pt)>30 || Max$(Tau_pt)>30 || Max$(Muon_pt)>18 || Max$(Electron_pt)>20"
 

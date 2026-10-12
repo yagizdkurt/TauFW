@@ -59,7 +59,7 @@ class Config(object):
   def __setattr__(self,key,val):
     if key in self.__dict__:
       self.__dict__[key] = val
-      if key in self._dict[key]:
+      if key in self._dict: # BUGS P16: was 'key in self._dict[key]' (KeyError)
         self._dict[key] = val
     elif (key.startswith('__') and key.endswith('__')):
       raise AttributeError("Did not find '%s'"%(key))

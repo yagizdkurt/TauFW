@@ -28,7 +28,7 @@ class EOS(StorageSystem):
         # https://cern.service-now.com/service-portal?id=kb_article&n=KB0001998
         os.environ["EOS_MGM_URL"] = "root://eosuser.cern.ch"
         self.lscmd = "eos ls" # first do export EOS_MGM_URL=root://eosuser.cern.ch
-        self.lscmd = "eos rm" # first do export EOS_MGM_URL=root://eosuser.cern.ch
+        self.rmcmd = "eos rm -r" # BUGS S06: was assigned to lscmd; -r like the default 'rm -rf'
       else: # NOTE: uberftp no longer supported for EOS...
         unset = "" if 'ucl' in host else "LD_LIBRARY_PATH='' PYTHONPATH='' " # unset libraries that break gFal tools
         self.lscmd = unset+"gfal-ls -l"

@@ -26,7 +26,7 @@ class HTCondor(BatchSystem):
     super(HTCondor,self).__init__(verb=verb)
     # http://pages.cs.wisc.edu/~adesmet/status.html
     self.statusdict = { 'q': ['1'], 'r': ['2','3'], 'f': ['4','5','6'], 'c': ['5'] }
-    self.jobidrexp  = re.compile("submitted to cluster (\d+).")
+    self.jobidrexp  = re.compile(r"submitted to cluster (\d+).")
     self.script     = "python/batch/templates/submit_%s.sub"%(self.system) # override BatchSystem's .sh
   
   def submit(self,script=None,taskfile=None,**kwargs):

@@ -21,7 +21,7 @@ class GridKA_NRG(StorageSystem):
         self.lscmd      = "xrdfs"
         self.lsurl      = "root://cmsxrootd-kit.gridka.de/ ls "
         self.rmcmd      = "xrdfs"
-        self.rmurl      = "root://cmsxrootd-kit.gridka.de/ ls "
+        self.rmurl      = "root://cmsxrootd-kit.gridka.de/ rm " # BUGS S09: was 'ls '
         self.mkdrcmd    = "xrdfs"
         self.mkdrurl    = 'root://cmsxrootd-kit.gridka.de/ mkdir -p '
         self.cpcmd      = 'xrdcp -f'
@@ -71,7 +71,7 @@ class GridKA_NRG(StorageSystem):
         source = ""
         for i, file in enumerate(sources, 1):
             source += os.path.join(self.localmount,
-                                   os.path.relpath(file, '/store/user/'))
+                                   os.path.relpath(file, '/store/user/')) + ' ' # BUGS S09: separator
         source = source.strip()
         if verb >= 2:
             print(">>> %-10s = %r" % ('sources', sources))

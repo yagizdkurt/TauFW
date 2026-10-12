@@ -13,6 +13,7 @@ Public API:
 import os
 from fnmatch import fnmatch # for glob pattern
 from TauFW.common.tools.utils import execute, ensurelist
+from TauFW.common.tools.string import isglob # BUGS S07: was missing
 from TauFW.common.tools.file import ensuredir, rmfile
 from TauFW.PicoProducer.storage.log import LOG
 
@@ -116,7 +117,8 @@ class StorageSystem(object):
     return True
   
   def cd(self,*paths,**kwargs):
-    """Change directory if mounted."""
+    """Change directory if mounted. Return None (os.chdir), also when not mounted."""
+    ret = None # BUGS S08: was unbound when not mounted
     if self.mounted:
       #verb = kwargs.get('verb',self.verbosity)
       path = self.expandpath(*paths)

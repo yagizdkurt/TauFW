@@ -21,10 +21,9 @@ __all__ = ['BatchSystem', 'JobList', 'Job']
 # ===== Public API =====
 
 
-class BatchSystem(object):
+class BatchSystem(object,metaclass=ABCMeta): # BUGS S03: Python 2 '__metaclass__ = ABCMeta' had no effect
   """Abstract superclass for batch systems.
   Please subclass and override the abstract methods with your own routines."""
-  __metaclass__ = ABCMeta
   
   def __init__(self,verb=1):
     self.verbosity  = verb
