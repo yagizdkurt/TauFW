@@ -35,8 +35,8 @@ def getsampleset(datasample,expsamples,sigsamples=[ ],**kwargs):
   if not fpattern:
     fpattern = "$PICODIR/$SAMPLE_$CHANNEL$TAG.root"
   if '$PICODIR' in fpattern:
-    import TauFW.PicoProducer.tools.config as GLOB
-    CONFIG   = GLOB.getconfig(verb=0)
+    from TauFW.PicoProducer.settings import getconfig
+    CONFIG   = getconfig(verb=0)
     picodir  = CONFIG['picodir']
     fpattern = repkey(fpattern,PICODIR=picodir)
   if url:
@@ -122,8 +122,8 @@ def getmcsample(group,sample,title,xsec,channel,era,tag="",verb=0,**kwargs):
     import getpass
     user = getpass.getuser()
   if '$PICODIR' in fname and not picodir:
-    import TauFW.PicoProducer.tools.config as GLOB
-    CONFIG  = GLOB.getconfig(verb=0)
+    from TauFW.PicoProducer.settings import getconfig
+    CONFIG  = getconfig(verb=0)
     picodir = CONFIG['picodir']
   fname_ = repkey(fname,PICODIR=picodir,USER=user,ERA=era,GROUP=group,SAMPLE=sample,CHANNEL=channel,TAG=tag)
   if not os.path.isfile(fname_):

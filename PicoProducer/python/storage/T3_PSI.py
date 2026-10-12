@@ -1,8 +1,18 @@
-#! /usr/bin/env python
 # Author: Izaak Neutelings (May 2020)
-import os
-from TauFW.PicoProducer.storage.StorageSystem import StorageSystem
+"""Storage element of the PSI T3 (uberftp/gfal commands when not mounted).
 
+Public API:
+  T3_PSI(path, verb, ensure, **kwargs)
+"""
+
+# ===== Imports =====
+import os
+from TauFW.PicoProducer.storage.base import StorageSystem
+
+__all__ = ['T3_PSI']
+
+
+# ===== Public API =====
 
 class T3_PSI(StorageSystem):
   

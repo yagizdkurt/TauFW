@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # Author: Izaak Neutelings (Februari 2019)
 from TauFW.Plotter.plot.utils import LOG
-from TauFW.Plotter.plot.MultiThread import MultiProcessor, Thread
+from TauFW.common.tools.parallel import MultiProcessor, Thread
 from ROOT import gROOT, gSystem, gDirectory, TFile, TH1D
 import time
 

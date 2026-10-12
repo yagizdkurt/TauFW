@@ -1,5 +1,5 @@
-from TauFW.PicoProducer.storage.Sample import MC as M
-from TauFW.PicoProducer.storage.Sample import Data as D
+from TauFW.PicoProducer.datasets import MC as M
+from TauFW.PicoProducer.datasets import Data as D
 storage  = None 
 url      = "root://cms-xrd-global.cern.ch/"
 filelist = None

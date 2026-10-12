@@ -1,9 +1,24 @@
 # Author: Izaak Neutelings (May 2020)
+"""Batch system adapters: submit task lists and query job states.
+
+A BatchSystem submits one array job per task list (one shell command per line, see jobs/) using its
+submit template in batch/templates/ (paths relative to PicoProducer/, the working directory of pico.py),
+and parses its queue into Job objects with a status: q=queued, r=running, f=failed, c=completed, ?=unknown.
+
+Public API:
+  BatchSystem(verb)     abstract base class: submit(script, taskfile, **kwargs), status(job), jobs(jobids)
+  JobList, Job          parsed queue rows
+"""
+
+# ===== Imports =====
 #import os, re, shutil
-import os, re
-import importlib
 from TauFW.common.tools.utils import execute
 from abc import ABCMeta, abstractmethod
+
+__all__ = ['BatchSystem', 'JobList', 'Job']
+
+
+# ===== Public API =====
 
 
 class BatchSystem(object):
@@ -15,7 +30,7 @@ class BatchSystem(object):
     self.verbosity  = verb
     self.statusdict = { }
     self.system     = self.__class__.__name__
-    self.script     = "python/batch/submit_%s.sh"%(self.system)
+    self.script     = "python/batch/templates/submit_%s.sh"%(self.system)
   
   def __str__(self):
     return self.system

@@ -1,13 +1,25 @@
 # Author: Izaak Neutelings (May 2020)
-# Description: Superclass of a generic storage system with common operations like
-#              ls, cp, rm, mkdir, etc. to allow for easy implementation of storage system plug-ins.
+"""Storage system adapters: a common interface to list, copy, merge and remove files.
+
+StorageSystem implements every operation with configurable shell commands (ls, cp, rm, mkdir, chmod, hadd)
+and URL prefixes; site subclasses only change those commands. Local is the plain local filesystem.
+
+Public API:
+  StorageSystem(path, verb, **kwargs)   base class: exists, ensuredir, ls, getfiles, cp, hadd, rm, mkdir, chmod
+  Local(path, verb, ensure, **kwargs)   local (or mounted) directory
+"""
+
+# ===== Imports =====
 import os
 from fnmatch import fnmatch # for glob pattern
 from TauFW.common.tools.utils import execute, ensurelist
 from TauFW.common.tools.file import ensuredir, rmfile
-from TauFW.PicoProducer.storage.utils import LOG
-import getpass, platform
+from TauFW.PicoProducer.storage.log import LOG
 
+__all__ = ['StorageSystem', 'Local']
+
+
+# ===== Public API =====
 
 class StorageSystem(object):
   

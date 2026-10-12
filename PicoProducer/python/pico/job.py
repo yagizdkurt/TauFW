@@ -1,14 +1,18 @@
 #! /usr/bin/env python
 # Author: Izaak Neutelings (April 2020)
-import os, sys, re, glob, json
+import os, re, glob, json
 from datetime import datetime
 from collections import OrderedDict
 from TauFW.common.tools.file import ensuredir, getline
 from TauFW.common.tools.utils import execute, chunkify
 from TauFW.common.tools.string import repkey, lreplace, alphanum_key
 from TauFW.common.tools.LoadingBar import LoadingBar
-from TauFW.PicoProducer.batch.utils import getbatch, getcfgsamples, chunkify_by_evts, evtsplitexp
-from TauFW.PicoProducer.storage.utils import getstorage, getsamples, isvalid, itervalid, print_no_samples
+from TauFW.PicoProducer.batch.factory import getbatch
+from TauFW.PicoProducer.jobs.chunking import chunkify_by_evts, evtsplitexp
+from TauFW.PicoProducer.jobs.jobconfig import getcfgsamples
+from TauFW.PicoProducer.storage.factory import getstorage
+from TauFW.PicoProducer.storage.validation import isvalid, itervalid
+from TauFW.PicoProducer.datasets.catalog import getsamples, print_no_samples
 from TauFW.PicoProducer.pico.run import getmodule
 from TauFW.common.tools.log import color, bold
 from TauFW.PicoProducer.pico.common import CONFIG, LOG

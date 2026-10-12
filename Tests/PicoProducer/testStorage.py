@@ -4,7 +4,7 @@
 #   test/testStorage.py pathOnMyStorageSystem -v2
 #   test/testStorage.py /eos/cms/store/group/phys_tau/ --readonly -v
 #   test/testStorage.py /pnfs/lcg.cscs.ch/cms/trivcat/store/user/$USER --readonly -v
-from TauFW.PicoProducer.storage.utils import LOG, getstorage
+from TauFW.PicoProducer.storage import LOG, getstorage
 from ROOT import gRandom, TFile, TTree, TH1F
 from array import array
 from datetime import datetime

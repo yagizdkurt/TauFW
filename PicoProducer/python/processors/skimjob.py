@@ -167,7 +167,7 @@ if len(outflist)!=len(infiles): # sanity check
 
 # COPY
 if copydir and outdir!=copydir:
-  from TauFW.PicoProducer.storage.utils import getstorage
+  from TauFW.PicoProducer.storage.factory import getstorage
   from TauFW.common.tools.file import rmfile
   store = getstorage(copydir,verb=2)
   store.cp(outfiles)

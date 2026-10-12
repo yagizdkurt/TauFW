@@ -7,7 +7,7 @@ import TauFW.Plotter.plot.Plot as PLOT
 from TauFW.Plotter.plot.Plot import Plot, deletehist, _lcolors
 from TauFW.Plotter.plot.Plot import LOG as PLOG
 from TauFW.Plotter.plot.MultiDraw import MultiDraw
-from TauFW.Plotter.plot.MultiThread import MultiProcessor
+from TauFW.common.tools.parallel import MultiProcessor
 from ROOT import TChain, TFile
 #from collections import namedtuple
 #Sample = namedtuple('Sample',['name','title','files'])

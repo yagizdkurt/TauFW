@@ -1,0 +1,108 @@
+# Author: Izaak Neutelings (May 2020)
+"""Read, repair and persist the global configuration in PicoProducer/config/config.json.
+
+Inputs:  config/config.json and its backup config/config.json.bkp (both optional).
+Outputs: a cached Config; missing keys are restored from the backup or the defaults and written back.
+
+Public API:
+  getconfig(verb, refresh)   load the configuration once (cached), creating or repairing the file if needed
+  setdefaultconfig(verb)     overwrite the configuration file with the defaults
+"""
+
+# ===== Imports =====
+import os, json
+from collections import OrderedDict
+from TauFW.PicoProducer import basedir
+from TauFW.common.tools.file import ensuredir
+from TauFW.common.tools.log import Logger
+from TauFW.PicoProducer.settings.defaults import getdefaultconfig
+from TauFW.PicoProducer.settings.model import Config
+
+__all__ = ['getconfig', 'setdefaultconfig']
+
+
+# ===== Constants =====
+LOG    = Logger('GLOB')
+CONFIG = None # cache of the loaded configuration
+
+
+# ===== Public API =====
+
+def getconfig(verb=0,refresh=False):
+  """Get configuration from JSON file."""
+  global CONFIG
+  cfgdefaults = getdefaultconfig(verb=verb)
+  if CONFIG and not refresh:
+    return CONFIG
+  
+  # SETTING
+  cfgdir   = ensuredir(basedir,"config")
+  cfgname  = os.path.join(cfgdir,"config.json")
+  bkpname  = os.path.join(cfgdir,"config.json.bkp") # back up to recover config if reset
+  cfgdict  = cfgdefaults.copy()
+  rqdstrs  = [k for k,v in cfgdefaults.items() if isinstance(v,str)] # required string type
+  rqddicts = [k for k,v in cfgdefaults.items() if isinstance(v,dict)] # required dictionary type
+  
+  # GET CONFIG
+  if os.path.isfile(cfgname):
+    with open(cfgname,'r') as file:
+      cfgdict = json.load(file,object_pairs_hook=OrderedDict)
+    nmiss = len([0 for k in cfgdefaults.keys() if k not in cfgdict]) # count missing keys
+    if nmiss>=5 and os.path.isfile(bkpname): # recover reset config file
+      print(">>> Config file may have been reset. Opening backup %s..."%(bkpname))
+      with open(bkpname,'r') as file:
+        bkpcfgdict = json.load(file,object_pairs_hook=OrderedDict)
+      for key in bkpcfgdict.keys(): # check for missing keys
+        if key not in cfgdict:
+          LOG.warning("Key '%s' not set in config file %s. Setting to backup %r"%(key,os.path.relpath(cfgname),bkpcfgdict[key]))
+          cfgdict[key] = bkpcfgdict[key]
+          nmiss += 1
+    if nmiss>0:
+      for key in cfgdefaults.keys(): # check for missing keys
+        if key not in cfgdict:
+          LOG.warning("Key '%s' not set in config file %s. Setting to default %r"%(key,os.path.relpath(cfgname),cfgdefaults[key]))
+          cfgdict[key] = cfgdefaults[key]
+          nmiss += 1
+      print(">>> Saving updated keys...")
+      with open(cfgname,'w') as file:
+        json.dump(cfgdict,file,indent=2)
+  else:
+    LOG.color("Config file '%s' does not exist in %s. Creating with defaults..."%(cfgname,cfgdir),c='green')
+    with open(cfgname,'w') as file:
+      json.dump(cfgdict,file,indent=2)
+  
+  # SANITY CHECKS - format of values for required keys
+  for key in rqdstrs:
+    assert key in cfgdict, "Required key '%s' not found in the configuration file..."%(key)
+    assert isinstance(cfgdict[key],str),\
+      "Required value for '%s' must be a string or unicode! Instead is of type %s: %r"%(key,type(cfgdict[key]),key)
+  for key in rqddicts:
+    assert key in cfgdict, "Required key '%s' not found in the configuration file..."%(key)
+    assert isinstance(cfgdict[key],dict),\
+      "Required value for '%s' must be a dictionary! Instead is of type %s: %r"%(key,type(cfgdict[key]),cfgdict[key])
+  
+  # RETURN
+  if verb>=1:
+    print('-'*80)
+    print(">>> Reading config JSON file '%s'"%cfgname)
+    for key, value in cfgdict.items():
+      print(">>> %-13s = %s"%(key,value))
+    print('-'*80)
+  
+  CONFIG = Config(cfgdict,cfgname)
+  return CONFIG
+  
+
+def setdefaultconfig(verb=0):
+  """Set configuration to default values."""
+  global CONFIG
+  cfgdefaults = getdefaultconfig(verb=verb)
+  cfgdir  = ensuredir(basedir,"config")
+  cfgname = os.path.join(cfgdir,"config.json")
+  cfgdict = cfgdefaults.copy()
+  if os.path.isfile(cfgname):
+    LOG.warning("Config file '%s' already exists. Overwriting with defaults..."%(cfgname))
+  CONFIG  = Config(cfgdict,cfgname)
+  CONFIG.write(backup=False,verb=verb)
+  return CONFIG
+  

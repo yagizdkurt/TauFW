@@ -1,10 +1,19 @@
-#! /usr/bin/env python
 # Author: Andrea Cardini (September 2020)
+"""dCache storage at the DESY T2 (srm commands).
+
+Public API:
+  T2_DESY(path, verb, ensure, **kwargs)
+"""
+
+# ===== Imports =====
 import os
 import glob
-from TauFW.common.tools.utils import execute
-from TauFW.PicoProducer.storage.StorageSystem import StorageSystem
+from TauFW.PicoProducer.storage.base import StorageSystem
 
+__all__ = ['T2_DESY']
+
+
+# ===== Public API =====
 
 class T2_DESY(StorageSystem):
   

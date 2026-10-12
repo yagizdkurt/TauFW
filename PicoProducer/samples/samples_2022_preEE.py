@@ -1,6 +1,6 @@
 
-from TauFW.PicoProducer.storage.Sample import MC as M
-from TauFW.PicoProducer.storage.Sample import Data as D
+from TauFW.PicoProducer.datasets import MC as M
+from TauFW.PicoProducer.datasets import Data as D
 storage = "/eos/cms/store/group/phys_tau/irandreo/Run3_22/$DAS"
 url      = "root://cms-xrd-global.cern.ch/"
 filelist = None 

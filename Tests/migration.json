@@ -77,7 +77,8 @@
       "original": "Plotter/test/testMultiThread.py",
       "moved": "Tests/Plotter/testMultiThread.py",
       "sha256": "08539a69549e260a97a721eeab5024c15e955546a5ed624849653a1ac46bdae0",
-      "canonical_sha256": "ec8a55aad6a1ad481b0d0979b270c39ca132dacdd62ed76774d217ff3f4388aa"
+      "canonical_sha256": "ec8a55aad6a1ad481b0d0979b270c39ca132dacdd62ed76774d217ff3f4388aa",
+      "edited": "Imports follow the PicoProducer package restructuring (settings/, datasets/, storage/, batch/, jobs/) and the move of MultiThread to TauFW.common.tools.parallel (2026-10-12)."
     },
     {
       "original": "Plotter/test/testPanels.py",
@@ -180,19 +181,22 @@
       "original": "PicoProducer/test/testBatch.py",
       "moved": "Tests/PicoProducer/testBatch.py",
       "sha256": "6c8e231c821d2452885de1af942b3bf3f164fa589641b52f48e5c61bb4afe13d",
-      "canonical_sha256": "2af70b4772e56d5175c71ac97d63d5b7dcbd1f51865cc81283379897c7b50405"
+      "canonical_sha256": "2af70b4772e56d5175c71ac97d63d5b7dcbd1f51865cc81283379897c7b50405",
+      "edited": "Imports follow the PicoProducer package restructuring (settings/, datasets/, storage/, batch/, jobs/) and the move of MultiThread to TauFW.common.tools.parallel (2026-10-12)."
     },
     {
       "original": "PicoProducer/test/testEventBased.py",
       "moved": "Tests/PicoProducer/testEventBased.py",
       "sha256": "f6a1f5baeac911ae08b636c1d2770d00b2e167f53e45ed91b1e08be529f44c6c",
-      "canonical_sha256": "f761b2b72ffbf3c7fde8bc041463dc6fdd0b5bddd448fe9bd69918e940085739"
+      "canonical_sha256": "f761b2b72ffbf3c7fde8bc041463dc6fdd0b5bddd448fe9bd69918e940085739",
+      "edited": "Imports follow the PicoProducer package restructuring (settings/, datasets/, storage/, batch/, jobs/) and the move of MultiThread to TauFW.common.tools.parallel (2026-10-12)."
     },
     {
       "original": "PicoProducer/test/testSample.py",
       "moved": "Tests/PicoProducer/testSample.py",
       "sha256": "3b89be74f383e458bc312d901d60842a49f85e223e3efe0005fe61b227248de7",
-      "canonical_sha256": "646af2d3162fbb3b45eb99fdd3beeaf38ff807225adc9186af4a72a7308ce9a3"
+      "canonical_sha256": "646af2d3162fbb3b45eb99fdd3beeaf38ff807225adc9186af4a72a7308ce9a3",
+      "edited": "Imports follow the PicoProducer package restructuring (settings/, datasets/, storage/, batch/, jobs/) and the move of MultiThread to TauFW.common.tools.parallel (2026-10-12)."
     },
     {
       "original": "PicoProducer/test/testSFs.py",
@@ -205,7 +209,8 @@
       "original": "PicoProducer/test/testStorage.py",
       "moved": "Tests/PicoProducer/testStorage.py",
       "sha256": "4a24c8e195764e21637de3fe38b958f6ba701fd4b48129fc4b70fcef9b8d383e",
-      "canonical_sha256": "729150cc6b949e3d9d51b5b48dbce58176d7c61da0370a19f540c3727c553eaa"
+      "canonical_sha256": "729150cc6b949e3d9d51b5b48dbce58176d7c61da0370a19f540c3727c553eaa",
+      "edited": "Imports follow the PicoProducer package restructuring (settings/, datasets/, storage/, batch/, jobs/) and the move of MultiThread to TauFW.common.tools.parallel (2026-10-12)."
     },
     {
       "original": "PicoProducer/python/processors/test.py",

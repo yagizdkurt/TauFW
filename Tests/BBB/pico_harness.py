@@ -56,7 +56,7 @@ for row in rows:
 # Fixed configuration: every key is set, so no host/user-dependent default is consulted.
 CHANNELS = {"skim": "skimjob.py --common-presel", "mutau": "ModuleMuTauSimple tes=1.0"}
 
-CATALOG = '''from TauFW.PicoProducer.storage.Sample import MC, Data
+CATALOG = '''from TauFW.PicoProducer.datasets import MC, Data
 STORE = %r
 samples = [
   MC('DY', 'DYJetsToLL_M-50', '/DYJetsToLL_M-50_BBB/RunIIBBB-v1/NANOAODSIM',

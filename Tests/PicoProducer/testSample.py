@@ -3,10 +3,12 @@
 # Description: Test Sample class
 #   test/testSample.py -v2
 from TauFW.common.tools.log import color
-from TauFW.PicoProducer.storage.Sample import MC as M
-from TauFW.PicoProducer.storage.Sample import Data as D
-from TauFW.PicoProducer.storage.Sample import Sample, LOG
-from TauFW.PicoProducer.storage.utils import getsamples, repkey
+from TauFW.PicoProducer.datasets import MC as M
+from TauFW.PicoProducer.datasets import Data as D
+from TauFW.PicoProducer.datasets import Sample
+from TauFW.PicoProducer.storage.log import LOG
+from TauFW.PicoProducer.datasets.catalog import getsamples
+from TauFW.common.tools.string import repkey
 
 
 def testSample(args):

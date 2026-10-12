@@ -3,9 +3,9 @@ import os, glob, json
 from TauFW.common.tools.file import ensurefile, ensureinit
 from TauFW.common.tools.string import repkey, rreplace, lreplace
 from TauFW.PicoProducer.analysis.utils import ensuremodule
-from TauFW.PicoProducer.storage.utils import getsamples
+from TauFW.PicoProducer.datasets.catalog import getsamples
 from TauFW.common.tools.log import color, bold
-import TauFW.PicoProducer.tools.config as GLOB
+from TauFW.PicoProducer.settings import setdefaultconfig
 from TauFW.PicoProducer.pico.common import CONFIG, LOG
 
 
@@ -268,7 +268,7 @@ def main_set(args):
     print('-'*80)
   if variable=='all':
     if 'default' in value:
-      CONFIG = GLOB.setdefaultconfig(verb=args.verbosity)
+      CONFIG = setdefaultconfig(verb=args.verbosity)
       CONFIG.write(backup=False)
     else:
       LOG.warning("Did not recognize value '%s'. Did you mean 'default'?"%(value))

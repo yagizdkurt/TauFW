@@ -1,5 +1,5 @@
-from TauFW.PicoProducer.storage.Sample import MC as M
-from TauFW.PicoProducer.storage.Sample import Data as D
+from TauFW.PicoProducer.datasets import MC as M
+from TauFW.PicoProducer.datasets import Data as D
 storage  = "/pnfs/psi.ch/cms/trivcat/store/user/$USER/samples/NANOAOD_2018/$PATH"
 store_T2 = "/pnfs/lcg.cscs.ch/cms/trivcat/store/user/areimers/NANOAOD/2018/LQTChannel/$PATH"
 url      = None #"root://cms-xrd-global.cern.ch/"

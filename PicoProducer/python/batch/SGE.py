@@ -1,8 +1,13 @@
 # Author: Izaak Neutelings (April 2020)
-#import os, re, shutil
+"""SGE batch system (Sun Grid Engine). NOTE: currently broken, see BUGS.md S01; not registered in batch.factory.
+"""
+
+# ===== Imports =====
 import os, re
-from TauFW.common.tools.utils import execute
-from TauFW.PicoProducer.batch.BatchSystem import BatchSystem, Job, JobList
+from TauFW.PicoProducer.batch.base import BatchSystem, Job, JobList
+
+
+# ===== Public API =====
 
 
 class HTCondor(BatchSystem):

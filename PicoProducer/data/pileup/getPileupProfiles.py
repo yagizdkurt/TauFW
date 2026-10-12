@@ -383,8 +383,8 @@ def main(args):
   fname_ = "$PICODIR/$SAMPLE_$CHANNEL.root" # sample file name
   # fname_ = "/scratch/ineuteli/analysis/LQ_$ERA/$GROUP/$SAMPLE_$CHANNEL.root" # sample file name
   if 'mc' in types and '$PICODIR' in fname_:
-    import TauFW.PicoProducer.tools.config as GLOB
-    CONFIG = GLOB.getconfig(verb=verbosity)
+    from TauFW.PicoProducer.settings import getconfig
+    CONFIG = getconfig(verb=verbosity)
     fname_ = repkey(fname_,PICODIR=CONFIG['picodir'])
   
   for era in args.eras:

@@ -8,11 +8,12 @@ import os, glob, platform
 from time import sleep
 from TauFW.common.tools.root import ensureTFile
 from TauFW.common.tools.math import partition_by_max, ceil
-from TauFW.PicoProducer.storage.Sample import MC as M
-from TauFW.PicoProducer.storage.Sample import Data as D
-from TauFW.PicoProducer.storage.Sample import Sample, LOG
-from TauFW.PicoProducer.storage.utils import getsamples
-#from TauFW.PicoProducer.batch.utils import chunkify_by_evts
+from TauFW.PicoProducer.datasets import MC as M
+from TauFW.PicoProducer.datasets import Data as D
+from TauFW.PicoProducer.datasets import Sample
+from TauFW.PicoProducer.storage.log import LOG
+from TauFW.PicoProducer.datasets.catalog import getsamples
+#from TauFW.PicoProducer.jobs.chunking import chunkify_by_evts
 from ROOT import TFile, TChain, TH1F
 
 

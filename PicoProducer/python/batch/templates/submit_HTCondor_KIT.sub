@@ -5,7 +5,7 @@ docker_image           = mschnepf/slc7-condocker
 Requirements           = ( (Target.ProvidesCPU == True) && (TARGET.ProvidesIO == True ) )
 +RequestWalltime       = 36000
 accounting_group       = cms.higgs
-executable             = python/batch/submit_HTCondor.sh
+executable             = python/batch/templates/submit_HTCondor.sh
 arguments              = $(arg)
 initialdir             = output
 mylogfile              = log/job.$(ClusterId).$(ProcId).log

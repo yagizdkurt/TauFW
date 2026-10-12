@@ -1,7 +1,21 @@
 # Author: Izaak Neutelings (April 2020)
+"""HTCondor batch system (e.g. lxplus) and its site variants.
+
+The site variants differ only in their submit template, batch/templates/submit_<class name>.sub.
+
+Public API:
+  HTCondor(verb)                                          submit with condor_submit, query with condor_q
+  HTCondor_CMG, HTCondor_DESY, HTCondor_KIT, HTCondor_NAF   site variants
+"""
+
+# ===== Imports =====
 import os, re
-from TauFW.common.tools.utils import execute
-from TauFW.PicoProducer.batch.BatchSystem import BatchSystem
+from TauFW.PicoProducer.batch.base import BatchSystem
+
+__all__ = ['HTCondor', 'HTCondor_CMG', 'HTCondor_DESY', 'HTCondor_KIT', 'HTCondor_NAF']
+
+
+# ===== Public API =====
 
 
 class HTCondor(BatchSystem):
@@ -13,7 +27,7 @@ class HTCondor(BatchSystem):
     # http://pages.cs.wisc.edu/~adesmet/status.html
     self.statusdict = { 'q': ['1'], 'r': ['2','3'], 'f': ['4','5','6'], 'c': ['5'] }
     self.jobidrexp  = re.compile("submitted to cluster (\d+).")
-    self.script     = "python/batch/submit_%s.sub"%(self.system) # override BatchSystem's .sh
+    self.script     = "python/batch/templates/submit_%s.sub"%(self.system) # override BatchSystem's .sh
   
   def submit(self,script=None,taskfile=None,**kwargs):
     """Submit a script with some optional parameters."""
@@ -98,3 +112,26 @@ class HTCondor(BatchSystem):
     rows      = self.execute(quecmd,verb=verbosity)
     return self.parsejobs(rows)
   
+
+class HTCondor_CMG(HTCondor):
+  """Subclass to load different .sub script."""
+  def __init__(self,verb=False):
+    super(HTCondor_CMG,self).__init__(verb=verb)
+
+
+class HTCondor_DESY(HTCondor):
+  """Subclass to load different .sub script."""
+  def __init__(self,verb=False):
+    super(HTCondor_DESY,self).__init__(verb=verb)
+
+
+class HTCondor_KIT(HTCondor):
+  """Subclass to load different .sub script."""
+  def __init__(self,verb=False):
+    super(HTCondor_KIT,self).__init__(verb=verb)
+
+
+class HTCondor_NAF(HTCondor):
+  """Subclass to load different .sub script."""
+  def __init__(self,verb=False):
+    super(HTCondor_NAF,self).__init__(verb=verb)

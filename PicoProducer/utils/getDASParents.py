@@ -3,8 +3,8 @@
 # Instructions:
 #   utils/getDASParents.py /DYJetsToLL_M-50_TuneCP5_13TeV-madgraphMLM-pythia8/RunIIFall17*/NANOAODSIM
 from TauFW.common.tools.log import color
-from TauFW.PicoProducer.storage.utils import LOG
-from TauFW.PicoProducer.storage.das import dasgoclient, getdasnevents, getparent, expanddas
+from TauFW.PicoProducer.storage.log import LOG
+from TauFW.PicoProducer.datasets.das import dasgoclient, getdasnevents, getparent, expanddas
 
 
 def addlineage(dataset,family,roots,depth=0,verb=0):

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Author: Izaak Neutelings (July 2020)
 from TauFW.Plotter.sample.Sample import *
-from TauFW.Plotter.plot.MultiThread import MultiProcessor
+from TauFW.common.tools.parallel import MultiProcessor
 from TauFW.Plotter.sample.ResultDict import ResultDict # for containing RDataFRame RResultPtr
 import ROOT
 #ROOT.ROOT.EnableThreadSafety() # for multithreading

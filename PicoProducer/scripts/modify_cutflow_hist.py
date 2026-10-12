@@ -4,7 +4,7 @@ import pickle as pk
 import numpy as np
 from argparse import ArgumentParser, Namespace
 from ROOT import TFile
-from TauFW.PicoProducer.storage.utils import getsamples
+from TauFW.PicoProducer.datasets.catalog import getsamples
 from TauFW.PicoProducer.analysis.utils import getTotalWeight,  getNevt
 from IPython import embed
 

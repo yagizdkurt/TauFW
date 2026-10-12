@@ -1,34 +1,34 @@
 # Author: Izaak Neutelings (May 2020)
-import os, re, glob
-import importlib
-import platform
-from TauFW.PicoProducer.batch import moddir
+"""Split input files into job chunks by number of events.
+
+A chunk is a list of input files. A large file is split into several chunks, each written as
+'fname:firstevt:maxevts' (see evtsplitexp); small files are grouped so each chunk has < maxevts events.
+
+Inputs:  input file names and the maximum number of events per job (event counts read from the files'
+         'Events' trees unless given in a cache dictionary).
+Outputs: (total number of events, list of chunks).
+
+Public API:
+  evtsplitexp                                         regex matching 'fname:firstevt:maxevts'
+  chunkify_by_evts(fnames, maxevts, evenly, evtdict, verb)
+"""
+
+# ===== Imports =====
+import re
 from TauFW.common.tools.log import Logger
 from TauFW.common.tools.root import ensureTFile
-from TauFW.common.tools.string import repkey
-from TauFW.common.tools.math import partition_by_max, ceil, floor
+from TauFW.common.tools.math import partition_by_max, ceil
 from TauFW.common.tools.LoadingBar import LoadingBar
-from TauFW.PicoProducer.storage.Sample import Sample
+
+__all__ = ['evtsplitexp', 'chunkify_by_evts']
+
+
+# ===== Constants =====
 LOG = Logger('Storage')
 evtsplitexp = re.compile(r"(.+\.root):(\d+):(\d+)$") # input file split by events
 
 
-def guess_batch():
-  """Guess the batch system for a host."""
-  host = platform.node()
-  batch = "HTCondor"
-  if "etp" in host:
-    batch = "HTCondor_KIT"
-  elif "desy" in host:
-    batch = "HTCondor_DESY"
-  ###elif "etp" in host:
-  ###  batch = "HTCondor_NAF"
-  elif "t3" in host and "psi.ch" in host:
-    batch = "SLURM"
-  elif "ucl" in host:
-    batch = "SLURM_UCL"
-  return batch
-  
+# ===== Public API =====
 
 def chunkify_by_evts(fnames,maxevts,evenly=True,evtdict=None,verb=0):
   """Split list of files into chunks with total events per chunks less than given maximum,
@@ -110,56 +110,3 @@ def chunkify_by_evts(fnames,maxevts,evenly=True,evtdict=None,verb=0):
     print(">>> ]")
   return ntot, result
 
-
-def getbatch(arg,verb=0):
-  """Get BatchSystem (subclass) instance and check if it exists."""
-  if isinstance(arg,str):
-    system = arg
-  elif hasattr(arg,'batch'):
-    system = arg.batch
-  elif isinstance(arg,dict) and 'batch' in arg:
-    system = arg[batch]
-  else:
-    raise IOError("Did not recognize argument",arg)
-  modfile = os.path.join(moddir,system+".py")
-  modpath = "TauFW.PicoProducer.batch.%s"%(system)
-  assert os.path.isfile(modfile), "Did not find python module %s for batch system '%s'"%(modfile,system)
-  module  = importlib.import_module(modpath)
-  batch   = getattr(module,system)(verb=verb)
-  return batch
-  
-
-def getcfgsamples(jobcfgnames,filter=[ ],veto=[ ],dtype=[ ],verb=0):
-  """Help function to get samples from a job configuration file.
-  Return list of Sample objects."""
-  import glob
-  filters = filter if isinstance(filter,list) else [filter]
-  vetoes  = veto   if isinstance(veto,list)   else [veto]
-  dtypes  = dtype  if isinstance(dtype,list)  else [dtype]
-  jobcfgs = glob.glob(jobcfgnames)
-  
-  samples = [ ]
-  if verb>=2:
-    if jobcfgs:
-      print(">>> getcfgsamples: Found job config:")
-    else:
-      print(">>> getcfgsamples: Found NO job configs %s"%(jobcfgnames))
-  for cfgname in sorted(jobcfgs):
-    if verb>=2:
-      print(">>>   %s"%(cfgname))
-    sample = Sample.loadjson(cfgname)
-    if filters and not sample.match(filters,verb): continue
-    if vetoes and sample.match(vetoes,verb): continue
-    if sample.dtype not in dtypes: continue
-    for i, osample in enumerate(samples):
-      if sample.name!=osample.name: continue
-      if sample.paths!=osample.paths: continue
-      if sample.channels[0] not in osample.channels: continue
-      if sample.subtry>osample.subtry: # ensure last job (re)submission
-        #TODO: compare sample.jobcfg['config'] and osample.jobcfg['config'] to avoid mixing different jobs
-        samples[samples.index(osample)] = sample # replace
-      break
-    else: # if no break
-      samples.append(sample)
-  return samples
-  

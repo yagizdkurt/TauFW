@@ -256,7 +256,7 @@ Once you have the skimmed root files for Data and MC, you can move on to calcula
 - Ensure that your `x509` proxy is valid and you have EOS access.
 - The batch configuration scripts are located in:
   ```
-  TauFW/PicoProducer/python/batch/
+  TauFW/PicoProducer/python/batch/templates/
   ```
 ---
 

@@ -1,7 +1,7 @@
 # Submit as
-#   condor_submit submit_HTCondor_CMG.sub 'mylogfile=log/myjob.$(ClusterId).$(ProcId).log' -queue arg from args.txt
+#   condor_submit submit_HTCondor.sub 'mylogfile=log/myjob.$(ClusterId).$(ProcId).log' -queue arg from args.txt
 universe              = vanilla
-executable            = python/batch/submit_HTCondor.sh
+executable            = python/batch/templates/submit_HTCondor.sh
 arguments             = $(arg)
 initialdir            = output
 mylogfile             = log/job.$(ClusterId).$(ProcId).log
@@ -23,8 +23,9 @@ getenv                = CMSSW*, SCRAM_ARCH*, *CONTAINER
 environment           = "JOBID=$(ClusterId) TASKID=$(ProcId) CONTAINER=$(container)"
 # NOTE: The following OS requirement should be replaced for CMSSW 13 & later,
 #       or replaced with singularities all together when CentOS7 is phased out on lxplus
-requirements          = (OpSysAndVer =?= "CentOS7")
+#       See https://batchdocs.web.cern.ch/local/submit.html#os-choice
+#requirements          = (OpSysAndVer =?= "CentOS7")
+#requirements          = (OpSysAndVer =?= "AlmaLinux9")
 +JobFlavour           = workday
 +MaxRuntime           = 20000
-+AccountingGroup      = "group_u_CMST3.all"
 #queue arg from args.txt

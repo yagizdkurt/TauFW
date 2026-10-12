@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# Moved from TauFW.Plotter.plot.MultiThread to TauFW.common.tools.parallel (2026): generic, used by Plotter and PicoProducer.
 # Author: Izaak Neutelings (2017)
 # Source: https://stackoverflow.com/questions/6893968/how-to-get-the-return-value-from-a-thread-in-python
 #         https://stackoverflow.com/questions/10415028/how-can-i-recover-the-return-value-of-a-function-passed-to-multiprocessing-proce/28799109

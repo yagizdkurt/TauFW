@@ -4,7 +4,7 @@ import pickle as pk
 import numpy as np
 from argparse import ArgumentParser
 from ROOT import TFile
-from TauFW.PicoProducer.storage.utils import getsamples
+from TauFW.PicoProducer.datasets.catalog import getsamples
 from TauFW.PicoProducer.analysis.utils import getTotalWeight
 
 #python3 ./scripts/modify_cutflow_hist_v2.py --pico_dir /nfs/user/pmastra/TestRun3/Run3_ACardini/CMSSW_12_4_8/src/TauFW/PicoProducer/ --veto 'Muon'  --sumw_file /nfs/user/pmastra/TestRun3/Run3_ACardini/CMSSW_12_4_8/src/TauFW/PicoProducer/samples/nanoaod_sumw_2022_postEE.json -m --bin 17 -c mumu

@@ -1,5 +1,5 @@
-from TauFW.PicoProducer.storage.Sample import MC as M
-from TauFW.PicoProducer.storage.Sample import Data as D
+from TauFW.PicoProducer.datasets import MC as M
+from TauFW.PicoProducer.datasets import Data as D
 storage  = "/eos/cms/store/group/phys_tau/TauFW/nano/UL2016_preVFP/$DAS"
 url      = None #"root://eosuser.cern.ch/"
 filelist = "" #samples/files/UL2016_preVFP/$SAMPLE.txt"

@@ -7,9 +7,9 @@ try:
   from TauFW.common.tools.string import repkey, rreplace
   from TauFW.PicoProducer import basedir
   from TauFW.PicoProducer.analysis.utils import ensuremodule
-  from TauFW.PicoProducer.storage.utils import getsamples
-  from TauFW.PicoProducer.storage.utils import LOG as SLOG
-  import TauFW.PicoProducer.tools.config as GLOB
+  from TauFW.PicoProducer.datasets.catalog import getsamples
+  from TauFW.PicoProducer.storage.log import LOG as SLOG
+  from TauFW.PicoProducer.settings import DTYPES
 except ImportError as err:
   print("\033[1m\033[31mImportError for TauFW modules: Please check if you compiled with `scram b`."
         "Releases older than CMSSW_12_X (python2) are no longer supported.\033[0m")
@@ -61,7 +61,7 @@ if __name__ == "__main__":
                           metavar='PATTERN',    help="exclude/veto these samples; glob patterns are allowed")
   parser_sam.add_argument('-X', '--dasveto',    dest='dasvetoes', nargs='+', default=[ ],
                           metavar='PATTERN',    help="exclude/veto these DAS paths; glob patterns are allowed")
-  parser_sam.add_argument('--dtype','--dt',     dest='dtypes', choices=GLOB.dtypes, default=GLOB.dtypes, nargs='+',
+  parser_sam.add_argument('--dtype','--dt',     dest='dtypes', choices=DTYPES, default=DTYPES, nargs='+',
                                                 help="filter these data type(s)")
   parser_sam.add_argument('-D','--das',         dest='checkdas', action='store_true',
                                                 help="check DAS for total number of events")

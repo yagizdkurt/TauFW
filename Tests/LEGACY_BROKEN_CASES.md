@@ -78,7 +78,7 @@ There is a separate integration constraint beyond the syntax error. Lines
 14–35 configure real 2016 CMS datasets with no supplied local storage or file
 list. Line 74 calls `sample.writefiles(..., nevts=True)`, which requests file
 discovery and per-file event counts. The production
-[Sample storage code](../PicoProducer/python/storage/Sample.py) routes discovery
+[Sample storage code](../PicoProducer/python/datasets/sample.py) routes discovery
 to DAS when no storage source is available (`getfiles()`, lines 224–248).
 Consequently, even a syntactically repaired script would not be an isolated,
 offline normal test with its current defaults. This dependency is not itself

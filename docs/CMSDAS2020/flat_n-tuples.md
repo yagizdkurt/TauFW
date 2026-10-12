@@ -305,12 +305,12 @@ Small sidenote: to exit `less`, just press `q`.
 Because of that, it is good to have a small number of jobs in total, which however stay within the runtime slot you request. Since the `pico.py` commands related to
 batch system are wrappers around HTCondor commands, it is also good to know a bit, what is running under the hood. In the following, a few advices to optimize your batch system tasks.
 
-The core shell script passed to HTCondor for execution is [submit_HTCondor.sh](../../PicoProducer/python/batch/submit_HTCondor.sh). You can see it also in the condor configuration file,
-which is in case of CERN `lxplus` [submit_HTCondor.sub](../../PicoProducer/python/batch/submit_HTCondor.sub).
+The core shell script passed to HTCondor for execution is [submit_HTCondor.sh](../../PicoProducer/python/batch/templates/submit_HTCondor.sh). You can see it also in the condor configuration file,
+which is in case of CERN `lxplus` [submit_HTCondor.sub](../../PicoProducer/python/batch/templates/submit_HTCondor.sub).
 
 Try to get more familiar with that configuration by having a closer look at it. Please also
 pay attention, what exactly is done when performing the initial submission command for `pico.py`.
-It is not more than passing [submit_HTCondor.sub](../../PicoProducer/python/batch/submit_HTCondor.sub) to the `condor_submit`
+It is not more than passing [submit_HTCondor.sub](../../PicoProducer/python/batch/templates/submit_HTCondor.sub) to the `condor_submit`
 command with a bunch of specified options :).
 
 If you would like to see, what is exactly running, you can also check the status without the `pico.py status` wrapper:

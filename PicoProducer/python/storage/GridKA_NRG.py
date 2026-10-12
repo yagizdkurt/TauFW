@@ -1,10 +1,18 @@
-#! /usr/bin/env python
 # Author: Sebastian Brommer (July 2020)
-import os
-from TauFW.common.tools.utils import execute
-from TauFW.PicoProducer.storage.StorageSystem import StorageSystem
-import getpass, platform
+"""NRG storage at GridKA (xrootd commands; hadd through the local /storage/gridka-nrg mount).
 
+Public API:
+  GridKA_NRG(path, verb, ensure, **kwargs)
+"""
+
+# ===== Imports =====
+import os
+from TauFW.PicoProducer.storage.base import StorageSystem
+
+__all__ = ['GridKA_NRG']
+
+
+# ===== Public API =====
 
 class GridKA_NRG(StorageSystem):
     def __init__(self,path,verb=0,ensure=False,**kwargs):

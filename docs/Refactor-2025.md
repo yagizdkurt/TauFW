@@ -13,8 +13,9 @@ Sections are in the order the work was done. Each lists the relevant commits.
 | 2 | [FastSetup script](#2-fastsetup-script) | 2026-10-12 |
 | 3 | [Removal of legacy Python 2 scripts](#3-removal-of-legacy-python-2-scripts) | 2026-10-12 |
 | 4 | [Utilities package for future development](#4-utilities-package-for-future-development) | 2026-10-12 |
-| 5 | [PicoProducer cleanup, session 1: command-level BBB tests and bug register](#5-picoproducer-cleanup-session-1-command-level-bbb-tests-and-bug-register) | 2026-10-12 |
-| 6 | [PicoProducer cleanup, session 2: legacy area, explicit imports, no import-time side effects](#6-picoproducer-cleanup-session-2-legacy-area-explicit-imports-no-import-time-side-effects) | 2026-10-12 |
+| 5 | [PicoProducer cleanup, Part 1: command-level BBB tests and bug register](#5-picoproducer-cleanup-part-1-command-level-bbb-tests-and-bug-register) | 2026-10-12 |
+| 6 | [PicoProducer cleanup, Part 2: legacy area, explicit imports, no import-time side effects](#6-picoproducer-cleanup-part-2-legacy-area-explicit-imports-no-import-time-side-effects) | 2026-10-12 |
+| 7 | [PicoProducer cleanup, Part 3: settings, datasets, storage, batch and jobs packages](#7-picoproducer-cleanup-part-3-settings-datasets-storage-batch-and-jobs-packages) | 2026-10-12 |
 
 The reference environment for all of this is `CMSSW_14_1_0_pre4` (Python 3.9, ROOT 6.30).
 
@@ -220,15 +221,15 @@ The reference environment for all of this is `CMSSW_14_1_0_pre4` (Python 3.9, RO
 
 ---
 
-## 5. PicoProducer cleanup, session 1: command-level BBB tests and bug register
+## 5. PicoProducer cleanup, Part 1: command-level BBB tests and bug register
 
 **Date:** 2026-10-12
 **Details:** [Tests/README.md](../Tests/README.md#picoproducer-command-cases-black-box),
 [PicoProducer/docs/BUGS.md](../PicoProducer/docs/BUGS.md)
 
-This is the first step of a multi-session PicoProducer cleanup. The planned order is:
+This is the first step of a multi-part PicoProducer cleanup. The planned order is:
 
-1. tests and bug register (this session);
+1. tests and bug register (this part);
 2. foundations and `legacy/`;
 3. settings, datasets, storage and batch;
 4. `jobs/`;
@@ -264,7 +265,7 @@ Ground rules for the cleanup:
   - `Tests/BBB/pico_harness.py`: the workspace, fixtures, fake scheduler and normalization.
   - `Tests/BBB/pico_entry.py`: the child-process entry.
   - `Tests/support/bootstrap.py`: gains `attach()`, so a child process can reuse a prepared mirror without copying it.
-- **`PicoProducer/docs/BUGS.md`** lists 60+ defects with location, severity, BBB coverage and the session in which
+- **`PicoProducer/docs/BUGS.md`** lists 60+ defects with location, severity, BBB coverage and the part in which
   each will be fixed. Examples:
   - Run 2 `ModuleMuTau`/`ETau`/`TauTau`/`EMu` crash at `getlepvetoes` (missing `era`);
   - `SGE`/`T2_PSI`/`T3_PSI` cannot be constructed;
@@ -286,12 +287,12 @@ Ground rules for the cleanup:
 
 - Lock the new baselines on lxplus: `python3 Tests/run.py bbb lock --replace`. In the Git diff, check that the 13
   existing baseline files are unchanged.
-- Before session 6, add a `ModuleTauPair`-based channel case. It needs a larger synthetic NanoAOD and the
+- Before part 6, add a `ModuleTauPair`-based channel case. It needs a larger synthetic NanoAOD and the
   jsonpog/TauIDSFs payloads.
 
 ---
 
-## 6. PicoProducer cleanup, session 2: legacy area, explicit imports, no import-time side effects
+## 6. PicoProducer cleanup, Part 2: legacy area, explicit imports, no import-time side effects
 
 **Date:** 2026-10-12
 **Details:** [PicoProducer/python/legacy/README.md](../PicoProducer/python/legacy/README.md),
@@ -335,7 +336,7 @@ and `pyflakes` shows that no name lost its definition.
    - `"python2" if ... else "python3"` (now `python3`);
    - the no-op `__metaclass__ = type`.
 
-   `BatchSystem`'s `__metaclass__ = ABCMeta` stays until session 3, because making it effective is a behavior
+   `BatchSystem`'s `__metaclass__ = ABCMeta` stays until part 3, because making it effective is a behavior
    change (BUGS S03).
 
 ### Why
@@ -344,16 +345,71 @@ and `pyflakes` shows that no name lost its definition.
   refactoring decisions harder. Moving it out (not deleting it) makes the maintained surface explicit.
 - **Wildcard imports hid where names come from.** A module's dependencies were invisible, and the `datadir`
   rebinding leaked between modules (BUGS A13). Explicit imports make each file readable on its own and allow
-  safe moves in later sessions.
+  safe moves in later parts.
 - **Importing should not change process state** (architecture finding A01). The working directory is now an
   explicit decision of the CLI entry point.
 
 ### Bugs
 
-- **No bug was fixed in this session.** A11, C10 and W03 are only moved to `legacy/`.
+- **No bug was fixed in this part.** A11, C10 and W03 are only moved to `legacy/`.
 - **One new bug was found** while resolving names: A14, an undefined `fes` in `ETauFakeRate/ModuleETau.py`.
 
 ### Check
 
 Run `python3 Tests/run.py bbb check` on lxplus. All 18 cases must pass unchanged.
 
+---
+
+## 7. PicoProducer cleanup, Part 3: settings, datasets, storage, batch and jobs packages
+
+**Date:** 2026-10-12
+**Details:** [PicoProducer/docs/BUGS.md](../PicoProducer/docs/BUGS.md)
+
+### A. Restructuring (no behavior change)
+
+Package layout under `PicoProducer/python/`. Every module has a docstring (purpose, inputs, outputs, public API),
+`# ===== ... =====` sections and `__all__`; each package's `__init__.py` exports its public API.
+
+| New module | Old location | Contents |
+|---|---|---|
+| `settings/defaults.py` | `tools/config.py`, `storage/utils.py`, `batch/utils.py` | `DTYPES`, `user`, `host`, site guesses (`guess_sedir`, `guess_tmpdirs`, `guess_batch`), `getdefaultconfig` |
+| `settings/model.py` | `tools/config.py` | `Config` |
+| `settings/store.py` | `tools/config.py` | `getconfig`, `setdefaultconfig` |
+| `datasets/sample.py` | `storage/Sample.py` | `Sample`, `MC`, `Data`, `Embdedded` |
+| `datasets/catalog.py` | `storage/utils.py` | `getsamples`, `print_no_samples` |
+| `datasets/das.py` | `storage/das.py` | `dasgoclient`, `getdasfiles`, `getdasnevents`, ... |
+| `storage/log.py` | `storage/utils.py` | the shared `'Storage'` logger (`pico.py -v` sets its verbosity) |
+| `storage/factory.py` | `storage/utils.py` | `getstorage` |
+| `storage/validation.py` | `storage/utils.py` | `getnevents`, `isvalid`, `itervalid`, `iterevts` |
+| `storage/base.py`, `eos.py`, `t2_desy.py`, `t2_psi.py`, `t3_psi.py`, `gridka_nrg.py` | `StorageSystem.py`, `EOS.py`, ... | storage adapters (class names unchanged) |
+| `batch/base.py` | `batch/BatchSystem.py` | `BatchSystem`, `JobList`, `Job` |
+| `batch/htcondor.py`, `batch/slurm.py`, `batch/sge.py` | `HTCondor*.py`, `SLURM*.py`, `SGE.py` | adapters; the 7-line site subclasses now sit next to their base class |
+| `batch/factory.py` | `batch/utils.py` | `getbatch`, with an explicit `SYSTEMS` registry instead of importing a module by name |
+| `batch/templates/` | `batch/submit_*` | submit templates (`.sub` files now point to `python/batch/templates/submit_HTCondor.sh`) |
+| `jobs/chunking.py` | `batch/utils.py` | `evtsplitexp`, `chunkify_by_evts` |
+| `jobs/jobconfig.py` | `batch/utils.py` | `getcfgsamples` |
+| `TauFW.common.tools.parallel` | `TauFW.Plotter.plot.MultiThread` | `MultiProcessor`, `Thread`. Producer validation no longer imports Plotter (architecture finding A03) |
+
+Side effects that moved:
+- **`sys.path.append(basedir)`** used to run when `tools/config.py` was imported. It is now in
+  `datasets.catalog.getsamples`, the only code that needs it, to import `samples.<catalog>`.
+- **Config defaults** no longer import the storage and batch modules (and ROOT through them), because the site
+  guesses now live in `settings/defaults.py`.
+
+Callers updated: `pico.py`, the `pico/` commands, both workers, Plotter (`sample/utils.py`, `MergedSample`,
+`SampleSet`, `plot_compare_nano.py`), `data/pileup/getPileupProfiles.py`, `scripts/`, `utils/`, the tests
+(`Tests/migration.json` records the edits), the BBB harness, the 46 sample catalogs in the repository, and the
+docs that link to the templates.
+
+### Migration for users
+
+| You have | Change it to |
+|---|---|
+| A sample catalog with `from TauFW.PicoProducer.storage.Sample import MC as M, Data as D` | `from TauFW.PicoProducer.datasets import MC as M, Data as D`. **The old line still works:** `storage/Sample.py` is kept as a documented re-export, the only compatibility shim of this cleanup, because private catalogs outside the repository use it |
+| `import TauFW.PicoProducer.tools.config as GLOB; GLOB.getconfig()` | `from TauFW.PicoProducer.settings import getconfig; getconfig()` |
+| `from TauFW.PicoProducer.storage.utils import getstorage / getsamples / isvalid` | `from TauFW.PicoProducer.storage import getstorage, isvalid`; `from TauFW.PicoProducer.datasets import getsamples` |
+| `from TauFW.PicoProducer.batch.utils import getbatch` | `from TauFW.PicoProducer.batch import getbatch` |
+| `from TauFW.Plotter.plot.MultiThread import MultiProcessor` | `from TauFW.common.tools.parallel import MultiProcessor` |
+| A custom batch system class in `batch/<Name>.py` | Add it to `SYSTEMS` in `batch/factory.py`, and put its template in `batch/templates/` |
+
+`config/config.json` keys and values do not change; `batch` still names the batch system class.

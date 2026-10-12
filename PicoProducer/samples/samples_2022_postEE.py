@@ -1,6 +1,6 @@
 
-from TauFW.PicoProducer.storage.Sample import MC as M
-from TauFW.PicoProducer.storage.Sample import Data as D
+from TauFW.PicoProducer.datasets import MC as M
+from TauFW.PicoProducer.datasets import Data as D
 storage  = "/eos/cms/store/group/phys_tau/irandreo/Run3_22_postEE/$DAS"
 storage_new = "/eos/cms/store/group/phys_tau/irandreo/Run3_22_postEE_new/$DAS"
 storage_eraE = "/eos/cms/store/group/phys_tau/irandreo/Run3_22/$DAS"#Muon_Run2022E/"

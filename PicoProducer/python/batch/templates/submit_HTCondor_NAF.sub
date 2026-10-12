@@ -1,7 +1,7 @@
 # Submit as
 #   condor_submit submit_HTCondor_NAF.sub 'mylogfile=log/myjob.$(ClusterId).$(ProcId).log' -queue arg from args.txt
 universe              = vanilla
-executable            = python/batch/submit_HTCondor.sh
+executable            = python/batch/templates/submit_HTCondor.sh
 arguments             = $(arg)
 initialdir            = output
 mylogfile             = log/job.$(ClusterId).$(ProcId).log

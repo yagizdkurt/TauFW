@@ -5,7 +5,8 @@
 import os, platform
 from time import sleep
 from TauFW.common.tools.file import ensuredir
-from TauFW.PicoProducer.batch.utils import LOG, getbatch
+from TauFW.PicoProducer.storage.log import LOG
+from TauFW.PicoProducer.batch.factory import getbatch
 
 
 def createtasks(fname,ntasks=2,pause=10):
@@ -60,14 +61,14 @@ def testBatch(path,verb=0):
   if batch.system=='HTCondor':
     # use specific settings for KIT condor
     if 'etp' in platform.node():
-      script = "python/batch/submit_HTCondor_KIT.sub"
+      script = "python/batch/templates/submit_HTCondor_KIT.sub"
     else:
-      script = "python/batch/submit_HTCondor.sub"
+      script = "python/batch/templates/submit_HTCondor.sub"
     appcmds = ["initialdir=%s"%(outdir),
                "mylogfile='log/%s.$(ClusterId).$(ProcId).log'"%(jobname)]
     jkwargs.update({ 'app': appcmds })
   elif batch.system=='SLURM':
-    script  = "python/batch/submit_SLURM.sh"
+    script  = "python/batch/templates/submit_SLURM.sh"
     logfile = os.path.join(logdir,"%x.%A.%a.log") # $JOBNAME.o$JOBID.$TASKID.log
     jkwargs.update({ 'log': logfile, 'array': ntasks })
   #elif batch.system=='SGE':

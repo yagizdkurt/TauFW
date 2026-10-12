@@ -35,8 +35,8 @@ year      = getyear(era)  # integer year, e.g. 2017
 modname   = args.module   # main module to run
 channel   = args.channel  # channel
 if channel:
-  import TauFW.PicoProducer.tools.config as GLOB
-  CONFIG  = GLOB.getconfig(verb=0)
+  from TauFW.PicoProducer.settings import getconfig
+  CONFIG  = getconfig(verb=0)
   if not modname:
     assert channel in CONFIG.channels, "Did not find channel '%s' in configuration. Available channels: %s"%(channel,CONFIG.channels)
     modname = CONFIG.channels[args.channel]
@@ -126,7 +126,7 @@ p.run()
 if copydir and outdir!=copydir:
   print(">>> %-12s = %s"%('cwd',os.getcwd()))
   print(">>> %-12s = %s"%('ls',os.listdir(outdir)))
-  from TauFW.PicoProducer.storage.utils import getstorage
+  from TauFW.PicoProducer.storage.factory import getstorage
   from TauFW.common.tools.file import rmfile
   store = getstorage(copydir,verb=2)
   store.cp(outfname)

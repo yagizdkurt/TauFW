@@ -1,7 +1,19 @@
 # Author: Izaak Neutelings (May 2020)
+"""SLURM batch system (e.g. PSI T3) and its site variants.
+
+Public API:
+  SLURM(verb)       submit with sbatch (array jobs), query with squeue
+  SLURM_UCL(verb)   UCL variant with its own submit template, batch/templates/submit_SLURM_UCL.sh
+"""
+
+# ===== Imports =====
 import os, re, getpass
-from TauFW.common.tools.utils import execute
-from TauFW.PicoProducer.batch.BatchSystem import BatchSystem
+from TauFW.PicoProducer.batch.base import BatchSystem
+
+__all__ = ['SLURM', 'SLURM_UCL']
+
+
+# ===== Public API =====
 
 
 class SLURM(BatchSystem):
@@ -109,3 +121,8 @@ class SLURM(BatchSystem):
     rows      = self.execute(quecmd,fatal=False,verb=verbosity)
     return self.parsejobs(rows)
   
+
+class SLURM_UCL(SLURM):
+  """Subclass to load different .sh script."""
+  def __init__(self,verb=False):
+    super(SLURM_UCL,self).__init__(verb=verb)

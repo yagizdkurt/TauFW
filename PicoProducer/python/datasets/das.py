@@ -1,7 +1,23 @@
 # Author: Izaak Neutelings (May 2020)
+"""Queries of the CMS Data Aggregation System (DAS) through the `dasgoclient` command.
+
+Public API:
+  dasgoclient(query, verb, instance, limit, opts)   raw query output
+  getdasfiles(daspath, **kwargs)                    file names of a dataset
+  getdasnevents(daspath, **kwargs)                  number of events of a dataset
+  expanddas(*datasets, verb)                        expand dataset glob patterns
+  getparent(dataset, depth, verb)                   ancestry of a dataset
+"""
+
+# ===== Imports =====
 import os
 from TauFW.common.tools.utils import unpacklistargs, execute, CalledProcessError
-from TauFW.PicoProducer.storage.utils import LOG
+from TauFW.PicoProducer.storage.log import LOG
+
+__all__ = ['dasgoclient', 'getdasfiles', 'getdasnevents', 'expanddas', 'getparent']
+
+
+# ===== Public API =====
 
 
 def dasgoclient(query,**kwargs):
