@@ -5,7 +5,7 @@ Please create a final set of flat n-tuples with modified module [ModuleMuTau](..
 containing the following improvements from each group:
 
 + Variables implemented, which are needed for a refined selection of Z&rarr;&tau;&tau; applied in the plotting script
-[plots_and_histograms_CMSDAS2020.py](../../Plotter/plots_and_histograms_CMSDAS2020.py)
+[plots_and_histograms_CMSDAS2020.py](../../Plotter/Legacy/plots_and_histograms_CMSDAS2020.py)
 + Additional weights included, needed for corrections
 + Energy scale corrections applied to the &tau;<sub>h</sub> candidate
 
@@ -15,11 +15,11 @@ and the variations of &tau;<sub>h</sub> energy scale corresponding to the uncert
 Based on these n-tuples, you can produce plots and - more important for the statistical inference - histograms
 of our main discriminator, the visible mass of the &mu;&tau;<sub>h</sub> (or e&mu;) pair. Please use for that
 the selection defined as `signal_region` enriching Z&rarr;&tau;&tau;, and include the weights needed to apply corrections. Also do
-not forget to modify the QCD extrapolation factor [`scale`](../../Plotter/plots_and_histograms_CMSDAS2020.py#L126) according
+not forget to modify the QCD extrapolation factor [`scale`](../../Plotter/Legacy/plots_and_histograms_CMSDAS2020.py#L126) according
 to your measurement of that factor.
 
 For the systematic variations of the &tau;<sub>h</sub> energy scale in the &mu;&tau;<sub>h</sub> final state, you can also create histograms for the processes affected
-by it, for example `TopT`, `EWKT`, `ZTT`, but with the [`tag`](../../Plotter/plots_and_histograms_CMSDAS2020.py#L149) 
+by it, for example `TopT`, `EWKT`, `ZTT`, but with the [`tag`](../../Plotter/Legacy/plots_and_histograms_CMSDAS2020.py#L149) 
 modified to the way you have saved the downvard and upward variations of the energy scale n-tuples (for example, `_tauh_esDown` and `_tauh_esDown`).
 The naming of the histograms is then accounted for in the following lines:
 
@@ -45,7 +45,7 @@ hadd mutau.root hists/2018/mutau*.root
 ```
 
 Feel free also to use your own setup of [ModuleMuTau](../../PicoProducer/python/analysis/CMSDAS2020/ModuleMuTau.py) and
-[plots_and_histograms_CMSDAS2020.py](../../Plotter/plots_and_histograms_CMSDAS2020.py), with a possible additional selection
+[plots_and_histograms_CMSDAS2020.py](../../Plotter/Legacy/plots_and_histograms_CMSDAS2020.py), with a possible additional selection
 
 ```python
 signal_region = "q_1*q_2<0 && pt_1 > 29 && pt_2 > 20 && iso_1 < 0.15 && (decayMode_2 < 5 || decayMode_2 > 7) && id_2 >= 16 && anti_mu_2 >= 8"

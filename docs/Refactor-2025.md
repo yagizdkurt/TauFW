@@ -17,6 +17,7 @@ Sections are in the order the work was done. Each lists the relevant commits.
 | 6 | [PicoProducer cleanup, Part 2: legacy area, explicit imports, no import-time side effects](#6-picoproducer-cleanup-part-2-legacy-area-explicit-imports-no-import-time-side-effects) | 2026-10-12 |
 | 7 | [PicoProducer cleanup, Part 3: settings, datasets, storage, batch and jobs packages](#7-picoproducer-cleanup-part-3-settings-datasets-storage-batch-and-jobs-packages) | 2026-10-12 |
 | 8 | [Fitter cleanup: legacy area](#8-fitter-cleanup-legacy-area) | 2026-10-13 |
+| 9 | [Plotter cleanup: legacy area](#9-plotter-cleanup-legacy-area) | 2026-10-13 |
 
 The reference environment for all of this is `CMSSW_14_1_0_pre4` (Python 3.9, ROOT 6.30).
 
@@ -534,3 +535,60 @@ before committing.
   All remaining `Fitter/**/*.sh` pass `bash -n`.
 - The BBB Fitter cases (`fitter.shapes`, `fitter.rebin`) import only `TauFW.Fitter.plot.{datacard,rebinning}`,
   which did not move.
+
+---
+
+## 9. Plotter cleanup: legacy area
+
+**Date:** 2026-10-13
+**Details:** [Plotter/Legacy/README.md](../Plotter/Legacy/README.md)
+
+### What changed
+
+- 39 unused, outdated or one-off files were moved with `git mv` into two legacy areas. Nothing was deleted.
+  - **`Plotter/Legacy/`** for scripts and configs, keeping their path relative to `Plotter/`
+    (e.g. `config/samples_v10.py` → `Legacy/config/samples_v10.py`):
+    - top-level scripts: `plot2D.py`, `plot_compare.py`, `plot_compare_nano.py`, `plot_differential.py`,
+      `plot_stitching.py`, `plot_GENSIM.py`, `plot_CMSPODAS23.py`, `plots_and_histograms_CMSDAS2020.py`,
+      `fromTCanvasToHist.py`, `plot_mvis_uncorr_corr.py`;
+    - `utils/plot_decayLengths.py`, `utils/tmux.sh` (`utils/` no longer exists);
+    - `config/`: `samples_Summer24.py`, `samples_Summer24v15.py`, `samples_v10.py`, `setup_mutau_PODAS.yml`,
+      `setup_mutau_v10_2p5.yml`.
+  - **`Plotter/python/legacy/`** for modules and ROOT macros from `Plotter/python/`, keeping their path relative to
+    `python/` (e.g. `methods/JetToTau_MisID.py` → `legacy/methods/JetToTau_MisID.py`):
+    - `corrections/`: the whole `JetToTauFR/` tree (Python 2) and `g-2/`, plus `lepEff.C`, `leptonTauFake.C`,
+      `zptweight.C`;
+    - `macros/mapGenMatch.C`; `methods/`: `JetToTau_MisID.py`, `ScaleVariations.py`, `QCD.C`.
+- The `python/legacy/` modules stay importable as `TauFW.Plotter.legacy.*`, like `TauFW.PicoProducer.legacy` and
+  `TauFW.Fitter.legacy`. Their imports of each other were changed from `TauFW.Plotter.corrections.JetToTauFR...` to
+  `TauFW.Plotter.legacy.corrections.JetToTauFR...`. `SampleSet` only finds `method=` names in
+  `TauFW.Plotter.methods`, so `JetToTauFR/plot_forTauFR.py` now imports `TauFW.Plotter.legacy.methods.JetToTau_MisID`
+  explicitly before using `method='JetToTau_MisID'`. None of these modules was imported by maintained code.
+- References updated: the CMSDAS2020 and CMSPODAS23 school pages in `docs/` now link to the `Legacy/` copies
+  (command examples become `./Legacy/plots_and_histograms_CMSDAS2020.py`); two relative links in the moved
+  JetToTauFR README; a link to `Legacy/` in `Plotter/README.md`. New `Plotter/Legacy/README.md` lists the reason for
+  each file (both areas); `Plotter/python/legacy/README.md` points to it.
+- `Utilities/IOInventory.md` regenerated (only the Plotter paths changed).
+
+### Why
+
+- **Scope.** The maintained Plotter is the `python/plot` and `python/sample` library, `plot.py` with
+  `config/samples_v15.py`, the active `setup_*.yml` channel configs, the tutorial, and the macros and methods that
+  scripts, Fitter or the tests use. Everything else was Run 2 / DeepTau2017 scripts, school material, one-off
+  studies, orphan sample catalogs and unreferenced ROOT macros.
+- **Criteria.** A file moved only if no maintained script, Fitter or PicoProducer code, test, BBB case or shell
+  driver uses it (checked for imports, `loadmacro`/`.L` paths, `method=` names and `-c` config defaults).
+  Old-looking files that are still used stayed: `config/samples.py`, `samples_HighPT.py`, `samples_v12.py` with
+  `plot_v10.py` and `plot_postfit*.py`, the macros loaded by `Tests/Plotter/testMacros.py`, `Unroll.cxx` and
+  `setup_tautau.yml`.
+- **Same reason as sections 3, 6 and 8.** Dead code shows up in searches and in the I/O inventory, and makes the
+  live framework harder to see.
+
+### Check
+
+- `git grep` for each moved file: the only remaining mentions are history in this change log and commented-out code.
+- The kept entry points (`plot.py`, `plot_v10.py`, `plot_postfit*.py`, `tutorial/plot.py`) and the Fitter
+  `createinputs*.py` scripts import only configs, macros and methods that did not move.
+- The test mirror copies only `Plotter/python/`, and no test or BBB case uses a moved file.
+  `python Tests/check_harness.py` passes. Run `python3 Tests/run.py bbb check` and `python3 Tests/run.py normal` on
+  lxplus: the results must be unchanged.

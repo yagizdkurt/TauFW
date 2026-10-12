@@ -98,7 +98,7 @@ p.map(create_tes_tuples, scales)
 In a similar way (in the `Plotter` directory), you can create plots and histograms with the scale variations by replacing the used command with:
 
 ```python
-'./plots_and_histograms_CMSDAS2020.py -c mutau -y 2018 -t {TAG}'.format(TAG=scaletag)
+'./Legacy/plots_and_histograms_CMSDAS2020.py -c mutau -y 2018 -t {TAG}'.format(TAG=scaletag)
 ```
 
 This should create separate output files with adapted process names, which you can then `hadd` to one file. It will contain the processes related to Drell-Yan production

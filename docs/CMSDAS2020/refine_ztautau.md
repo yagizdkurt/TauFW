@@ -1,7 +1,7 @@
 # 6. Refining Z&rarr;&tau;&tau; selection
 
 All previously discussed steps allow to create **control plots** with the script
-[plots_and_histograms_CMSDAS2020.py](../../Plotter/plots_and_histograms_CMSDAS2020.py) of various quantities, which you have included into the analysis module
+[plots_and_histograms_CMSDAS2020.py](../../Plotter/Legacy/plots_and_histograms_CMSDAS2020.py) of various quantities, which you have included into the analysis module
 [ModuleMuTau](../../PicoProducer/python/analysis/CMSDAS2020/ModuleMuTau.py).
 
 The main topic of this section will be to have a closer look at these control plots, to choose quantities, which allow to disentangle one or more backgrounds from
@@ -136,7 +136,7 @@ will be to go carefully through the content listed above and have a look at a lo
 tips and instructions to perform the task more effectively:
 
 * Although you are free to implement your changes to selection either in [ModuleMuTau.py](../../PicoProducer/python/analysis/CMSDAS2020/ModuleMuTau.py) or in
-[plots_and_histograms_CMSDAS2020.py](../../Plotter/plots_and_histograms_CMSDAS2020.py), you are advised to use a rather loose selection as starting point for the ntuple
+[plots_and_histograms_CMSDAS2020.py](../../Plotter/Legacy/plots_and_histograms_CMSDAS2020.py), you are advised to use a rather loose selection as starting point for the ntuple
 production, and experiment with selection criteria on the plotting level.
 * After having defined all selection criteria you would like to impose, you can implement it for the ntuple production, such that other participants can make use of it.
 * Please consult the group working on [MC corrections](norm_and_corr_exp.md#group-task---implement-the-event-by-event-corrections), whether your selection criteria
