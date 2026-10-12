@@ -10,6 +10,10 @@ TESTS = Path(__file__).resolve().parents[1]
 REPO = TESTS.parent
 
 
+# Worker exit status for a missing declared dependency; normal runs report it as a skip.
+MISSING_DEPENDENCY_EXIT = 3
+
+
 class MissingDependency(RuntimeError):
     pass
 
@@ -68,7 +72,7 @@ def dependencies(names):
                 module.PyConfig.IgnoreCommandLineOptions = True
         except (ImportError, OSError) as error:
             raise MissingDependency("Missing/unusable %s: %s. Activate the lxplus Python 3.9/PyROOT environment; "
-                               "NanoAODTools cases also require PhysicsTools.NanoAODTools. No case was skipped."
+                               "NanoAODTools cases also require PhysicsTools.NanoAODTools."
                                % (name, error)) from error
 
 

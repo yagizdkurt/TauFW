@@ -2,7 +2,9 @@
 """Small offline checks for relocation, selection, and exact baseline behavior."""
 import ast
 import builtins
+import contextlib
 import hashlib
+import io
 import json
 import math
 from pathlib import Path
@@ -14,6 +16,7 @@ import warnings
 import run
 from BBB import runner
 from BBB.snapshot import canonical_bytes, difference, exact, object_snapshot
+from support import progress
 
 TESTS = Path(__file__).resolve().parent
 
@@ -93,6 +96,50 @@ class HarnessChecks(unittest.TestCase):
         case = run.select_cases(run.inventory(), "normal", ["plotter.variables"])
         with mock.patch.object(run.subprocess, "run", return_value=mock.Mock(returncode=7)):
             self.assertEqual(run.execute_scripts(case, []), 1)
+
+    def quiet_run(self, outcomes, tail_lines=80):
+        """Run mocked workers in quiet mode; outcomes are (exit status, printed text) per case."""
+        cases = run.select_cases(run.inventory(), "normal", [])[:len(outcomes)]
+        calls = iter(outcomes)
+
+        def worker(*args, **kwargs):
+            code, text = next(calls)
+            kwargs["stdout"].write(text.encode())
+            return mock.Mock(returncode=code)
+
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch.object(progress, "LOGS", Path(directory)), \
+             mock.patch.object(run.subprocess, "run", side_effect=worker), \
+             contextlib.redirect_stdout(io.StringIO()) as stdout:
+            status = run.execute_scripts(cases, [], quiet=True, tail_lines=tail_lines)
+            logs = {path.stem: path.read_text() for path in (Path(directory) / "normal").iterdir()}
+        return status, stdout.getvalue(), logs, cases
+
+    def test_quiet_hides_passing_output_and_reports_problems(self):
+        skip = run.MISSING_DEPENDENCY_EXIT
+        status, output, logs, cases = self.quiet_run(
+            [(0, "passing chatter\n"), (1, "early line\nTraceback: boom\n"), (skip, "ERROR: Missing/unusable ROOT\n")],
+            tail_lines=1)
+        self.assertEqual(status, 1)
+        self.assertIn("PFS", output)
+        self.assertNotIn("passing chatter", output)
+        self.assertIn("Traceback: boom", output)
+        self.assertNotIn("early line", output)
+        self.assertIn("SKIP 1: ERROR: Missing/unusable ROOT\n  %s" % cases[2]["id"], output)
+        self.assertIn("Rerun:    python3 Tests/run.py normal --case %s" % cases[1]["id"], output)
+        self.assertEqual(logs[cases[0]["id"]], "passing chatter\n")
+
+    def test_skips_do_not_fail_but_all_skipped_does(self):
+        skip = run.MISSING_DEPENDENCY_EXIT
+        self.assertEqual(self.quiet_run([(0, ""), (skip, "")])[0], 0)
+        self.assertEqual(self.quiet_run([(skip, ""), (skip, "")])[0], 1)
+
+    def test_tail_requires_quiet(self):
+        with contextlib.redirect_stderr(io.StringIO()) as stderr:
+            self.assertEqual(run.main(["normal", "--tail", "5"]), 1)
+            self.assertEqual(run.main(["bbb", "lock", "-q"]), 1)
+        self.assertIn("--tail applies only with --quiet", stderr.getvalue())
+        self.assertIn("--quiet applies only to bbb check", stderr.getvalue())
 
     def test_exact_float_bits_and_canonical_encoding(self):
         self.assertNotEqual(exact(1.0), exact(math.nextafter(1.0, 2.0)))

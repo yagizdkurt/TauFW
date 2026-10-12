@@ -6,7 +6,7 @@ import runpy
 import sys
 import traceback
 
-from bootstrap import TESTS, MissingDependency, configure_root, dependencies, prepare
+from bootstrap import MISSING_DEPENDENCY_EXIT, TESTS, MissingDependency, configure_root, dependencies, prepare
 
 
 def normal(case_id, workspace, extra):
@@ -65,7 +65,7 @@ def main():
         return 0
     except MissingDependency as error:
         print("ERROR: %s" % error, file=sys.stderr)
-        return 1
+        return MISSING_DEPENDENCY_EXIT
     except Exception:
         traceback.print_exc()
         return 1

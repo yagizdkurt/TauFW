@@ -36,7 +36,26 @@ normal cases do not need remote storage. `plotter.unroll` reads the committed
 `Tests/Plotter/DYJetsToLL_M-50_mumu.root`, copied to the relative path the script
 expects; the other normal input cases use small synthetic files.
 Sibling imports such as `pseudoSamples` and relative macro paths remain valid.
-Missing dependencies and failed subprocesses return a nonzero exit status.
+A failed subprocess returns a nonzero exit status. A case whose declared
+dependency (ROOT, NumPy, NanoAODTools, ...) cannot be imported is reported as
+SKIP; skips alone do not fail the run, but a run where every case was skipped does.
+
+### Quiet mode
+
+```bash
+python3 Tests/run.py normal -q
+python3 Tests/run.py normal -q --tail 200
+python3 Tests/run.py bbb check -q
+```
+
+`-q`/`--quiet` prints one character per case as it finishes (`P` pass,
+`F` fail, `S` missing dependency) and hides the scripts' output. At the end,
+each failure is shown with the last 80 lines of its combined stdout/stderr
+(`--tail N`; `--tail 0` shows everything), its log path, and the command to
+rerun it alone. Skips are grouped by reason. Every case's full output is kept in
+`Tests/.artifacts/logs/normal/<case>.log` (`.../bbb/` for BBB), which is
+ignored by Git and replaced on the next quiet run. Ctrl-C stops the run and
+still prints the summary of the cases that finished.
 
 The normal scripts, their defaults, and their existing diagnostics/assertions
 are unchanged. A PASS means the script exited successfully; the harness does not

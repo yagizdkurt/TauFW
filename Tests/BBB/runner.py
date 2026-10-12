@@ -9,6 +9,7 @@ import sys
 import tempfile
 
 from BBB.snapshot import canonical_bytes, difference
+from support.progress import mark, reset_logs, section, tail
 
 TESTS = Path(__file__).resolve().parents[1]
 BASELINES = Path(__file__).resolve().parent / "baselines"
@@ -23,13 +24,17 @@ def selected_cases(requested):
     return list(dict.fromkeys(names))
 
 
-def execute_case(name):
+def execute_case(name, log=None):
     with tempfile.TemporaryDirectory(prefix="taufw-bbb-") as directory:
         output = Path(directory) / "result.json"
         env = os.environ.copy()
         env.update(PYTHONDONTWRITEBYTECODE="1", PYTHONHASHSEED="1777", OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1")
         command = [sys.executable, "-B", str(TESTS / "support" / "launch.py"), "bbb", name, directory, str(output)]
-        result = subprocess.run(command, cwd=directory, env=env)
+        if log is None:
+            result = subprocess.run(command, cwd=directory, env=env)
+        else:
+            with log.open("wb") as stream:
+                result = subprocess.run(command, cwd=directory, env=env, stdout=stream, stderr=subprocess.STDOUT)
         if result.returncode:
             raise RuntimeError("BBB %s failed (exit %s); no expectations were written." % (name, result.returncode))
         if not output.is_file():
@@ -111,8 +116,10 @@ def compare(name, expected, actual):
     return details or ["%s: canonical snapshot bytes differ" % name]
 
 
-def main(action, requested, replace=False):
+def main(action, requested, replace=False, quiet=False, tail_lines=80):
     names = selected_cases(requested)
+    if quiet and action != "check":
+        raise ValueError("--quiet applies only to bbb check.")
     if action == "list":
         from BBB.cases import CASES
         for name in names:
@@ -142,18 +149,32 @@ def main(action, requested, replace=False):
         raise ValueError("BBB case inventory changed (missing/extra): %s; review and explicitly re-lock."
                          % sorted(set(expected) ^ set(all_names)))
     validate_target()
-    failures = 0
+    logs = reset_logs("bbb") if quiet else None
+    failures = []  # (name, details, log of a failed worker)
     for name in names:
-        print("CHECK %s" % name, flush=True)
+        log = logs / (name + ".log") if quiet else None
+        if not quiet:
+            print("CHECK %s" % name, flush=True)
         try:
-            details = compare(name, expected[name], execute_case(name))
+            details = compare(name, expected[name], execute_case(name, log))
             if details:
-                failures += 1
-                print("FAIL %s\n%s" % (name, "\n".join(details)))
-            else:
+                failures.append((name, details, None))
+                if not quiet:
+                    print("FAIL %s\n%s" % (name, "\n".join(details)))
+            elif not quiet:
                 print("PASS %s" % name)
         except RuntimeError as error:
-            failures += 1
-            print("FAIL %s: %s" % (name, error))
-    print("%s BBB cases checked, %s failed; expectations were not modified." % (len(names), failures))
+            failures.append((name, [str(error)], log))
+            if not quiet:
+                print("FAIL %s: %s" % (name, error))
+        if quiet:
+            mark("F" if failures and failures[-1][0] == name else "P")
+    if quiet:
+        print("  [%s/%s]" % (len(names), len(names)))
+        for name, details, log in failures:
+            body = "\n".join(details)
+            if log is not None:
+                body += "\n--- worker output ---\n" + tail(log, tail_lines)
+            section("FAIL %s" % name, body, ("Full log: %s" % log,) if log is not None else ())
+    print("%s BBB cases checked, %s failed; expectations were not modified." % (len(names), len(failures)))
     return 1 if failures else 0
