@@ -266,7 +266,7 @@ if __name__ == "__main__":
   parser.add_argument('-v','--verbose', dest='verbosity', type=int, nargs='?', const=1, default=0, action='store',
                                         help="set verbosity level" )
   args     = parser.parse_args()
-  tools    = args.tools
+  tools    = args.tools or ['musf','elesf','mu','muroot','ele','tau','btag','pu'] # default: all tools in main
   maxerr   = args.maxerr
   neta     = args.neta
   if args.ptvals:
