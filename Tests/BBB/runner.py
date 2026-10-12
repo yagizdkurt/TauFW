@@ -136,11 +136,24 @@ def main(action, requested, replace=False, quiet=False, tail_lines=80):
             raise ValueError("Baseline already exists. Review changes before using lock --replace.")
         validate_target()
         payloads = {}
+        failures = {}  # name -> reason; every case still runs so the summary lists all problems at once
         for name in names:
             print("LOCK %s (two fresh runs)" % name, flush=True)
-            first, second = execute_case(name), execute_case(name)
-            verify_stable(name, first, second)
-            payloads[name] = first
+            try:
+                first, second = execute_case(name), execute_case(name)
+                verify_stable(name, first, second)
+                payloads[name] = first
+            except RuntimeError as error:
+                failures[name] = str(error)
+                print("FAIL %s: %s" % (name, error), flush=True)
+        print("\nLOCK SUMMARY")
+        for name in names:
+            print("  %-4s %s" % ("FAIL" if name in failures else "PASS", name))
+        for name, reason in failures.items():
+            print("\n%s:\n  %s" % (name, reason.replace("\n", "\n  ")))
+        if failures:
+            # Never publish a partial lock; the case output above each FAIL line shows the cause.
+            raise RuntimeError("%s of %s BBB cases failed; no expectations were written." % (len(failures), len(names)))
         store_lock(BASELINES, payloads, replace)
         print("Locked %s BBB cases. Commit Tests/BBB/baselines/ before refactoring." % len(payloads))
         return 0
