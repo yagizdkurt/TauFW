@@ -59,7 +59,7 @@ def check_sample(sample,config,reporter=None,outdir=None,channel=None,tag=None,c
   filenevts  = sample.filenevts
   if outdir==None:
     outdir   = jobcfg['outdir']
-  storage    = getstorage(outdir,ensure=True) # StorageElement instance of output directory
+  storage    = getstorage(outdir) # StorageElement instance of output directory; BUGS P22: was ensure=True (created it)
   if channel==None:
     channel  = jobcfg['channel']
   if tag==None:

@@ -113,7 +113,7 @@ def iter_plans(config,request,reporter=None,on_existing=None,materialize=True):
         samples = samples[:2] # run at most two samples
 
       # LOOP over SAMPLES
-      found  = len(samples)>=0 # BUGS P05: always true
+      found  = len(samples)>0 # BUGS P05: was '>=0' (always true)
       failed = [ ] # failed samples
       for sample in samples:
         reporter.sample(sample.name,sample.paths)
@@ -138,8 +138,8 @@ def iter_plans(config,request,reporter=None,on_existing=None,materialize=True):
               reporter.warning("Job configuration %r already exists and might cause conflicting job output! "%(layout.cfgname)+
                                "To submit anyway, please use the --force flag")
             elif answer=='force': # submit this job, and stop asking
-              force = True; skip = True
-            elif answer=='yes': # BUGS P20: 'yes' skips the sample, 'no' submits it
+              force = True # BUGS P20: 'force' also skipped the sample
+            elif answer=='no': # BUGS P20: was 'yes' (the answers were inverted)
               skip = True
           if skip: # do not submit this job
             failed.append(sample)
@@ -157,7 +157,7 @@ def iter_plans(config,request,reporter=None,on_existing=None,materialize=True):
         # GET FILES
         nevents = 0
         if resubmit: # resubmission
-          if request.checkqueue==1 and jobs!=None: # BUGS P04: never true; check jobs only once to speed up performance
+          if request.checkqueue==1 and jobs is None: # BUGS P04: was 'jobs!=None' (never true); check jobs only once
             batch = getbatch(config,verb=verbosity)
             jobs  = batch.jobs(verb=verbosity-1)
           status  = check_sample(sample,config,reporter,channel=channel,tag=tag,jobs=jobs,checkqueue=request.checkqueue,

@@ -51,7 +51,7 @@ def main_status(args):
   for era, channel, sample in iter_submitted(CONFIG,request,reporter,action):
 
     # CHECK JOBS ONLY ONCE
-    if request.checkqueue==1 and jobs!=None: # BUGS P04: never true
+    if request.checkqueue==1 and jobs is None: # BUGS P04: was 'jobs!=None' (never true)
       batch = getbatch(CONFIG,verb=verbosity)
       jobs  = batch.jobs(verb=verbosity-1)
 
@@ -73,7 +73,7 @@ def main_status(args):
         _report_jobcfg(reporter,sample)
       check_sample(sample,CONFIG,reporter,channel=channel,tag=request.tag,jobs=jobs,showlogs=args.showlogs,
                    checkqueue=request.checkqueue,checkevts=request.checkevts,das=request.checkdas,
-                   ncores=request.ncores,verb=verbosity) # BUGS P21: checkexpevts is not passed
+                   checkexpevts=request.checkexpevts,ncores=request.ncores,verb=verbosity) # BUGS P21: checkexpevts was not passed
 
     reporter.line('')
 

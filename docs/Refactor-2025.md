@@ -745,3 +745,23 @@ identical output, files, scheduler, hadd, rm and shell calls compared with `3c40
 `--prompt` scenario with an existing job config changes: it now asks instead of crashing. A `.json.gz` job config
 written by `write_jobcfg` reads back correctly.
 
+### B2. Behavior fixes without BBB change (P04, P05, P06, P11, P19, P20, P21, P22, P23)
+
+| Bug | Fix | What users see |
+|---|---|---|
+| P04 | `--checkqueue 1` ("check once"): `jobs is None` instead of `jobs!=None`, in `iter_plans` and `main_status` | the queue is queried once and pending jobs are found; before, the queue was not checked at all |
+| P05 | `found = len(samples)>0` | `submit` with no matching sample says so |
+| P06 | the sample's `maxevts` is used when positive | per-sample event splitting works; samples without it use `maxevtsperjob` from the configuration |
+| P11 | `execute_run` uses `subprocess.call` and returns the exit code | `pico.py run` warns about each failed worker and lists them at the end |
+| P19 | `merge.validated(nevents, status)`: before cleanup after `haddclean`/`hadd -r`, the merged tuple must be readable and, with event counting, hold the processed events of the good chunks | a corrupt or incomplete merge keeps the job output (warning); `MergeResult.invalid` gives the reason |
+| P20 | `--prompt` on an existing job config: `y`/`f` submit, `n` skips | the dialog does what the answer says |
+| P21 | the status-only branch passes `checkexpevts` | `status` warns about unexpected event counts by default for analysis channels, like `hadd` and `resubmit` |
+| P22 | `check_sample` opens the output directory without creating it | `status` and the coming read-only API calls do not write to storage |
+| P23 | cleanup removes the whole job directory only if all its job configs belong to the sample | cleaning one tag keeps the job configs, job lists and logs of the other tags in the same directory |
+
+**Check:** BBB unchanged: no case reaches these paths, or the result is the same (`pico.merge` merges valid tuples,
+one job per directory; `pico.jobs` keeps only the summary lines of `status`). The comparison harness against the
+B1 commit changes exactly in the affected scenarios: the `--prompt` dialog, `status` (event-count warnings,
+pending jobs found with `--checkqueue 1`), cleanup with two tags in one directory, failing local runs, and a
+merged tuple with the wrong number of events (job output kept).
+

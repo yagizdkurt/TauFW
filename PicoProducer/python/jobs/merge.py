@@ -6,9 +6,11 @@
     2. status              check_sample() on the last (re)submission try
     3. gate                merge or clean only if every chunk succeeded, unless forced (merge_gate)
     4. hadd                storage.hadd(job outputs -> <picodir>/<sample>_<channel><tag>.root)
-    5. clean               remove the job directory, or only this sample's files (cleanup_commands)
+    5. validate            before cleaning after a merge: the merged tuple must be readable and hold the events
+                           of the job output (validated)
+    6. clean               remove the job directory, or only this sample's files (cleanup_commands)
 
-merge_target, merge_gate and cleanup_commands are pure: they read no files and change nothing.
+merge_target, merge_gate, validated and cleanup_commands are pure: they read no files and change nothing.
 merge_sample does the observations (storage, status, globbing) and the actions (hadd, rm) in the same order as
 before, so the output of pico.py is unchanged.
 
@@ -20,6 +22,7 @@ Public API:
   merge_sample(sample, config, action, era, channel, tag, reporter, **options)  -> MergeResult
   merge_target(sample, picodir, era, channel, tag)                              -> MergeTarget
   merge_gate(status, force)                                                     -> bool
+  validated(nevents, status)                                                    -> (ok, reason)
   cleanup_commands(target, count)                                               -> CleanupPlan
   MergeTarget, CleanupPlan, MergeResult                                         records (bottom of this file)
 """
@@ -33,8 +36,9 @@ from TauFW.common.tools.string import repkey, lreplace
 from TauFW.PicoProducer.jobs.reporting import Reporter
 from TauFW.PicoProducer.jobs.status import check_sample, ChunkStatus
 from TauFW.PicoProducer.storage.factory import getstorage
+from TauFW.PicoProducer.storage.validation import isvalid
 
-__all__ = ['merge_sample', 'merge_target', 'merge_gate', 'cleanup_commands',
+__all__ = ['merge_sample', 'merge_target', 'merge_gate', 'validated', 'cleanup_commands',
            'MergeTarget', 'CleanupPlan', 'MergeResult', 'MERGE_ACTIONS']
 
 
@@ -81,8 +85,14 @@ def merge_sample(sample,config,action,era,channel,tag,reporter=None,clean=False,
     haddout = storage.hadd(target.infiles,target.outfile,dry=dryrun,verb=cmdverb,maxopenfiles=maxopenfiles)
     # TODO: add option to print out cutflow for outfile
 
-  # 5. CLEAN UP
-  # TODO: check if hadd was succesful with isvalid
+  # 5. VALIDATE the merged tuple before removing its inputs
+  if hadd and cleanup and not dryrun: # BUGS P19: cleanup was gated only on the exit code of hadd
+    ok, reason = validated(isvalid(storage.file(target.outfile)),status)
+    if not ok:
+      reporter.warning("Not removing the job output of %r: %s"%(sample.name,reason))
+      return MergeResult(target=target,status=status,merged=True,haddout=haddout,invalid=reason)
+
+  # 6. CLEAN UP
   rmcmds = ()
   if cleanup:
     plan = cleanup_commands(target,lambda pattern: len(glob.glob(pattern)))
@@ -130,13 +140,25 @@ def merge_gate(status,force=False):
   return status.mergeable or force
 
 
+def validated(nevents,status):
+  """Can the merged tuple replace the job output? nevents is isvalid() of the merged file (cutflow bin 1, or -1 if
+  it is missing or corrupt). With event counting (checkevts), it must equal the processed events of the good
+  chunks. Returns (ok, reason)."""
+  if nevents<0:
+    return False, "the merged file is missing or corrupt"
+  nproc = status.nprocevents
+  if status.checkevts and nproc>0 and abs(nevents-nproc)>1e-6*nproc:
+    return False, "the merged file has %s events, the job output %s"%(nevents,nproc)
+  return True, ""
+
+
 def cleanup_commands(target,count):
   """The rm commands that clean up a merged sample. count(pattern) gives the number of files matching a glob.
   If no other job shares the job directory, remove it whole (and the output directory, if separate and not
   shared); otherwise remove only this sample's job outputs, job configs and logs."""
   allcfgs = os.path.join(target.cfgdir,"job*_try[0-9]*.*")
   rmcmds  = [ ]
-  if count(allcfgs)>=count(target.cfgfiles): # check for other jobs in same directory
+  if count(allcfgs)<=count(target.cfgfiles): # no other jobs in same directory; BUGS P23: was '>=' (always true)
     rmcmds.append("rm -r %s"%(target.jobdir)) # remove whole job directory
     if target.outdir!=target.jobdir and count(target.infiles)>=count(os.path.join(target.outdir,"*.root")): # check for other jobs in same directory
       rmcmds.append("rm -r %s"%(target.outdir)) # remove whole output directory with ROOT output files
@@ -193,10 +215,12 @@ class CleanupPlan:
 
 @dataclass(frozen=True)
 class MergeResult:
-  """Outcome of merge_sample. refused: the gate failed (nothing merged or removed)."""
+  """Outcome of merge_sample. refused: the gate failed (nothing merged or removed); invalid: why the merged tuple
+  failed validation (the job output was kept)."""
   target:  MergeTarget
   status:  ChunkStatus
   refused: bool = False
+  invalid: str  = ""
   merged:  bool = False         # hadd ran (or was printed, in a dry run)
   haddout: Optional[str] = None # output of the hadd command
   rmcmds:  Tuple[str, ...] = () # rm commands (before 'rm -v' for verbosity>=1)

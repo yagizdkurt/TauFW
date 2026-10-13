@@ -13,12 +13,12 @@ Outputs: LocalRun per sample (or one per channel for user input files); the work
 
 Public API:
   iter_local_runs(config, request, reporter)   -> iterator of LocalRun
-  execute_run(run, reporter, dryrun)           print and execute the worker command
+  execute_run(run, reporter, dryrun)           print and execute the worker command -> exit code
   LocalRun                                     record (at the bottom of this file)
 """
 
 # ===== Imports =====
-import os
+import subprocess
 from dataclasses import dataclass
 from typing import Optional
 from TauFW.common.tools.log import Logger, bold
@@ -128,12 +128,16 @@ def iter_local_runs(config,request,reporter=None):
 
 
 def execute_run(run,reporter=None,dryrun=False):
-  """Print the worker command and run it in a shell (not in a dry run)."""
+  """Print the worker command and run it in a shell (not in a dry run).
+  Returns the worker's exit code (0 in a dry run); a failure is reported as a warning."""
   reporter = reporter or Reporter()
   reporter.line(">>> Executing: "+bold(run.command))
-  if not dryrun:
-    #execute(runcmd,dry=dryrun,verb=verbosity+1) # real-time print out does not work well with python script
-    os.system(run.command)
+  if dryrun:
+    return 0
+  retcode = subprocess.call(run.command,shell=True) # BUGS P11: was os.system, exit code ignored
+  if retcode:
+    reporter.warning("Local run failed with exit code %s: %s"%(retcode,run.command))
+  return retcode
 
 
 # ===== Sample selection =====

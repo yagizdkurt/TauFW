@@ -54,7 +54,7 @@ def sample_layout(config,request,sample,era,channel,extrachopts):
   if sample.extraopts:
     extraopts   = sample.extraopts + extraopts # allow overwrite from command line
   nfilesperjob_ = nfilesperjob if nfilesperjob>0 else sample.nfilesperjob if sample.nfilesperjob>0 else config.nfilesperjob # priority: USER > SAMPLE > CONFIG
-  maxevts_      = maxevts if maxevts!=None else sample.maxevts if sample.maxevts<=0 else config.maxevtsperjob # BUGS P06; priority: USER > SAMPLE > CONFIG
+  maxevts_      = maxevts if maxevts!=None else sample.maxevts if sample.maxevts>0 else config.maxevtsperjob # BUGS P06: was 'sample.maxevts<=0'; priority: USER > SAMPLE > CONFIG
   if request.split_nfpj>1: # divide nfilesperjob by split_nfpj
     nfilesperjob_ = int(max(1,nfilesperjob_/float(request.split_nfpj)))
   elif resubmit and (maxevts==None or maxevts<=0): # reuse previous maxevts settings if maxevts not set by user
