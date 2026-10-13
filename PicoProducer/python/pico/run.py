@@ -1,150 +1,25 @@
 # Author: Izaak Neutelings (April 2020)
-import os
-from TauFW.common.tools.utils import execute
-from TauFW.PicoProducer.datasets.catalog import getsamples, print_no_samples
-from TauFW.PicoProducer.jobs.worker_command import resolve_worker, run_command, WorkerOptions
-from TauFW.common.tools.log import bold
+"""pico.py run: run a channel's worker locally on a few files (quick checks and tests); a thin command over
+jobs/local.py.
+
+Public API:
+  main_run(args)
+"""
+
+# ===== Imports =====
+from TauFW.PicoProducer.jobs.local import iter_local_runs, execute_run
+from TauFW.PicoProducer.jobs.reporting import ConsoleReporter
+from TauFW.PicoProducer.jobs.request import JobRequest
 from TauFW.PicoProducer.pico.common import CONFIG, LOG
 
 
-
-###########
-#   RUN   #
-###########
+# ===== Commands =====
 
 def main_run(args):
   """Run given module locally."""
   if args.verbosity>=1:
     print(">>> main_run", args)
-  eras       = args.eras       # eras to loop over and run
-  channels   = args.channels   # channels to loop over and run
-  tag        = args.tag        # extra tag for output file
-  outdir     = args.outdir     # output directory
-  dtypes     = args.dtypes     # filter (only include) these sample types ('data','mc','embed')
-  filters    = args.samples    # filter (only include) these samples (glob patterns)
-  dasfilters = args.dasfilters # filter (only include) these das paths (glob patterns)
-  vetoes     = args.vetoes     # exclude these sample (glob patterns)
-  dasvetoes  = args.dasvetoes  # exclude these DAS paths (glob patterns)
-  extraopts  = args.extraopts  # extra options for module (for all runs)
-  prefetch   = args.prefetch   # copy input file first to local output directory
-  maxevts    = args.maxevts    # maximum number of files (per sample, era, channel)
-  dasfiles   = args.dasfiles   # explicitly process nanoAOD files stored on DAS (as opposed to local storage)
-  userfiles  = args.infiles    # use these input files
-  nfiles     = args.nfiles     # maximum number of files (per sample, era, channel)
-  nsamples   = args.nsamples   # maximum number of samples (per era, channel)
-  dryrun     = args.dryrun     # prepare and print command, without executing
-  verbosity  = args.verbosity  # verbosity to print out what's going on under the hood
-  preselect  = args.preselect  # extra selection string
-  if len(filters)==0:
-    filters = [None]
-  
-  # LOOP over ERAS
-  if not eras:
-    print(">>> Please specify a valid era (-y).")
-  if not channels:
-    print(">>> Please specify a valid channel (-c).")
-  for era in eras:
-    moddict = { } # save time by loading samples and get their files only once
-    
-    # LOOP over CHANNELS
-    for channel in channels:
-      LOG.header("%s, %s"%(era,channel))
-      
-      # MODULE & PROCESSOR
-      skim = 'skim' in channel.lower()
-      module, processor, procopts, extrachopts = resolve_worker(CONFIG,channel,extraopts)
-      
-      # VERBOSE
-      if verbosity>=1:
-        print('-'*80)
-        print(">>> Running %r"%(channel))
-        print(">>> %-12s = %r"%('channel',channel))
-        print(">>> %-12s = %r"%('module',module))
-        print(">>> %-12s = %r"%('processor',processor))
-        print(">>> %-12s = %r"%('procopts',procopts))
-        print(">>> %-12s = %r"%('extrachopts',extrachopts))
-        print(">>> %-12s = %r"%('prefetch',prefetch))
-        print(">>> %-12s = %r"%('preselect',preselect))
-        print(">>> %-12s = %s"%('filters',filters))
-        print(">>> %-12s = %s"%('vetoes',vetoes))
-        print(">>> %-12s = %r"%('dtypes',dtypes))
-        print(">>> %-12s = %r"%('userfiles',userfiles))
-        print(">>> %-12s = %r"%('outdir',outdir))
-      
-      # LOOP over FILTERS
-      samples = [ ]
-      for filter in filters:
-        filters_ = [filter] if filter else [ ]
-        if verbosity>=2:
-          print(">>> Checking filters=%s, vetoes=%s, dtypes=%s..."%(filters_,vetoes,dtypes))
-        
-        # GET SAMPLES
-        if not userfiles and (filters_ or vetoes or dtypes):
-          LOG.insist(era in CONFIG.eras,"Era '%s' not found in the configuration file. Available: %s"%(era,CONFIG.eras))
-          samples_ = getsamples(era,channel=channel,tag=tag,dtype=dtypes,filter=filters_,veto=vetoes,
-                                dasfilter=dasfilters,dasveto=dasvetoes,moddict=moddict,verb=verbosity)
-          for sample in samples_[:]:
-            if sample in samples: # avoid duplicates
-              samples_.remove(sample)
-          if nsamples>0: # limit number of samples to maximum nsamples
-            samples_ = samples_[:nsamples]
-          samples.extend(samples_)
-      if not samples:
-        samples = [None]
-        if not userfiles and (filters_ or vetoes or dtypes):
-          print_no_samples(dtypes,filters_,vetoes,[channel])
-      if verbosity>=1:
-        print(">>> %-12s = %r"%('samples',samples))
-        print('-'*80)
-      
-      # LOOP over SAMPLES
-      for sample in samples:
-        if sample:
-          print(">>> %s"%(bold(sample.name)))
-          if verbosity>=1:
-            for path in sample.paths:
-              print(">>> %s"%(bold(path)))
-        
-        # SETTINGS
-        dtype      = None
-        extraopts_ = extrachopts[:] # extra options for module (for this channel & sample)
-        if sample:
-          filetag  = "_%s_%s_%s%s"%(channel,era,sample.name,tag)
-          if sample.extraopts:
-            extraopts_ = sample.extraopts + extraopts_ # allow overwrite from command line
-        else:
-          filetag  = "_%s_%s%s"%(channel,era,tag)
-        if verbosity>=1:
-          print(">>> %-12s = %s"%('sample',sample))
-          print(">>> %-12s = %r"%('filetag',filetag)) # postfix
-          print(">>> %-12s = %s"%('extraopts',extraopts_))
-        
-        # GET FILES
-        infiles = [ ]
-        if userfiles:
-          infiles = userfiles[:]
-        elif sample:
-          nevents = 0
-          infiles = sample.getfiles(das=dasfiles,verb=verbosity)
-          dtype   = sample.dtype
-          if nfiles>0:
-            infiles = infiles[:nfiles]
-          if verbosity==1:
-            print(">>> %-12s = %r"%('dtype',dtype))
-            print(">>> %-12s = %s"%('nfiles',len(infiles)))
-            print(">>> %-12s = [ "%('infiles'))
-            for file in infiles:
-              print(">>>   %r"%file)
-            print(">>> ]")
-        
-        # RUN
-        runcmd = run_command(WorkerOptions(processor=processor,procopts=procopts,era=era,skim=skim,
-                                           channel=channel,module=module,outdir=outdir,preselect=preselect,
-                                           dtype=dtype,filetag=filetag,maxevts=maxevts,infiles=infiles,
-                                           prefetch=prefetch,extraopts=extraopts_))
-        print(">>> Executing: "+bold(runcmd))
-        if not dryrun:
-          #execute(runcmd,dry=dryrun,verb=verbosity+1) # real-time print out does not work well with python script 
-          os.system(runcmd)
-        print('')
-      
+  request  = JobRequest.from_args(args)
+  reporter = ConsoleReporter(LOG)
+  for run in iter_local_runs(CONFIG,request,reporter):
+    execute_run(run,reporter,dryrun=request.dryrun)

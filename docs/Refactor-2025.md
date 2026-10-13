@@ -711,3 +711,24 @@ one tag removes the job configs and logs of every other tag in that directory. K
 runs, two tags in one job directory, foreign files in the output directory, skim channels, `--maxopenfiles` and
 `--skipevts`. Output, scheduler and hadd calls, rm commands and the remaining files are identical to `3c401cd`.
 
+### A5. `pico/` as thin command functions
+
+`pico/job.py` and `pico/run.py` keep only what belongs to the command line: building a `JobRequest` from the
+arguments, choosing the reporter, the `--prompt` dialog, and streaming the `jobs/` pipelines.
+
+| Command | Before | Now |
+|---|---|---|
+| `pico.py run` | `pico/run.py` `main_run` (150 lines) | `jobs/local.py`: `iter_local_runs` (sample selection, files, worker command; yields a `LocalRun`) and `execute_run`. `main_run` is 6 lines |
+| `pico.py status`, `hadd`, `haddclean`, `clean` | the era/channel/sample loop in `main_status` | `jobs/pipeline.py` `iter_submitted(config, request, reporter, action)` yields the samples of existing job configs; `main_status` calls `check_sample` or `merge_sample` for each |
+
+- `JobRequest` has four new fields for local runs: `outdir`, `infiles`, `nfiles`, `nsamples`.
+- The job-config glob of `main_status` is now `planner.cfg_globs(..., group='*')`; the patterns are the same.
+- READMEs: `PicoProducer/python/README.md` (all packages, and which `jobs/` pipeline each `pico.py` command uses)
+  and `pico/README.md`. The BUGS.md locations of P01-P12 point to the new modules. `Utilities/IOInventory.md` is
+  regenerated.
+
+**Check:** the comparison harness got 11 local-run scenarios (verbosity 0-3 each): sample filters, `-S`/`-n`,
+user input files, skims with preselection, no matching samples, dry runs, no era/channel, sample and user
+options, `-m`/`-p`/`-t`, data-only selection. All 280 scenarios (submit, resubmit, status, merge, run) give
+identical output, files, scheduler, hadd, rm and shell calls compared with `3c401cd`.
+

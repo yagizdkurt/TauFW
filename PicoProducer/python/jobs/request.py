@@ -1,5 +1,5 @@
 # Author: Yagizhan Dinckurt (October 2026)
-"""What to produce: the settings of one (re)submission, status check or merge, in one record.
+"""What to produce: the settings of one local run, (re)submission, status check or merge, in one record.
 
 pico.py fills a JobRequest from its command-line arguments; the job functions read only this record (and the
 configuration), never the argparse namespace. Part 5 exposes the same record in the public API.
@@ -43,11 +43,18 @@ class JobRequest:
   prefetch:     bool      = False          # copy input files to the worker first
   preselect:    Optional[str] = None       # preselection string for skims
   nfilesperjob: int       = -1             # files per job (<=0: sample, then configuration)
-  maxevts:      Optional[int] = None       # events per job; split by events if >1 (None: sample/configuration)
+  maxevts:      Optional[int] = None       # events per job; split by events if >1 (None: sample/configuration);
+                                           # local runs: events per file (-1: all)
   split_nfpj:   int       = 1              # divide nfilesperjob by this factor (resubmission of failed chunks)
   testrun:      int       = 0              # test jobs: at most 2 samples, 4 files, 4 chunks, this many events
   tmpdir:       Optional[str] = None       # skims: local directory for the output before copying
   dasfiles:     bool      = False          # take input files from DAS instead of local storage
+
+  # Local runs (pico.py run)
+  outdir:       str       = "output"       # output directory of the local run
+  infiles:      List[str] = field(default_factory=list) # run on these input files instead of a sample's
+  nfiles:       int       = 1              # at most this many input files per sample
+  nsamples:     int       = 1              # at most this many samples per era and channel
 
   # Batch system
   resubmit:     bool      = False          # resubmit failed/missing chunks of existing job configs

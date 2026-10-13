@@ -21,18 +21,18 @@ the baseline, and fixing it changes that baseline on purpose.
 
 | ID | Location | Symptom | Severity | BBB | Session | Fix | Output impact |
 |---|---|---|---|---|---|---|---|
-| P01 | `pico/job.py:241`, `pico/config.py:234` | `err.message` (Python 2) inside `except IOError`: the handler itself raises `AttributeError` | crash | no | S4 / S3 | | |
-| P02 | `pico/job.py:173` | `--prompt` on an existing job config: `input("..."%(nchunks))` uses `nchunks` before assignment and the string has no placeholder | crash | no | S4 | | |
-| P03 | `pico/job.py:839-841` | `.json.gz` job config: `gzip` is not imported, and `file.write(json.dump(jobcfg),indent=2)` is malformed | crash | no | S4 | | |
-| P04 | `pico/job.py:204`, `:934` | `--checkqueue 1` ("check once"): the condition `jobs!=None` with `jobs=None` means the queue is never pre-fetched, so it silently falls back to per-sample queries | wrong | no | S4 | | |
-| P05 | `pico/job.py:103` | `found = len(samples)>=0` is always true, so "no samples found" is never printed on submit | wrong | yes | S4 | | |
-| P06 | `pico/job.py:123` | Per-sample `maxevts` is used only when `<=0`; a positive sample value falls back to the config (the condition is inverted) | wrong | no | S4 | | |
-| P07 | `pico/job.py:384` | `checkexpevts==False` is a comparison, not an assignment, so it has no effect | latent | no | S4 | | |
-| P08 | `pico/run.py:183,195`, `pico/job.py:119-121` | Option precedence is the opposite of the code comments: channel-config `KEY=VALUE` come after the user's `-E`, so the channel wins | wrong | yes | S4 | | |
-| P09 | `pico/job.py:119-121` + `Sample.loadjson` | On resubmit, the already-merged `extraopts` from the job config are merged again with the CLI and channel options, so the options duplicate on every retry | wrong | yes | S4 | | |
-| P10 | `pico/run.py:156` | `run -m` defaults to `-1`, and `if maxevts:` is true for -1, so `-m -1` is always appended | wrong (harmless) | yes | S4 | | |
-| P11 | `pico/run.py:169` | Local run uses `os.system`; a worker failure is not reported (exit code ignored) | wrong | no | S4 | | |
-| P12 | `pico/run.py`, `pico/job.py` vs workers | Callers pass `--opt`, the workers define `--opts`; it only works through argparse prefix matching | latent | yes | S5 | | |
+| P01 | `jobs/pipeline.py` `iter_plans` (was `pico/job.py:241`), `pico/config.py:234` | `err.message` (Python 2) inside `except IOError`: the handler itself raises `AttributeError` | crash | no | S4 / S3 | | |
+| P02 | `pico/job.py` `_Prompt.existing` (was `pico/job.py:173`) | `--prompt` on an existing job config: `input("..."%(nchunks))` uses `nchunks` before assignment and the string has no placeholder | crash | no | S4 | | |
+| P03 | `jobs/jobconfig.py` `write_jobcfg` (was `pico/job.py:839-841`) | `.json.gz` job config: `gzip` is not imported, and `file.write(json.dump(jobcfg),indent=2)` is malformed | crash | no | S4 | | |
+| P04 | `jobs/pipeline.py` `iter_plans`, `pico/job.py` `main_status` (was `pico/job.py:204`, `:934`) | `--checkqueue 1` ("check once"): the condition `jobs!=None` with `jobs=None` means the queue is never pre-fetched, so it silently falls back to per-sample queries | wrong | no | S4 | | |
+| P05 | `jobs/pipeline.py` `iter_plans` (was `pico/job.py:103`) | `found = len(samples)>=0` is always true, so "no samples found" is never printed on submit | wrong | yes | S4 | | |
+| P06 | `jobs/planner.py` `sample_layout` (was `pico/job.py:123`) | Per-sample `maxevts` is used only when `<=0`; a positive sample value falls back to the config (the condition is inverted) | wrong | no | S4 | | |
+| P07 | `jobs/status.py` `check_sample` (was `pico/job.py:384`) | `checkexpevts==False` is a comparison, not an assignment, so it has no effect | latent | no | S4 | | |
+| P08 | `jobs/worker_command.py` `resolve_worker`, `jobs/planner.py` `sample_layout` (was `pico/run.py:183,195`, `pico/job.py:119-121`) | Option precedence is the opposite of the code comments: channel-config `KEY=VALUE` come after the user's `-E`, so the channel wins | wrong | yes | S4 | | |
+| P09 | `jobs/planner.py` `sample_layout` + `Sample.loadjson` (was `pico/job.py:119-121`) | On resubmit, the already-merged `extraopts` from the job config are merged again with the CLI and channel options, so the options duplicate on every retry | wrong | yes | S4 | | |
+| P10 | `jobs/worker_command.py` `run_command` (was `pico/run.py:156`) | `run -m` defaults to `-1`, and `if maxevts:` is true for -1, so `-m -1` is always appended | wrong (harmless) | yes | S4 | | |
+| P11 | `jobs/local.py` `execute_run` (was `pico/run.py:169`) | Local run uses `os.system`; a worker failure is not reported (exit code ignored) | wrong | no | S4 | | |
+| P12 | `jobs/worker_command.py` vs workers (was `pico/run.py`, `pico/job.py`) | Callers pass `--opt`, the workers define `--opts`; it only works through argparse prefix matching | latent | yes | S5 | | |
 | P13 | `scripts/pico.py:226` | `if` instead of `elif` after `install`: `pico.py install` also prints "subcommand 'install' not implemented!" | wrong | no | S5 | | |
 | P14 | `scripts/pico.py:158` | `install` choice is misspelled `'cmmsw'` | latent | no | S5 | | |
 | P15 | `scripts/pico.py:85-108` | `status`/`hadd`/`clean` parsers are built before `--prompt`, `-m`, ... are added to the job parent, so these options are missing there. This looks intentional for `-m` (reused for `--maxopenfiles`) but is undocumented | latent | yes | S5 | | |

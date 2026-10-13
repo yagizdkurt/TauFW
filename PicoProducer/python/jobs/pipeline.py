@@ -1,10 +1,13 @@
 # Author: Izaak Neutelings (April 2020)
-"""Job submission pipeline: select samples, plan their jobs, submit them and record the submission.
+"""Job pipelines: select samples, plan their jobs, submit them and record the submission; find submitted samples.
 
   iter_plans()          for each era, channel and sample: find input files, split them into chunks, plan the
                         job names/directories/command lines, and yield one SamplePlan
      -> submit_plan()   submit a plan's job list to the batch system
      -> record_submission()  write the job config JSON (only after a successful submission)
+
+  iter_submitted()      for each era, channel and sample with a job config: yield (era, channel, sample)
+                        for status, hadd, haddclean and clean (jobs/status.py, jobs/merge.py)
 
 The pure calculations live in jobs/planner.py and jobs/worker_command.py; this module does the I/O around them,
 in the same order as the old pico/job.py, so the output of pico.py is unchanged:
@@ -23,6 +26,7 @@ Public API:
   iter_plans(config, request, reporter, on_existing, materialize)   -> iterator of SamplePlan
   submit_plan(batch, plan, request, reporter, confirm)              -> job ID or None
   record_submission(plan, jobid, reporter, verbosity)               append the job ID, write the job config
+  iter_submitted(config, request, reporter, action)                 -> iterator of (era, channel, sample)
   SamplePlan                                                        record (at the bottom of this file)
 """
 
@@ -43,7 +47,7 @@ from TauFW.PicoProducer.jobs.reporting import Reporter
 from TauFW.PicoProducer.jobs.status import check_sample
 from TauFW.PicoProducer.jobs.worker_command import resolve_worker
 
-__all__ = ['iter_plans', 'submit_plan', 'record_submission', 'SamplePlan']
+__all__ = ['iter_plans', 'submit_plan', 'record_submission', 'iter_submitted', 'SamplePlan']
 
 
 # ===== Constants =====
@@ -269,6 +273,66 @@ def record_submission(plan,jobid,reporter=None,verbosity=0):
     if verbosity>=1:
       reporter.line(">>> Creating config file '%s'..."%(plan.jobcfg['cfgname']))
     write_jobcfg(plan.jobcfg,plan.jobcfg['cfgname'])
+
+
+def iter_submitted(config,request,reporter=None,action='status'):
+  """The samples of existing job configs (their last try), for action 'status', 'hadd', 'haddclean' or 'clean'.
+  Yields (era, channel, sample) after reporting the sample; with channel '*' the channel comes from the job config
+  name. Without eras or channels, 'status' looks at all of them; 'hadd'/'haddclean' skip skim channels."""
+  reporter  = reporter or Reporter()
+  tag       = request.tag
+  dtypes    = request.dtypes
+  filters   = request.samples
+  vetoes    = request.vetoes
+  verbosity = request.verbosity
+  eras      = request.eras
+  channels  = request.channels
+  if action not in ['hadd','clean','haddclean']:
+    if not channels:
+      channels = ['*']
+    if not eras:
+      eras     = ['*']
+
+  # LOOP over ERAS
+  for era in eras:
+
+    # LOOP over CHANNELS
+    for channel in channels:
+      reporter.header("%s, %s"%(era,channel))
+
+      # GET SAMPLES
+      jobdir_, jobcfgs = cfg_globs(config.jobdir,era,channel,tag,group='*') # get ALL job configs
+      if verbosity>=1:
+        reporter.line(_ks('cwd',os.getcwd()))
+        reporter.line(_ks('jobdir',jobdir_))
+        reporter.line(_ks('jobcfgs',jobcfgs))
+        reporter.line(_ks('filters',filters))
+        reporter.line(_ks('vetoes',vetoes))
+        reporter.line(_ks('dtypes',dtypes))
+      samples = getcfgsamples(jobcfgs,filter=filters,veto=vetoes,dtype=dtypes,verb=verbosity)
+      if verbosity>=2:
+        reporter.line(">>> Found samples: "+", ".join(repr(s.name) for s in samples))
+      if action in ['hadd','haddclean'] and 'skim' in channel.lower():
+        reporter.warning("Hadding into one file not available for skimming...")
+        reporter.line('')
+        continue
+
+      # LOOP over SAMPLES
+      found = False
+      for sample in samples:
+        channel_ = channel
+        if channel=='*': # grab channel from job config name
+          matches = re.findall(r"config/jobconfig_(\w+)%s_try\d+.json(?:\.gz)?"%(tag),sample.jobcfg['config'])
+          if matches:
+            channel_ = matches[0]
+        elif sample.channels and channel_ not in sample.channels:
+          continue
+        found = True
+        reporter.sample(sample.name,sample.paths)
+        yield era, channel_, sample
+
+      if not found:
+        reporter.no_samples(dtypes,filters,vetoes,[channel],jobdir_,jobcfgs)
 
 
 # ===== Records =====
