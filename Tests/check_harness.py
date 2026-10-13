@@ -152,6 +152,38 @@ class HarnessChecks(unittest.TestCase):
         self.assertIn("--tail applies only with --quiet", stderr.getvalue())
         self.assertIn("--quiet applies only to bbb check", stderr.getvalue())
 
+    def test_all_runs_every_suite_quietly_and_propagates_failures(self):
+        for checks_status, normal_status, bbb_status in ((0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1)):
+            with mock.patch.object(run, "execute_scripts", side_effect=[checks_status, normal_status]) as scripts, \
+                 mock.patch.object(runner, "main", return_value=bbb_status) as bbb, \
+                 contextlib.redirect_stdout(io.StringIO()) as stdout:
+                self.assertEqual(run.main(["all", "--tail", "7"]),
+                                 int(bool(checks_status or normal_status or bbb_status)))
+            checks, normal = scripts.call_args_list
+            self.assertEqual(checks.args[0], run.check_cases())
+            self.assertEqual(checks.kwargs, {"quiet": True, "tail_lines": 7, "log_kind": "checks"})
+            self.assertEqual(normal.args[0], run.select_cases(run.inventory(), "normal", []))
+            self.assertEqual(normal.args[1:], ([], True, 7))
+            bbb.assert_called_once_with("check", [], False, True, 7, "HEAD")
+            self.assertIn("ALL: FAIL" if any((checks_status, normal_status, bbb_status)) else "ALL: PASS",
+                          stdout.getvalue())
+
+    def test_all_stops_on_interrupt_and_rejects_script_arguments(self):
+        with mock.patch.object(run, "execute_scripts", return_value=130) as scripts, \
+             mock.patch.object(runner, "main") as bbb, \
+             contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(run.main(["all", "-q"]), 130)
+            self.assertEqual(run.main(["all", "--", "unsafe-argument"]), 1)
+        scripts.assert_called_once()
+        bbb.assert_not_called()
+
+    def test_standalone_check_uses_current_interpreter_and_repo_directory(self):
+        case = run.check_cases()[0]
+        with mock.patch.object(run.subprocess, "run", return_value=mock.Mock(returncode=7)) as worker:
+            self.assertEqual(run.run_case(case, []), 7)
+        self.assertEqual(worker.call_args.args[0], [run.sys.executable, "-B"] + case["command"])
+        self.assertEqual(worker.call_args.kwargs["cwd"], str(TESTS.parent))
+
     def test_exact_float_bits_and_canonical_encoding(self):
         self.assertNotEqual(exact(1.0), exact(math.nextafter(1.0, 2.0)))
         self.assertNotEqual(exact(0.0), exact(-0.0))

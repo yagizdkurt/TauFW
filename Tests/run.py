@@ -59,16 +59,20 @@ def run_case(case, extra_args, log=None):
         env.update(PYTHONDONTWRITEBYTECODE="1", PYTHONHASHSEED="1777", PYTHONUNBUFFERED="1", PYTHONFAULTHANDLER="1")
         command = [sys.executable, "-B", str(TESTS / "support" / "launch.py"),
                    "normal", case["id"], directory, "--"] + extra_args
+        cwd = directory
+        if "command" in case:
+            command = [sys.executable, "-B"] + case["command"]
+            cwd = str(TESTS.parent)
         # Scripted answers only; an unexpected prompt hits EOF instead of hanging.
         if log is None:
-            return subprocess.run(command, cwd=directory, env=env, input=case.get("stdin", ""), text=True).returncode
+            return subprocess.run(command, cwd=cwd, env=env, input=case.get("stdin", ""), text=True).returncode
         with log.open("wb") as output:
-            return subprocess.run(command, cwd=directory, env=env, input=case.get("stdin", ""), text=True,
+            return subprocess.run(command, cwd=cwd, env=env, input=case.get("stdin", ""), text=True,
                                   stdout=output, stderr=subprocess.STDOUT).returncode
 
 
-def execute_scripts(cases, extra_args, quiet=False, tail_lines=80):
-    logs = reset_logs("normal") if quiet else None
+def execute_scripts(cases, extra_args, quiet=False, tail_lines=80, log_kind="normal"):
+    logs = reset_logs(log_kind) if quiet else None
     if quiet:
         print("Running %s cases (quiet; logs in %s)" % (len(cases), logs), flush=True)
     groups = file_groups(cases, lambda case: case["path"], lambda case: case["id"])
@@ -102,9 +106,10 @@ def execute_scripts(cases, extra_args, quiet=False, tail_lines=80):
     if quiet:
         for case, status, seconds, log, code in results:
             if status == "FAIL":
+                rerun = case.get("rerun") or "python3 Tests/run.py %s --case %s" % (
+                    "integration" if case["group"] == "integration" else "normal", case["id"])
                 section("FAIL %s (%s, %s)" % (case["id"], elapsed(seconds), describe_exit(code)), tail(log, tail_lines),
-                        ("Full log: %s" % log, "Rerun:    python3 Tests/run.py %s --case %s"
-                         % ("integration" if case["group"] == "integration" else "normal", case["id"])))
+                        ("Full log: %s" % log, "Rerun:    %s" % rerun))
         skipped = {}  # Identical missing-dependency messages are reported once.
         for case, status, seconds, log, code in results:
             if status == "SKIP":
@@ -128,6 +133,50 @@ def execute_scripts(cases, extra_args, quiet=False, tail_lines=80):
     return 1 if counts["FAIL"] else 0
 
 
+def check_cases():
+    """Standalone checks kept separate from the preserved script inventory."""
+    cases = []
+    for directory in ("Utilities", "Framework", "Setup", "PicoProducer/compat"):
+        path = "Tests/" + directory
+        command = ["-m", "unittest", "discover", "-s", path, "-p", "test_*.py", "-q"]
+        cases.append({"id": "unit." + directory.replace("/", ".").lower(),
+                      "path": directory, "group": "checks", "command": command,
+                      "rerun": "python3 " + " ".join(command)})
+    for name in ("check_harness", "check_root"):
+        path = "Tests/%s.py" % name
+        command = [path] + (["-q"] if name == "check_harness" else [])
+        cases.append({"id": name, "path": name + ".py", "group": "checks",
+                      "command": command, "rerun": "python3 " + " ".join(command)})
+    return cases
+
+
+def run_all(tail_lines=80):
+    """Run every automated suite quietly, continuing after a suite fails."""
+    suites = (
+        ("Unit and harness checks", lambda: execute_scripts(
+            check_cases(), [], quiet=True, tail_lines=tail_lines, log_kind="checks")),
+        ("Normal tests", lambda: main(["normal", "-q", "--tail", str(tail_lines)])),
+        ("BBB regression checks", lambda: main(["bbb", "check", "-q", "--tail", str(tail_lines)])),
+    )
+    failed = []
+    for name, execute in suites:
+        print("\n%s" % name, flush=True)
+        try:
+            status = execute()
+        except (ValueError, RuntimeError, OSError) as error:
+            print("ERROR: %s" % error, file=sys.stderr)
+            status = 1
+        except KeyboardInterrupt:
+            return 130
+        if status == 130:
+            return status
+        if status:
+            failed.append(name)
+    print("\nALL: %s%s" % ("FAIL" if failed else "PASS",
+                            " (%s)" % ", ".join(failed) if failed else ""))
+    return 1 if failed else 0
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     extra = []
@@ -137,6 +186,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command")
     sub.add_parser("list", help="List scripts, classifications, and BBB IDs without importing ROOT")
+    all_tests = sub.add_parser("all", help="Run unit, harness, normal and BBB checks (quiet by default)")
+    all_tests.set_defaults(quiet=True)
     for command in ("normal", "integration"):
         child = sub.add_parser(command)
         child.add_argument("--case", action="append", default=[], help="Exact inventory ID; repeat to select cases")
@@ -145,7 +196,7 @@ def main(argv=None):
     bbb.add_argument("--case", action="append", default=[])
     bbb.add_argument("--replace", action="store_true", help="Explicitly replace an existing lock (lock only)")
     bbb.add_argument("--ref", default="HEAD", help="Git revision whose lock 'diff' compares against (default HEAD)")
-    for child in (sub.choices["normal"], sub.choices["integration"], bbb):
+    for child in (all_tests, sub.choices["normal"], sub.choices["integration"], bbb):
         child.add_argument("-q", "--quiet", action="store_true",
                            help="Print one character per case (P/F/S) and show captured output only for problems")
         child.add_argument("--tail", type=int, metavar="N",
@@ -157,6 +208,10 @@ def main(argv=None):
         if getattr(args, "tail", None) is not None and not args.quiet:
             raise ValueError("--tail applies only with --quiet.")
         tail_lines = 80 if getattr(args, "tail", None) is None else args.tail
+        if args.command == "all":
+            if extra:
+                raise ValueError("all does not accept legacy script arguments.")
+            return run_all(tail_lines)
         if args.command == "bbb":
             if extra:
                 raise ValueError("BBB does not accept legacy script arguments.")

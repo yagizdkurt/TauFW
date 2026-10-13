@@ -17,6 +17,26 @@ hashes in each lock. It does not assume that lxplus uses Python 3.9.25. Exact BB
 lock/check execution requires Linux with Python 3.9; use the same software stack
 after refactoring.
 
+## All automated tests (quiet shortcut)
+
+From the repository root, run:
+
+```bash
+python3 Tests/run.py all
+```
+
+This runs the Utilities, Framework, Setup and processor compatibility unit tests,
+the harness and ROOT serializer checks, every normal case, and `bbb check` in
+quiet mode. Passing output is captured in logs; failures show their output tail
+and rerun command. Use `all --tail N` to change the tail length. Check logs are in
+`Tests/.artifacts/logs/checks/`; normal and BBB logs retain their usual locations.
+All suites are attempted even when an earlier suite fails, and the command exits
+nonzero if any suite fails. Ctrl-C stops execution.
+
+The full run requires the reference lxplus environment and an existing BBB lock.
+It never creates or replaces baselines. Integration cases and known legacy/broken
+scripts retain their explicit selection requirements.
+
 ## Normal tests
 
 Run commands from the repository root:
