@@ -909,7 +909,7 @@ Part 4: `python3 Tests/run.py bbb lock --replace` after checking that the differ
 ## 11. Framework: the TauFW orchestrator (Part F)
 
 **Date:** 2026-10-13
-**Details:** [Framework/README.md](../Framework/README.md)
+**Details:** [Framework/README.md](../../Framework/README.md)
 
 TauFW had no single entry point: users chained `pico.py`, Plotter scripts and Fitter drivers by hand, and the
 production state lived only in PicoProducer's job configs. The new top-level package `Framework` (importable as
@@ -925,8 +925,7 @@ production state lived only in PicoProducer's job configs. The new top-level pac
   PicoProducer API (`request`, `plan`, `submit`, `resubmit`, `status`, `merge`, `run_local`); its policy is the pure
   function `decide_next` (wait / resubmit / merge / fail, with `max_tries`). `histograms` and `fit` are
   placeholders with declared contracts (`HistogramSpec`/`ShapeArtifact`, `FitSpec`/`FitResult`).
-- **Recipes** (`recipe.py`): YAML (or JSON), validated up front; errors name the file and the key. Example:
-  `Framework/recipes/example_mutau.yml`.
+- **Recipes** (`recipe.py`): see the [recipe guide](../../Framework/recipes/README.md).
 - **Run record** (`run_record.py`): `taufw_runs/<name>_<time>/run.json` (schema 1) with the recipe, the
   PicoProducer configuration snapshot, and per stage: state, attempt, request, submissions, last status, artifacts
   and history. Saved after every stage step, atomically (temporary file + `os.replace`).
@@ -993,8 +992,8 @@ and `Fitter/run_workflow_zmm.sh`, option 3), plus control plots with `Plotter/pl
   shapes of the histograms stage. Stage order: `production, plots, histograms, fit`; any subset is allowed.
 - **`taufw.py`:** `plan` shows the commands of the local stages as a table, with preflight problems as warnings;
   `status` shows the fitted values; every unfinished run gets the "Continue with" hint.
-- **Recipes:** new `Framework/recipes/tes_id_2025.yml` (plots, histograms, fit on existing tuples);
-  `example_mutau.yml` now ends with a `plots` stage instead of the old histograms placeholder.
+- **Recipes:** see the [bundled recipes](../../Framework/recipes/README.md#bundled-recipes)
+  for the current examples.
 - **Repository:** `.gitignore` keeps `Fitter/python/api/__init__.py` and `Plotter/python/api/__init__.py`; the menu
   help (`Utilities/python/Menu/faq.py`) describes the stages; "Public API" sections in the Fitter and Plotter
   READMEs.
@@ -1020,9 +1019,7 @@ the Plotter sample builders).
 
 ### Known limitations
 
-The scripts still write into `Plotter/` and `Fitter/`, shared by all runs; the pico tuples are found through
-`$PICODIR` of `PicoProducer/config/config.json`; a local stage cannot resume half way; only the uncorrelated DeepTau
-variant of option 3 is wrapped. See the Framework README.
+See the recipe guide's [current limitations](../../Framework/recipes/README.md#current-limitations).
 
 ### Tests
 

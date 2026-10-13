@@ -143,15 +143,8 @@ The launcher delegates to `Framework/scripts/taufw.py`; relative recipe and run 
 are resolved from your working directory. After `cmsenv` and `scram b`, `taufw.py`
 is also available on `PATH`.
 
-[`Framework`](Framework) is the single entry point for an analysis pipeline. A YAML recipe names the stages
-(today: `production` with PicoProducer; `histograms` and `fit` are declared placeholders), and `taufw.py` runs them
-step by step, keeping the state in `taufw_runs/<name>_<time>/run.json`:
-```
-taufw.py plan    Framework/recipes/example_mutau.yml     # what would be submitted; nothing is written
-taufw.py start   Framework/recipes/example_mutau.yml     # new run: submits the production jobs
-taufw.py advance taufw_runs/mutau_2022_postEE_<time>     # later: check, resubmit failed chunks, merge
-taufw.py status  taufw_runs/mutau_2022_postEE_<time>
-```
-See [Framework/README.md](Framework/README.md) for the recipe reference and the run model, and
+See [Framework/recipes/README.md](Framework/recipes/README.md) for recipe authoring,
+stage options, examples, and planning, starting, or continuing a pipeline.
+See [Framework/README.md](Framework/README.md) for the run model and
 [PicoProducer/docs/API.md](PicoProducer/docs/API.md) for the PicoProducer API it uses.
 

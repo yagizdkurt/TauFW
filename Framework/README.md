@@ -13,7 +13,7 @@ stages:   production ──────▶ plots ─────────▶ 
           batch, stepwise    plot.py, local    createinputsTES    run_workflow_zmm.sh steps, local
 ```
 
-A recipe may leave stages out, e.g. only `histograms` and `fit` on pico tuples made before.
+For recipe structure and stage selection, see the [recipe guide](recipes/README.md).
 
 After `cmsenv` and `scram b`, the package is importable as `TauFW.Framework` and `taufw.py` is on the `PATH`.
 
@@ -44,7 +44,7 @@ The words below are used everywhere in the code and in this README.
 
 ### Where to start reading the code
 
-1. `recipes/example_mutau.yml` and `recipes/tes_id_2025.yml`: what a user writes.
+1. [recipes/README.md](recipes/README.md) and its bundled examples: what a user writes.
 2. `python/stages/base.py`: the stage contract, the stage states and the stage context (short).
 3. `python/framework.py`: `start` → `advance` → `_advance_stages`, the loop that drives the stages.
 4. `python/stages/production.py`: the batch stage; `decide_next` holds its policy.
@@ -158,99 +158,9 @@ history, the state is unchanged, and the command fails; run `advance` again when
 
 ## Recipe reference
 
-A recipe is a YAML file (JSON is accepted too). Unknown keys are errors that name the key.
-
-```yaml
-name: mutau_2022_postEE         # letters, digits, '_', '.', '-'; the run directory is <name>_<YYYYmmdd-HHMMSS>
-pico:
-  config: null                  # PicoProducer configuration; null: PicoProducer/config/config.json
-                                # (a relative path is relative to the recipe file)
-stages:                         # in the order production, plots, histograms, fit; each at most once
-  - stage: production
-    ...
-```
-
-### `production`
-
-| Option | Default | Meaning |
-|---|---|---|
-| `eras`, `channels` | required | eras and channels as defined in the PicoProducer configuration |
-| `samples`, `vetoes` | `[]` | glob patterns of sample names to include / exclude |
-| `dtypes` | `[mc, data, embed]` | sample types |
-| `dasfilters`, `dasvetoes` | `[]` | glob patterns of DAS paths |
-| `tag` | `""` | extra tag in job and output names (a leading `_` is added) |
-| `extraopts` | `[]` | `KEY=VALUE` module options; precedence: channel table < sample < these |
-| `split.nfilesperjob`, `split.maxevts` | `null` | files or events per job (`null`: sample, then configuration) |
-| `queue`, `time`, `batchopts` | `null` | batch queue (HTCondor job flavour), maximum run time, extra batch options |
-| `prefetch`, `preselect`, `dasfiles` | `false`, `null`, `false` | copy inputs first; skim preselection; take files from DAS |
-| `checkdas`, `checkevts`, `checkexpevts`, `ncores` | `false`, `true`, `null`, `4` | status checks: DAS event count, validate outputs, compare to expected events, parallel validation |
-| `max_tries` | `3` | submissions (first + resubmissions) before failed chunks fail the stage |
-| `merge.clean` | `false` | remove the job files and job output after a validated merge |
-| `merge.force` | `false` | merge samples with failed or missing chunks too |
-| `verbosity` | `0` | PicoProducer verbosity |
-
-### `plots`
-
-Data/MC control plots with `Plotter/plot.py`, one run per channel setup and era, in `Plotter/`
-(`TauFW.Plotter.api.ControlPlots`). Plots go to `Plotter/plots/<era>/`.
-
-| Option | Default | Meaning |
-|---|---|---|
-| `eras` | required | `plot.py -y` |
-| `configs` | `[mutau]` | channel names (`Plotter/config/setup_<channel>.yml`) or `.yml` files relative to `Plotter/` (`-c`) |
-| `variables`, `selections` | `[]` | `-V` and `-S` filters (glob patterns); `[]`: everything `plot.py` defines |
-| `serial`, `fraction`, `pdf`, `notauidsf` | `false` | `-s`, `-F`, `-p`, `-r` |
-| `tag`, `text` | `""` | `-t`, `-T` |
-| `timeout` | `null` | seconds per command (`null`: no limit) |
-
-Artifact per channel and era: `{kind: plots, era, config, channel, directory, nfiles}`.
-
-### `histograms`
-
-The input shapes of the TES + tau ID fit, as `Fitter/run_inputs.sh` makes them: `TauES/createinputsTES.py` for every
-era, working point pair and config, in `Fitter/` (`TauFW.Fitter.api.TauESID.make_shapes`). Shapes go to
-`Fitter/input_pt_less_region/againstjet_<J>/againstelectron_<E>/`.
-
-| Option | Default | Meaning |
-|---|---|---|
-| `eras` | required | `-y` |
-| `jet_wps`, `ele_wps` | required | DeepTau VSjet / VSe working points (`-j`, `-e`), e.g. `[VTight]`, `[Tight]` |
-| `configs` | `[TauES_ID/config/config_coarse_TT.yml, TauES/config/FitSetup_mumu.yml]` | configs relative to `Fitter/`: the mutau fit and the mumu control region |
-| `serial` | `false` | `-s` |
-| `timeout` | `null` | seconds per command |
-
-Artifact per shape file: `{kind: shapes, path, era, channel, config, jet_wp, ele_wp, observable}`.
-
-### `fit`
-
-The steps of `Fitter/run_workflow_zmm.sh` (option 3: 2D scan of `tes` and `tid_SF` per decay mode and pt region,
-with the Z→μμ control region), in `Fitter/` (`TauFW.Fitter.api.TauESID.fit`).
-
-| Option | Default | Meaning |
-|---|---|---|
-| `config`, `config_mumu` | the two `histograms` defaults | the mutau fit config and the mumu control-region config |
-| `eras`, `jet_wps`, `ele_wps` | `[]` | the points to fit. Empty `jet_wps`/`ele_wps`: every (era, WP pair) for which the `histograms` stage of the run made shapes of both configs |
-| `steps` | `[fit, postfit, plots, corrections, summary]` | `fit`: mumu datacards + MultiDimFit; `postfit`: FitDiagnostics, post-fit shapes; `plots`; `corrections`: `createroot_TES` ROOT and JSON; `summary` (once per era): grids, merged JSON, NLL profiles, combined TES+ID file |
-| `impacts` | `true` | impacts in the `postfit` step (slow) |
-| `timeout` | `null` | seconds per command |
-
-Artifact per point: `{kind: fit, era, jet_wp, ele_wp, output_dir, postfit_dir, values, corrections}`, where
-`values` are the fitted `{region, poi, value, low, high}` (read from `FitparameterValues_*.txt`); `taufw.py status`
-shows them as a table. With `summary`: `{kind: corrections, era, path}` (the merged JSON).
-
-### Known limitations of the local stages
-
-These come from the wrapped scripts; they will go away when the Plotter and Fitter are cleaned up behind the same
-APIs.
-- The scripts write into `Plotter/` and `Fitter/` (`plots/`, `input_pt_less_region/`, `output_*`, `postfit_*`,
-  `tau_sf/`, ...). These folders are shared: runs overwrite each other, and two runs at the same time clash.
-  `run.json` records paths, not copies. The `summary` step uses every working point found on disk.
-- The pico tuples are found through `$PICODIR` of `PicoProducer/config/config.json`; the recipe's `pico.config` is
-  not used by the scripts (a warning says so when they differ). The TES, LTF and JTF variation tuples need their own
-  PicoProducer channels (e.g. `mutau_TES0p950`) and, today, their own production runs.
-- A local stage cannot be resumed half way: a `FAILED` stage is final, and Ctrl+C leaves it `NEW` with partial
-  outputs. A full working point scan keeps one `advance` busy for hours.
-- Only the uncorrelated DeepTau variant of option 3 is wrapped (not `corrTES`, `fullcorr`, PNet or UParT).
+See [recipes/README.md](recipes/README.md) for recipe authoring, all stage options
+and defaults, path rules, examples, commands, troubleshooting, and current
+workflow limitations.
 
 ## Run directory
 
@@ -294,6 +204,7 @@ taufw_runs/<name>_<YYYYmmdd-HHMMSS>/
 | `python/stages/local.py` | `LocalStage`: preflight, run the commands, `DONE` or `FAILED` (log tail) |
 | `python/stages/plots.py`, `histograms.py`, `fit.py` | the local stages and their specs (`fit.py` also picks the working points) |
 | `scripts/taufw.py` | the command line (no logic: argparse → `Framework`) |
+| `recipes/README.md` | recipe authoring and usage reference |
 | `recipes/example_mutau.yml` | documented example recipe: production, then control plots |
 | `recipes/tes_id_2025.yml` | the TES + tau ID fit on existing tuples: plots, histograms, fit |
 
