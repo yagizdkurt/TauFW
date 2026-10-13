@@ -105,7 +105,7 @@ The reference environment for all of this is `CMSSW_14_1_0_pre4` (Python 3.9, RO
 
 **Date:** 2026-10-12
 **Commit:** `41c7c0e`
-**Details:** [docs/FastSetup.md](FastSetup.md)
+**Details:** [docs/FastSetup.md](../FastSetup.md)
 
 ### What changed
 

@@ -5,8 +5,11 @@ in the [README](../README.md#manual) around an existing TauFW clone.
 
 ## Requirements
 
-Run on a Linux CMS node or container with bash 4.4 or newer, CMS software
-(normally via CVMFS), Git and network access. The script detects EL8/EL9 for
+Run from a standalone TauFW clone on a Linux CMS node or container with bash
+4.4 or newer, Python 3, CMS software (normally via CVMFS), Git and network
+access. The interactive checklist also requires Python curses. Linked Git
+worktrees are not supported because moving them would break their metadata.
+The script detects EL8/EL9 for
 `SCRAM_ARCH`, or respects an explicitly set `el8_amd64_gcc12` or
 `el9_amd64_gcc12`. `CMS_SETUP` can override the default CMS setup script,
 `/cvmfs/cms.cern.ch/cmsset_default.sh`.
@@ -33,12 +36,43 @@ A release is never created inside another release area. If the destination is
 on another filesystem (e.g. a different AFS volume), the checkout is copied and
 the original is removed only after the copy is complete.
 
-It installs TauIDSFs, HTT lepton efficiencies, Combine `v10.6.1` and
-CombineHarvester `v3.1.0`, then builds with four jobs. The fitting tool
+By default, TauIDSFs, HTT lepton efficiencies, Combine `v10.6.1` and
+CombineHarvester `v3.1.0` are selected for installation, then the release is
+built with four jobs. The fitting tool
 versions follow the [Combine v10 installation instructions](https://cms-analysis.github.io/HiggsAnalysis-CombinedLimit/v10.6.1/)
 and [CombineHarvester's CMSSW 14_1_X recommendation](https://github.com/cms-analysis/CombineHarvester).
 TauIDSFs and the HTT efficiencies follow their default branches. The default
 uses CMSSW's built-in NanoAODTools.
+
+## Interactive checklist
+
+On an interactive terminal, a checklist opens before any installation or move:
+
+- Up/Down moves between components and the **Start install** button.
+- Space or Enter toggles the focused component. Green `[x]` means selected;
+  red `[ ]` means unselected. Checkboxes also work without color.
+- Space or Enter on **Start install** begins setup.
+- Esc or Ctrl+C cancels setup.
+
+TauIDSFs, HTT lepton efficiencies, and Combine + CombineHarvester are selected
+by default. Standalone NanoAODTools is optional for Run 2 JEC/JER. Command-line
+component flags set the initial selections, which can be changed in the menu.
+CMSSW setup and the TauFW build always run, even if every optional component
+is unselected. Unselected dependencies are left unchanged; installation checks
+for skipped TauIDSFs and Combine are omitted.
+
+For automation, use `--non-interactive`. When stdin or stdout is not a terminal,
+the checklist is skipped automatically and defaults plus command-line options
+apply:
+
+```bash
+bash FastSetup.sh --non-interactive --skip-combine --jobs 4
+bash FastSetup.sh --run2-jme
+bash FastSetup.sh --help
+```
+
+If terminal initialization fails, setup stops. Use `--non-interactive` explicitly
+to continue with the command-line selections.
 
 ## Existing files
 
@@ -62,13 +96,18 @@ The script never force-overwrites or deletes your work:
 | `--cmssw-dir PATH` | Use this full release path, ending in `CMSSW_14_1_0_pre4`. |
 | `--jobs N` | Set build parallelism (default: 4). |
 | `--run2-jme` | Install standalone NanoAODTools for the [Run 2 JEC/JER workflows](../README.md#run-2-jetmet-corrections-backward-compatibility). |
+| `--non-interactive` | Skip the checklist and use defaults plus command-line options. |
+| `--skip-tauidsfs` | Do not install or verify TauIDSFs. |
+| `--skip-htt` | Do not install HTT lepton efficiencies. |
+| `--skip-combine` | Do not install or verify Combine/CombineHarvester. |
 | `--help` | Show usage and requirements. |
 
 `--cmssw-dir=PATH` and `--jobs=N` are also accepted.
 
 Use `--run2-jme` only when those Run 2 workflows are needed, because standalone
 NanoAODTools overrides the release's framework. If it is already installed,
-the script requires this flag or asks you to move that checkout outside `src`.
+select it in the checklist or use this flag in noninteractive mode; otherwise
+the script asks you to move that checkout outside `src`.
 
 ## After installation
 
@@ -86,9 +125,17 @@ cmsenv
 ## Interrupted or failed runs
 
 On failure the script prints the exact command to rerun from the checkout's
-current location. Completed steps are skipped. The build starts clean only when
+current location, preserving the chosen components for a noninteractive retry.
+Completed steps are skipped. The build starts clean only when
 the run cloned new packages; otherwise it resumes the previous build.
 
 The [TauPOG-internal JSON and ROOT correction production](../README.md#taupog-corrections)
 requires measured SF values and manual edits, so it is not performed by the
 setup script.
+
+## Menu organization
+
+The checklist runs directly from
+[`Utilities/python/Menu/setup_menu.py`](../Utilities/python/Menu/setup_menu.py)
+before TauFW is installed. Its presentation belongs to Utilities/Menu; cloning,
+release setup, build, and verification remain in `FastSetup.sh`.
