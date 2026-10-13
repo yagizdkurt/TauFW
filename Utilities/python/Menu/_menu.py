@@ -7,6 +7,7 @@ import sys
 import textwrap
 
 from .faq import FAQ
+from .banner import COMPACT, FULL, VERSION, WIDTH
 
 
 class ConsoleUI:
@@ -65,18 +66,47 @@ class ConsoleUI:
             except self.curses.error:
                 pass  # A resize may have happened between size and draw.
 
-    def choose(self, title, choices):
+    def _entry_header(self, screen, welcome, minimum_rows):
+        """Reserve room for controls, using compact branding on smaller terminals."""
+        height, width = screen.getmaxyx()
+        lines = FULL if width > WIDTH and height >= len(FULL) + minimum_rows + 5 else COMPACT
+        if height < len(lines) + minimum_rows + 5:
+            lines = ("TauFW " + VERSION,)
+        color = 0
+        try:
+            if self.curses.has_colors():
+                self.curses.start_color()
+                background = self.curses.COLOR_BLACK
+                try:
+                    self.curses.use_default_colors()
+                    background = -1
+                except self.curses.error:
+                    pass
+                self.curses.init_pair(3, self.curses.COLOR_CYAN, background)
+                color = self.curses.color_pair(3)
+        except self.curses.error:
+            pass
+        for row, line in enumerate(lines):
+            self._line(screen, row, 0, line, color=color)
+        self._line(screen, len(lines) + 1, 0, welcome)
+        return len(lines) + 3
+
+    def choose(self, title, choices, welcome=None):
         def draw(screen):
             self._setup(screen)
             selected = 0
             while True:
                 screen.erase()
                 height, _ = screen.getmaxyx()
-                self._line(screen, 0, 0, title)
-                rows = max(1, height - 5)
+                if welcome is None:
+                    self._line(screen, 0, 0, title)
+                    start = 2
+                else:
+                    start = self._entry_header(screen, welcome, len(choices))
+                rows = max(1, height - start - 2)
                 first = max(0, selected - rows + 1)
                 for index in range(first, min(len(choices), first + rows)):
-                    self._line(screen, index - first + 2, 0,
+                    self._line(screen, index - first + start, 0,
                                ("> " if index == selected else "  ") + choices[index],
                                index == selected)
                 self._line(screen, height - 2, 0, "Up/Down Move | Enter Select | Esc Back")
@@ -148,9 +178,11 @@ class ConsoleUI:
             while True:
                 screen.erase()
                 height, _ = screen.getmaxyx()
-                self._line(screen, 0, 0, "Please choose which of these to install")
-                self._line(screen, 1, 0, "CMSSW setup and the TauFW build are always included.")
-                rows = max(1, height - 5)
+                start = self._entry_header(screen, "Welcome to TauFW fast installer!", len(components) + 3)
+                self._line(screen, start, 0, "Please choose which of these to install")
+                self._line(screen, start + 1, 0, "CMSSW setup and the TauFW build are always included.")
+                start += 3
+                rows = max(1, height - start - 2)
                 first = max(0, focus - rows + 1)
                 for index in range(first, min(len(components) + 1, first + rows)):
                     if index == len(components):
@@ -160,7 +192,7 @@ class ConsoleUI:
                         checked = component in enabled
                         label = ("[x] " if checked else "[ ] ") + label
                         color = colors[checked]
-                    self._line(screen, index - first + 3, 0, label, index == focus, color)
+                    self._line(screen, index - first + start, 0, label, index == focus, color)
                 self._line(screen, height - 2, 0,
                            "Up/Down Move | Space/Enter Select | Esc Cancel")
                 screen.refresh()
@@ -181,14 +213,15 @@ class ConsoleUI:
                     return None
         return self.curses.wrapper(draw)
 
-    def _action(self, title, choices, actions, back="back"):
-        selected = self.choose(title, choices)
+    def _action(self, title, choices, actions, back="back", welcome=None):
+        selected = self.choose(title, choices) if welcome is None else self.choose(title, choices, welcome=welcome)
         return back if selected is None else actions[selected]
 
     def main_menu(self):
         return self._action("TauFW", ["Start a new run", "Continue an existing run",
                                      "Inspect run status", "Help", "Exit"],
-                            ["start", "continue", "inspect", "help", "exit"], back="exit")
+                            ["start", "continue", "inspect", "help", "exit"], back="exit",
+                            welcome="Welcome to TauFW!")
 
     def _pick(self, title, labels, manual_label):
         selected = self.choose(title, labels + [manual_label, "Back"])

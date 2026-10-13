@@ -21,13 +21,43 @@ class ScreenTests(unittest.TestCase):
         curses = mock.Mock()
         curses.error = RuntimeError
         curses.A_REVERSE = 256
-        curses.COLOR_BLACK, curses.COLOR_GREEN, curses.COLOR_RED = 0, 2, 1
+        curses.COLOR_BLACK, curses.COLOR_GREEN, curses.COLOR_RED, curses.COLOR_CYAN = 0, 2, 1, 6
         curses.color_pair.side_effect = lambda pair: pair * 512
         for name, value in (("KEY_UP", 1001), ("KEY_DOWN", 1002), ("KEY_ENTER", 1003),
                             ("KEY_NPAGE", 1004), ("KEY_PPAGE", 1005), ("KEY_BACKSPACE", 1006)):
             setattr(curses, name, value)
         curses.wrapper.side_effect = lambda action: action(screen)
         return curses, screen
+
+    def test_entry_banners_welcome_text_and_compact_layout(self):
+        from TauFW.Utilities.Menu.banner import FULL
+        for installer in (False, True):
+            with self.subTest(installer=installer):
+                curses, screen = self.curses([27])
+                screen.getmaxyx.return_value = (30, 80)
+                ui = ConsoleUI(curses)
+                if installer:
+                    ui.setup_checklist([("combine", "Combine")], ["combine"])
+                    welcome = "Welcome to TauFW fast installer!"
+                else:
+                    ui.main_menu()
+                    welcome = "Welcome to TauFW!"
+                calls = screen.addnstr.call_args_list
+                drawn = [call.args[2] for call in calls]
+                self.assertEqual(drawn[:len(FULL)], list(FULL))
+                self.assertIn(welcome, drawn)
+                self.assertIn("Tau analysis framework", drawn[len(FULL) - 4])
+                self.assertIn("V0.0", drawn[len(FULL) - 3])
+                self.assertTrue(all(call.args[0] < 28 for call in calls[:-1]))
+        curses, screen = self.curses([27])
+        screen.getmaxyx.return_value = (12, 40)
+        curses.has_colors.return_value = False
+        ConsoleUI(curses).main_menu()
+        drawn = [call.args[2] for call in screen.addnstr.call_args_list]
+        self.assertIn("TauFW V0.0", drawn)
+        self.assertIn("Welcome to TauFW!", drawn)
+        self.assertIn("> Start a new run", drawn)
+        self.assertFalse(any(line.startswith("****") for line in drawn))
 
     def test_checklist_toggles_only_and_starts_from_button(self):
         curses, screen = self.curses([32, 10, 1002, 13, 1002, 10])

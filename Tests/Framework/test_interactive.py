@@ -22,7 +22,7 @@ class FakeUI(ConsoleUI):
         self.screens = []
         self.pauses = 0
 
-    def choose(self, title, choices):
+    def choose(self, title, choices, welcome=None):
         self.screens.append((title, choices))
         return next(self.choices)
 

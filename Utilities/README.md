@@ -51,6 +51,9 @@ wording, option labels, keyboard handling, and menu messages in
 `python/Menu/faq.py`. The pre-install FastSetup checklist launches through
 `python/Menu/setup_menu.py` and uses `ConsoleUI.setup_checklist()`; installation
 remains in Bash. Space/Enter toggles components and activates Start install.
+Shared ASCII branding and the current `V0.0` version live in
+`python/Menu/banner.py`. Entry screens show their welcome messages beneath the
+banner; smaller terminals use compact branding so controls remain visible.
 Change screen transitions, back behavior, refresh loops,
 and operation recovery in `python/Menu/_navigation.py`. Source section banners
 group the related responsibilities.

@@ -46,7 +46,8 @@ uses CMSSW's built-in NanoAODTools.
 
 ## Interactive checklist
 
-On an interactive terminal, a checklist opens before any installation or move:
+On an interactive terminal, checklist opens before any installation
+or move:
 
 - Up/Down moves between components and the **Start install** button.
 - Space or Enter toggles the focused component. Green `[x]` means selected;
