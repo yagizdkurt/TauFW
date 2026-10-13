@@ -5,7 +5,7 @@
 # Automates the manual installation in README.md. It creates (or reuses) the
 # reference CMSSW release, moves this checkout to <release>/src/TauFW, installs
 # the extra tools and builds everything with SCRAM. The steps are listed in
-# main() below; usage is in `bash FastSetup.sh --help` and docs/FastSetup.md.
+# main() below; usage is in `bash Utilities/FastSetup.sh --help` and docs/FastSetup.md.
 #
 # Existing dependency checkouts are validated and kept unchanged. New downloads
 # are staged before publication; cross-filesystem copies keep the original.
@@ -13,11 +13,11 @@
 # Plain POSIX syntax, so that sh, dash or zsh reach this message instead of a
 # parse error further down.
 if [ -z "${BASH_VERSION:-}" ]; then
-  echo 'FastSetup: run this script with bash: bash FastSetup.sh' >&2
+  echo 'FastSetup: run this script with bash: bash Utilities/FastSetup.sh' >&2
   return 1 2>/dev/null || exit 1
 fi
 if [[ ${BASH_SOURCE[0]} != "$0" ]]; then
-  printf 'FastSetup: run this script with bash FastSetup.sh, rather than sourcing it.\n' >&2
+  printf 'FastSetup: run this script with bash Utilities/FastSetup.sh, rather than sourcing it.\n' >&2
   return 1
 fi
 if ((BASH_VERSINFO[0] * 100 + BASH_VERSINFO[1] < 404)); then
@@ -113,12 +113,13 @@ main() {
     if $combine; then selected+=(combine); fi
     if $run2_jme; then selected+=(run2-jme); fi
     exec python3 "$repo_dir/Utilities/python/Installer/setup_runner.py" \
-      --script "$repo_dir/FastSetup.sh" --selected "${selected[@]}" -- "$@"
+      --script "$repo_dir/Utilities/FastSetup.sh" --selected "${selected[@]}" -- "$@"
   fi
   banner 'Preflight'
   choose_release_area      # where CMSSW_14_1_0_pre4 lives
   select_components       # preserve the selection in resume arguments
   preflight_install       # reject known conflicts before relocating the clone
+  invalidate_setup_record
   choose_scram_arch        # el8/el9_amd64_gcc12
 
   banner 'CMSSW environment'
@@ -136,6 +137,7 @@ main() {
   build_release            # scram b; clean only when fitting tools require it
   banner 'Verification'
   verify_install
+  publish_setup_record
   if [[ -n ${FASTSETUP_EVENT_FD:-} ]]; then
     local summary
     summary=$(print_summary)
@@ -148,7 +150,7 @@ main() {
 
 usage() {
   cat <<EOF
-Usage: bash FastSetup.sh [options]
+Usage: bash Utilities/FastSetup.sh [options]
 
 Creates or reuses $RELEASE, moves this checkout to its src/TauFW,
 offers a component checklist on interactive terminals, then builds with SCRAM.
@@ -210,9 +212,9 @@ on_error() {
 }
 
 print_retry() {
-  local script=${repo_dir:+$repo_dir/FastSetup.sh} message argument
+  local script=${repo_dir:+$repo_dir/Utilities/FastSetup.sh} message argument
   # A signal may arrive just after the checkout was renamed.
-  if [[ ! -f ${script:-$0} && -f ${target:-}/FastSetup.sh ]]; then script=$target/FastSetup.sh; fi
+  if [[ ! -f ${script:-$0} && -f ${target:-}/Utilities/FastSetup.sh ]]; then script=$target/Utilities/FastSetup.sh; fi
   printf -v message 'Fix the error above, then rerun:\n  bash %q' "${script:-$0}"
   for argument in "${args[@]}"; do
     printf -v argument ' %q' "$argument"
@@ -432,9 +434,9 @@ check_host() {
 }
 
 locate_checkout() {
-  repo_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+  repo_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
   [[ -f $repo_dir/README.md && -d $repo_dir/PicoProducer && -d $repo_dir/Fitter ]] ||
-    die 'Keep FastSetup.sh in the root of the TauFW checkout.'
+    die 'Keep FastSetup.sh in Utilities inside the TauFW checkout.'
   # A linked worktree only has a .git file that points to its main repository;
   # moving it would break that link.
   [[ -d $repo_dir/.git ]] || die 'Use a standalone Git clone; moving a linked worktree would break its Git metadata.'
@@ -469,7 +471,7 @@ choose_release_area() {
 
   target=$cmssw_dir/src/TauFW
   if [[ $repo_dir != "$target" && (-e $target || -L $target) ]]; then
-    die "Destination already exists: $target. Run its FastSetup.sh or choose another --cmssw-dir."
+    die "Destination already exists: $target. Source its setup.sh or choose another --cmssw-dir."
   fi
 }
 
@@ -732,6 +734,29 @@ verify_install() {
 # =============================================================================
 # ==== Completion summary ====
 
+# Successful setup state is data, never executable shell code.
+invalidate_setup_record() {
+  rm -f -- "$repo_dir/.git/taufw-setup-state" "$target/.git/taufw-setup-state"
+}
+
+write_setup_record() { # DESTINATION
+  local destination=$1 stage
+  stage=$(mktemp "${destination}.XXXXXX")
+  cleanup_paths+=("$stage")
+  printf '%s\0' taufw-setup-v1 "$cmssw_dir" "$repo_dir" "$cms_setup" "$SCRAM_ARCH" > "$stage"
+  mv -f -- "$stage" "$destination"
+}
+
+publish_setup_record() {
+  write_setup_record "$repo_dir/.git/taufw-setup-state"
+  if [[ -n $copied_from ]]; then
+    write_setup_record "$copied_from/.git/taufw-setup-state"
+  fi
+  if [[ -n ${FASTSETUP_RESULT_FILE:-} ]]; then
+    write_setup_record "$FASTSETUP_RESULT_FILE"
+  fi
+}
+
 selection_label() {
   if "$1"; then printf 'selected'; else printf 'skipped'; fi
 }
@@ -747,8 +772,9 @@ print_summary() {
     printf '\nWarnings from this run:\n'
     printf '  - %s\n' "${warnings[@]}"
   fi
-  printf '\nActivate this environment in your terminal now and in each new session:\n'
-  printf '  source %q\n  export SCRAM_ARCH=%q\n  cd %q\n  cmsenv\n' "$cms_setup" "$SCRAM_ARCH" "$cmssw_dir/src"
+  printf '\nActivate this environment in each session:\n  source %q\n' "$repo_dir/setup.sh"
+  printf '\nManual activation fallback:\n'
+  printf '  source %q\n  export SCRAM_ARCH=%q\n  cd %q\n  cmsenv\n  cd %q\n' "$cms_setup" "$SCRAM_ARCH" "$cmssw_dir/src" "$repo_dir"
   if [[ -n $copied_from ]]; then
     printf '\nOriginal checkout retained at: %s\nUse the activation commands above to work from the installed copy.\n' "$copied_from"
   elif $moved; then

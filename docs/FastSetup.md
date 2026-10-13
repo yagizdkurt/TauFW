@@ -1,6 +1,6 @@
 # FastSetup
 
-[`FastSetup.sh`](../FastSetup.sh) automates the software installation described
+[`setup.sh`](../setup.sh) automates the software installation described
 in the [README](../README.md#manual) around an existing TauFW clone.
 
 ## Requirements
@@ -20,7 +20,7 @@ The script detects EL8/EL9 for
 ```bash
 git clone https://github.com/cms-tau-pog/TauFW TauFW
 cd TauFW
-bash FastSetup.sh
+source setup.sh
 ```
 
 The script creates `CMSSW_14_1_0_pre4` beside the checkout and moves the entire
@@ -84,6 +84,7 @@ The script never force-overwrites or deletes your work:
 
 | Option | Effect |
 | --- | --- |
+| `--install` | Reopen installation even if a successful setup is recorded. |
 | `--cmssw-dir PATH` | Use this full release path, ending in `CMSSW_14_1_0_pre4`. |
 | `--jobs N` | Set build parallelism (default: 4). |
 | `--run2-jme` | Install standalone NanoAODTools for the [Run 2 JEC/JER workflows](../README.md#run-2-jetmet-corrections-backward-compatibility). |
@@ -102,15 +103,40 @@ the script asks you to move that checkout outside `src`.
 
 ## After installation
 
-Activate the environment using the commands printed by the script. A script
-cannot set the environment of its parent terminal. Repeat these commands in
-each new session:
+The installer runs in a subprocess and keeps its interactive checklist and run
+screen. After you close a successful result screen, the sourced wrapper activates
+CMSSW in your terminal and enters the installed `src/TauFW` checkout.
+
+In each new session, source the wrapper from that checkout (or use its full path):
+
+```bash
+source setup.sh
+```
+
+A verified success record under `.git/taufw-setup-state` allows subsequent calls
+to activate directly without installation or full dependency checks. Missing or
+stale records run installation; older/manual installations therefore run the
+installer once. A retained original from a cross-filesystem copy also records
+the installed location, so sourcing its wrapper activates the installed copy.
+
+Use `source setup.sh --install` to reopen installation. Supplying any installer
+options also runs installation explicitly. `--help` only prints usage. Execute
+neither `bash setup.sh` nor `./setup.sh`: sourcing is required to activate your
+current shell. The worker lives at `Utilities/FastSetup.sh` and must be run with
+Bash if used directly; direct execution cannot activate your parent terminal.
+
+If installation fails or is cancelled, the wrapper returns a nonzero status
+without attempting activation. Completion records are invalidated before
+installation work and rewritten only after verification succeeds.
+
+Manual activation remains available as a fallback:
 
 ```bash
 source /cvmfs/cms.cern.ch/cmsset_default.sh
 export SCRAM_ARCH=el9_amd64_gcc12 # use el8_amd64_gcc12 on EL8
 cd /path/to/CMSSW_14_1_0_pre4/src
 cmsenv
+cd TauFW
 ```
 
 ## Interrupted or failed runs

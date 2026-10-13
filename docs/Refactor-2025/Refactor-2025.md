@@ -109,12 +109,12 @@ The reference environment for all of this is `CMSSW_14_1_0_pre4` (Python 3.9, RO
 
 ### What changed
 
-- New [FastSetup.sh](../FastSetup.sh) at the repository root. From a fresh clone:
+- New [setup.sh](../../setup.sh) entry point at the repository root, with the installer in `Utilities/FastSetup.sh`. From a fresh clone:
 
   ```bash
   git clone https://github.com/cms-tau-pog/TauFW TauFW
   cd TauFW
-  bash FastSetup.sh
+  source setup.sh
   ```
 
   It creates `CMSSW_14_1_0_pre4` (detecting EL8/EL9 for `SCRAM_ARCH`), moves the checkout to

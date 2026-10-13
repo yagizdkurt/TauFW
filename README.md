@@ -18,7 +18,7 @@ Run all automated tests quietly with `python3 Tests/run.py all` (see the
 ```bash
 git clone https://github.com/cms-tau-pog/TauFW TauFW
 cd TauFW
-bash FastSetup.sh
+source setup.sh
 ```
 
 See the [FastSetup documentation](docs/FastSetup.md) for requirements and options.

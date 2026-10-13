@@ -23,7 +23,7 @@ if BASH is None:
 @unittest.skipUnless(BASH, "Bash is unavailable")
 class FastSetupTests(unittest.TestCase):
     def run_script(self, body, *args, expected=0, directory=None, helper_from_checkout=False):
-        source = (REPO / "FastSetup.sh").read_text(encoding="utf-8")
+        source = (REPO / "Utilities/FastSetup.sh").read_text(encoding="utf-8")
         source = source.rsplit('main "$@"', 1)[0]
         if directory is None:
             fixture = tempfile.TemporaryDirectory()
@@ -53,6 +53,8 @@ check_host() { :; }
 locate_checkout() { repo_dir=/checkout; }
 choose_release_area() { cmssw_dir=/release; }
 preflight_install() { :; }
+invalidate_setup_record() { :; }
+publish_setup_record() { :; }
 choose_scram_arch() { :; }
 load_cms_software() { :; }
 create_release() { :; }
@@ -286,7 +288,7 @@ repo_dir=/new/location/TauFW
 args=(--non-interactive --skip-htt --jobs 2)
 die 'injected conflict'
 ''', expected=1)
-        self.assertIn("bash /new/location/TauFW/FastSetup.sh --non-interactive --skip-htt --jobs 2", output)
+        self.assertIn("bash /new/location/TauFW/Utilities/FastSetup.sh --non-interactive --skip-htt --jobs 2", output)
 
     def test_python_verification_rejects_namespace_only_package(self):
         output, _ = self.run_script(r'''

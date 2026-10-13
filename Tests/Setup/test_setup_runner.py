@@ -51,7 +51,7 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(worker.activity, "Compiling Python modules")
         self.assertEqual(worker.diagnostics, ["WARNING: architecture mismatch"])
         self.assertEqual(worker.lines[:2], ["progress 1", "progress 2"])
-        worker.feed_events(b"retry\0bash /moved/FastSetup.sh --non-interactive\0")
+        worker.feed_events(b"retry\0bash /moved/Utilities/FastSetup.sh --non-interactive\0")
         self.assertIn("/moved/", worker.retry)
         worker.feed_output(b"fatal: last unterminated message", final=True)
         self.assertIn("fatal: last unterminated message", worker.diagnostics)
@@ -98,7 +98,7 @@ class RunnerTests(unittest.TestCase):
                 patch.object(runner, "Worker", return_value=worker) as launch, \
                 patch.object(runner, "progress", return_value=0) as progress, \
                 patch("builtins.print"):
-            self.assertEqual(runner.main(["--script", "/clone/FastSetup.sh", "--selected",
+            self.assertEqual(runner.main(["--script", "/clone/Utilities/FastSetup.sh", "--selected",
                                           "tauidsfs", "--", "--jobs=4"]), 0)
         ui.curses.wrapper.assert_called_once()
         self.assertIs(ui.setup_checklist.call_args.kwargs["screen"], screen)
@@ -112,19 +112,19 @@ class RunnerTests(unittest.TestCase):
         ui.curses.wrapper.side_effect = lambda action: action(Mock())
         with patch.object(runner.ConsoleUI, "open", return_value=ui), \
                 patch.object(runner, "Worker") as launch, patch("builtins.print"):
-            self.assertEqual(runner.main(["--script", "/clone/FastSetup.sh"]), 130)
+            self.assertEqual(runner.main(["--script", "/clone/Utilities/FastSetup.sh"]), 130)
         launch.assert_not_called()
 
     def test_ui_failure_closes_worker_and_prints_recovery(self):
         ui, worker = Mock(), Mock()
         ui.setup_checklist.return_value = []
         ui.curses.wrapper.side_effect = lambda action: action(Mock())
-        worker.result.return_value = "Setup cancelled\nbash /moved/FastSetup.sh"
+        worker.result.return_value = "Setup cancelled\nbash /moved/Utilities/FastSetup.sh"
         with patch.object(runner.ConsoleUI, "open", return_value=ui), \
                 patch.object(runner, "Worker", return_value=worker), \
                 patch.object(runner, "progress", side_effect=RuntimeError("terminal lost")), \
                 patch("builtins.print") as output:
-            self.assertEqual(runner.main(["--script", "/clone/FastSetup.sh"]), 1)
+            self.assertEqual(runner.main(["--script", "/clone/Utilities/FastSetup.sh"]), 1)
         worker.close.assert_called_once()
         self.assertTrue(any("/moved/" in str(call) for call in output.call_args_list))
 
