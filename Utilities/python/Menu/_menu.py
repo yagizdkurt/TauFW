@@ -8,7 +8,7 @@ import sys
 import textwrap
 
 from .faq import FAQ
-from .banner import COMPACT, FULL, VERSION, WIDTH
+from .banner import BOXED, COMPACT, FULL, VERSION, WIDTH
 
 
 class ConsoleUI:
@@ -74,7 +74,12 @@ class ConsoleUI:
     def _entry_header(self, screen, welcome, minimum_rows):
         """Reserve room for controls, using compact branding on smaller terminals."""
         height, width = screen.getmaxyx()
-        lines = FULL if width > WIDTH and height >= len(FULL) + minimum_rows + 5 else COMPACT
+        if width > WIDTH and height >= len(FULL) + minimum_rows + 5:
+            lines = FULL
+        elif width > len(BOXED[0]) and height >= len(BOXED) + minimum_rows + 5:
+            lines = BOXED
+        else:
+            lines = COMPACT
         if height < len(lines) + minimum_rows + 5:
             lines = ("TauFW " + VERSION,)
         color = 0

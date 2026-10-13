@@ -49,6 +49,15 @@ class ScreenTests(unittest.TestCase):
                 self.assertIn("Tau analysis framework", drawn[len(FULL) - 4])
                 self.assertIn("V0.0", drawn[len(FULL) - 3])
                 self.assertTrue(all(call.args[0] < 28 for call in calls[:-1]))
+        from TauFW.Utilities.Menu.banner import BOXED
+        for dimensions in ((24, 80), (30, 65)):
+            with self.subTest(dimensions=dimensions):
+                curses, screen = self.curses([27])
+                screen.getmaxyx.return_value = dimensions
+                ConsoleUI(curses).main_menu()
+                drawn = [call.args[2] for call in screen.addnstr.call_args_list]
+                self.assertEqual(drawn[:len(BOXED)], list(BOXED))
+                self.assertIn("> Start a new run", drawn)
         curses, screen = self.curses([27])
         screen.getmaxyx.return_value = (12, 40)
         curses.has_colors.return_value = False

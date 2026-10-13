@@ -39,8 +39,14 @@ _SCENE = (
 FULL = tuple(
     ["*" * WIDTH]
     + ["*" + line.center(WIDTH - 2) + "*" for line in
-       ("", *(line.ljust(WIDTH - 2) for line in _SCENE), "",
+       (*(line.ljust(WIDTH - 2) for line in _SCENE),
         "Tau analysis framework", VERSION, "")]
     + ["*" * WIDTH]
+)
+BOXED = tuple(
+    ["*" * 64]
+    + ["*" + line.center(62) + "*" for line in
+       ("", *_LOGO, "", "Tau analysis framework", VERSION, "")]
+    + ["*" * 64]
 )
 COMPACT = ("TauFW", "Tau analysis framework", VERSION)
