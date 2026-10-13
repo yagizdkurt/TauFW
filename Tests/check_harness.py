@@ -33,6 +33,41 @@ def contents(directory):
 
 
 class HarnessChecks(unittest.TestCase):
+    def test_catalog_is_metadata_only_and_checks_select_existing_suites(self):
+        original_import = builtins.__import__
+
+        def no_root(name, *args, **kwargs):
+            if name == "ROOT" or name.startswith("TauFW"):
+                raise AssertionError("Catalog imported a test dependency: " + name)
+            return original_import(name, *args, **kwargs)
+
+        output = io.StringIO()
+        with mock.patch("builtins.__import__", side_effect=no_root), \
+                mock.patch.object(run, "check_python_environment") as environment, \
+                mock.patch.object(run, "execute_scripts") as execute, \
+                mock.patch.object(run.subprocess, "run") as worker, \
+                contextlib.redirect_stdout(output):
+            self.assertEqual(run.main(["catalog"]), 0)
+        environment.assert_not_called()
+        execute.assert_not_called()
+        worker.assert_not_called()
+        metadata = json.loads(output.getvalue())
+        self.assertEqual(set(metadata), {"checks", "normal", "bbb"})
+        self.assertEqual([item["id"] for item in metadata["normal"]],
+                         [case["id"] for case in run.select_cases(run.inventory(), "normal", [])])
+        self.assertEqual([item["id"] for item in metadata["checks"]],
+                         [case["id"] for case in run.check_cases()])
+        self.assertEqual([item["id"] for item in metadata["bbb"]], runner.selected_cases([]))
+        name = run.check_cases()[0]["id"]
+        with mock.patch.object(run, "execute_scripts", return_value=0) as execute:
+            self.assertEqual(run.main(["checks", "--case", name, "--case", name], check_environment=False), 0)
+        self.assertEqual(execute.call_args.args[0], [run.check_cases()[0]])
+        self.assertEqual(execute.call_args.kwargs, {"quiet": True, "tail_lines": 80, "log_kind": "checks"})
+        with contextlib.redirect_stderr(io.StringIO()), mock.patch.object(run, "execute_scripts") as execute:
+            self.assertEqual(run.main(["checks", "--case", "unknown"], check_environment=False), 1)
+            self.assertEqual(run.main(["checks", "--", "argument"], check_environment=False), 1)
+        execute.assert_not_called()
+
     def test_environment_command_checks_without_running_tests(self):
         with mock.patch.object(run, "check_python_environment") as check, \
                 mock.patch.object(run, "inventory") as inventory:

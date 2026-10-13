@@ -81,7 +81,7 @@ Each screen uses its own `curses.wrapper` session, restoring the terminal before
 Framework operations print output or wait for jobs.
 
 Application screens return named actions: `main_menu()` returns `start`,
-`continue`, `inspect`, `help`, or `exit`; recipe confirmation, status, and run
+`continue`, `inspect`, `tests`, `help`, or `exit`; recipe confirmation, status, and run
 continuation return their corresponding action or `back`. Recipe/run selectors
 return `(action, index)`, with `select` identifying a supplied item and `manual`
 or `back` carrying `None`. Path and polling prompts return text or `None` on Esc.
@@ -91,6 +91,13 @@ unreadable run. Framework retains the records and paths behind those summaries.
 Discovery, validation, record access, callback arguments, and command dispatch
 stay in `Framework/python/interactive.py`. Menu imports no Framework modules.
 Workflow operations continue to use their existing CLI reporting.
+
+Testing screens use `tests_menu()`, `test_family(title)`, and
+`test_selection(title, items, review=False)`. Items contain `id`, `description`,
+and `dependencies`; selection returns ordered IDs after Run or `None` on Back.
+Navigation calls the supplied operations object's `test_catalog()` and
+`execute_tests(family, cases)` methods. The Framework adapter owns catalog reads,
+checkout paths and test subprocesses; Utilities imports no test modules.
 
 `MenuNavigation(ui, operations)` owns the user journey and accepts an operations
 object supplied by the caller. The object provides `launch_dir`, `recipes()`

@@ -64,5 +64,21 @@ FAQ = (
      "inspects. Add --wait --poll 600 to advance for polling. Use --help for "
      "command options. pico.py and the other package entry points remain "
      "available independently."),
+
+    ("Tests",
+     "Open Tests from the main menu to run all automated tests, unit/harness "
+     "suites, normal cases, or BBB regression checks. Choose tests uses Space "
+     "to toggle checkboxes; move to Run and press Enter. Review the selected "
+     "tests before Run; Esc returns without running. Page Up/Down scroll details. "
+     "Tests use quiet output, with P/F/S statuses, failure tails and log paths. "
+     "Normal PASS means the script exited successfully; SKIP means a missing "
+     "dependency. BBB compares exact data/schema against saved expectations "
+     "and requires Linux Python 3.9 with the matching ROOT environment and a "
+     "baseline lock. Full testing needs the documented CMSSW/ROOT stack. "
+     "Check environment only warns about Python package origins; it does not "
+     "repair the environment. Ctrl+C cancels the test run and its workers. "
+     "Integration tests and baseline creation/replacement remain explicit CLI "
+     "operations. The menu itself requires an interactive Linux terminal and "
+     "working Framework imports. Press Enter after output to return."),
      
 )

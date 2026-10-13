@@ -3,7 +3,11 @@
 Discovery, path resolution, record access, validation, and CLI dispatch belong
 here. Presentation and screen transitions live in TauFW.Utilities.Menu.
 """
+import json
 import os
+import signal
+import subprocess
+import sys
 from argparse import Namespace
 from pathlib import Path
 
@@ -98,6 +102,73 @@ class _Operations:
         if poll <= 0:
             raise ValueError("Polling interval must be positive.")
         return poll
+
+    @staticmethod
+    def _test_runner():
+        root = Path(__file__).resolve().parents[2]
+        runner = root / "Tests" / "run.py"
+        if not runner.is_file():
+            raise RuntimeError("Cannot find Tests/run.py in %s. Open the menu from a complete TauFW checkout." % root)
+        return root, runner
+
+    def test_catalog(self):
+        root, runner = self._test_runner()
+        result = subprocess.run([sys.executable, "-B", str(runner), "catalog"],
+                                cwd=str(root), capture_output=True, text=True)
+        if result.returncode:
+            raise RuntimeError("Cannot load test choices. Check Tests/run.py catalog:\n" + result.stderr.strip())
+        try:
+            catalog = json.loads(result.stdout)
+            for family in ("checks", "normal", "bbb"):
+                if not isinstance(catalog[family], list):
+                    raise ValueError("Invalid test family")
+                for case in catalog[family]:
+                    if not isinstance(case["id"], str) or not isinstance(case["description"], str):
+                        raise ValueError("Invalid test metadata")
+                    if not isinstance(case["dependencies"], list):
+                        raise ValueError("Invalid dependency metadata")
+            return catalog
+        except (ValueError, KeyError, TypeError) as error:
+            raise RuntimeError("Invalid test catalog from Tests/run.py; check the checkout: %s" % error) from error
+
+    def execute_tests(self, family, cases):
+        if family not in ("all", "checks", "normal", "bbb", "environment"):
+            raise ValueError("Unknown automated test family: %s" % family)
+        root, runner = self._test_runner()
+        command = [sys.executable, "-B", str(runner), family]
+        if family == "bbb":
+            command.append("check")
+        if cases and family in ("all", "environment"):
+            raise ValueError("This action does not accept selected cases.")
+        for case in cases:
+            command.extend(["--case", case])
+        # Own a process group so cancelling also stops any active test workers.
+        process = subprocess.Popen(command, cwd=str(root), start_new_session=os.name == "posix")
+        try:
+            status = process.wait()
+        except KeyboardInterrupt:
+            try:
+                if os.name == "posix":
+                    os.killpg(process.pid, signal.SIGINT)
+                else:
+                    process.terminate()
+            except ProcessLookupError:
+                pass  # The child may have finished just before Ctrl-C.
+            try:
+                process.wait(timeout=5)
+            except (subprocess.TimeoutExpired, KeyboardInterrupt):
+                try:
+                    if os.name == "posix":
+                        os.killpg(process.pid, signal.SIGKILL)
+                    else:
+                        process.kill()
+                except ProcessLookupError:
+                    pass
+                process.wait()
+            raise
+        print("\nTest operation: %s" % ("completed" if status == 0 else
+                                         "cancelled" if status == 130 else "failed (exit %s)" % status))
+        return status
 
     def execute(self, command, **values):
         args = dict(verbose=0, wait=False, poll=DEFAULT_POLL_SECONDS, run_root=None, local=False, maxevts=100)

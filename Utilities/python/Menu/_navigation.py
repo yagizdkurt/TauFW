@@ -150,12 +150,62 @@ class MenuNavigation:
                 pass
             self.ui.invalid_poll_interval()
 
+    def tests(self):
+        """Browse caller-supplied metadata and run only automated actions."""
+        titles = {"checks": "Unit and harness checks", "normal": "Normal tests",
+                  "bbb": "BBB regression checks", "all": "All automated tests",
+                  "environment": "Check environment"}
+        while True:
+            try:
+                family = self.ui.tests_menu()
+                if family == "back":
+                    return
+                if family == "environment":
+                    items = [dict(id="environment", description="Advisory CMSSW Python package-origin check; "
+                                  "no tests run and no packages are changed.", dependencies=[])]
+                    selected = []
+                else:
+                    catalog = self.operations.test_catalog()
+                    items = ([item for name in ("checks", "normal", "bbb") for item in catalog[name]]
+                             if family == "all" else catalog[family])
+                    selected = []
+                    if family != "all":
+                        action = self.ui.test_family(titles[family])
+                        if action == "back":
+                            continue
+                        if action == "choose":
+                            selected = self.ui.test_selection(titles[family], items)
+                            if not selected:
+                                continue
+                            items = [item for item in items if item["id"] in selected]
+                if not items:
+                    raise ValueError("No automated tests available in this family.")
+                if self.ui.test_selection("Review / " + titles[family], items, review=True) is None:
+                    continue
+                try:
+                    self.operations.execute_tests(family, selected)
+                except KeyboardInterrupt:
+                    self.ui.interrupted_tests()
+                except Exception as error:
+                    if isinstance(self.ui, ConsoleUI) and self.ui.is_terminal_error(error):
+                        raise
+                    self.ui.operation_error(error)
+                finally:
+                    self.ui.pause()
+            except KeyboardInterrupt:
+                continue
+            except Exception as error:
+                if isinstance(self.ui, ConsoleUI) and self.ui.is_terminal_error(error):
+                    raise
+                self.ui.operation_error(error)
+                self.ui.pause()
+
     # =========================================================================
     # ============================ MAIN NAVIGATION ============================
 
     def run(self):
         actions = {"start": self.start, "continue": self.continue_run,
-                   "inspect": self.inspect, "help": self.ui.help}
+                   "inspect": self.inspect, "tests": self.tests, "help": self.ui.help}
         while True:
             try:
                 action = self.ui.main_menu()

@@ -404,15 +404,103 @@ class ConsoleUI:
 
     def main_menu(self):
         return self._action("TauFW", ["Start a new run", "Continue an existing run",
-                                     "Inspect run status", "Help", "Exit"],
-                            ["start", "continue", "inspect", "help", "exit"], back="exit",
+                                     "Inspect run status", "Tests", "Help", "Exit"],
+                            ["start", "continue", "inspect", "tests", "help", "exit"], back="exit",
                             welcome="Welcome to TauFW!", descriptions=[
                                 "Choose an analysis recipe and review its pipeline before starting.",
                                 "Resume a saved run, once or with repeated checking.",
                                 "Inspect the recorded and live status of an existing run.",
+                                "Run automated checks or choose individual tests.",
                                 "Browse workflow explanations and frequently asked questions.",
                                 "Close the menu and return to your terminal.",
                             ])
+
+    def tests_menu(self):
+        return self._action("Tests", ["Run all automated tests", "Unit and harness checks",
+                            "Normal tests", "BBB regression checks", "Check environment", "Back"],
+                            ["all", "checks", "normal", "bbb", "environment", "back"], descriptions=[
+                                "Run all unit, harness, normal and BBB checks; requires CMSSW/ROOT and a BBB lock.",
+                                "Select unit suites or harness checks.",
+                                "Run local scripts. PASS means successful process exit; missing dependencies may SKIP.",
+                                "Compare exact data/schema against saved expectations; needs Linux Python 3.9 and a lock.",
+                                "Advisory CMSSW Python package-origin diagnostics; does not install or repair packages.",
+                                "Return to the main menu."])
+
+    def test_family(self, title):
+        return self._action(title, ["Run entire family", "Choose tests", "Back"],
+                            ["all", "choose", "back"])
+
+    def test_selection(self, title, items, review=False):
+        """Return IDs after Run, or None on Back; each screen restores curses."""
+        enabled = {item["id"] for item in items} if review else set()
+
+        def draw(screen):
+            self._setup(screen)
+            focus, offset = 0, 0
+            while True:
+                screen.erase()
+                height, width = screen.getmaxyx()
+                self._header(screen, title)
+                usable = height >= 12 and width >= 40
+                page = 1
+                if usable:
+                    list_height = max(4, (height - 6) // 2)
+                    top, left, rows, columns = self._panel(screen, 3, 1, list_height, width - 2,
+                                                          "Review" if review else "Select tests")
+                    first = max(0, focus - rows + 1)
+                    for index in range(first, min(len(items) + 2, first + rows)):
+                        if index < len(items):
+                            item = items[index]
+                            label = item["id"] if review else (
+                                "[x] " if item["id"] in enabled else "[ ] ") + item["id"]
+                        else:
+                            label = "[ Run ]" if index == len(items) else "Back"
+                        self._line(screen, top + index - first, left, label[:columns], index == focus)
+                    rect = self._panel(screen, 3 + list_height, 1, height - list_height - 6,
+                                       width - 2, "Details")
+                    if focus < len(items):
+                        item = items[focus]
+                        text = item["description"]
+                        if item["dependencies"]:
+                            text += "\nDependencies: " + ", ".join(item["dependencies"])
+                    else:
+                        text = ("%d selected. Quiet output; failures show the last 80 lines and log paths."
+                                % (len(items) if review else len(enabled))) if focus == len(items) else "Return without running tests."
+                    offset, page = self._viewport(screen, rect, self._wrap(text, rect[3]), offset)
+                else:
+                    self._line(screen, 3, 1, "Enlarge terminal (at least 40 x 12).")
+                self._footer(screen, "Up/Down Move | Enter Run/Back | PgUp/Dn Details | Esc Back"
+                             if review else "Up/Down Move | Space Toggle | Enter Run/Back | PgUp/Dn Details | Esc Back")
+                screen.refresh()
+                key = screen.getch()
+                if key == 27:
+                    return None
+                if not usable:
+                    continue
+                if key in (self.curses.KEY_UP, self.curses.KEY_DOWN):
+                    focus = (focus + (1 if key == self.curses.KEY_DOWN else -1)) % (len(items) + 2)
+                    offset = 0
+                elif key == self.curses.KEY_NPAGE:
+                    offset += page
+                elif key == self.curses.KEY_PPAGE:
+                    offset = max(0, offset - page)
+                elif key == 32 and focus < len(items) and not review:
+                    name = items[focus]["id"]
+                    if name in enabled:
+                        enabled.remove(name)
+                    else:
+                        enabled.add(name)
+                elif key in (10, 13, self.curses.KEY_ENTER):
+                    if focus == len(items) + 1:
+                        return None
+                    if focus == len(items):
+                        if enabled:
+                            return [item["id"] for item in items if item["id"] in enabled]
+                        self.curses.beep()
+        return self.curses.wrapper(draw)
+
+    def interrupted_tests(self):
+        print("\nTest run cancelled. Returning to the testing menu.")
 
     def _pick(self, title, labels, manual_label):
         selected = self.choose(title, labels + [manual_label, "Back"])

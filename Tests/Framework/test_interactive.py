@@ -3,15 +3,18 @@ import contextlib
 import importlib.util
 import io
 import json
+import sys
 import tempfile
 import unittest
 from datetime import datetime
 from pathlib import Path
 from unittest import mock
+from types import SimpleNamespace
 
 import checkout
 from TauFW.Framework import Recipe, RunRecord
 from TauFW.Framework.interactive import Menu, run_menu
+from TauFW.Framework import interactive
 from TauFW.Utilities.Menu import ConsoleUI
 
 
@@ -45,6 +48,56 @@ class FakeUI(ConsoleUI):
 
 
 class MenuTests(unittest.TestCase):
+    def test_test_adapter_uses_checkout_current_python_and_quiet_arguments(self):
+        operations = self.menu(FakeUI()).operations
+        for family, cases, suffix in (("all", [], ["all"]),
+                                      ("checks", ["unit.utilities"], ["checks", "--case", "unit.utilities"]),
+                                      ("normal", [], ["normal"]),
+                                      ("bbb", ["plotter.unroll"], ["bbb", "check", "--case", "plotter.unroll"]),
+                                      ("environment", [], ["environment"])):
+            with mock.patch.object(interactive.subprocess, "Popen") as launch, \
+                    contextlib.redirect_stdout(io.StringIO()):
+                launch.return_value.wait.return_value = 1
+                self.assertEqual(operations.execute_tests(family, cases), 1)
+            self.assertEqual(launch.call_args.args[0],
+                             [sys.executable, "-B", str(checkout.REPO / "Tests/run.py")] + suffix)
+            self.assertEqual(launch.call_args.kwargs["cwd"], str(checkout.REPO))
+        metadata = {family: [dict(id="example", description="Example", dependencies=[])]
+                    for family in ("normal", "checks", "bbb")}
+        with mock.patch.object(interactive.subprocess, "run", return_value=mock.Mock(
+                returncode=0, stdout=json.dumps(metadata))) as catalog:
+            self.assertEqual(operations.test_catalog(), metadata)
+        self.assertEqual(catalog.call_args.args[0][-1], "catalog")
+        self.assertEqual(catalog.call_args.kwargs["cwd"], str(checkout.REPO))
+        for result in (mock.Mock(returncode=1, stderr="missing inventory"),
+                       mock.Mock(returncode=0, stdout="invalid JSON")):
+            with mock.patch.object(interactive.subprocess, "run", return_value=result):
+                with self.assertRaises(RuntimeError):
+                    operations.test_catalog()
+        with mock.patch.object(interactive, "__file__", str(self.root / "Framework/python/interactive.py")):
+            with self.assertRaisesRegex(RuntimeError, "complete TauFW checkout"):
+                operations.test_catalog()
+
+    def test_test_interrupt_stops_process_group_and_waits(self):
+        operations = self.menu(FakeUI()).operations
+        process = mock.Mock(pid=123, wait=mock.Mock(side_effect=[KeyboardInterrupt(), 130]))
+        posix = SimpleNamespace(name="posix", killpg=mock.Mock())
+        with mock.patch.object(interactive, "os", posix), \
+                mock.patch.object(interactive.subprocess, "Popen", return_value=process):
+            with self.assertRaises(KeyboardInterrupt):
+                operations.execute_tests("normal", [])
+        posix.killpg.assert_called_once_with(123, interactive.signal.SIGINT)
+        self.assertEqual(process.wait.call_args_list, [mock.call(), mock.call(timeout=5)])
+        process.wait.side_effect = [KeyboardInterrupt(), interactive.subprocess.TimeoutExpired("tests", 5), -9]
+        posix.killpg.reset_mock()
+        with mock.patch.object(interactive, "os", posix), \
+                mock.patch.object(interactive.signal, "SIGKILL", 9, create=True), \
+                mock.patch.object(interactive.subprocess, "Popen", return_value=process):
+            with self.assertRaises(KeyboardInterrupt):
+                operations.execute_tests("normal", [])
+        self.assertEqual(posix.killpg.call_args_list, [mock.call(123, interactive.signal.SIGINT),
+                                                     mock.call(123, 9)])
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -154,7 +207,7 @@ class MenuTests(unittest.TestCase):
     def test_interrupted_operation_returns_to_main_menu(self):
         self.record()
         self.commands["advance"].side_effect = KeyboardInterrupt
-        ui = FakeUI([1, 0, 1, 4], ["600"])
+        ui = FakeUI([1, 0, 1, 5], ["600"])
         with contextlib.redirect_stdout(io.StringIO()) as output:
             self.assertEqual(self.menu(ui).run(), 0)
         self.assertIn("not cancelled", output.getvalue())

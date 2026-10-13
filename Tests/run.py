@@ -166,8 +166,7 @@ def run_all(tail_lines=80, quiet=True):
     """Run every automated suite, continuing after a suite fails."""
     output_args = ["--tail", str(tail_lines)] if quiet else ["--verbose"]
     suites = (
-        ("Unit and harness checks", lambda: execute_scripts(
-            check_cases(quiet), [], quiet=quiet, tail_lines=tail_lines, log_kind="checks")),
+        ("Unit and harness checks", lambda: main(["checks"] + output_args, check_environment=False)),
         ("Normal tests", lambda: main(["normal"] + output_args, check_environment=False)),
         ("BBB regression checks", lambda: main(["bbb", "check"] + output_args, check_environment=False)),
     )
@@ -190,6 +189,20 @@ def run_all(tail_lines=80, quiet=True):
     return 1 if failed else 0
 
 
+def catalog():
+    """Menu metadata only: no dependency imports, workers, or baseline writes."""
+    from BBB.cases import CASES
+    return {
+        "checks": [{"id": case["id"], "description": case["path"], "dependencies": []}
+                   for case in check_cases()],
+        "normal": [{"id": case["id"], "description": case.get("reason", ""),
+                    "dependencies": case.get("dependencies", [])}
+                   for case in select_cases(inventory(), "normal", [])],
+        "bbb": [{"id": name, "description": case["description"],
+                 "dependencies": case["dependencies"]} for name, case in CASES.items()],
+    }
+
+
 def main(argv=None, check_environment=True):
     argv = list(sys.argv[1:] if argv is None else argv)
     extra = []
@@ -199,9 +212,10 @@ def main(argv=None, check_environment=True):
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command")
     sub.add_parser("list", help="List scripts, classifications, and BBB IDs without importing ROOT")
+    sub.add_parser("catalog", help="Print automated test menu metadata as JSON without running tests")
     sub.add_parser("environment", help="Warn about ~/.local packages shadowing CMSSW; no tests run")
     all_tests = sub.add_parser("all", help="Run unit, harness, normal and BBB checks (quiet by default)")
-    for command in ("normal", "integration"):
+    for command in ("normal", "integration", "checks"):
         child = sub.add_parser(command)
         child.add_argument("--case", action="append", default=[], help="Exact inventory ID; repeat to select cases")
     bbb = sub.add_parser("bbb", help="Separately invoked exact regression suite")
@@ -209,7 +223,7 @@ def main(argv=None, check_environment=True):
     bbb.add_argument("--case", action="append", default=[])
     bbb.add_argument("--replace", action="store_true", help="Explicitly replace an existing lock (lock only)")
     bbb.add_argument("--ref", default="HEAD", help="Git revision whose lock 'diff' compares against (default HEAD)")
-    for child in (all_tests, sub.choices["normal"], sub.choices["integration"], bbb):
+    for child in (all_tests, sub.choices["normal"], sub.choices["integration"], sub.choices["checks"], bbb):
         child.add_argument("-v", "--verbose", action="store_true",
                            help="Stream full worker output (default: status letters and failure details)")
         child.add_argument("--tail", type=int, metavar="N",
@@ -218,6 +232,11 @@ def main(argv=None, check_environment=True):
     if sys.version_info < (3, 9):
         parser.error("The test harness requires Python 3.9 or newer; use your lxplus Python 3.9 runtime.")
     try:
+        if args.command == "catalog":
+            if extra:
+                raise ValueError("catalog does not accept script arguments.")
+            print(json.dumps(catalog()))
+            return 0
         if check_environment and args.command != "list" and not (args.command == "bbb" and args.action == "list"):
             check_python_environment()
         if args.command == "environment":
@@ -232,6 +251,12 @@ def main(argv=None, check_environment=True):
             if extra:
                 raise ValueError("all does not accept legacy script arguments.")
             return run_all(tail_lines, quiet)
+        if args.command == "checks":
+            if extra:
+                raise ValueError("checks does not accept script arguments.")
+            cases = check_cases(quiet)
+            selected = select_cases(cases, "checks", args.case)
+            return execute_scripts(selected, [], quiet=quiet, tail_lines=tail_lines, log_kind="checks")
         if args.command == "bbb":
             if extra:
                 raise ValueError("BBB does not accept legacy script arguments.")

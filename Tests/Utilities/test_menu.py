@@ -29,6 +29,79 @@ class ScreenTests(unittest.TestCase):
         curses.wrapper.side_effect = lambda action: action(screen)
         return curses, screen
 
+    def test_test_checkboxes_require_selection_and_review_restores_terminal(self):
+        items = [dict(id="example", description="Local example", dependencies=["ROOT"])]
+        # Empty Run is refused, Enter on an item does not toggle it, Space does.
+        curses, screen = self.curses([1002, 10, 1001, 10, 32, 1002, 10])
+        ui = ConsoleUI(curses)
+        self.assertEqual(ui.test_selection("Tests", items), ["example"])
+        curses.beep.assert_called_once()
+        curses.wrapper.assert_called_once()
+        self.assertIn("Dependencies: ROOT", [call.args[2] for call in screen.addnstr.call_args_list])
+        for keys in ([27], [1002, 1002, 10]):
+            curses, _ = self.curses(keys)
+            self.assertIsNone(ConsoleUI(curses).test_selection("Tests", items))
+        curses, _ = self.curses([32, 1002, 10])
+        self.assertEqual(ConsoleUI(curses).test_selection("Review", items, review=True), ["example"])
+
+    def test_testing_navigation_selection_review_and_recovery(self):
+        item = dict(id="example", description="Local example", dependencies=[])
+        for outcome in (0, 1, KeyboardInterrupt(), RuntimeError("failed")):
+            with self.subTest(outcome=outcome):
+                ui, operations = mock.Mock(), mock.Mock()
+                ui.main_menu.side_effect = ["tests", "exit"]
+                ui.tests_menu.side_effect = ["normal", "back"]
+                ui.test_family.return_value = "choose"
+                ui.test_selection.side_effect = [["example"], ["example"]]
+                operations.test_catalog.return_value = {"normal": [item]}
+                if isinstance(outcome, BaseException):
+                    operations.execute_tests.side_effect = outcome
+                else:
+                    operations.execute_tests.return_value = outcome
+                self.assertEqual(MenuNavigation(ui, operations).run(), 0)
+                operations.execute_tests.assert_called_once_with("normal", ["example"])
+                self.assertEqual(ui.test_selection.call_args_list[-1],
+                                 mock.call("Review / Normal tests", [item], review=True))
+                ui.pause.assert_called_once()
+                if isinstance(outcome, KeyboardInterrupt):
+                    ui.interrupted_tests.assert_called_once()
+
+    def test_testing_back_empty_selection_and_catalog_failure_do_not_execute(self):
+        item = dict(id="example", description="Local example", dependencies=[])
+        for action, selection in (("back", None), ("choose", []), ("all", None)):
+            ui, operations = mock.Mock(), mock.Mock()
+            ui.tests_menu.side_effect = ["normal", "back"]
+            ui.test_family.return_value = action
+            ui.test_selection.return_value = selection
+            operations.test_catalog.return_value = {"normal": [item]}
+            MenuNavigation(ui, operations).tests()
+            operations.execute_tests.assert_not_called()
+        ui, operations = mock.Mock(), mock.Mock()
+        ui.tests_menu.side_effect = ["all", "back"]
+        operations.test_catalog.side_effect = RuntimeError("Cannot load test choices")
+        MenuNavigation(ui, operations).tests()
+        operations.execute_tests.assert_not_called()
+        ui.operation_error.assert_called_once()
+        ui.pause.assert_called_once()
+
+    def test_all_and_environment_review_before_running(self):
+        for family in ("all", "environment"):
+            ui, operations = mock.Mock(), mock.Mock()
+            ui.tests_menu.side_effect = [family, "back"]
+            operations.test_catalog.return_value = {
+                name: [dict(id=name, description=name, dependencies=[])]
+                for name in ("checks", "normal", "bbb")}
+            ui.test_selection.return_value = ["reviewed"]
+            MenuNavigation(ui, operations).tests()
+            operations.execute_tests.assert_called_once_with(family, [])
+            self.assertTrue(ui.test_selection.call_args.kwargs["review"])
+            if family == "all":
+                self.assertEqual([item["id"] for item in ui.test_selection.call_args.args[1]],
+                                 ["checks", "normal", "bbb"])
+            else:
+                operations.test_catalog.assert_not_called()
+            ui.pause.assert_called_once()
+
     def test_entry_banners_welcome_text_and_compact_layout(self):
         from TauFW.Utilities.Menu.banner import FULL
         for installer in (False, True):
@@ -176,7 +249,9 @@ class ScreenTests(unittest.TestCase):
     def test_semantic_screen_actions_and_cancellation(self):
         ui = ConsoleUI(mock.Mock())
         cases = [
-            (ui.main_menu, (), ["start", "continue", "inspect", "help", "exit"]),
+            (ui.main_menu, (), ["start", "continue", "inspect", "tests", "help", "exit"]),
+            (ui.tests_menu, (), ["all", "checks", "normal", "bbb", "environment", "back"]),
+            (ui.test_family, ("Normal",), ["all", "choose", "back"]),
             (ui.confirm_recipe, ("example.yml",), ["start", "plan", "back"]),
             (ui.status_actions, ("run",), ["refresh", "back"]),
             (ui.terminal_run_actions, ("DONE",), ["inspect", "back"]),

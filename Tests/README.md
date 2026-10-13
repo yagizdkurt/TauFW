@@ -19,6 +19,35 @@ after refactoring.
 
 ## All automated tests (quiet shortcut)
 
+### Interactive testing menu
+
+After setting up TauFW, run `python3 taufw.py` and select **Tests**. The menu
+requires an interactive Linux terminal and working Framework imports. It offers
+all automated tests, unit/harness checks, normal tests, BBB regression checks,
+and the advisory environment diagnostic.
+
+For each test family, run the entire family or choose unit suites/individual
+normal or BBB cases. Use Up/Down to move, Space to toggle selections, then move
+to **Run** and press Enter. At least one selection is required. Review the
+selected tests before running; Esc or Back cancels. Page Up/Down scroll details,
+including descriptions and declared dependencies where available.
+
+Execution uses the current Python interpreter from the checkout root, outside
+the menu screen. Output is always quiet with the usual PASS/FAIL/SKIP reporting,
+80-line failure tails and log paths. Press Enter afterward to return; Ctrl-C
+cancels the active test run and workers. Normal PASS means successful script
+exit, not additional assertions. Full runs still require the reference software
+stack and an existing BBB lock; the menu does not install dependencies or create
+baselines. Integration tests and baseline changes remain CLI-only.
+
+For command-line suite selection, use `python3 Tests/run.py checks` or repeat
+`--case`, for example `python3 Tests/run.py checks --case unit.utilities`.
+`python3 Tests/run.py catalog` prints read-only JSON metadata (`checks`, `normal`,
+`bbb`; each item has `id`, `description`, and `dependencies`) for the menu without
+running tests or importing ROOT.
+
+### Command-line shortcut
+
 From the repository root, run:
 
 ```bash
