@@ -1035,6 +1035,7 @@ variant of option 3 is wrapped. See the Framework README.
   signatures. `Tests/run.py` runs the two new API suites with the unit checks.
 - BBB `framework.production`: its recipe no longer has the histograms placeholder (the local stages run scripts and
   are not part of BBB). Its snapshot changes on purpose (the plan has no histograms stage, the run ends `DONE`
-  instead of `BLOCKED`): re-lock on lxplus with `python3 Tests/run.py bbb lock --replace --case framework.production`.
+  instead of `BLOCKED`): re-locked on lxplus with `python3 Tests/run.py bbb lock --replace` (the lock always captures the whole suite; the
+  other 18 cases were unchanged).
 - On lxplus (to do): `taufw.py plan Framework/recipes/tes_id_2025.yml`, then a VTight/Tight run compared with the
   shell scripts in a clean copy (`FitparameterValues__mutau_*`, `tau_sf/*VSjetVTight_VSeleTight*`).

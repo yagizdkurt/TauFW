@@ -118,6 +118,12 @@ without standalone NanoAODTools, the CMSSW version is used. After dismissal,
 the terminal confirms activation and shows the next-session command and retained
 installation log path. Warnings and retained-original notices remain visible.
 
+At the end of activation, `voms-proxy-init -voms cms` prompts for your existing
+grid certificate's password to create a CMS proxy. Then `voms-proxy-info --all`
+shows its details and setup reports whether the proxy is valid. This runs in each
+session after sourcing `setup.sh`. Missing VOMS tools or failed authentication
+are reported without undoing the TauFW environment activation.
+
 Success ticks and colors fall back to plain text on limited terminals. Set
 `NO_COLOR=1` to disable colors; redirected output and `TERM=dumb` also disable
 them. An ASCII locale uses `[OK]`, `[!]`, and `[FAIL]` instead of Unicode marks.
