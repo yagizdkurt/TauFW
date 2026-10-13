@@ -1,12 +1,12 @@
 # Author: Izaak Neutelings (February 2022)
-import os, glob, json
+import os, glob
 from TauFW.common.tools.file import ensurefile, ensureinit
 from TauFW.common.tools.string import repkey, rreplace, lreplace
 from TauFW.PicoProducer.analysis.utils import ensuremodule
 from TauFW.PicoProducer.datasets.catalog import getsamples
 from TauFW.common.tools.log import color, bold
 from TauFW.PicoProducer.settings import setdefaultconfig
-from TauFW.PicoProducer.pico.common import CONFIG, LOG
+from TauFW.PicoProducer.cli.common import CONFIG, LOG
 
 
 

@@ -19,6 +19,7 @@ Sections are in the order the work was done. Each lists the relevant commits.
 | 8 | [Fitter cleanup: legacy area](#8-fitter-cleanup-legacy-area) | 2026-10-13 |
 | 9 | [PicoProducer cleanup, Part 4: jobs package](#9-picoproducer-cleanup-part-4-jobs-package) | 2026-10-13 |
 | 9 | [Plotter cleanup: legacy area](#9-plotter-cleanup-legacy-area) | 2026-10-13 |
+| 10 | [PicoProducer cleanup, Part 5: public API, command line, workers](#10-picoproducer-cleanup-part-5-public-api-command-line-workers) | 2026-10-13 |
 
 The reference environment for all of this is `CMSSW_14_1_0_pre4` (Python 3.9, ROOT 6.30).
 
@@ -779,4 +780,51 @@ Verbose output (`-v`) shows `chopts` and `useropts` instead of `extrachopts`.
 (`python3 Tests/run.py bbb lock --replace`); see [BUGS.md](../PicoProducer/docs/BUGS.md#p08-p09-p10-module-options-and-run--m)
 for the exact differences. All other cases are unchanged. In the comparison harness the only differences against
 the B2 commit are the option order, the missing `-m -1` and the verbose labels.
+
+---
+
+## 10. PicoProducer cleanup, Part 5: public API, command line, workers
+
+**Date:** 2026-10-13
+**Details:** [PicoProducer/docs/API.md](../PicoProducer/docs/API.md), [PicoProducer/docs/IO.md](../PicoProducer/docs/IO.md),
+[PicoProducer/docs/BUGS.md](../PicoProducer/docs/BUGS.md)
+
+Part 5 gives PicoProducer a public Python API, makes `pico.py` a client of it, and renames `processors/` to
+`workers/`. The `Framework` orchestrator (section 11) uses only this API. The restructuring steps (A1-A3) do not
+change behavior; the bug fixes of the command line follow in B.
+
+### A1. Public API: `api/`
+
+| Module | Contents |
+|---|---|
+| `api/producer.py` | `class PicoProducer`: `plan`, `submit`, `resubmit`, `status`, `merge`, `clean`, `run_local`, and `iter_plan` (stream). Each method's docstring lists its side effects. `PicoProducer.from_config(config, reporter, basedir)` takes `None` (config/config.json), a path, a dict or a `Config`, and never writes the configuration |
+| `api/types.py` | frozen result records with `to_dict()`/`from_dict()`: `JobPlan`/`PlannedSample`, `Submission`/`SubmittedSample`, `StageStatus`/`SampleStatus` (`complete` = the merge gate), `MergeReport`/`TupleArtifact`, `LocalResult`. The request is the existing `JobRequest` (`request_to_dict`/`request_from_dict`) |
+| `settings/store.py` | `loadconfig(path)`: reads a configuration without caching and without writing (missing keys get defaults in memory) |
+
+- `plan()` writes nothing: it runs the submission pipeline with `materialize=False`; a sample whose job config
+  already exists is planned with `conflict=True`.
+- Methods that touch files run inside the PicoProducer directory (the configured paths are relative to it) and
+  restore the working directory afterwards. This is not thread-safe; [API.md](../PicoProducer/docs/API.md)
+  documents it.
+- Messages go to the reporter given at construction: silent by default, `ConsoleReporter` for terminal output.
+
+### A2. Command line: `cli/`, thin `pico.py`
+
+`pico/` is gone. Its contents moved to `cli/`, and the job commands now call the API:
+
+| Before | Now |
+|---|---|
+| `scripts/pico.py` (260 lines: parser, dispatch, `install`) | `scripts/pico.py` (30 lines): change directory, load the configuration, `parse_args(build_parser(CONFIG))`, `dispatch(args)` |
+| parser in `scripts/pico.py` | `cli/parser.py`: `build_parser(config)`, `parse_args(parser, argv)` (abbreviations, tag prefix) |
+| `if/elif` chain of subcommands | `cli/__init__.py`: `COMMANDS` table (`subcommand -> module:function`, imported on use) and `dispatch` |
+| `pico/job.py`, `pico/run.py` | `cli/jobs.py`: `main_run` -> `PicoProducer.run_local`, `main_submit` -> `submit`/`resubmit`, `main_status` -> `status`/`merge`/`clean`; the `--prompt` dialog |
+| `pico/config.py`, `pico/common.py` | `cli/config.py`, `cli/common.py` (moved; imports updated) |
+| `main_install` in `scripts/pico.py` | `cli/install.py` |
+
+So there is one code path: BBB drives `pico.py`, and `pico.py` drives the API.
+
+**Check:** the comparison harness (296 scenarios: submit, resubmit, status, hadd/haddclean/clean, run, at
+verbosity 0-3) gives identical output, files and calls through `cli/jobs.py` and the API as through the old
+`pico/` functions. `scripts/pico.py` itself was compared on 30 command lines (every `-h`, no arguments,
+abbreviations, `list`, `install`, `channel`/`rm`/`set` edits, an unknown subcommand): identical output and exit codes.
 

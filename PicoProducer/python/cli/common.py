@@ -1,5 +1,5 @@
 # Author: Izaak Neutelings (February 2022)
-"""Shared state of the pico.py command implementations (pico.config, pico.run, pico.job).
+"""Shared state of the pico.py commands (cli.config, cli.jobs).
 
 CONFIG is the global configuration, loaded once on first import (scripts/pico.py imports this module at startup).
 Importing this module does not change the working directory: scripts/pico.py does that explicitly.

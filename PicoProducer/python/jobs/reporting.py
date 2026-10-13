@@ -3,7 +3,7 @@
 
 The job functions in jobs/ never print directly. They call a reporter, which the caller chooses:
 
-  ConsoleReporter()   pico.py: the exact output of the old pico/job.py (header, sample names, warnings, ...)
+  ConsoleReporter()   pico.py: the exact output pico.py always had (header, sample names, warnings, ...)
   Reporter()          silent: every method does nothing; progress bars are inert
 
 Inputs:  messages from the job functions.

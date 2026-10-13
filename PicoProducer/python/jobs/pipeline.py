@@ -10,7 +10,7 @@
                         for status, hadd, haddclean and clean (jobs/status.py, jobs/merge.py)
 
 The pure calculations live in jobs/planner.py and jobs/worker_command.py; this module does the I/O around them,
-in the same order as the old pico/job.py, so the output of pico.py is unchanged:
+in the same order as the old pico/job.py did, so the output of pico.py is unchanged:
   - it reads sample catalogs, storage file lists, event counts and (on resubmission) the job status;
   - with materialize=True (pico.py submit) it creates the job directories and the output directory and writes
     the job list at the points where pico/job.py did; with materialize=False it writes nothing;
