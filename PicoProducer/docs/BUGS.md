@@ -65,7 +65,7 @@ the baseline, and fixing it changes that baseline on purpose.
 | S12 | `datasets/sample.py` (`loadfiles`; was `storage/Sample.py:391-392`) | Docstring placed after a statement, so it was not a docstring | latent | no | S3 | Part 3B: moved first | none |
 | S13 | `datasets/sample.py` (was `storage/Sample.py:474`) | Class name typo `Embdedded` | latent | no | S3 | Part 3B: renamed `Embedded`; the old name is only kept in the compatibility re-export `storage/Sample.py` | none |
 | S14 | `datasets/catalog.py` (was `storage/utils.py:77`) | Mutable default `moddict={}` was a hidden module cache shared by all calls | latent | yes | S3 | Part 3B: `moddict=None` gives a fresh dictionary; callers that pass one (pico run/submit) are unchanged | none (Python caches imported modules anyway) |
-| S15 | `storage/validation.py` (was `storage/utils.py:161,195`) | Production validation imported Plotter's `MultiProcessor` (package cycle A03) | latent | no | S3 | Part 3A: `MultiProcessor` moved to `TauFW.common.tools.parallel` | none |
+| S15 | `storage/validation.py` (was `storage/utils.py:161,195`) | Production validation imported Plotter's `MultiProcessor` (package cycle A03) | latent | no | S3 | Part 3A: `MultiProcessor` moved to `TauFW.common.tools.parallel`; since changelog §15 `TauFW.Utilities.Process.ParallelProcessor` | none |
 | S16 | `settings/defaults.py` (`guess_batch`; was `batch/utils.py:25-26`) | `HTCondor_NAF` can never be guessed (branch commented out) | latent | no | S3 | Won't fix: the commented branch tested `'etp'`, which the KIT branch already matches; NAF users select it explicitly (`pico.py set batch HTCondor_NAF`) | none |
 
 ## Workers

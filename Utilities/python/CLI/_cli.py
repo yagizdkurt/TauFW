@@ -4,6 +4,7 @@ import sys
 from typing import Iterable, Optional, Sequence, TextIO
 
 from ._internal.formatting import BOLD, RED, YELLOW, colorize, format_progress, format_table, is_terminal
+from ._internal.loading_bar import LoadingBar
 
 _YES_NO_ANSWERS = {"y": True, "yes": True, "n": False, "no": False}
 
@@ -125,6 +126,14 @@ class CLI:
             self._error_stream.write(self._progress_line + "\n")
             self._error_stream.flush()
         self._progress_line = None
+
+    def loading_bar(self, steps: int, **options) -> LoadingBar:
+        """Draw an empty in-place loading bar on stdout and return it; call
+        its count(message) once per step. options: width, counter, remove,
+        symbol, prefix (default: the CLI prefix), append, message (see
+        LoadingBar)."""
+        options.setdefault("prefix", self._prefix)
+        return LoadingBar(self._output_stream, steps, **options)
 
     # =========================================================================
     # ================================ INPUT ==================================

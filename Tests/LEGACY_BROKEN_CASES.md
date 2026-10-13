@@ -1,6 +1,6 @@
 # Report: legacy and broken cases excluded from normal tests
 
-These four cases are excluded because their existing scripts cannot complete in
+These three cases are excluded because their existing scripts cannot complete in
 the Python 3.9 test environment. The migration preserved their contents; it did
 not introduce the defects described below. This report documents the problems
 without fixing them.
@@ -10,7 +10,6 @@ without fixing them.
 | Case | Classification | First failure in a suitable dependency environment |
 | --- | --- | --- |
 | `common.table` | `legacy` | Python 3 cannot parse the Python 2 `print` statement at line 20. |
-| `common.loadingbar` | `legacy` | Python 3 cannot parse the Python 2 `print` statement at line 18. |
 | `pico.sample` | `broken` | The `print(` call at line 88 has no closing parenthesis outside its comment. |
 | `plotter.rdataframe` | `broken` | With PyROOT available, module execution reaches an undefined `kBlue` at line 17. |
 
@@ -39,25 +38,6 @@ under Python 3. The script also requires PyROOT for its histogram example.
 
 The immediate exclusion is caused by the script's syntax, not by a demonstrated
 failure of the production `Table` implementation.
-
-## `common.loadingbar`: Python 2 print statements
-
-Source: [testLoadingBar.py](common/testLoadingBar.py).
-
-The first invalid statement is at line 18:
-
-```python
-print ">>> Done with first loading bar."
-```
-
-Additional Python 2 print statements occur at lines 44, 60, and 71. Python 3
-rejects the entire file during parsing, before the `LoadingBar` import or any
-progress-bar loop executes. These statements must all be considered in any
-future Python 3 conversion; changing only the first would expose the next syntax
-error.
-
-This is a legacy script compatibility issue. Its current failure provides no
-evidence that the production `LoadingBar` class itself fails.
 
 ## `pico.sample`: a parenthesis hidden inside a comment
 

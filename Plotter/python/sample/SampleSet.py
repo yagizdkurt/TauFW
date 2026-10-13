@@ -8,8 +8,6 @@ from TauFW.Plotter.sample.HistSet import HistSet, HistDict
 from TauFW.Plotter.plot.string import makelatex, maketitle, makehistname
 from TauFW.Plotter.plot.Variable import Variable
 from TauFW.Plotter.plot.Stack import Stack
-from TauFW.common.tools.parallel import MultiProcessor
-from TauFW.common.tools.LoadingBar import LoadingBar
 from TauFW.common.tools.string import took
 
 

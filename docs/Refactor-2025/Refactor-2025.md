@@ -23,6 +23,8 @@ Sections are in the order the work was done. Each lists the relevant commits.
 | 11 | [Framework: the TauFW orchestrator (Part F)](#11-framework-the-taufw-orchestrator-part-f) | 2026-10-13 |
 | 12 | [Framework: plots, histograms and fit stages (Part G)](#12-framework-plots-histograms-and-fit-stages-part-g) | 2026-10-13 |
 | 13 | [Test runner: quiet defaults and BBB lock logs](#13-test-runner-quiet-defaults-and-bbb-lock-logs) | 2026-10-13 |
+| 14 | [Framework: analysis bundles and Python steps (Part H)](#14-framework-analysis-bundles-and-python-steps-part-h) | 2026-10-13 |
+| 15 | [common tools moved to Utilities: parallel processes and the loading bar](#15-common-tools-moved-to-utilities-parallel-processes-and-the-loading-bar) | 2026-10-13 |
 
 The reference environment for all of this is `CMSSW_14_1_0_pre4` (Python 3.9, ROOT 6.30).
 
@@ -394,7 +396,7 @@ Package layout under `PicoProducer/python/`. Every module has a docstring (purpo
 | `batch/templates/` | `batch/submit_*` | submit templates (`.sub` files now point to `python/batch/templates/submit_HTCondor.sh`) |
 | `jobs/chunking.py` | `batch/utils.py` | `evtsplitexp`, `chunkify_by_evts` |
 | `jobs/jobconfig.py` | `batch/utils.py` | `getcfgsamples` |
-| `TauFW.common.tools.parallel` | `TauFW.Plotter.plot.MultiThread` | `MultiProcessor`, `Thread`. Producer validation no longer imports Plotter (architecture finding A03) |
+| `TauFW.common.tools.parallel` | `TauFW.Plotter.plot.MultiThread` | `MultiProcessor`, `Thread`. Producer validation no longer imports Plotter (architecture finding A03). Since §15: `TauFW.Utilities.Process.ParallelProcessor` |
 
 Side effects that moved:
 - **`sys.path.append(basedir)`** used to run when `tools/config.py` was imported. It is now in
@@ -415,7 +417,7 @@ docs that link to the templates.
 | `import TauFW.PicoProducer.tools.config as GLOB; GLOB.getconfig()` | `from TauFW.PicoProducer.settings import getconfig; getconfig()` |
 | `from TauFW.PicoProducer.storage.utils import getstorage / getsamples / isvalid` | `from TauFW.PicoProducer.storage import getstorage, isvalid`; `from TauFW.PicoProducer.datasets import getsamples` |
 | `from TauFW.PicoProducer.batch.utils import getbatch` | `from TauFW.PicoProducer.batch import getbatch` |
-| `from TauFW.Plotter.plot.MultiThread import MultiProcessor` | `from TauFW.common.tools.parallel import MultiProcessor` |
+| `from TauFW.Plotter.plot.MultiThread import MultiProcessor` | `from TauFW.Utilities.Process import ParallelProcessor` (§15; `max=` is now `max_parallel=`) |
 | A custom batch system class in `batch/<Name>.py` | Add it to `SYSTEMS` in `batch/factory.py`, and put its template in `batch/templates/` |
 
 `config/config.json` keys and values do not change; `batch` still names the batch system class.
@@ -458,7 +460,7 @@ sites, other batch systems, error paths) or do not change any value.
 | S12 | The `loadfiles` docstring came after a statement. | Docstring first. | Nobody (documentation tools only). |
 | S13 | Class name typo `Embdedded`. | `Embedded`. The old name survives only in the compatibility re-export `storage/Sample.py` (`Embdedded = Embedded`), so old catalogs keep working. | Nobody. |
 | S14 | `getsamples(..., moddict={})`: a mutable default shared between all calls acted as a hidden cache. | `moddict=None` creates a fresh dictionary; `pico.py run/submit` pass their own, as before. Python's module cache still avoids importing a catalog twice. | Nobody. |
-| S15 | Producer validation imported Plotter's `MultiProcessor`. | Fixed in A (`TauFW.common.tools.parallel`). | Nobody. |
+| S15 | Producer validation imported Plotter's `MultiProcessor`. | Fixed in A (`TauFW.common.tools.parallel`; since §15 `TauFW.Utilities.Process.ParallelProcessor`). | Nobody. |
 | S16 | `HTCondor_NAF` can never be guessed from the host name. | **Won't fix.** The commented-out branch tested `'etp'`, which the KIT branch already matches, so it could never have worked. NAF users set it explicitly: `pico.py set batch HTCondor_NAF`. | Nobody. |
 
 #### Configuration
@@ -1132,3 +1134,66 @@ The sample lists are not part of a bundle yet: `plot.py` and `createinputsTES.py
 - BBB `framework.production` changes on purpose: `run.json` has the `bundle` key and `plan` prints the bundle and
   PicoProducer config lines. Re-lock on lxplus with `python3 Tests/run.py bbb lock --replace` once the other cases
   pass unchanged; `$TAUFW_PICO_CONFIG` is unset there, so the PicoProducer cases must not change.
+
+## 15. common tools moved to Utilities: parallel processes and the loading bar
+
+**Date:** 2026-10-13
+**Details:** [Utilities/README.md](../../Utilities/README.md) (Terminal I/O, Parallel Python calls)
+
+`common/python/` still holds the old shared helpers. The ones with few users were re-implemented in
+`TauFW.Utilities` (Utilities style: one entry point per package, flow first, construction last, no import-time side
+effects, no imports of `TauFW.common`) and their callers updated; the old modules are deleted. The logic is the same,
+and the terminal output is byte for byte the same. The old output formats sit in a separate
+`# ===== BACKWARD COMPATIBILITY, CLEANUP =====` section of each new module, so they can be modernized later in their
+own commit (with a BBB re-lock where a baseline records them).
+
+### What moved
+
+| Old | New | Notes |
+|---|---|---|
+| `TauFW.common.tools.parallel.MultiProcessor` | `TauFW.Utilities.Process.ParallelProcessor` (`Process/_parallel.py`) | Same queue (`max_parallel`, was `max`), pipe return, `kwret` merge, serial mode (`parallel=False`) and `close()`. The return values are sent by module-level functions instead of a bound method, so the processor itself is no longer pickled into each child. The verbose messages keep their old text. |
+| `TauFW.common.tools.LoadingBar.LoadingBar` | `CLI.loading_bar(steps, **options)` returning `LoadingBar` (`CLI/_internal/loading_bar.py`) | Same characters on stdout (the CLI's output stream), including the backspace redraws. Options: `width`, `counter`, `remove`, `symbol`, `prefix` (was `pre`; default: the CLI prefix, `>>> `), `append`, `message`. `count(message="", steps=1)`. |
+| `TauFW.common.math_helper` | removed | It only re-exported `sqrt, log10, ceil, floor` from `math`; `common/tools/math.py` imports them from `math` directly. |
+
+### Dropped
+
+- **The import-time `multiprocessing.Manager()`** of `common/tools/parallel.py`: importing the module started a server
+  process that nothing used (and broke every child process under the `spawn` start method).
+- **The `Thread` class** (a `Process` that printed its result): only `Tests/Plotter/testMultiThread.py` used it, in demo
+  functions that were commented out of its `main`. Those functions and the helper they alone used are removed.
+- **`LoadingBar.update()` / `message()` as public methods:** only the Python 2 demo `Tests/common/testLoadingBar.py`
+  called `message()`. The drawing is now private.
+- **`Tests/common/testLoadingBar.py`** (Python 2 `print` statements; the runner listed it as `legacy`, never run):
+  replaced by unit tests. Its records are removed from `Tests/inventory.json`, `Tests/migration.json` (38 → 37
+  files, `check_harness.py` updated), `Tests/LEGACY_BROKEN_CASES.md` and `Tests/README.md`.
+
+### Bug fixed
+
+`LoadingBar.count(n)` with an integer step called `args.remove(i)` on a tuple and raised `AttributeError`. The new
+`count(message, steps)` takes the number of steps as a keyword. No caller in the repository passed an integer, so no
+output changes.
+
+### Callers updated
+
+- `PicoProducer/python/storage/validation.py` (`itervalid`, `iterevts`): `ParallelProcessor(max_parallel=ncores)`.
+- `PicoProducer/python/datasets/sample.py`, `jobs/chunking.py`: `CLI().loading_bar(...)`, created when the bar is
+  needed (never at module level, so redirected stdout is honored).
+- `PicoProducer/python/jobs/reporting.py`: `Reporter.progress(steps, **options)` takes `CLI.loading_bar`'s arguments;
+  `ConsoleReporter` returns `CLI().loading_bar(...)`. `jobs/status.py` passes `prefix=` instead of `pre=`.
+- Dead imports removed: `MultiProcessor` in `Plotter/python/sample/SampleSet.py` and `MergedSample.py`, `LoadingBar`
+  in `SampleSet.py`.
+- `Tests/BBB/cases.py` (`common.formatting`), `Tests/Plotter/testMultiThread.py`, and the legacy script
+  `Plotter/Legacy/plot_compare_nano.py` (import only).
+- `Utilities/IOInventory.md` regenerated (it also picks up earlier, unrelated file moves).
+
+### Tests
+
+- `Tests/Utilities/test_cli.py`: the loading bar must write exactly the bytes the old class wrote, for seven cases
+  recorded from it before it was deleted (default, over-counting, counter, append, messages, symbol and newline,
+  remove); the CLI prefix default; `count(steps=...)` and `done`. Before the deletion the new bar was also compared
+  with the old one on 4000 random cases (all identical).
+- `Tests/Utilities/test_process.py`: `ParallelProcessor` serial calls, `kwret` dict/list merge, `close()`; the parallel
+  cases (start order, the queue, `kwret` through the pipe) need the `fork` start method and run on Linux (lxplus).
+  On Windows the parallel path was checked separately under `spawn`.
+- BBB: no baseline changes are expected (`common.formatting` writes the same bytes). Check on lxplus with
+  `python3 Tests/run.py bbb check`; no re-lock.

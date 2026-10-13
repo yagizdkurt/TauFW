@@ -116,7 +116,7 @@ this migration.
 
 | Case | Existing limitation |
 | --- | --- |
-| `common.table`, `common.loadingbar` | Python 2 print syntax; the Python 3.9 runner reports them as legacy. |
+| `common.table` | Python 2 print syntax; the Python 3.9 runner reports it as legacy. |
 | `pico.sample` | Unclosed parenthesis at line 88; also uses real DAS discovery. |
 | `plotter.rdataframe` | Fails at import with `NameError`: line 17 uses `kBlue`/`kRed`/`kGreen`/`kMagenta`, which are never imported from ROOT. Beyond that, its main passes filename strings to a tuple loop, the implementation references undefined variables including `res_dict`, `sname`, and `xvar`, and its default inputs are on `/scratch`. |
 

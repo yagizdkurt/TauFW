@@ -1,14 +1,6 @@
 {
   "cases": [
     {
-      "id": "common.loadingbar",
-      "path": "common/testLoadingBar.py",
-      "package": "common",
-      "group": "legacy",
-      "reason": "Python 2 print syntax; preserved unchanged; not runnable by the Python 3.9 harness.",
-      "dependencies": []
-    },
-    {
       "id": "common.table",
       "path": "common/testTable.py",
       "package": "common",

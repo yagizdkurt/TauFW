@@ -28,7 +28,7 @@ from copy import deepcopy
 from fnmatch import fnmatch
 from TauFW.common.tools.utils import repkey, ensurelist, isglob
 from TauFW.common.tools.file import ensuredir
-from TauFW.common.tools.LoadingBar import LoadingBar
+from TauFW.Utilities.CLI import CLI
 from TauFW.PicoProducer.settings.defaults import user
 from TauFW.PicoProducer.storage.log import LOG
 from TauFW.PicoProducer.storage.factory import getstorage
@@ -318,7 +318,7 @@ class Sample(object):
         LOG.verb("Sample._getnevents: Get events per file (storage=%r, das=%r)..."%(self.storage,das),verb,2)
         files = self.getfiles(url=True,das=das,refresh=refresh,limit=limit,verb=verb)
         if verb<=0 and len(files)>=5:
-          bar = LoadingBar(len(files),width=20,pre=">>> Getting number of events: ",counter=True,remove=True)
+          bar = CLI().loading_bar(len(files),width=20,prefix=">>> Getting number of events: ",counter=True,remove=True)
         for nevts, fname in iterevts(files,tree,filenevts,refresh,ncores=ncores,verb=verb):
           filenevts[fname] = nevts # cache
           nevents += nevts

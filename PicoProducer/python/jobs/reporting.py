@@ -19,7 +19,7 @@ Public API:
 
 # ===== Imports =====
 from TauFW.common.tools.log import Logger, bold
-from TauFW.common.tools.LoadingBar import LoadingBar
+from TauFW.Utilities.CLI import CLI
 from TauFW.PicoProducer.datasets.catalog import print_no_samples
 
 __all__ = ['Reporter', 'ConsoleReporter']
@@ -45,8 +45,8 @@ class Reporter(object):
   def no_samples(self,dtype=[],filter=[],veto=[],channel=[],jobdir="",jobcfgs=""):
     """Explain why no samples were selected."""
 
-  def progress(self,*args,**kwargs):
-    """A progress bar with LoadingBar's arguments. Returns an object with count()."""
+  def progress(self,steps,**options):
+    """A progress bar with CLI.loading_bar's arguments. Returns an object with count(message)."""
     return _NullBar()
 
 
@@ -70,8 +70,8 @@ class ConsoleReporter(Reporter):
   def no_samples(self,dtype=[],filter=[],veto=[],channel=[],jobdir="",jobcfgs=""):
     print_no_samples(dtype,filter,veto,channel,jobdir,jobcfgs)
 
-  def progress(self,*args,**kwargs):
-    return LoadingBar(*args,**kwargs)
+  def progress(self,steps,**options):
+    return CLI().loading_bar(steps,**options)
 
   # ===== Construction =====
 

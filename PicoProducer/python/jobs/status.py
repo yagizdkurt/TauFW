@@ -122,7 +122,7 @@ def _classify_skims(classifier,outfiles,nexpected,checkevts,ncores,reporter,verb
   bar = None # loading bar
   if verbosity<=1 and len(outfiles)>=15:
     status = "files, 0/%d events (0%%)"%(nexpected) if nexpected>0 else "files"
-    bar = reporter.progress(len(outfiles),width=20,pre=">>> Checking output files: ",
+    bar = reporter.progress(len(outfiles),width=20,prefix=">>> Checking output files: ",
                             message=status,counter=True,remove=True)
   elif verbosity>=2:
     reporter.line(">>> %-12s = %s"%('pendchunks',classifier.pending))
@@ -140,7 +140,7 @@ def _classify_trees(classifier,outfiles,nexpected,checkevts,reporter,verbosity):
   """Assign each tree output to its chunk; validate only outputs of chunks that are not pending."""
   bar = None # loading bar
   if verbosity<=1 and len(outfiles)>=15:
-    bar = reporter.progress(len(outfiles),width=20,pre=">>> Checking output files: ",
+    bar = reporter.progress(len(outfiles),width=20,prefix=">>> Checking output files: ",
                             message="files, 0/%d (0%%)"%(nexpected),counter=True,remove=True)
   elif verbosity>=2:
     reporter.line(">>> %-12s = %s"%('pendchunks',classifier.pending))

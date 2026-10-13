@@ -50,7 +50,7 @@ class HarnessChecks(unittest.TestCase):
 
     def test_relocated_contents(self):
         migration = json.loads((TESTS / "migration.json").read_text(encoding="utf-8"))
-        self.assertEqual(len(migration["files"]), 38)
+        self.assertEqual(len(migration["files"]), 37)
         for record in migration["files"]:
             moved = TESTS.parent / record["moved"]
             self.assertFalse((TESTS.parent / record["original"]).exists())

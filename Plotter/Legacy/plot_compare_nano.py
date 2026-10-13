@@ -7,7 +7,7 @@ import TauFW.Plotter.plot.Plot as PLOT
 from TauFW.Plotter.plot.Plot import Plot, deletehist, _lcolors
 from TauFW.Plotter.plot.Plot import LOG as PLOG
 from TauFW.Plotter.plot.MultiDraw import MultiDraw
-from TauFW.common.tools.parallel import MultiProcessor
+from TauFW.Utilities.Process import ParallelProcessor
 from ROOT import TChain, TFile
 #from collections import namedtuple
 #Sample = namedtuple('Sample',['name','title','files'])
@@ -184,7 +184,7 @@ def compare_nano(samplesets,tag="",**kwargs):
       hargs = (vars,selection.selection,hname)
       hkws  = { 'verb': verbosity }
       if parallel: # run in parallel
-        processor = MultiProcessor()
+        processor = ParallelProcessor()
         for sample in samples:
           sample.gettree(verb=verbosity)
           processor.start(sample.gethists,hargs,hkws,name=sample.title)

@@ -6,16 +6,16 @@ Independent terminal, menu presentation, file I/O and installer helpers. Like th
 from TauFW.Utilities.CLI import CLI
 from TauFW.Utilities.FIO import FileIO
 from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation
-from TauFW.Utilities.Process import Command, ProcessRunner
+from TauFW.Utilities.Process import Command, ParallelProcessor, ProcessRunner
 ```
 
 The package `__init__.py` files contain the public exports, so they are tracked despite the repository-wide `__init__.py` ignore rule meant for SCRAM-generated files (see the exception in `.gitignore`).
 
 ## Package boundaries
 
-CLI and FIO each export one class; Menu exports `ConsoleUI` and `MenuNavigation`; Process exports `Command`, `CommandResult` and `ProcessRunner`. `_cli.py`, `_file_io.py`, and `_menu.py` implement those entry points; CLI and FIO use `_internal/` for formatting, filesystem, serialization, command, transport and ROOT functions. Application code should import only the owning package's public class. Underscores and `__all__` document Python's private API convention; they do not prevent access to internal modules.
+CLI and FIO each export one class; Menu exports `ConsoleUI` and `MenuNavigation`; Process exports `Command`, `CommandResult`, `ProcessRunner` and `ParallelProcessor`. `_cli.py`, `_file_io.py`, and `_menu.py` implement those entry points; CLI and FIO use `_internal/` for formatting, filesystem, serialization, command, transport and ROOT functions. Application code should import only the owning package's public class. Underscores and `__all__` document Python's private API convention; they do not prevent access to internal modules.
 
-These packages do not import existing analysis/startup modules or Framework. Construction is silent and does not open files, change directories, read configuration or launch commands; only `ProcessRunner.run`/`run_all` launch processes. There are no global utility instances, base classes or service registries. Pass instances explicitly to future framework components.
+These packages do not import existing analysis/startup modules or Framework. Construction is silent and does not open files, change directories, read configuration or launch commands; only `ProcessRunner.run`/`run_all` and `ParallelProcessor.start` launch processes. There are no global utility instances, base classes or service registries. Pass instances explicitly to future framework components.
 
 ## Installer helpers
 
@@ -52,10 +52,13 @@ terminal.print_warning("A sample was skipped")
 | `print_table(headers, rows)` | Align single-line cells; rows may be an iterator. Callers supply numeric precision through formatted values. |
 | `update_progress(completed, total, message="")` | Maintain one stderr progress task. Require `total > 0` and `0 <= completed <= total`. Completion ends the line. |
 | `finish_progress()` | Finish once; redirected output receives the last progress line without cursor controls. |
+| `loading_bar(steps, width=steps, counter=False, remove=False, symbol="=", prefix=<CLI prefix>, append="", message="")` | Draw an in-place stdout bar and return it; call `bar.count(message="", steps=1)` once per step. The last step ends the line, writes `append`, or erases the bar (`remove`). Writes exactly what `TauFW.common.tools.LoadingBar` wrote (backspace redraws), which logs and BBB baselines rely on. |
 | `read_input(prompt)` | Prompt on stderr and return input without its newline; EOF raises `EOFError`. |
 | `confirm(prompt, default=False)` | Accept yes/no case-insensitively, retry invalid answers, and use the default for empty input. |
 
 Interactive progress updates flush immediately and overwrite their line. Redirected intermediate progress is suppressed until completion or an explicit finish. Finish a partial task in `finally` if the surrounding operation can fail. Reporting and failure control are separate: application code raises its own exceptions. CLI does not parse arguments, launch general processes or persist messages to files.
+
+Code moved here from `common/python/tools` keeps its old output byte for byte. Those old output formats sit in a separate `# ===== BACKWARD COMPATIBILITY, CLEANUP =====` section of the module (`CLI/_internal/loading_bar.py`, `Process/_parallel.py`), so they can be modernized later in their own commit, with a BBB re-lock where baselines record them.
 
 ## Menu presentation
 
@@ -185,6 +188,18 @@ results[-1].ok, results[-1].log, results[-1].missing
 `ProcessRunner(execute=None, clock=time.time, env=None)` runs each `Command(label, argv, cwd, expects=(), timeout=None)` without a shell. Standard output and errors go to one log file per command (`NN_<label>.log` under `logdir`), framed by a header (cwd, command line, start time) and a footer (exit code, duration, missing outputs). `PYTHONUNBUFFERED=1` keeps Python output in order; `env` adds variables.
 
 A `CommandResult` is `ok` only when the exit code is 0 **and** every `expects` glob (relative to `cwd`) matches a file modified after the command started. Many analysis scripts call tools through `os.system` and exit 0 when those tools fail, and output trees are shared between runs, so neither the exit code nor an old file is trusted. A timeout gives returncode -1, a missing program 127. `run_all` stops after the first result that is not ok and calls `progress(index, total, command, result)` before (result `None`) and after each command. `execute(argv, cwd, stream, timeout, env) -> returncode` can be injected; tests pass a fake.
+
+## Parallel Python calls
+
+```python
+processor = ParallelProcessor(max_parallel=4)
+for index, subset in enumerate(chunks):
+    processor.start(count_events, subset, name="chunk_%d" % index)
+for handle in processor:          # in start order
+    results = handle.join()       # the return value of count_events(subset)
+```
+
+`ParallelProcessor(name="nameless", max_parallel=-1, verbose=False)` replaces `TauFW.common.tools.parallel.MultiProcessor` with the same logic. `start(target, args=(), kwargs=None, name=None, verbose=False, parallel=True, kwret=None)` runs `target(*args, **kwargs)` in a `multiprocessing.Process` and sends its return value back through a pipe; a non-tuple `args` is one argument. At most `max_parallel` calls run at once (< 1: no limit); later ones are queued and start while the handles are iterated. `parallel=False` calls the target at once in this process. `kwret` names a keyword argument whose final value is returned too; `handle.join(**{kwret: dict_or_list})` merges it. `close()` closes the finished processes. The target must be picklable under the `spawn` start method (Windows, macOS); PicoProducer passes nested functions, which needs `fork` (Linux up to Python 3.13). Importing the module starts nothing (the old module started a `multiprocessing.Manager` on import).
 
 ## Inventory and validation
 

@@ -2,12 +2,6 @@
   "description": "Content hashes captured before relocation; existing test bodies and assets are unchanged.",
   "files": [
     {
-      "original": "common/test/testLoadingBar.py",
-      "moved": "Tests/common/testLoadingBar.py",
-      "sha256": "268d8546993636b91e4bc8eb9beb865ef0841c63c16a57007d9f59d80890a080",
-      "canonical_sha256": "a6c275696ebe85c710e09e2c09f2a103c44a20248cda852a0b0435df70e7df71"
-    },
-    {
       "original": "common/test/testTable.py",
       "moved": "Tests/common/testTable.py",
       "sha256": "95d1b225c667099f9b7017ea388b0eb5a002433ed830e6184545296aa79c9c7b",
@@ -78,7 +72,7 @@
       "moved": "Tests/Plotter/testMultiThread.py",
       "sha256": "08539a69549e260a97a721eeab5024c15e955546a5ed624849653a1ac46bdae0",
       "canonical_sha256": "ec8a55aad6a1ad481b0d0979b270c39ca132dacdd62ed76774d217ff3f4388aa",
-      "edited": "Imports follow the PicoProducer package restructuring (settings/, datasets/, storage/, batch/, jobs/) and the move of MultiThread to TauFW.common.tools.parallel (2026-10-12)."
+      "edited": "Imports follow the PicoProducer package restructuring (settings/, datasets/, storage/, batch/, jobs/) and the move of MultiThread to TauFW.common.tools.parallel (2026-10-12), then to TauFW.Utilities.Process.ParallelProcessor without the unused Thread demos (2026-10-13)."
     },
     {
       "original": "Plotter/test/testPanels.py",

@@ -139,5 +139,59 @@ class CLITests(unittest.TestCase):
             terminal.read_input("Answer: ")
 
 
+# Outputs of the old TauFW.common.tools.LoadingBar, recorded before it moved to
+# CLI.loading_bar (2026-10-13): the bar must keep writing exactly these bytes.
+LOADING_BAR_GOLDEN = {
+    "default": ((5,), {}, [""] * 5,
+                ">>> [     ]" + "\b" * 6 + "=====] \n" + "\b" * 3),
+    "overcount": ((3,), {}, [""] * 5,
+                  ">>> [   ]" + "\b" * 4 + "===] \n" + "\b" * 3),
+    "counter": ((3,), {"width": 6, "counter": True}, [""] * 3,
+                ">>> [      ]\b\b\b\b\b\b\b      ] 0/3\b\b\b\b\b\b\b\b\b\b\b==    ] 1/3\b\b\b\b\b\b\b\b\b"
+                "==  ] 2/3\b\b\b\b\b\b\b==] 3/3\b\b\b\b\b] 3/3 \n\b\b\b\b\b\b\b"),
+    "append": ((4,), {"width": 10, "append": " Done!\n"}, [""] * 4,
+               ">>> [          ]" + "\b" * 11 + "==========]  Done!\n"),
+    "message": ((3,), {"message": "start", "counter": True}, ["one", "two longer", "x"],
+                ">>> [   ]\b\b\b\b   ] 0/3\b\b\b\b\b\b\b\b   ] 0/3 start\b\b\b\b\b\b\b\b\b\b\b\b\b\b=  ] 1/3"
+                "\b\b\b\b\b\b\b  ] 1/3 one  \b\b\b\b\b\b\b\b\b\b\b\b\b= ] 2/3\b\b\b\b\b\b ] 2/3 two longer"
+                "\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b=] 3/3\b\b\b\b\b] 3/3 x         \b\b\b\b\b\b\b\b\b\b\b\b"
+                "\b\b\b\b] 3/3           \n\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b"),
+    "symbol_newline": ((4,), {"symbol": "#", "width": 8}, ["a", "b\n", "", ""],
+                       ">>> [        ]\b\b\b\b\b\b\b\b\b##      ] a\b\b\b\b\b\b\b\b\b##    ] b\n"
+                       "\b\b\b\b\b\b\b\b####]   \n\b\b\b\b\b"),
+    "remove": ((3,), {"width": 6, "prefix": "> ", "counter": True, "remove": True}, ["a", "bb", "c"],
+               "> [      ]\b\b\b\b\b\b\b      ] 0/3\b\b\b\b\b\b\b\b\b\b\b==    ] 1/3\b\b\b\b\b\b\b\b\b    ] 1/3 a"
+               "\b\b\b\b\b\b\b\b\b\b\b==  ] 2/3\b\b\b\b\b\b\b  ] 2/3 bb\b\b\b\b\b\b\b\b\b\b==] 3/3\b\b\b\b\b"
+               "] 3/3 c \b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b" + " " * 18 + "\b" * 18),
+}
+
+
+class LoadingBarTests(unittest.TestCase):
+    def test_output_matches_the_old_loading_bar(self):
+        for name, (args, options, messages, expected) in LOADING_BAR_GOLDEN.items():
+            with self.subTest(name):
+                output = io.StringIO()
+                bar = CLI(output_stream=output).loading_bar(*args, **options)
+                for message in messages:
+                    bar.count(message)
+                self.assertEqual(output.getvalue(), expected)
+
+    def test_prefix_defaults_to_the_cli_prefix(self):
+        output = io.StringIO()
+        CLI(output_stream=output, prefix="# ").loading_bar(2)
+        self.assertEqual(output.getvalue(), "# [  ]\b\b\b")
+
+    def test_count_steps_and_done(self):
+        output = io.StringIO()
+        bar = CLI(output_stream=output, prefix="").loading_bar(4, width=4)
+        bar.count(steps=3)
+        self.assertEqual((bar.tally, bar.position, bar.done), (3, 3, False))
+        bar.count(steps=5)   # clipped to what is left
+        self.assertEqual((bar.tally, bar.done), (4, True))
+        written = output.getvalue()
+        bar.count("ignored")
+        self.assertEqual(output.getvalue(), written)
+
+
 if __name__ == "__main__":
     unittest.main()

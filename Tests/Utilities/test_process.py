@@ -1,5 +1,8 @@
-"""External command runner: logs, exit codes, expected outputs, timeouts."""
+"""External command runner: logs, exit codes, expected outputs, timeouts;
+parallel Python calls."""
 
+import contextlib
+import io
 import os
 import sys
 import tempfile
@@ -7,7 +10,8 @@ import time
 import unittest
 
 import checkout  # noqa: F401  (must precede TauFW.Utilities imports)
-from TauFW.Utilities.Process import Command, ProcessRunner
+from multiprocessing import get_all_start_methods, get_start_method
+from TauFW.Utilities.Process import Command, ParallelProcessor, ProcessRunner
 
 
 def python(code):
@@ -121,6 +125,73 @@ class ProcessRunnerTests(unittest.TestCase):
     def test_shell_line_quotes_arguments(self):
         self.assertEqual(Command("x", ("python3", "plot.py", "-S", "a && b"), ".").shell(),
                          "python3 plot.py -S 'a && b'")
+
+
+def square(value, offset=0):
+    return value * value + offset
+
+
+def tagged(value, seen=None):
+    seen = {} if seen is None else seen
+    seen[value] = "seen"
+    return value
+
+
+def listed(value, seen=None):
+    return [value] + (seen or [])
+
+
+# Children of a 'spawn' process cannot import TauFW.Utilities from this checkout
+# (see checkout.py), so the parallel cases need 'fork' (Linux, e.g. lxplus).
+FORK = "fork" in get_all_start_methods() and get_start_method(allow_none=True) in (None, "fork")
+
+
+class ParallelProcessorTests(unittest.TestCase):
+    def test_serial_calls(self):
+        processor = ParallelProcessor()
+        processor.start(square, 3, parallel=False)
+        processor.start(square, (4,), {"offset": 1}, name="four", parallel=False)
+        handles = list(processor)
+        self.assertEqual([handle.name for handle in handles], [None, "four"])
+        self.assertEqual([handle.join() for handle in handles], [9, 17])
+
+    def test_serial_keyword_return(self):
+        processor = ParallelProcessor()
+        processor.start(tagged, 1, {"seen": {}}, parallel=False, kwret="seen")
+        processor.start(listed, 2, {"seen": [5]}, parallel=False, kwret="seen")
+        merged, collected = {}, []
+        handles = list(processor)
+        self.assertEqual(handles[0].join(seen=merged), 1)
+        self.assertEqual(handles[1].join(seen=collected), [2, 5])
+        self.assertEqual((merged, collected), ({1: "seen"}, [5]))
+
+    def test_close_keeps_serial_calls(self):
+        processor = ParallelProcessor()
+        processor.start(square, 2, parallel=False)
+        processor.close()
+        self.assertEqual(len(processor.procs), 1)
+
+    @unittest.skipUnless(FORK, "needs the 'fork' start method")
+    def test_parallel_results_in_start_order_with_a_queue(self):
+        processor = ParallelProcessor(max_parallel=2)
+        for value in range(5):
+            processor.start(square, value, name="square_%d" % value)
+        self.assertEqual(len(processor.waiting), 3)
+        results = [(handle.name, handle.join()) for handle in processor]
+        self.assertEqual(results, [("square_%d" % value, value * value) for value in range(5)])
+        self.assertEqual(processor.waiting, [])
+        with contextlib.redirect_stdout(io.StringIO()):
+            processor.close()
+        self.assertEqual(processor.procs, [])
+
+    @unittest.skipUnless(FORK, "needs the 'fork' start method")
+    def test_parallel_keyword_return(self):
+        processor = ParallelProcessor()
+        processor.start(tagged, 7, {"seen": {}}, kwret="seen")
+        merged = {}
+        (handle,) = list(processor)
+        self.assertEqual(handle.join(seen=merged), 7)
+        self.assertEqual(merged, {7: "seen"})
 
 
 if __name__ == "__main__":

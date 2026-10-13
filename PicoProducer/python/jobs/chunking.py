@@ -18,7 +18,7 @@ import re
 from TauFW.common.tools.log import Logger
 from TauFW.common.tools.root import ensureTFile
 from TauFW.common.tools.math import partition_by_max, ceil
-from TauFW.common.tools.LoadingBar import LoadingBar
+from TauFW.Utilities.CLI import CLI
 
 __all__ = ['evtsplitexp', 'chunkify_by_evts']
 
@@ -36,7 +36,8 @@ def chunkify_by_evts(fnames,maxevts,evenly=True,evtdict=None,verb=0,progress=Non
   E.g. ['nano_1.root','nano_2.root','nano_3.root','nano_4.root']
         -> [ ['nano_1.root:0:1000'], ['nano_1.root:1000:1000'], # 'fname:firstevt:maxevts'
              ['nano_2.root','nano_3.root','nano_4.root'] ] # group files with <maxevts events each
-  progress: factory with LoadingBar's arguments for the progress bar (default: LoadingBar), e.g. a reporter's.
+  progress: factory progress(steps, **options) with CLI.loading_bar's arguments (default: CLI().loading_bar),
+            e.g. a reporter's.
   """ 
   result   = [ ] # list of chunks
   nlarge   = { }
@@ -44,7 +45,7 @@ def chunkify_by_evts(fnames,maxevts,evenly=True,evtdict=None,verb=0,progress=Non
   ntot     = 0
   bar      = None # loading bar
   if verb<=0 and len(fnames)>=5:
-    bar = (progress or LoadingBar)(len(fnames),width=20,pre=">>> Checking number of events: ",counter=True,remove=True)
+    bar = (progress or CLI().loading_bar)(len(fnames),width=20,prefix=">>> Checking number of events: ",counter=True,remove=True)
   elif verb>=4:
     print(">>> chunkify_by_evts: events per file:")
   for fname in fnames[:]:
