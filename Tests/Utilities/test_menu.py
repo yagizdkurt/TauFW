@@ -68,6 +68,34 @@ class ScreenTests(unittest.TestCase):
         self.assertIn("> Start a new run", drawn)
         self.assertFalse(any(line.startswith("****") for line in drawn))
 
+    def test_interaction_colors_preserve_banner_text_and_logo(self):
+        from TauFW.Utilities.Menu.banner import FULL, INTERACTIONS
+        self.assertTrue(all(line.isascii() for line in FULL))
+        for enabled in (True, False):
+            with self.subTest(colors=enabled):
+                curses, screen = self.curses([])
+                screen.getmaxyx.return_value = (30, 80)
+                curses.COLOR_MAGENTA, curses.COLOR_YELLOW, curses.A_BOLD = 5, 3, 128
+                ui = ConsoleUI(curses)
+                with mock.patch.object(ui, "colors_enabled", return_value=enabled):
+                    ui._entry_header(screen, "Welcome", 5)
+                calls = screen.addnstr.call_args_list
+                self.assertEqual([call.args[2] for call in calls[:len(FULL)]], list(FULL))
+                overlays = calls[len(FULL):-1]
+                if enabled:
+                    self.assertEqual(len(overlays), len(INTERACTIONS))
+                    styles = {}
+                    for call, (row, column, text, role) in zip(overlays, INTERACTIONS):
+                        self.assertEqual(call.args[:3], (row, column, text))
+                        self.assertEqual(FULL[row][column:column + len(text)], text)
+                        styles[role] = call.args[4]
+                        if 6 <= row <= 10:
+                            self.assertLessEqual(column + len(text), 26)
+                    self.assertEqual(len(set(styles.values())), 4)
+                else:
+                    self.assertEqual(overlays, [])
+                    curses.start_color.assert_not_called()
+
     def test_checklist_toggles_only_and_starts_from_button(self):
         curses, screen = self.curses([32, 10, 1002, 13, 1002, 10])
         ui = ConsoleUI(curses)

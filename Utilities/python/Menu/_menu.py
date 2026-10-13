@@ -8,7 +8,7 @@ import sys
 import textwrap
 
 from .faq import FAQ
-from .banner import BOXED, COMPACT, FULL, VERSION, WIDTH
+from .banner import BOXED, COMPACT, FULL, INTERACTIONS, VERSION, WIDTH
 
 
 class ConsoleUI:
@@ -83,6 +83,7 @@ class ConsoleUI:
         if height < len(lines) + minimum_rows + 5:
             lines = ("TauFW " + VERSION,)
         color = 0
+        interaction_colors = {}
         try:
             if self.colors_enabled() and self.curses.has_colors():
                 self.curses.start_color()
@@ -94,10 +95,23 @@ class ConsoleUI:
                     pass
                 self.curses.init_pair(3, self.curses.COLOR_CYAN, background)
                 color = self.curses.color_pair(3)
+                if lines is FULL:
+                    for role, pair, foreground, bold in (
+                        ("higgs", 4, self.curses.COLOR_RED, True),
+                        ("tau", 5, self.curses.COLOR_MAGENTA, True),
+                        ("products", 6, self.curses.COLOR_GREEN, False),
+                        ("vertex", 7, self.curses.COLOR_YELLOW, True),
+                    ):
+                        self.curses.init_pair(pair, foreground, background)
+                        interaction_colors[role] = (self.curses.color_pair(pair)
+                                                   | (self.curses.A_BOLD if bold else 0))
         except self.curses.error:
-            pass
+            interaction_colors = {}
         for row, line in enumerate(lines):
             self._line(screen, row, 0, line, color=color)
+        if lines is FULL and interaction_colors:
+            for row, column, text, role in INTERACTIONS:
+                self._line(screen, row, column, text, color=interaction_colors[role])
         self._line(screen, len(lines) + 1, 0, welcome)
         return len(lines) + 3
 
