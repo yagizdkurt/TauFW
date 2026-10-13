@@ -65,7 +65,7 @@ def check_sample(sample,config,reporter=None,outdir=None,channel=None,tag=None,c
   if tag==None:
     tag      = jobcfg['tag']
   if not filenevts:
-    pass # BUGS P07: was 'checkexpevts==False', a comparison without effect
+    checkexpevts = False # BUGS P07: was 'checkexpevts==False', a comparison without effect
   elif checkexpevts==None:
     checkexpevts = 'skim' not in channel.lower() # default for pico analysis jobs
 

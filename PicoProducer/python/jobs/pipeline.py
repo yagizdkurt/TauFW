@@ -187,7 +187,7 @@ def iter_plans(config,request,reporter=None,on_existing=None,materialize=True):
             if nevents<=0 and not resubmit:
               nevents = ntot
           except IOError as err: # capture if opening files fail
-            reporter.line("IOError: "+err.message) # BUGS P01: err.message does not exist in Python 3
+            reporter.line("IOError: "+str(err)) # BUGS P01: was err.message (Python 2)
             reporter.warning("Skipping submission...")
             failed.append(sample)
             reporter.line("")

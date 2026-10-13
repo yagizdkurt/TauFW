@@ -232,7 +232,7 @@ def main_write(args):
           try:
             sample.writefiles(flistname,nevts=getnevts,skipempty=skipempty,das=checkdas,refresh=checkdas,ncores=ncores,verb=verbosity)
           except IOError as err: # one of the ROOT file could not be opened
-            print("IOError: "+err.message)
+            print("IOError: "+str(err)) # BUGS P01: was err.message (Python 2)
             if retry<retries and sample not in sampleset[retry+1]: # try again after the others
               print(">>> Will try again...")
               sampleset[retry+1].append(sample)

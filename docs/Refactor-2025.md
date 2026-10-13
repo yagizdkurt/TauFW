@@ -732,3 +732,16 @@ user input files, skims with preselection, no matching samples, dry runs, no era
 options, `-m`/`-p`/`-t`, data-only selection. All 280 scenarios (submit, resubmit, status, merge, run) give
 identical output, files, scheduler, hadd, rm and shell calls compared with `3c401cd`.
 
+### B1. Crash fixes without output change (P01, P02, P03, P07)
+
+| Bug | Fix |
+|---|---|
+| P01 | `err.message` (Python 2) in two `except IOError` handlers (`jobs/pipeline.py` event chunking, `pico/config.py` `write`): now `str(err)`. The handlers print the error instead of raising `AttributeError` |
+| P02 | `submit --prompt` with an existing job config: the question `">>> Submit anyway? [y/n] "%(nchunks)` used an undefined name and had no placeholder. It is now a plain string, so the dialog works (see P20 in B2 for its answers) |
+| P03 | `write_jobcfg` for `.json.gz` names: `gzip` imported, and `json.dump(jobcfg,file,indent=2)` instead of `file.write(json.dump(jobcfg),indent=2)`. A written file reads back with `Sample.loadjson` |
+| P07 | `check_sample`: `checkexpevts==False` (a comparison) is now the assignment it was meant to be. `None` and `False` both disable the comparison, so the output is the same |
+
+**Check:** no BBB case reaches these paths, so all baselines are unchanged. In the comparison harness only the
+`--prompt` scenario with an existing job config changes: it now asks instead of crashing. A `.json.gz` job config
+written by `write_jobcfg` reads back correctly.
+

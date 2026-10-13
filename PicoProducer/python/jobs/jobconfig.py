@@ -17,7 +17,7 @@ Public API:
 """
 
 # ===== Imports =====
-import glob, json
+import glob, json, gzip
 from collections import OrderedDict
 from TauFW.PicoProducer.datasets.sample import Sample
 
@@ -52,8 +52,8 @@ def make_jobcfg(time,**fields):
 def write_jobcfg(jobcfg,cfgname):
   """Write a job config to cfgname (overwrites)."""
   if cfgname.endswith(".json.gz"):
-    with gzip.open(cfgname,'wt') as file: # BUGS P03: gzip is not imported, and json.dump is misused
-      file.write(json.dump(jobcfg),indent=2)
+    with gzip.open(cfgname,'wt') as file: # BUGS P03: gzip was not imported, and json.dump was misused
+      json.dump(jobcfg,file,indent=2)
   else:
     with open(cfgname,'w') as file:
       json.dump(jobcfg,file,indent=2)

@@ -89,7 +89,7 @@ class _Prompt(object):
       return None
     LOG.warn("Job configuration %r already exists and might cause conflicting job output!"%(cfgname))
     while True:
-      submit = input(">>> Submit anyway? [y/n] "%(nchunks)) # BUGS P02: nchunks is undefined here
+      submit = input(">>> Submit anyway? [y/n] ") # BUGS P02: was formatted with an undefined nchunks
       if 'f' in submit.lower(): # submit this job, and stop asking
         print(">>> Force all.")
         return 'force'
