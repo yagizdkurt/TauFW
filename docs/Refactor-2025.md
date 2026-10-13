@@ -860,3 +860,21 @@ system): `plan` writes nothing and restores the working directory, `submit` → 
 the expected artifacts and removes the job output, and every record survives a JSON round trip
 (`to_dict`/`from_dict`).
 
+### B. Command-line and worker fixes (P12, P13, P14, P15, W01, W02), with re-locked baselines
+
+| Bug | Fix |
+|---|---|
+| P12 | Worker commands pass `--opts` (the workers' `-E/--opts`) instead of `--opt`, which only worked through argparse's prefix matching |
+| P13 | `install` is an entry of the `cli.COMMANDS` table, so `pico.py install` no longer also prints "subcommand 'install' not implemented!" |
+| P14 | `pico.py install` accepts `cmssw` (was misspelled `cmmsw`) |
+| P15 | Won't fix, documented in `cli.parser.build_parser`: `status`/`hadd`/`clean` do not take the submission options, and `hadd` reuses `-m` for `--maxopenfiles` |
+| W01 | Won't fix: `skimjob.py` accepts `-E/--opts` and ignores them, so every worker takes the same command line |
+| W02 | `picojob.py`'s description line no longer repeats skimjob's |
+
+BUGS.md locations now point to `cli/`, `api/` and `workers/`.
+
+**Baselines:** `pico.run` and `pico.jobs` change again (`--opt` → `--opts`) and are re-locked together with B3 of
+Part 4: `python3 Tests/run.py bbb lock --replace` after checking that the differences are only the option order
+(P08/P09), `-m -1` (P10) and `--opts` (P12). The comparison harness against the A4 commit differs only in `--opts`;
+`pico.py install` was checked by hand.
+

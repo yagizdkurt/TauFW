@@ -167,7 +167,7 @@ def build_parser(CONFIG):
   parser_chl.add_argument('value',              metavar='module',  help="module linked to by given channel")
   parser_era.add_argument('key',                metavar='era',     help="era key name")
   parser_era.add_argument('value',              metavar='samples', help="samplelist linked to by given era")
-  parser_ins.add_argument('type',               choices=['standalone','cmmsw'], #default=None,
+  parser_ins.add_argument('type',               choices=['standalone','cmssw'], #default=None, # BUGS P14: was 'cmmsw'
                                                 help="type of installation: standalone or compiled in CMSSW")
   parser_get.add_argument('-U','--url',         dest='inclurl', action='store_true',
                                                 help="include XRootD url in filename for 'get files'")

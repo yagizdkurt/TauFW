@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 # Author: Izaak Neutelings (May 2020)
-# Description: Skim nanoAOD file and store locally: pre-select events, filter branches, add jet/MET corrections, ...
+# Description: Run an analysis module on nanoAOD and write a pico tuple (tree + cutflow); BUGS W02: was skimjob's line
 import os, re
 import time; time0 = time.time()
 import ROOT; ROOT.PyConfig.IgnoreCommandLineOptions = True

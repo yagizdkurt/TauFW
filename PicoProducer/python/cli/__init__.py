@@ -14,6 +14,7 @@ from importlib import import_module
 __all__ = ['dispatch', 'COMMANDS']
 
 COMMANDS = {
+  'install':   'install:main_install',
   'list':      'config:main_list',
   'get':       'config:main_get',
   'set':       'config:main_set',
@@ -33,10 +34,7 @@ COMMANDS = {
 
 def dispatch(args):
   """Run the command of args.subcommand."""
-  command = COMMANDS.get(args.subcommand)
-  if args.subcommand=='install':
-    from TauFW.PicoProducer.cli.install import main_install
-    main_install(args) # BUGS P13: falls through to "not implemented" below
+  command = COMMANDS.get(args.subcommand) # BUGS P13: 'install' also printed "not implemented"
   if command:
     module, function = command.split(':')
     getattr(import_module("TauFW.PicoProducer.cli."+module),function)(args)

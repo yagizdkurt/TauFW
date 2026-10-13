@@ -6,12 +6,12 @@ chunk into the job list, and `pico.py run` executes one line per sample. Both us
 (WorkerOptions) and differ only in the formatter:
 
   job_command(opts)   batch job: --copydir to storage, -t without quotes, '-i FILES' always last
-  run_command(opts)   local run: -o to a local directory, quoted -t, '-i FILES' before -p/--opt
+  run_command(opts)   local run: -o to a local directory, quoted -t, '-i FILES' before -p/--opts
 
 The two flag orders are kept exactly as they were, because job lists and the `run` "Executing:" line are part
 of the BBB baselines (pico.jobs, pico.run).
 
-Module options (KEY=VALUE, passed with --opt) come from three places. The worker applies them in order, so a
+Module options (KEY=VALUE, passed with --opts) come from three places. The worker applies them in order, so a
 later value of the same key wins: channel table < sample (catalog `opts`) < user (`-E`). module_options() builds
 that list; a resubmission reuses the options of the previous try (resubmit_options).
 
@@ -181,6 +181,7 @@ class WorkerOptions:
 # ===== Helpers =====
 
 def _opt_flag(extraopts):
-  """'--opt' flag with each option single-quoted."""
-  return " --opt '%s'"%("' '".join(extraopts))
+  """'--opts' flag (the workers' -E/--opts) with each option single-quoted.
+  BUGS P12: was '--opt', which only worked through argparse's prefix matching."""
+  return " --opts '%s'"%("' '".join(extraopts))
 
