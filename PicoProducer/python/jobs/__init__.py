@@ -19,6 +19,7 @@ Public API:
   Reporter, ConsoleReporter                  silent / terminal reporting
   sample_layout, assign_chunks, cfg_globs    pure planning; SampleLayout is a sample's names and directories
   resolve_worker, job_command, run_command   worker (picojob.py/skimjob.py) of a channel and its command line
+  module_options, resubmit_options           module options in precedence order (channel < sample < user)
   WorkerSpec, WorkerOptions                  records used by the command builders
   check_sample, format_summary, ChunkStatus  status of a sample's job chunks
   merge_sample, merge_target, merge_gate,    merge (hadd) and clean up a sample's job output;
@@ -29,7 +30,7 @@ Public API:
 """
 from TauFW.PicoProducer.jobs.request import JobRequest
 from TauFW.PicoProducer.jobs.reporting import Reporter, ConsoleReporter
-from TauFW.PicoProducer.jobs.worker_command import resolve_worker, job_command, run_command, WorkerSpec, WorkerOptions
+from TauFW.PicoProducer.jobs.worker_command import resolve_worker, module_options, resubmit_options, job_command, run_command, WorkerSpec, WorkerOptions
 from TauFW.PicoProducer.jobs.chunking import evtsplitexp, chunkify_by_evts
 from TauFW.PicoProducer.jobs.jobconfig import JOBCFG_KEYS, make_jobcfg, write_jobcfg, getcfgsamples
 from TauFW.PicoProducer.jobs.planner import sample_layout, assign_chunks, cfg_globs, SampleLayout
@@ -39,7 +40,7 @@ from TauFW.PicoProducer.jobs.pipeline import iter_plans, submit_plan, record_sub
 from TauFW.PicoProducer.jobs.local import iter_local_runs, execute_run, LocalRun
 
 __all__ = ['JobRequest', 'Reporter', 'ConsoleReporter',
-           'resolve_worker', 'job_command', 'run_command', 'WorkerSpec', 'WorkerOptions',
+           'resolve_worker', 'module_options', 'resubmit_options', 'job_command', 'run_command', 'WorkerSpec', 'WorkerOptions',
            'evtsplitexp', 'chunkify_by_evts', 'JOBCFG_KEYS', 'make_jobcfg', 'write_jobcfg', 'getcfgsamples',
            'sample_layout', 'assign_chunks', 'cfg_globs', 'SampleLayout', 'check_sample', 'format_summary', 'ChunkStatus',
            'merge_sample', 'merge_target', 'merge_gate', 'cleanup_commands', 'MergeTarget', 'MergeResult',

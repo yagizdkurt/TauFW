@@ -28,9 +28,9 @@ the baseline, and fixing it changes that baseline on purpose.
 | P05 | `jobs/pipeline.py` `iter_plans` (was `pico/job.py:103`) | `found = len(samples)>=0` is always true, so "no samples found" is never printed on submit | wrong | yes | S4 | Part 4B-2: `len(samples)>0` | `submit` with no matching sample prints "Did not find any samples ...". BBB unchanged (every `submit` matches samples) |
 | P06 | `jobs/planner.py` `sample_layout` (was `pico/job.py:123`) | Per-sample `maxevts` is used only when `<=0`; a positive sample value falls back to the config (the condition is inverted) | wrong | no | S4 | Part 4B-2: the sample value is used when `>0` | A sample with `maxevts>0` now splits its jobs by events; a sample without it now uses `maxevtsperjob` from the configuration (before, that was ignored unless the sample set a positive value). BBB unchanged (`maxevtsperjob=-1`) |
 | P07 | `jobs/status.py` `check_sample` (was `pico/job.py:384`) | `checkexpevts==False` is a comparison, not an assignment, so it has no effect | latent | no | S4 | Part 4B-1: `checkexpevts = False` | none (`None` and `False` both disable the comparison) |
-| P08 | `jobs/worker_command.py` `resolve_worker`, `jobs/planner.py` `sample_layout` (was `pico/run.py:183,195`, `pico/job.py:119-121`) | Option precedence is the opposite of the code comments: channel-config `KEY=VALUE` come after the user's `-E`, so the channel wins | wrong | yes | S4 | | |
-| P09 | `jobs/planner.py` `sample_layout` + `Sample.loadjson` (was `pico/job.py:119-121`) | On resubmit, the already-merged `extraopts` from the job config are merged again with the CLI and channel options, so the options duplicate on every retry | wrong | yes | S4 | | |
-| P10 | `jobs/worker_command.py` `run_command` (was `pico/run.py:156`) | `run -m` defaults to `-1`, and `if maxevts:` is true for -1, so `-m -1` is always appended | wrong (harmless) | yes | S4 | | |
+| P08 | `jobs/worker_command.py` `resolve_worker`, `jobs/planner.py` `sample_layout` (was `pico/run.py:183,195`, `pico/job.py:119-121`) | Option precedence is the opposite of the code comments: channel-config `KEY=VALUE` come after the user's `-E`, so the channel wins | wrong | yes | S4 | Part 4B-3: `module_options(worker, sampleopts)` = channel, sample, user; `WorkerSpec` keeps the channel (`chopts`) and user (`useropts`) options apart | **BBB `pico.run`, `pico.jobs`** (re-lock): the `--opt` lists start with the channel options. See [details](#p08-p09-p10-module-options-and-run--m) |
+| P09 | `jobs/planner.py` `sample_layout` + `Sample.loadjson` (was `pico/job.py:119-121`) | On resubmit, the already-merged `extraopts` from the job config are merged again with the CLI and channel options, so the options duplicate on every retry | wrong | yes | S4 | Part 4B-3: `resubmit_options(previous, worker)`: the previous try's options, then new user options not already in them | **BBB `pico.jobs`** (re-lock): resubmitted job lists and job configs no longer repeat the channel options. See [details](#p08-p09-p10-module-options-and-run--m) |
+| P10 | `jobs/worker_command.py` `run_command` (was `pico/run.py:156`) | `run -m` defaults to `-1`, and `if maxevts:` is true for -1, so `-m -1` is always appended | wrong (harmless) | yes | S4 | Part 4B-3: `-m` only for `maxevts>0` | **BBB `pico.run`** (re-lock): `-m -1` is gone from the "Executing:" lines. See [details](#p08-p09-p10-module-options-and-run--m) |
 | P11 | `jobs/local.py` `execute_run` (was `pico/run.py:169`) | Local run uses `os.system`; a worker failure is not reported (exit code ignored) | wrong | no | S4 | Part 4B-2: `subprocess.call`; a non-zero exit code is reported per run and summarized at the end | `pico.py run` warns when a worker fails. Not in BBB (`run` cases are dry) |
 | P12 | `jobs/worker_command.py` vs workers (was `pico/run.py`, `pico/job.py`) | Callers pass `--opt`, the workers define `--opts`; it only works through argparse prefix matching | latent | yes | S5 | | |
 | P13 | `scripts/pico.py:226` | `if` instead of `elif` after `install`: `pico.py install` also prints "subcommand 'install' not implemented!" | wrong | no | S5 | | |
@@ -175,4 +175,29 @@ existing catalogs.
 `fresh.keys`, `recovered`, `edits` and `list` are unchanged, because those steps use the test's own
 configuration. The baseline was re-locked with `python3 Tests/run.py bbb lock --replace`. Only
 `Tests/BBB/baselines/pico.config.json` and `manifest.json` change.
+
+### P08, P09, P10: module options and `run -m`
+
+**Fixed in:** Part 4B-3, `jobs/worker_command.py` (`module_options`, `resubmit_options`, `run_command`),
+`jobs/planner.py` (`sample_layout`), `jobs/local.py`.
+
+**Symptoms.**
+- P08: the worker applies `--opt KEY=VALUE` in order, so a later value of a key wins. The list was
+  `sample + user (-E) + channel`, so the channel table (`"ModuleMuTau tes=1.0"`) silently overrode a user's
+  `-E tes=1.1`, the opposite of the comments ("allow overwrite from command line").
+- P09: on `resubmit` the sample's options come from the previous job config, where they are already merged.
+  They were merged again with the user and channel options, so each retry appended the channel options once more
+  (`'zpt=True' 'tes=1.0' 'tes=1.0'` after one resubmission).
+- P10: `pico.py run` has `-m -1` as default and passed `-m -1` to the worker on every run (harmless, the worker
+  treats it as "all events").
+
+**Fix.** Precedence is now channel < sample < user, so the most specific setting wins. A resubmission reuses the
+previous try's list unchanged and appends only new user options. `run` passes `-m` only for a positive value.
+
+**Baseline changes (re-lock `pico.run` and `pico.jobs`).**
+- `pico.run`: `--opt 'zpt=True' 'a=1' 'b=2' 'tes=1.0'` becomes `--opt 'tes=1.0' 'zpt=True' 'a=1' 'b=2'`; `-m -1` is
+  removed from three commands (the `-m 100` run keeps it).
+- `pico.jobs`: job lists and the `extraopts` of the job configs start with `'tes=1.0'`; the resubmitted DY job
+  (try 2) has `'tes=1.0' 'zpt=True'` instead of `'zpt=True' 'tes=1.0' 'tes=1.0'`.
+- `pico.merge` is unchanged (it snapshots file names and merged tuples, not job lists).
 

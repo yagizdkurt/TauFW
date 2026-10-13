@@ -9,7 +9,7 @@ Outputs: SampleLayout (names, directories and settings of a sample's next (re)su
          chunk numbers and job-list command lines.
 
 Public API:
-  sample_layout(config, request, sample, era, channel, extrachopts)   -> SampleLayout
+  sample_layout(config, request, sample, era, channel, worker)        -> SampleLayout
   assign_chunks(fchunks, chunkdict, layout, worker, era, channel, request, tmpdir)
                                                                       -> (chunks, chunkdict, commands)
   cfg_globs(jobdirformat, era, channel, tag, group)                   glob of existing job configs
@@ -23,7 +23,7 @@ from typing import Optional
 from TauFW.common.tools.log import Logger
 from TauFW.common.tools.string import repkey
 from TauFW.PicoProducer.jobs.chunking import evtsplitexp
-from TauFW.PicoProducer.jobs.worker_command import job_command, WorkerOptions
+from TauFW.PicoProducer.jobs.worker_command import job_command, module_options, resubmit_options, WorkerOptions
 
 __all__ = ['sample_layout', 'assign_chunks', 'cfg_globs', 'SampleLayout']
 
@@ -35,10 +35,11 @@ CFGPATTERN = "config/jobconfig_$CHANNEL$TAG_try[0-9]*.json" # job configs of all
 
 # ===== Planning =====
 
-def sample_layout(config,request,sample,era,channel,extrachopts):
+def sample_layout(config,request,sample,era,channel,worker):
   """Names, directories and settings of the next (re)submission try of a sample.
   Precedence for nfilesperjob and maxevts: user (request) > sample > configuration. On resubmission without
-  user values, the previous try's values are reused."""
+  user values, the previous try's values are reused. Module options: channel < sample < user (module_options);
+  a resubmission reuses the previous try's options (resubmit_options)."""
   resubmit      = request.resubmit
   nfilesperjob  = request.nfilesperjob
   maxevts       = request.maxevts
@@ -50,9 +51,10 @@ def sample_layout(config,request,sample,era,channel,extrachopts):
   postfix       = "_%s%s"%(channel,request.tag)
   jobtag        = "%s_try%d"%(postfix,subtry)
   jobname       = "%s%s_%s%s"%(sample.name,postfix,era,"_try%d"%subtry if subtry>1 else "")
-  extraopts     = extrachopts[:] # extra options for module (for this channel & sample)
-  if sample.extraopts:
-    extraopts   = sample.extraopts + extraopts # allow overwrite from command line
+  if resubmit: # BUGS P09: the previous options were merged again with the channel and user options
+    extraopts   = resubmit_options(sample.extraopts,worker)
+  else:         # BUGS P08: channel < sample < user (the channel used to come last and win)
+    extraopts   = module_options(worker,sample.extraopts)
   nfilesperjob_ = nfilesperjob if nfilesperjob>0 else sample.nfilesperjob if sample.nfilesperjob>0 else config.nfilesperjob # priority: USER > SAMPLE > CONFIG
   maxevts_      = maxevts if maxevts!=None else sample.maxevts if sample.maxevts>0 else config.maxevtsperjob # BUGS P06: was 'sample.maxevts<=0'; priority: USER > SAMPLE > CONFIG
   if request.split_nfpj>1: # divide nfilesperjob by split_nfpj

@@ -11,12 +11,18 @@ chunk into the job list, and `pico.py run` executes one line per sample. Both us
 The two flag orders are kept exactly as they were, because job lists and the `run` "Executing:" line are part
 of the BBB baselines (pico.jobs, pico.run).
 
+Module options (KEY=VALUE, passed with --opt) come from three places. The worker applies them in order, so a
+later value of the same key wins: channel table < sample (catalog `opts`) < user (`-E`). module_options() builds
+that list; a resubmission reuses the options of the previous try (resubmit_options).
+
 Inputs:  the configuration's channel table, a channel name, extra module options, and per-job settings.
 Outputs: WorkerSpec (which module and processor a channel uses) and command strings.
          Nothing is written; the only filesystem access is the check that the processor file exists.
 
 Public API:
-  resolve_worker(config, channel, extraopts, procdir)  channel -> WorkerSpec(module, processor, procopts, extrachopts)
+  resolve_worker(config, channel, extraopts, procdir)  channel -> WorkerSpec(module, processor, procopts, chopts, useropts)
+  module_options(worker, sampleopts)                   channel, sample and user options, in precedence order
+  resubmit_options(previous, worker)                   options of a resubmission
   job_command(opts)                                    WorkerOptions -> batch job command line
   run_command(opts)                                    WorkerOptions -> local run command line
   WorkerSpec, WorkerOptions                            records (at the bottom of this file)
@@ -29,7 +35,7 @@ from typing import NamedTuple, Optional, Tuple
 from TauFW.common.tools.log import Logger
 from TauFW.PicoProducer.analysis.utils import ensuremodule
 
-__all__ = ['resolve_worker', 'job_command', 'run_command', 'WorkerSpec', 'WorkerOptions']
+__all__ = ['resolve_worker', 'module_options', 'resubmit_options', 'job_command', 'run_command', 'WorkerSpec', 'WorkerOptions']
 
 
 # ===== Constants =====
@@ -43,14 +49,15 @@ PROCDIR = "python/processors" # processors, relative to PicoProducer/ (the worki
 def resolve_worker(config,channel,extraopts,procdir=PROCDIR):
   """Find the module and processor of a channel in the configuration's channel table.
   Skim channels:     "PROCESSOR [--FLAG[=VALUE] ...]"  -> processor with its own options, no module.
-  Analysis channels: "MODULE [KEY=VALUE ...]"          -> picojob.py running MODULE; KEY=VALUE pairs are
-                                                          appended to the extra module options.
+  Analysis channels: "MODULE [KEY=VALUE ...]"          -> picojob.py running MODULE; the KEY=VALUE pairs are
+                                                          the channel's module options (chopts).
+  extraopts are the user's module options (-E).
   The processor path is made absolute against the current working directory (PicoProducer/).
   Raises AssertionError for an unknown channel and IOError for a missing processor file."""
   LOG.insist(channel in config.channels,"Channel '%s' not found in the configuration file. Available: %s"%(channel,config.channels))
   module      = config.channels[channel]
   procopts    = "" # extra options for processor
-  extrachopts = extraopts[:] # extra options for module (per channel)
+  chopts      = [ ] # module options of the channel
   if 'skim' in channel.lower():
     parts     = module.split(' ') # "PROCESSOR [--FLAG[=VALUE] ...]"
     processor = parts[0]
@@ -60,12 +67,25 @@ def resolve_worker(config,channel,extraopts,procdir=PROCDIR):
     processor = "picojob.py"
     module    = parts[0]
     ensuremodule(module) # sanity check
-    extrachopts.extend(parts[1:])
+    chopts    = parts[1:]
   procpath  = os.path.join(procdir,processor)
   if not os.path.isfile(procpath):
     LOG.throw(IOError,"Processor '%s' does not exist in '%s'..."%(processor,procpath))
   processor = os.path.abspath(procpath)
-  return WorkerSpec(module,processor,procopts,extrachopts)
+  return WorkerSpec(module,processor,procopts,chopts,list(extraopts))
+
+
+def module_options(worker,sampleopts=()):
+  """Module options in precedence order (the worker lets a later KEY win): channel < sample < user.
+  BUGS P08: the user's options used to come before the channel's, so the channel won."""
+  return list(worker.chopts)+list(sampleopts or ())+list(worker.useropts)
+
+
+def resubmit_options(previous,worker):
+  """Module options of a resubmission: those of the previous try (already merged), then any new user options.
+  BUGS P09: the merged options were merged again with the channel and user options, so they grew every try."""
+  previous = list(previous or ())
+  return previous+[o for o in worker.useropts if o not in previous]
 
 
 def job_command(opts):
@@ -110,7 +130,7 @@ def run_command(opts):
     cmd += " -d %r"%(opts.dtype)
   if opts.filetag:
     cmd += " -t %r"%(opts.filetag) # postfix
-  if opts.maxevts:
+  if opts.maxevts is not None and opts.maxevts>0: # BUGS P10: was 'if opts.maxevts:', true for the default -1
     cmd += " -m %s"%(opts.maxevts)
   if opts.infiles:
     cmd += " -i %s"%(' '.join(opts.infiles))
@@ -124,11 +144,12 @@ def run_command(opts):
 # ===== Records =====
 
 class WorkerSpec(NamedTuple):
-  """What a channel runs. Unpacks as (module, processor, procopts, extrachopts)."""
-  module:      str  # analysis module (e.g. 'ModuleMuTau'), or the raw channel string for skims
-  processor:   str  # absolute path of the worker script
-  procopts:    str  # options of the processor itself (skims only)
-  extrachopts: list # extra module options: user options, then the channel's KEY=VALUE pairs
+  """What a channel runs. Unpacks as (module, processor, procopts, chopts, useropts)."""
+  module:    str  # analysis module (e.g. 'ModuleMuTau'), or the raw channel string for skims
+  processor: str  # absolute path of the worker script
+  procopts:  str  # options of the processor itself (skims only)
+  chopts:    list # module options of the channel table (KEY=VALUE)
+  useropts:  list # module options of the user (-E)
 
 
 @dataclass(frozen=True)
@@ -147,7 +168,7 @@ class WorkerOptions:
   prefetch:  bool          = False
   preselect: Optional[str] = None
   firstevt:  int           = -1       # job only: first entry (event-based splitting)
-  maxevts:   object        = -1       # job: events per chunk (>0); run: any truthy value is passed as given
+  maxevts:   Optional[int] = -1       # events per chunk (job) or per file (run); passed only if >0
   testrun:   int           = 0        # job only: overrides maxevts for test jobs
   extraopts: Tuple[str,...] = ()
   infiles:   Tuple[str,...] = ()

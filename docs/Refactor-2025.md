@@ -765,3 +765,18 @@ B1 commit changes exactly in the affected scenarios: the `--prompt` dialog, `sta
 pending jobs found with `--checkqueue 1`), cleanup with two tags in one directory, failing local runs, and a
 merged tuple with the wrong number of events (job output kept).
 
+### B3. Module options and `run -m` (P08, P09, P10), with re-locked baselines
+
+| Bug | Fix |
+|---|---|
+| P08 | Module options are applied in the order channel table < sample (`opts` in the catalog) < user (`-E`); a later value of the same key wins in the worker. `resolve_worker` returns the channel's options (`WorkerSpec.chopts`) and the user's (`useropts`) separately; `module_options(worker, sampleopts)` joins them |
+| P09 | A resubmission reuses the options of the previous try (already merged) and appends only new user options (`resubmit_options`); they no longer grow with every retry |
+| P10 | `pico.py run` passes `-m` only for a positive number of events (the default `-1` added `-m -1` to every command) |
+
+Verbose output (`-v`) shows `chopts` and `useropts` instead of `extrachopts`.
+
+**Baselines:** `pico.run` and `pico.jobs` change on purpose and are re-locked on lxplus
+(`python3 Tests/run.py bbb lock --replace`); see [BUGS.md](../PicoProducer/docs/BUGS.md#p08-p09-p10-module-options-and-run--m)
+for the exact differences. All other cases are unchanged. In the comparison harness the only differences against
+the B2 commit are the option order, the missing `-m -1` and the verbose labels.
+

@@ -24,7 +24,7 @@ from typing import Optional
 from TauFW.common.tools.log import Logger, bold
 from TauFW.PicoProducer.datasets.catalog import getsamples
 from TauFW.PicoProducer.jobs.reporting import Reporter
-from TauFW.PicoProducer.jobs.worker_command import resolve_worker, run_command, WorkerOptions
+from TauFW.PicoProducer.jobs.worker_command import resolve_worker, module_options, run_command, WorkerOptions
 
 __all__ = ['iter_local_runs', 'execute_run', 'LocalRun']
 
@@ -60,12 +60,14 @@ def iter_local_runs(config,request,reporter=None):
 
       # MODULE & PROCESSOR
       skim = 'skim' in channel.lower()
-      module, processor, procopts, extrachopts = resolve_worker(config,channel,request.extraopts)
+      worker = resolve_worker(config,channel,request.extraopts)
+      module, processor, procopts = worker.module, worker.processor, worker.procopts
       if verbosity>=1:
         reporter.line('-'*80)
         reporter.line(">>> Running %r"%(channel))
         for key, value in (('channel',channel),('module',module),('processor',processor),('procopts',procopts),
-                           ('extrachopts',extrachopts),('prefetch',request.prefetch),('preselect',request.preselect)):
+                           ('chopts',worker.chopts),('useropts',worker.useropts),('prefetch',request.prefetch),
+                           ('preselect',request.preselect)):
           reporter.line(_kv(key,value))
         reporter.line(_ks('filters',filters))
         reporter.line(_ks('vetoes',vetoes))
@@ -86,11 +88,9 @@ def iter_local_runs(config,request,reporter=None):
 
         # SETTINGS
         dtype      = None
-        extraopts_ = extrachopts[:] # extra options for module (for this channel & sample)
+        extraopts_ = module_options(worker,sample.extraopts if sample else ()) # channel < sample < user
         if sample:
           filetag  = "_%s_%s_%s%s"%(channel,era,sample.name,tag)
-          if sample.extraopts:
-            extraopts_ = sample.extraopts + extraopts_ # allow overwrite from command line
         else:
           filetag  = "_%s_%s%s"%(channel,era,tag)
         if verbosity>=1:

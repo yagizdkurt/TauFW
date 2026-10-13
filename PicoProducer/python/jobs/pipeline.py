@@ -89,7 +89,8 @@ def iter_plans(config,request,reporter=None,on_existing=None,materialize=True):
         reporter.line(_kv('processor',worker.processor))
         reporter.line(_kv('module',worker.module))
         reporter.line(_kv('procopts',worker.procopts))
-        reporter.line(_kv('extrachopts',worker.extrachopts))
+        reporter.line(_kv('chopts',worker.chopts))
+        reporter.line(_kv('useropts',worker.useropts))
         reporter.line(_ks('filters',filters))
         reporter.line(_ks('vetoes',vetoes))
         reporter.line(_kv('dtypes',dtypes))
@@ -119,7 +120,7 @@ def iter_plans(config,request,reporter=None,on_existing=None,materialize=True):
         reporter.sample(sample.name,sample.paths)
 
         # DIRECTORIES
-        layout = sample_layout(config,request,sample,era,channel,worker.extrachopts)
+        layout = sample_layout(config,request,sample,era,channel,worker)
         if materialize:
           _make_jobdirs(layout)
         _report_layout(reporter,sample,layout,worker,request,tmpdir,verbosity)
