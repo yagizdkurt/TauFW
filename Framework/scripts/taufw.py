@@ -2,6 +2,7 @@
 # Author: Yagizhan Dinckurt (October 2026)
 """taufw.py: run TauFW analysis pipelines from a recipe. A thin client of TauFW.Framework (no logic here).
 
+  taufw.py                                              interactive Linux console menu
   taufw.py plan    RECIPE [--local [-m N]]                show each stage's plan; nothing is written
                                                           (--local: quick local test of the production stage)
   taufw.py start   RECIPE [--run-root DIR] [--wait [--poll S]]   new run: run directory, run.json, first steps
@@ -117,6 +118,10 @@ def build_parser():
 
 
 def main(argv=None):
+  argv = sys.argv[1:] if argv is None else argv
+  if not argv:
+    from TauFW.Framework.interactive import run_menu
+    return run_menu(COMMANDS,build_parser())
   args = build_parser().parse_args(argv)
   return COMMANDS[args.command](args)
 

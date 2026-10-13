@@ -16,6 +16,36 @@ After `cmsenv` and `scram b`, the package is importable as `TauFW.Framework` and
 
 ## Quick start
 
+Run `taufw.py` without arguments in an interactive Linux terminal to open the
+optional console menu (Python's standard-library `curses`; no extra dependency).
+Use Up/Down to move, Enter to select, and Esc to go back or exit the main menu.
+
+- **Start a new run** lists bundled recipes or accepts another path, displays
+  the plan, then offers to start the run.
+- **Continue an existing run** lists saved runs in `taufw_runs/` (newest first)
+  or accepts another run directory. Choose one advance or repeated checking;
+  polling defaults to 600 seconds. Terminal runs offer status inspection instead.
+- **Inspect run status** shows the existing read-only status output, with Refresh
+  and Back actions.
+- **Help** displays FAQ topics with explanations on the right; Page Up/Down
+  scrolls the explanation.
+- **Exit** closes the menu.
+
+Typed relative paths and the default run root are relative to the launch
+directory. Operations print their normal output outside the menu; press Enter
+to return afterward. Ctrl+C returns to the menu without cancelling submitted
+batch jobs. Resume using the saved run record. Existing CLI subcommands and
+explicit `--help` keep working without curses or an interactive terminal.
+
+Menu presentation lives in `Utilities/python/Menu/`: `_menu.py` owns rendering,
+wording, screen choices, and terminal lifecycle; `_navigation.py` owns screen
+transitions, back behavior, refresh loops, and operation feedback; `faq.py` owns
+help content.
+`python/interactive.py` keeps recipe/run discovery, validation, record access,
+and command dispatch. UI screens return named actions so layout and label
+and navigation changes stay in Utilities. Source section banners document both sides of this
+boundary.
+
 ```bash
 taufw.py plan    Framework/recipes/example_mutau.yml           # each stage's plan; nothing is written
 taufw.py plan    Framework/recipes/example_mutau.yml --local   # quick local test: 100 events of one file per sample

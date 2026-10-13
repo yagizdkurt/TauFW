@@ -1,19 +1,20 @@
 # Utilities
 
-Independent terminal and file I/O packages for later framework integration. Like the other TauFW packages, the source lives under `Utilities/python/`, and `scram b` exposes it as `TauFW.Utilities` after `cmsenv`. Existing framework modules remain unchanged.
+Independent terminal, menu presentation, and file I/O packages. Like the other TauFW packages, the source lives under `Utilities/python/`, and `scram b` exposes it as `TauFW.Utilities` after `cmsenv`.
 
 ```python
 from TauFW.Utilities.CLI import CLI
 from TauFW.Utilities.FIO import FileIO
+from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation
 ```
 
 The package `__init__.py` files contain the public exports, so they are tracked despite the repository-wide `__init__.py` ignore rule meant for SCRAM-generated files (see the exception in `.gitignore`).
 
 ## Package boundaries
 
-Each package exports one class. `_cli.py` and `_file_io.py` implement those entry points; `_internal/` contains formatting, filesystem, serialization, command, transport and ROOT functions. Application code should import only the owning package's public class. Underscores and `__all__` document Python's private API convention; they do not prevent access to internal modules.
+CLI and FIO each export one class; Menu exports `ConsoleUI` and `MenuNavigation`. `_cli.py`, `_file_io.py`, and `_menu.py` implement those entry points; CLI and FIO use `_internal/` for formatting, filesystem, serialization, command, transport and ROOT functions. Application code should import only the owning package's public class. Underscores and `__all__` document Python's private API convention; they do not prevent access to internal modules.
 
-Neither package imports the other or existing analysis/startup modules. Construction is silent and does not open files, change directories, read configuration or launch commands. There are no global utility instances, base classes or service registries. Pass instances explicitly to future framework components.
+These packages do not import existing analysis/startup modules or Framework. Construction is silent and does not open files, change directories, read configuration or launch commands. There are no global utility instances, base classes or service registries. Pass instances explicitly to future framework components.
 
 ## Terminal I/O
 
@@ -41,6 +42,45 @@ terminal.print_warning("A sample was skipped")
 | `confirm(prompt, default=False)` | Accept yes/no case-insensitively, retry invalid answers, and use the default for empty input. |
 
 Interactive progress updates flush immediately and overwrite their line. Redirected intermediate progress is suppressed until completion or an explicit finish. Finish a partial task in `finally` if the surrounding operation can fail. Reporting and failure control are separate: application code raises its own exceptions. CLI does not parse arguments, launch general processes or persist messages to files.
+
+## Menu presentation
+
+`TauFW.Utilities.Menu` exports `ConsoleUI` and `MenuNavigation`. Change terminal appearance, screen
+wording, option labels, keyboard handling, and menu messages in
+`python/Menu/_menu.py`. Edit the ordered help topics and explanations in
+`python/Menu/faq.py`. Change screen transitions, back behavior, refresh loops,
+and operation recovery in `python/Menu/_navigation.py`. Source section banners
+group the related responsibilities.
+
+`ConsoleUI.open(parser)` lazily loads curses on an interactive Linux terminal.
+It returns a UI, or `None` after explaining the failure and showing CLI help.
+Each screen uses its own `curses.wrapper` session, restoring the terminal before
+Framework operations print output or wait for jobs.
+
+Application screens return named actions: `main_menu()` returns `start`,
+`continue`, `inspect`, `help`, or `exit`; recipe confirmation, status, and run
+continuation return their corresponding action or `back`. Recipe/run selectors
+return `(action, index)`, with `select` identifying a supplied item and `manual`
+or `back` carrying `None`. Path and polling prompts return text or `None` on Esc.
+Run selectors accept `(run_id, state, updated)` summaries; `state=None` marks an
+unreadable run. Framework retains the records and paths behind those summaries.
+
+Discovery, validation, record access, callback arguments, and command dispatch
+stay in `Framework/python/interactive.py`. Menu imports no Framework modules.
+Workflow operations continue to use their existing CLI reporting.
+
+`MenuNavigation(ui, operations)` owns the user journey and accepts an operations
+object supplied by the caller. The object provides `launch_dir`, `recipes()`
+(sorted recipe Paths), `runs()` (sorted `(created, path, summary)` rows),
+`resolve_path(value)`, `load_run(path)`, `can_advance(record)`,
+`validate_poll(value)` (positive integer or `ValueError`), and
+`execute(command, **values)` (CLI return code). Records expose `run_id`,
+`run_dir`, and `state`. Navigation handles command errors, interruptions, and
+pauses; Framework supplies command defaults and decides whether a run can advance.
+
+`Framework.interactive.Menu(...)` remains a construction entry point and returns
+a `MenuNavigation` wired to Framework operations. Its `start()`, `inspect()`,
+`continue_run()`, and `run()` methods now live in Utilities/Menu.
 
 ## File I/O
 
