@@ -233,6 +233,12 @@ make_temp_dir() { # PARENT LABEL
   cleanup_paths+=("$temp_dir")
 }
 
+# Run directly from the current checkout, including after it has moved.
+# The helper imports only standard libraries until a verification is requested.
+installer_python() {
+  python3 "$repo_dir/Utilities/python/Installer/setup_tools.py" "$@"
+}
+
 # Print the CMSSW release area (a directory with .SCRAM) that contains the
 # absolute PATH, if any.
 enclosing_release() { # PATH
@@ -252,15 +258,7 @@ enclosing_release() { # PATH
 # rename that into place. Keep SRC: edits made while copying must not be lost.
 move_dir() { # SRC DST
   local src=$1 dst=$2 status=0
-  python3 - "$src" "$dst" <<'EOF' || status=$?
-import errno, os, sys
-try:
-    if os.path.lexists(sys.argv[2]):
-        raise FileExistsError("Destination already exists: " + sys.argv[2])
-    os.rename(sys.argv[1], sys.argv[2])
-except OSError as err:
-    sys.exit(3 if err.errno == errno.EXDEV else str(err))
-EOF
+  installer_python rename "$src" "$dst" || status=$?
   case $status in
     0) return ;;
     3) ;;
@@ -682,45 +680,16 @@ build_release() {
 }
 
 verify_python_modules() { # EXPECTED_ROOT MODULE[:SYMBOL]...
-  python3 - "$@" <<'PY' || die 'A Python module is missing, unusable, or comes from another installation (see above).'
-import importlib
-from pathlib import Path
-import sys
-
-root = Path(sys.argv[1]).resolve()
-for spec in sys.argv[2:]:
-    name, _, symbol = spec.partition(":")
-    module = importlib.import_module(name)
-    location = getattr(module, "__file__", None)
-    if not location:
-        raise RuntimeError("%s has no implementation file" % name)
-    path = Path(location).resolve()
-    path.relative_to(root)  # Reject modules shadowed by another PYTHONPATH entry.
-    if symbol:
-        getattr(module, symbol)
-    print("%s: %s" % (name, path))
-PY
+  local root=$1
+  shift
+  installer_python modules --root "$root" "$@" ||
+    die 'A Python module is missing, unusable, or comes from another installation (see above).'
 }
 
 verify_htt() {
   check_payload "$repo_dir/$HTT_PATH" "${HTT_FILES[@]}"
-  python3 - "$repo_dir/$HTT_PATH" "${HTT_FILES[@]}" <<'PY' || die 'HTT correction files cannot be read by ROOT (see above).'
-from pathlib import Path
-import sys
-import ROOT
-
-for relative in sys.argv[2:]:
-    path = Path(sys.argv[1]) / relative
-    handle = ROOT.TFile.Open(str(path), "READ")
-    if not handle or handle.IsZombie():
-        raise RuntimeError("Cannot open HTT correction file: %s" % path)
-    try:
-        if handle.GetListOfKeys().GetSize() == 0:
-            raise RuntimeError("HTT correction file contains no objects: %s" % path)
-    finally:
-        handle.Close()
-print("HTT correction files are readable")
-PY
+  installer_python htt "$repo_dir/$HTT_PATH" "${HTT_FILES[@]}" ||
+    die 'HTT correction files cannot be read by ROOT (see above).'
 }
 
 verify_combine() {
@@ -730,8 +699,8 @@ verify_combine() {
     die "combine resolves to $executable, not $expected."
   "$executable" --help >/dev/null || die 'The installed combine executable cannot run.'
   verify_python_modules "$cmssw_dir/src/HiggsAnalysis/CombinedLimit" HiggsAnalysis.CombinedLimit.PhysicsModel:PhysicsModel
-  verify_python_modules "$cmssw_dir/src/CombineHarvester" CombineHarvester.CombineTools.ch:CombineHarvester
-  python3 -c 'from CombineHarvester.CombineTools import ch; ch.CombineHarvester()' ||
+  installer_python modules --root "$cmssw_dir/src/CombineHarvester" --instantiate \
+    CombineHarvester.CombineTools.ch:CombineHarvester ||
     die 'CombineHarvester native bindings cannot be used.'
 }
 
@@ -750,7 +719,7 @@ verify_install() {
   if $run2_jme; then
     verify_python_modules "$nano_root" PhysicsTools.NanoAODTools.postprocessing.modules.jme.jetmetHelperRun2:createJMECorrector
   fi
-  python3 -c 'from correctionlib import CorrectionSet' || die 'correctionlib cannot be used.'
+  installer_python modules correctionlib:CorrectionSet || die 'correctionlib cannot be used.'
   if $tauidsfs; then
     verify_python_modules "$cmssw_dir/src/TauPOG/TauIDSFs" \
       TauPOG.TauIDSFs.TauIDSFTool:TauIDSFTool TauPOG.TauIDSFs.TauIDSFTool:TauESTool

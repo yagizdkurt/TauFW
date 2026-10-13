@@ -162,9 +162,3 @@ The [TauPOG-internal JSON and ROOT correction production](../README.md#taupog-co
 requires measured SF values and manual edits, so it is not performed by the
 setup script.
 
-## Menu organization
-
-The checklist runs directly from
-[`Utilities/python/Menu/setup_menu.py`](../Utilities/python/Menu/setup_menu.py)
-before TauFW is installed. Its presentation belongs to Utilities/Menu; cloning,
-release setup, build, and verification remain in `FastSetup.sh`.

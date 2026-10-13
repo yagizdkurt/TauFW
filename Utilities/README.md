@@ -1,6 +1,6 @@
 # Utilities
 
-Independent terminal, menu presentation, and file I/O packages. Like the other TauFW packages, the source lives under `Utilities/python/`, and `scram b` exposes it as `TauFW.Utilities` after `cmsenv`.
+Independent terminal, menu presentation, file I/O and installer helpers. Like the other TauFW packages, the source lives under `Utilities/python/`, and `scram b` exposes it as `TauFW.Utilities` after `cmsenv`.
 
 ```python
 from TauFW.Utilities.CLI import CLI
@@ -15,6 +15,19 @@ The package `__init__.py` files contain the public exports, so they are tracked 
 CLI and FIO each export one class; Menu exports `ConsoleUI` and `MenuNavigation`. `_cli.py`, `_file_io.py`, and `_menu.py` implement those entry points; CLI and FIO use `_internal/` for formatting, filesystem, serialization, command, transport and ROOT functions. Application code should import only the owning package's public class. Underscores and `__all__` document Python's private API convention; they do not prevent access to internal modules.
 
 These packages do not import existing analysis/startup modules or Framework. Construction is silent and does not open files, change directories, read configuration or launch commands. There are no global utility instances, base classes or service registries. Pass instances explicitly to future framework components.
+
+## Installer helpers
+
+`python/Installer` owns the Python operations used by `FastSetup.sh`: safe
+directory renames, Python implementation/origin checks, native binding checks
+and HTT ROOT-file verification. Its public helpers are `rename_directory`,
+`verify_modules` and `verify_htt_files`. Imports are silent and do not load ROOT
+or analysis packages until verification is requested.
+
+FastSetup calls `python/Installer/setup_tools.py` directly before and after the
+checkout moves, so these helpers work before `cmsenv` or `scram b`. Bash retains
+the shell environment, Git downloads, installation sequencing and recovery state.
+See [FastSetup](../docs/FastSetup.md#installer-and-menu-organization) for details.
 
 ## Terminal I/O
 
@@ -50,7 +63,7 @@ wording, option labels, keyboard handling, and menu messages in
 `python/Menu/_menu.py`. Edit the ordered help topics and explanations in
 `python/Menu/faq.py`. The pre-install FastSetup checklist launches through
 `python/Menu/setup_menu.py` and uses `ConsoleUI.setup_checklist()`; installation
-remains in Bash. Space/Enter toggles components and activates Start install.
+sequencing remains in Bash. Space/Enter toggles components and activates Start install.
 Shared ASCII branding and the current `V0.0` version live in
 `python/Menu/banner.py`. Entry screens show their welcome messages beneath the
 banner; smaller terminals use compact branding so controls remain visible.

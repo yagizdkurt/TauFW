@@ -1,13 +1,17 @@
 """Focused installer regressions; no network downloads or CMSSW builds."""
 from pathlib import Path
+import importlib.util
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import Mock, patch
+from types import SimpleNamespace
 
 REPO = Path(__file__).resolve().parents[2]
+INSTALLER = REPO / "Utilities/python/Installer/setup_tools.py"
 BASH = shutil.which("bash")
 if BASH is None:
     git = shutil.which("git")
@@ -18,7 +22,7 @@ if BASH is None:
 
 @unittest.skipUnless(BASH, "Bash is unavailable")
 class FastSetupTests(unittest.TestCase):
-    def run_script(self, body, *args, expected=0, directory=None):
+    def run_script(self, body, *args, expected=0, directory=None, helper_from_checkout=False):
         source = (REPO / "FastSetup.sh").read_text(encoding="utf-8")
         source = source.rsplit('main "$@"', 1)[0]
         if directory is None:
@@ -26,11 +30,16 @@ class FastSetupTests(unittest.TestCase):
             self.addCleanup(fixture.cleanup)
             directory = Path(fixture.name)
         script = directory / "setup.sh"
-        # Git Bash can use the current Python executable for the real inline probes.
+        # Fixture checkouts omit Utilities; use the real helper with fixture inputs.
         source += '\npython3() { "$FASTSETUP_TEST_PYTHON" "$@"; }\n'
+        if not helper_from_checkout:
+            source += 'installer_python() { python3 "$FASTSETUP_TEST_INSTALLER" "$@"; }\n'
         script.write_text(source + body, encoding="utf-8", newline="\n")
         env = dict(os.environ, FASTSETUP_TEST_PYTHON=sys.executable,
-                   MSYS="winsymlinks:sys")
+                   FASTSETUP_TEST_INSTALLER=str(INSTALLER), MSYS="winsymlinks:sys",
+                   PYTHONDONTWRITEBYTECODE="1")
+        # Python scripts, unlike stdin probes, do not add the fixture cwd to sys.path.
+        env["PYTHONPATH"] = os.pathsep.join(filter(None, [str(directory), env.get("PYTHONPATH")]))
         result = subprocess.run([BASH, str(script), *args], cwd=directory,
                                 env=env, capture_output=True, text=True)
         self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
@@ -215,6 +224,42 @@ move_dir "$PWD/original" "$PWD/destination/TauFW"
         self.assertEqual((directory / "original/file.txt").read_text(), "edit during copy\n")
         self.assertEqual((directory / "destination/TauFW/file.txt").read_text(), "before copy\n")
 
+    def test_same_filesystem_move_uses_python_helper(self):
+        _, directory = self.run_script(r'''
+mkdir original destination
+printf 'original\n' > original/file.txt
+move_dir "$PWD/original" "$PWD/destination/TauFW"
+''')
+        self.assertFalse((directory / "original").exists())
+        self.assertEqual((directory / "destination/TauFW/file.txt").read_text(), "original\n")
+
+    def test_shell_finds_helper_before_and_after_checkout_relocation(self):
+        with tempfile.TemporaryDirectory() as fixture:
+            directory = Path(fixture)
+            shutil.copytree(INSTALLER.parent, directory / "original/Utilities/python/Installer",
+                            ignore=shutil.ignore_patterns("__pycache__"))
+            output, _ = self.run_script(r'''
+repo_dir=$PWD/original
+target=$PWD/installed
+installer_python --help
+move_checkout
+installer_python modules --root "$repo_dir" Installer:rename_directory
+''', directory=directory, helper_from_checkout=True)
+            self.assertIn("Installer:", output)
+            self.assertFalse((directory / "original").exists())
+            self.assertTrue((directory / "installed/Utilities/python/Installer/setup_tools.py").is_file())
+
+    def test_move_rejects_existing_destination_without_changing_either_copy(self):
+        output, directory = self.run_script(r'''
+mkdir original installed
+printf 'original\n' > original/file.txt
+printf 'installed\n' > installed/file.txt
+move_dir "$PWD/original" "$PWD/installed"
+''', expected=1)
+        self.assertIn("Destination already exists", output)
+        self.assertEqual((directory / "original/file.txt").read_text(), "original\n")
+        self.assertEqual((directory / "installed/file.txt").read_text(), "installed\n")
+
     def test_explicit_failure_preserves_exact_retry_options(self):
         output, _ = self.run_script(r'''
 repo_dir=/new/location/TauFW
@@ -289,6 +334,47 @@ printf 'links:ok\n'
         self.assertEqual((directory / "status.txt").read_text(), "")
         self.assertIn("links:ok", output)
         self.assertFalse((directory / "tracking.txt").read_text().startswith("S "))
+
+
+class InstallerHelperTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        path = INSTALLER.parent / "_installer.py"
+        spec = importlib.util.spec_from_file_location("installer_helpers", path)
+        cls.helpers = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.helpers)
+
+    def test_direct_entry_point_works_before_cmssw(self):
+        result = subprocess.run([sys.executable, "-B", str(INSTALLER), "--help"],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("rename", result.stdout)
+        self.assertIn("modules", result.stdout)
+        self.assertIn("htt", result.stdout)
+
+    def test_cross_device_rename_keeps_its_distinct_error(self):
+        import errno
+        with patch.object(self.helpers.os, "rename", side_effect=OSError(errno.EXDEV, "other filesystem")):
+            with tempfile.TemporaryDirectory() as directory:
+                with self.assertRaises(OSError) as error:
+                    self.helpers.rename_directory(directory, Path(directory) / "absent")
+        self.assertEqual(error.exception.errno, errno.EXDEV)
+
+    def test_native_binding_failure_is_not_reported_as_success(self):
+        constructor = Mock(side_effect=RuntimeError("native library unavailable"))
+        module = SimpleNamespace(__file__=__file__, Native=constructor)
+        with patch.object(self.helpers.importlib, "import_module", return_value=module):
+            with self.assertRaisesRegex(RuntimeError, "native library unavailable"):
+                self.helpers.verify_modules(["Tool:Native"], instantiate=True)
+        constructor.assert_called_once()
+
+    def test_htt_verification_closes_an_unusable_root_file(self):
+        handle = SimpleNamespace(IsZombie=lambda: True, Close=Mock())
+        root = SimpleNamespace(TFile=SimpleNamespace(Open=lambda *args: handle))
+        with patch.object(self.helpers.importlib, "import_module", return_value=root):
+            with self.assertRaisesRegex(RuntimeError, "Cannot open HTT correction file"):
+                self.helpers.verify_htt_files("corrections", ["broken.root"])
+        handle.Close.assert_called_once()
 
 
 if __name__ == "__main__":
