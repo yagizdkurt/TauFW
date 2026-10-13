@@ -69,7 +69,7 @@ class SumWeights(Module):
 if __name__ == '__main__':
   import os
   from PhysicsTools.NanoAODTools.postprocessing.framework.postprocessor import PostProcessor
-  from TauFW.PicoProducer.processors import moddir
+  from TauFW.PicoProducer.workers import moddir
   from argparse import ArgumentParser
   parser = ArgumentParser()
   parser.add_argument('-i',   '--infiles', nargs='+')

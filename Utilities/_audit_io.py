@@ -140,7 +140,7 @@ def _responsibility(path):
         return "Dataset/storage helper: " + path.stem, "Site defaults, DAS queries, sample/event decisions and validation"
     if "/batch/" in value:
         return "Scheduler adapter: " + path.stem, "Submission, queue interpretation and retry decisions"
-    if "/processors/" in value:
+    if "/workers/" in value or "/processors/" in value:
         return "Event worker: " + path.stem, "NanoAODTools/event-loop lifecycle and processing options"
     if "/analysis/" in value:
         return "Analysis/writer: " + path.stem, "Event selection, weights, branches, tree/histogram schemas"

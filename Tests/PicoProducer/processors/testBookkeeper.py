@@ -15,7 +15,7 @@ import ROOT; ROOT.PyConfig.IgnoreCommandLineOptions = True
 from PhysicsTools.NanoAODTools.postprocessing.framework.postprocessor import PostProcessor
 from PhysicsTools.NanoAODTools.postprocessing.framework.eventloop import Module
 from PhysicsTools.NanoAODTools.postprocessing.framework.datamodel import Collection
-from TauFW.PicoProducer.processors import moddir, ensuredir
+from TauFW.PicoProducer.workers import moddir, ensuredir
 from TauFW.common.tools.utils import getyear
 from argparse import ArgumentParser
 parser = ArgumentParser()
@@ -71,7 +71,7 @@ class ModuleMuTau(Module):
 modules.append(ModuleMuTau())
 
 # BOOKKEEPING
-from TauFW.PicoProducer.processors.Bookkeeper import Bookkeeper
+from TauFW.PicoProducer.workers.Bookkeeper import Bookkeeper
 modules.append(Bookkeeper(verb=verbosity)) # order should not matter
 
 # PRINT

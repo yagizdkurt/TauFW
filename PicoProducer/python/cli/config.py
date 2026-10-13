@@ -317,7 +317,7 @@ def main_link(args):
     if 'skim' in key.lower(): #or 'test' in key:
       parts  = value.split(' ') # "PROCESSOR [--FLAG[=VALUE] ...]"
       script = os.path.basename(parts[0]) # separate script from options
-      ensurefile("python/processors",script)
+      ensurefile("python/workers",script)
       value  = ' '.join([script]+parts[1:])
     else:
       parts  = value.split(' ') # "MODULE [KEY=VALUE ...]"

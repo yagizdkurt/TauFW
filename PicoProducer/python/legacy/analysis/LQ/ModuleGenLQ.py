@@ -28,7 +28,7 @@ from TauFW.PicoProducer.analysis.TreeProducer import TreeProducer
 from PhysicsTools.NanoAODTools.postprocessing.framework.postprocessor import PostProcessor
 from PhysicsTools.NanoAODTools.postprocessing.framework.eventloop import Module
 from PhysicsTools.NanoAODTools.postprocessing.framework.datamodel import Collection
-from TauFW.PicoProducer.processors import moddir
+from TauFW.PicoProducer.workers import moddir
 from TauFW.PicoProducer.analysis.utils import getmother, getlastcopy, dumpgenpart, getprodchain, getdecaychain, deltaPhi
 #import PhysicsTools.NanoAODTools.postprocessing.framework.datamodel as datamodel
 #datamodel.statusflags['isHardPrompt'] = datamodel.statusflags['isPrompt'] + datamodel.statusflags['fromHardProcess'] # define shortcut

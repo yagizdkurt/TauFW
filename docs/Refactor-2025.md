@@ -828,3 +828,21 @@ verbosity 0-3) gives identical output, files and calls through `cli/jobs.py` and
 `pico/` functions. `scripts/pico.py` itself was compared on 30 command lines (every `-h`, no arguments,
 abbreviations, `list`, `install`, `channel`/`rm`/`set` edits, an unknown subcommand): identical output and exit codes.
 
+### A3. `processors/` renamed to `workers/`
+
+`PicoProducer/python/processors/` (`picojob.py`, `skimjob.py`, `Bookkeeper.py`, the `keep_and_drop_*.txt` branch
+selections) is now `PicoProducer/python/workers/` (`git mv`), importable as `TauFW.PicoProducer.workers`. There is
+no compatibility module (hard-break rule). Updated callers: `jobs/worker_command.py` (`PROCDIR`), `cli/config.py`
+(`pico.py channel` checks the skim script there), `analysis/SumWeights.py`, the two `legacy/analysis` generator
+modules, the HTCondor submit template comment, `Tests/BBB/cases.py` (`pico.bookkeeper`),
+`Tests/BBB/pico_harness.py` (`pico.workers`), `Tests/PicoProducer/processors/testBookkeeper.py` (marked `edited` in
+`Tests/migration.json`), `Utilities/_audit_io.py`, the CMSDAS 2020 preselection notes and the READMEs.
+
+**For users:** a private script that imports `TauFW.PicoProducer.processors` must import
+`TauFW.PicoProducer.workers`. Job lists written before this change name `.../python/processors/picojob.py`; resubmit
+them from a fresh `pico.py submit`, or keep a checkout of the old tree until those jobs are done. Channels in
+`config/config.json` name only the script (`skimjob.py`), so they need no change.
+
+**Check:** BBB normalizes worker paths to `<pico>/picojob.py`, so no baseline changes. The comparison harness is
+unchanged (296 scenarios), and `Tests/check_harness.py` passes.
+

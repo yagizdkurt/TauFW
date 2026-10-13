@@ -44,7 +44,7 @@ fi
 # CMSSW ENVIRONMENT
 if [ -z "$CMSSW_BASE" ]; then # $CMSSW_BASE is not set
   echo ">>> WARNING! CMSSW_BASE was not defined!"
-  # Guess CMSSW_BASE path from the worker script $CMSSW_BASE/src/TauFW/PicoProducer/python/processors/picojob.py
+  # Guess CMSSW_BASE path from the worker script $CMSSW_BASE/src/TauFW/PicoProducer/python/workers/picojob.py
   SCRIPT="$(echo $TASKCMD | awk '{ print $2 }')" # assume `[COMMAND] [SCRIPT] [OPTIONS]`
   CMSSW_BASE=$(realpath $(dirname "${SCRIPT}")/../../../../..)
   echo ">>> Guessing CMSSW_BASE=$CMSSW_BASE based on SCRIPT=$SCRIPT"

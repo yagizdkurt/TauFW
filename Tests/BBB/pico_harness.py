@@ -205,7 +205,7 @@ class PicoWorkspace:
         return self.execute(PICO, *arguments, check=check)
 
     def worker(self, name, *arguments):
-        return self.execute(self.basedir / "python" / "processors" / name, *arguments)
+        return self.execute(self.basedir / "python" / "workers" / name, *arguments)
 
     # ----- fake scheduler -----
 

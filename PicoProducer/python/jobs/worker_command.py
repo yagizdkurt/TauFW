@@ -41,7 +41,7 @@ __all__ = ['resolve_worker', 'module_options', 'resubmit_options', 'job_command'
 # ===== Constants =====
 LOG     = Logger()
 PYTHON  = "python3"           # interpreter of the worker
-PROCDIR = "python/processors" # processors, relative to PicoProducer/ (the working directory of pico.py)
+PROCDIR = "python/workers"    # workers, relative to PicoProducer/ (the working directory of pico.py)
 
 
 # ===== Pipeline: channel -> worker -> command line =====

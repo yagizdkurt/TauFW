@@ -198,7 +198,7 @@ def pico_writer(workspace):
 
 def pico_bookkeeper(workspace):
     from PhysicsTools.NanoAODTools.postprocessing.framework.postprocessor import PostProcessor
-    from TauFW.PicoProducer.processors.Bookkeeper import Bookkeeper
+    from TauFW.PicoProducer.workers.Bookkeeper import Bookkeeper
     from Tests.PicoProducer.analysis.TestModule import TestModule
     from support.fixtures import write_nano
     from BBB.snapshot import file_snapshot, histogram_snapshot

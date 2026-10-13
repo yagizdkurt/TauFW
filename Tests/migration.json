@@ -222,7 +222,8 @@
       "original": "PicoProducer/python/processors/testBookkeeper.py",
       "moved": "Tests/PicoProducer/processors/testBookkeeper.py",
       "sha256": "5a1770d8415b217aafd29268178b867a1b4b67daf2fe9e85853bff1af6b8735c",
-      "canonical_sha256": "d433e6b77961ca1929f0af63fbb9839eb5aeb4dff8160f5618bc528f97c734ca"
+      "canonical_sha256": "d433e6b77961ca1929f0af63fbb9839eb5aeb4dff8160f5618bc528f97c734ca",
+      "edited": "Imports follow the rename of PicoProducer/python/processors/ to workers/ (Part 5, 2026-10-13)."
     },
     {
       "original": "PicoProducer/python/processors/test_coffea.py",
