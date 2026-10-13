@@ -113,7 +113,7 @@ class HarnessChecks(unittest.TestCase):
     def test_script_failure_is_propagated(self):
         case = run.select_cases(run.inventory(), "normal", ["plotter.variables"])
         with mock.patch.object(run.subprocess, "run", return_value=mock.Mock(returncode=7)):
-            self.assertEqual(run.execute_scripts(case, []), 1)
+            self.assertEqual(run.execute_scripts(case, [], quiet=False), 1)
 
     def quiet_run(self, outcomes, tail_lines=80, cases=None):
         """Run mocked workers in quiet mode; outcomes are (exit status, printed text) per case."""
@@ -160,12 +160,34 @@ class HarnessChecks(unittest.TestCase):
         self.assertEqual(self.quiet_run([(0, ""), (skip, "")])[0], 0)
         self.assertEqual(self.quiet_run([(skip, ""), (skip, "")])[0], 1)
 
-    def test_tail_requires_quiet(self):
+    def test_cli_defaults_and_verbose(self):
+        for output_args, quiet, tail_lines in (([], True, 80), (["--tail", "5"], True, 5),
+                                               (["-v"], False, 80), (["--verbose"], False, 80)):
+            for command, name in (("normal", "plotter.variables"), ("integration", "pico.batch")):
+                with mock.patch.object(run, "execute_scripts", return_value=0) as execute, \
+                     contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(run.main([command, "--case", name] + output_args,
+                                              check_environment=False), 0)
+                self.assertEqual(execute.call_args.args[2:], (quiet, tail_lines))
+            for action in ("check", "lock"):
+                with mock.patch.object(runner, "main", return_value=0) as bbb:
+                    self.assertEqual(run.main(["bbb", action] + output_args, check_environment=False), 0)
+                bbb.assert_called_once_with(action, [], False, quiet, tail_lines, "HEAD")
+
+    def test_output_flags_reject_invalid_combinations_and_removed_quiet(self):
+        commands = (["normal"], ["integration"], ["all"], ["bbb", "check"], ["bbb", "lock"])
         with contextlib.redirect_stderr(io.StringIO()) as stderr:
-            self.assertEqual(run.main(["normal", "--tail", "5"]), 1)
-            self.assertEqual(run.main(["bbb", "lock", "-q"]), 1)
-        self.assertIn("--tail applies only with --quiet", stderr.getvalue())
-        self.assertIn("--quiet applies only to bbb check", stderr.getvalue())
+            for command in commands:
+                self.assertEqual(run.main(command + ["-v", "--tail", "5"], check_environment=False), 1)
+                for flag in ("-q", "--quiet"):
+                    with self.assertRaises(SystemExit) as error:
+                        run.main(command + [flag], check_environment=False)
+                    self.assertEqual(error.exception.code, 2)
+            for action in ("list", "diff"):
+                for output_args in (["-v"], ["--tail", "5"]):
+                    self.assertEqual(run.main(["bbb", action] + output_args, check_environment=False), 1)
+        self.assertIn("--tail does not apply with --verbose", stderr.getvalue())
+        self.assertIn("--verbose and --tail apply only to bbb check/lock", stderr.getvalue())
 
     def test_all_runs_every_suite_quietly_and_propagates_failures(self):
         for checks_status, normal_status, bbb_status in ((0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1)):
@@ -183,11 +205,23 @@ class HarnessChecks(unittest.TestCase):
             self.assertIn("ALL: FAIL" if any((checks_status, normal_status, bbb_status)) else "ALL: PASS",
                           stdout.getvalue())
 
+    def test_all_verbose_reaches_every_suite(self):
+        with mock.patch.object(run, "execute_scripts", return_value=0) as scripts, \
+             mock.patch.object(runner, "main", return_value=0) as bbb, \
+             contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(run.main(["all", "-v"], check_environment=False), 0)
+        checks, normal = scripts.call_args_list
+        self.assertEqual(checks.args[0], run.check_cases(quiet=False))
+        self.assertTrue(all(case["command"][-1] == "-v" for case in checks.args[0][:-1]))
+        self.assertEqual(checks.kwargs, {"quiet": False, "tail_lines": 80, "log_kind": "checks"})
+        self.assertEqual(normal.args[1:], ([], False, 80))
+        bbb.assert_called_once_with("check", [], False, False, 80, "HEAD")
+
     def test_all_stops_on_interrupt_and_rejects_script_arguments(self):
         with mock.patch.object(run, "execute_scripts", return_value=130) as scripts, \
              mock.patch.object(runner, "main") as bbb, \
              contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-            self.assertEqual(run.main(["all", "-q"]), 130)
+            self.assertEqual(run.main(["all"]), 130)
             self.assertEqual(run.main(["all", "--", "unsafe-argument"]), 1)
         scripts.assert_called_once()
         bbb.assert_not_called()
@@ -261,6 +295,115 @@ class HarnessChecks(unittest.TestCase):
             with self.assertRaises(ValueError):
                 runner.load_lock(directory)
 
+    def test_bbb_check_default_logs_and_failure_reporting(self):
+        names = ["pass", "diff", "crash"]
+        expected = {name: payload(name) for name in names}
+        with tempfile.TemporaryDirectory() as directory:
+            def worker(name, log):
+                log.write_text("early chatter\nlast diagnostic\n")
+                if name == "crash":
+                    raise RuntimeError("worker crashed")
+                return payload(name, {"value": 2.0}) if name == "diff" else expected[name]
+
+            with mock.patch.object(progress, "LOGS", Path(directory)), \
+                 mock.patch.object(runner, "selected_cases", return_value=names), \
+                 mock.patch.object(runner, "load_lock", return_value=expected), \
+                 mock.patch.object(runner, "validate_target"), \
+                 mock.patch.object(runner, "execute_case", side_effect=worker), \
+                 contextlib.redirect_stdout(io.StringIO()) as stdout:
+                self.assertEqual(runner.main("check", [], tail_lines=1), 1)
+            output = stdout.getvalue()
+            self.assertRegex(output, r"(?m)^BBB/cases.py \.{3,} PFF$")
+            self.assertIn("$.output.value.float64", output)
+            self.assertIn("worker crashed", output)
+            self.assertEqual(output.count("last diagnostic"), 1)
+            self.assertNotIn("early chatter", output)
+            self.assertIn("Full log: %s" % (Path(directory) / "bbb" / "crash.log"), output)
+            self.assertEqual({log.name for log in (Path(directory) / "bbb").iterdir()},
+                             {name + ".log" for name in names})
+
+    def test_lock_logs_both_runs_and_reproduces_bytes(self):
+        names = ["first", "second"]
+        expected = {name: payload(name) for name in names}
+        for quiet in (True, False):
+            with tempfile.TemporaryDirectory() as directory:
+                baselines = Path(directory) / "baselines"
+                runner.store_lock(baselines, expected)
+                before = contents(baselines)
+
+                def worker(name, log):
+                    if log is None:
+                        print("passing chatter")
+                    else:
+                        log.write_text("passing chatter\n")
+                    return expected[name]
+
+                with mock.patch.object(runner, "BASELINES", baselines), \
+                     mock.patch.object(progress, "LOGS", Path(directory) / "logs"), \
+                     mock.patch.object(runner, "selected_cases", return_value=names), \
+                     mock.patch.object(runner, "validate_target"), \
+                     mock.patch.object(runner, "execute_case", side_effect=worker) as execute, \
+                     contextlib.redirect_stdout(io.StringIO()) as stdout:
+                    # Omit quiet to verify the runner's default, too.
+                    options = {} if quiet else {"quiet": False}
+                    self.assertEqual(runner.main("lock", [], replace=True, **options), 0)
+                self.assertEqual(before, contents(baselines))
+                self.assertEqual([call.args[0] for call in execute.call_args_list], ["first", "first", "second", "second"])
+                output = stdout.getvalue()
+                self.assertIn("LOCK SUMMARY", output)
+                self.assertIn("Locked 2 BBB cases.", output)
+                if quiet:
+                    self.assertRegex(output, r"(?m)^BBB/cases.py \.{3,} PP$")
+                    self.assertNotIn("passing chatter", output)
+                    logs = Path(directory) / "logs" / "bbb"
+                    self.assertEqual({log.name for log in logs.iterdir()},
+                                     {"%s.run%s.log" % (name, number) for name in names for number in (1, 2)})
+                    self.assertTrue(all(log.read_text() == "passing chatter\n" for log in logs.iterdir()))
+                else:
+                    self.assertIn("passing chatter", output)
+                    self.assertIn("LOCK first (two fresh runs)", output)
+                    self.assertFalse((Path(directory) / "logs").exists())
+                with mock.patch.object(runner, "selected_cases", return_value=names):
+                    with self.assertRaisesRegex(ValueError, "lock captures the whole suite"):
+                        runner.main("lock", ["first"], replace=True, quiet=quiet)
+
+    def test_lock_failures_report_both_tails_and_never_write(self):
+        names = ["crash.first", "crash.second", "unstable", "good"]
+        outcomes = [RuntimeError("worker crashed"), payload(), payload(), RuntimeError("no snapshot"),
+                    payload(), payload(output={"value": 2.0}), payload(), payload()]
+        for tail_lines in (1, 0):
+            calls = iter(outcomes)
+            with tempfile.TemporaryDirectory() as directory:
+                def worker(name, log):
+                    log.write_text("early chatter\nlast diagnostic\n")
+                    result = next(calls)
+                    if isinstance(result, RuntimeError):
+                        raise result
+                    return result
+
+                with mock.patch.object(runner, "BASELINES", Path(directory) / "baselines"), \
+                     mock.patch.object(progress, "LOGS", Path(directory) / "logs"), \
+                     mock.patch.object(runner, "selected_cases", return_value=names), \
+                     mock.patch.object(runner, "validate_target"), \
+                     mock.patch.object(runner, "execute_case", side_effect=worker) as execute, \
+                     mock.patch.object(runner, "store_lock") as store, \
+                     contextlib.redirect_stdout(io.StringIO()) as stdout:
+                    with self.assertRaisesRegex(RuntimeError, "3 of 4 BBB cases failed; no expectations were written"):
+                        runner.main("lock", [], tail_lines=tail_lines)
+                store.assert_not_called()
+                self.assertEqual(execute.call_count, 8)
+                self.assertEqual(len(list((Path(directory) / "logs" / "bbb").iterdir())), 8)
+                output = stdout.getvalue()
+                self.assertRegex(output, r"(?m)^BBB/cases.py \.{3,} FFFP$")
+                self.assertLess(output.index("LOCK SUMMARY"), output.index("worker crashed"))
+                self.assertIn("no snapshot", output)
+                self.assertIn("not repeatable", output)
+                self.assertEqual(output.count("last diagnostic"), 6)
+                self.assertEqual(output.count("early chatter"), 6 if tail_lines == 0 else 0)
+                for name in names[:-1]:
+                    for number in (1, 2):
+                        self.assertIn("Full log: %s" % (Path(directory) / "logs" / "bbb" / ("%s.run%s.log" % (name, number))), output)
+
     def test_unstable_or_failed_worker_cannot_publish_lock(self):
         first, second = payload(), payload(output={"value": 2.0})
         with self.assertRaises(RuntimeError):
@@ -271,7 +414,7 @@ class HarnessChecks(unittest.TestCase):
              mock.patch.object(runner, "execute_case", side_effect=[first, second]), \
              mock.patch.object(runner, "store_lock") as store:
             with self.assertRaises(RuntimeError):
-                runner.main("lock", [])
+                runner.main("lock", [], quiet=False)
             store.assert_not_called()
         with mock.patch.object(runner.subprocess, "run", return_value=mock.Mock(returncode=23)):
             with self.assertRaises(RuntimeError):

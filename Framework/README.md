@@ -304,6 +304,9 @@ stage logic can be tested without ROOT.
 
 ## Tests
 
+`python3 Tests/run.py all` runs the automated suites quietly; use `all -v` for full output.
+BBB check/lock also default to quiet output; see the [test runner instructions](../Tests/README.md#output-quiet-by-default).
+
 - `python -m unittest discover -s Tests/Framework` (any Python 3.9+, no ROOT): the state machine with a fake
   PicoProducer (submit, wait, resubmit until `max_tries`, merge, not-implemented stages, errors), `decide_next`,
   `run.json` round trip and crash-safe save, recipe validation, and `taufw.py`; the local stages with fake Plotter

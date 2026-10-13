@@ -22,6 +22,7 @@ Sections are in the order the work was done. Each lists the relevant commits.
 | 10 | [PicoProducer cleanup, Part 5: public API, command line, workers](#10-picoproducer-cleanup-part-5-public-api-command-line-workers) | 2026-10-13 |
 | 11 | [Framework: the TauFW orchestrator (Part F)](#11-framework-the-taufw-orchestrator-part-f) | 2026-10-13 |
 | 12 | [Framework: plots, histograms and fit stages (Part G)](#12-framework-plots-histograms-and-fit-stages-part-g) | 2026-10-13 |
+| 13 | [Test runner: quiet defaults and BBB lock logs](#13-test-runner-quiet-defaults-and-bbb-lock-logs) | 2026-10-13 |
 
 The reference environment for all of this is `CMSSW_14_1_0_pre4` (Python 3.9, ROOT 6.30).
 
@@ -53,7 +54,7 @@ The reference environment for all of this is `CMSSW_14_1_0_pre4` (Python 3.9, RO
   | `broken` | 2 | No; existing defects (`pico.sample`, `plotter.rdataframe`) |
 
   A case whose dependency (ROOT, NumPy, NanoAODTools, ...) is missing is reported as SKIP.
-  `-q` gives a compact one-line-per-case view with logs kept under `Tests/.artifacts/logs/`.
+  Output is quiet by default, with logs kept under `Tests/.artifacts/logs/`; `-v`/`--verbose` streams full output.
 - **BBB: exact regression tests** (`Tests/BBB/`). 13 cases build small, real ROOT trees and histograms from fixed
   fixtures ([Tests/fixtures/events.json](../Tests/fixtures/events.json)), run them through the framework, and
   snapshot the outputs: object names and classes, directory structure, axes, bin contents and errors, branch
@@ -1039,3 +1040,32 @@ variant of option 3 is wrapped. See the Framework README.
   other 18 cases were unchanged).
 - On lxplus (to do): `taufw.py plan Framework/recipes/tes_id_2025.yml`, then a VTight/Tight run compared with the
   shell scripts in a clean copy (`FitparameterValues__mutau_*`, `tau_sf/*VSjetVTight_VSeleTight*`).
+
+## 13. Test runner: quiet defaults and BBB lock logs
+
+**Date:** 2026-10-13
+
+`normal`, `integration`, `all`, and `bbb check`/`lock` now capture worker output by default.
+`-v`/`--verbose` streams full output, including every suite under `all`; the old quiet flags are removed.
+`--tail N` applies in the default mode (80 lines; 0 means all) and is rejected with verbose output.
+
+Quiet lock prints one P/F letter per case on one line, captures both fresh runs in
+`Tests/.artifacts/logs/bbb/<case>.run1.log` and `<case>.run2.log`, and keeps the LOCK SUMMARY.
+Failed cases show their reasons and both log tails with paths. Lock still rejects `--case` and publishes
+only when the whole suite succeeds and every snapshot is repeatable. Baselines and physics code are unchanged.
+`check_harness.py` keeps its own unittest `-q`/`-v` CLI.
+
+Validation on Windows: all 27 offline harness checks pass; `bbb diff` reports 19 unchanged baselines.
+`python -m unittest discover -s Tests/Utilities -p "test_*.py"` runs 60 tests but exposes existing
+terminal/color-dependent menu checks (unchanged from HEAD). On lxplus with Python 3.9 in
+`CMSSW_14_1_0_pre4`, run from the checkout:
+
+```bash
+python3 Tests/run.py bbb check
+python3 Tests/run.py bbb check -v
+python3 Tests/run.py bbb lock --replace
+git status --short -- Tests/BBB/baselines/
+git diff --exit-code -- Tests/BBB/baselines/
+```
+
+Both checks must pass; replacement must leave the baseline status empty and the diff exit zero.

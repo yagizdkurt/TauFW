@@ -62,6 +62,9 @@ paths and the exact `pip3 uninstall <distribution>` command; setup does not
 uninstall anything automatically. The same check runs before `Tests/run.py`
 executes tests. To run only this check after `cmsenv`, use
 `python3 Tests/run.py environment`. User packages absent from CMSSW do not warn.
+After activation, `python3 Tests/run.py all` runs the automated suites quietly;
+add `-v` for full output, or `--tail N` to adjust failure tails. See the
+[test runner instructions](../Tests/README.md#all-automated-tests-quiet-shortcut).
 
 
 ## Existing files

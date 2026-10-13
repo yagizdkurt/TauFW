@@ -156,14 +156,12 @@ def diff_lock(ref):
     return 1 if failed else 0
 
 
-def main(action, requested, replace=False, quiet=False, tail_lines=80, ref="HEAD"):
+def main(action, requested, replace=False, quiet=True, tail_lines=80, ref="HEAD"):
     if action == "diff":
-        if requested or replace or quiet:
+        if requested or replace:
             raise ValueError("bbb diff compares the whole lock; it takes only --ref.")
         return diff_lock(ref)
     names = selected_cases(requested)
-    if quiet and action != "check":
-        raise ValueError("--quiet applies only to bbb check.")
     if action == "list":
         from BBB.cases import CASES
         for name in names:
@@ -178,24 +176,48 @@ def main(action, requested, replace=False, quiet=False, tail_lines=80, ref="HEAD
         if (BASELINES / "manifest.json").exists() and not replace:
             raise ValueError("Baseline already exists. Review changes before using lock --replace.")
         validate_target()
+        logs = reset_logs("bbb") if quiet else None
+        lines = Lines(["BBB/cases.py"])
+        if quiet:
+            lines.begin("BBB/cases.py")
         payloads = {}
         failures = {}  # name -> reason; every case still runs so the summary lists all problems at once
         for name in names:
-            print("LOCK %s (two fresh runs)" % name, flush=True)
-            try:
-                first, second = execute_case(name), execute_case(name)
-                verify_stable(name, first, second)
-                payloads[name] = first
-            except RuntimeError as error:
-                failures[name] = str(error)
-                print("FAIL %s: %s" % (name, error), flush=True)
+            if not quiet:
+                print("LOCK %s (two fresh runs)" % name, flush=True)
+            runs = []
+            errors = []
+            for number in (1, 2):
+                log = logs / ("%s.run%s.log" % (name, number)) if quiet else None
+                try:
+                    runs.append(execute_case(name, log))
+                except RuntimeError as error:
+                    errors.append("Run %s: %s" % (number, error))
+            if errors:
+                failures[name] = "\n".join(errors)
+            else:
+                try:
+                    verify_stable(name, runs[0], runs[1])
+                    payloads[name] = runs[0]
+                except RuntimeError as error:
+                    failures[name] = str(error)
+            if quiet:
+                lines.mark("F" if name in failures else "P")
+            elif name in failures:
+                print("FAIL %s: %s" % (name, failures[name]), flush=True)
+        lines.end()
         print("\nLOCK SUMMARY")
         for name in names:
             print("  %-4s %s" % ("FAIL" if name in failures else "PASS", name))
         for name, reason in failures.items():
             print("\n%s:\n  %s" % (name, reason.replace("\n", "\n  ")))
+            if quiet:
+                for number in (1, 2):
+                    log = logs / ("%s.run%s.log" % (name, number))
+                    section("FAIL %s (run %s)" % (name, number), tail(log, tail_lines),
+                            ("Full log: %s" % log,))
         if failures:
-            # Never publish a partial lock; the case output above each FAIL line shows the cause.
+            # Never publish a partial lock; all failure reasons and captured tails are reported above.
             raise RuntimeError("%s of %s BBB cases failed; no expectations were written." % (len(failures), len(names)))
         store_lock(BASELINES, payloads, replace)
         print("Locked %s BBB cases. Commit Tests/BBB/baselines/ before refactoring." % len(payloads))

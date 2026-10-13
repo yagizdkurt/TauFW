@@ -7,7 +7,9 @@ Policy (agreed 2026-10-12): bugs are fixed during the refactor and each fix is r
 commit never changes behavior or a BBB baseline. The fixes of a part are applied together, after its
 restructuring, in a separate commit (e.g. Part 3B), with `# BUGS <ID>` comments at the changed lines.
 If a fix changes a BBB baseline, that commit re-locks it (`python3 Tests/run.py bbb lock --replace`) and the
-**Output impact** column explains the difference.
+**Output impact** column explains the difference. BBB check/lock are quiet by default; add `-v` for full
+worker output, or `--tail N` to adjust failure tails. Lock logs both runs per case; see the
+[test runner instructions](../../Tests/README.md#bbb-exact-data-and-schema-regression-tests).
 
 **Severity:**
 - **crash:** raises an exception on a reachable path.
