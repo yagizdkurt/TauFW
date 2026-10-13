@@ -1,7 +1,7 @@
 # Plotter/Legacy
 
 These files are **unmaintained**. They were moved here on 2026-10-13 during the Plotter cleanup
-(`Refactor-2025`, see [docs/Refactor-2025.md](../../docs/Refactor-2025.md#9-plotter-cleanup-legacy-area))
+(`Refactor-2025`, see [docs/Refactor-2025.md](../../docs/Refactor-2025/Refactor-2025.md#9-plotter-cleanup-legacy-area))
 instead of being deleted, so their code stays easy to find. Their Git history follows them
 (`git log --follow <file>`).
 
@@ -28,25 +28,16 @@ Notes:
 
 | Legacy path | Last change | Reason |
 |---|---|---|
-| `plot2D.py` | 2023-10-06 | Run 2 `config.samples` with DeepTau2017 cuts; its 2022 eras are rejected by `samples.py` |
-| `plot_compare.py` | 2023-06-20 | UL2016/UL2018 comparison with DeepTau2017 cuts; its `getsampleset` call is commented out |
-| `plot_compare_nano.py` | 2026-10-12 | Hard-coded UL2016 NanoAODv2 file lists and a personal `/pnfs` path (only its import line was updated in 2026) |
-| `plot_differential.py` | 2023-06-20 | Run 2 / UL eras only, DeepTau2017 |
-| `plot_stitching.py` | 2023-06-20 | UL2018 stitching check, DeepTau2017 |
-| `plot_GENSIM.py` | 2023-11-13 | 2022 leptoquark GENSIM study; calls `tree.MultiDraw` without importing `MultiDraw` |
 | `plot_CMSPODAS23.py`, `config/samples_v10.py`, `config/setup_mutau_PODAS.yml` | 2023-10-13 | CMS PO&DAS 2023 school (UL2018, NanoAOD v10); linked from `docs/CMSPODAS23` |
 | `plots_and_histograms_CMSDAS2020.py` | 2023-06-20 | CMSDAS 2020 school exercise (2017/2018); linked from `docs/CMSDAS2020` |
-| `fromTCanvasToHist.py`, `plot_mvis_uncorr_corr.py` | 2026-09-15 | One-off scripts with hard-coded input/output files; `plot_mvis_uncorr_corr.py` uses `os` without importing it |
-| `utils/plot_decayLengths.py` | 2023-10-04 | Stand-alone ROOT decay-length study |
 | `utils/tmux.sh` | 2020-07-18 | Personal shell helper, unrelated to plotting |
 | `config/samples_Summer24.py` | 2026-03-11 | Unused variant of `samples_v12.py` |
 | `config/samples_Summer24v15.py` | 2026-03-11 | Unused predecessor of `samples_v15.py` (no 2026 / 2526 eras) |
 | `config/setup_mutau_v10_2p5.yml` | 2023-03-20 | NanoAOD v10 / DeepTau2p5 mutau setup; no references |
-| `python/legacy/corrections/JetToTauFR/` (README, 4 scripts, `tools/`) | 2023-05-31 | Jet→τ fake-rate workflow (UL2018). Python 2 code (`StringIO`, implicit relative imports, `raw_input`), personal AFS `sys.path`; its PicoProducer analyzers are already in `PicoProducer/python/legacy/` |
+| `python/legacy/corrections/JetToTauFR/` (README, 4 scripts, `tools/`) | 2023-05-31 | Jet→τ fake-rate workflow (UL2018). Python 2 code (`StringIO`, implicit relative imports, `raw_input`), personal AFS `sys.path`; its independent PicoProducer analyzers are in `LegacyAnalyses/README.md` |
 | `python/legacy/methods/JetToTau_MisID.py` | 2022-08-11 | Sample method used only by `JetToTauFR/plot_forTauFR.py`; imports `JetToTauFR/tools/fakeFactors.py` |
 | `python/legacy/methods/ScaleVariations.py` | 2023-05-28 | Adds `Sample.getenvelope_scalevars`, which nothing calls; cannot be loaded via `method=` (no attribute of the same name) |
 | `python/legacy/methods/QCD.C` | 2020-07-13 | Only referenced in a commented-out line of `QCD_OSSS.py`; personal path |
-| `python/legacy/corrections/g-2/` (`aco.C`, `corrs_ntracks.C`) | 2023-11-13 | g-2 study; its input ROOT files are not in the repository |
 | `python/legacy/corrections/lepEff.C`, `leptonTauFake.C`, `zptweight.C` | 2020-07-05 | Run 2 correction macros, no references; personal paths. PicoProducer and Fitter/Zpt have their own `zptweight.C` |
 | `python/legacy/macros/mapGenMatch.C` | 2021-07-15 | No references |
 
@@ -55,3 +46,7 @@ Notes:
 `config/samples_v12.py` (Fitter `ETauFR`) with `plot_v10.py` and `plot_postfit*.py` (`Fitter/TauES_ID/README.md`),
 `python/corrections/{pileup,topptweight,tauIDSF}.C`, `python/macros/{loadHist,utils}.C` (`Tests/Plotter/testMacros.py`),
 `python/macros/Unroll.cxx` (BBB, Fitter `Zpt`), and `config/setup_tautau.yml` (the only tautau setup).
+
+## One-off analysis archive
+
+Independent analysis studies were moved to [`LegacyAnalyses/`](../../LegacyAnalyses/README.md) on 2026-10-13. Their current locations, purposes and path requirements are documented there. The table above describes files remaining in this component archive.
