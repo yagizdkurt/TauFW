@@ -1,3 +1,4 @@
+#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 # Author: Yagizhan Dinckurt (October 2026)
 """Histograms stage: pico tuples -> input histograms (shapes) of the TES + tau ID fit, through the Fitter API.
 

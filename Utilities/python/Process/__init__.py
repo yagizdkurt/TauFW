@@ -1,3 +1,4 @@
+#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Public process API: external commands with log files and output checks,
 and Python functions run in parallel processes."""
 

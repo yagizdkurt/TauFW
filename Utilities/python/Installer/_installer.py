@@ -1,3 +1,4 @@
+#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Python operations used by FastSetup; optional tools load only when checked."""
 import importlib
 import os

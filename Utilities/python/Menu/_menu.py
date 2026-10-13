@@ -1,3 +1,4 @@
+#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Terminal presentation, screen actions, and menu wording.
 
 No Framework imports or workflow decisions belong here. Curses is loaded only

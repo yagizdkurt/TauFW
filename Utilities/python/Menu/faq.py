@@ -1,3 +1,4 @@
+#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Menu help content. Edit the ordered (topic, explanation) pairs here.
 
 Keep explanations aligned with the CLI behavior; rendering lives in _menu.py.

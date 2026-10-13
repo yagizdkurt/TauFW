@@ -1,3 +1,4 @@
+#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Pre-install checklist entry point. Writes component IDs; never installs tools.
 
 Run by FastSetup.sh directly from the checkout before cmsenv or scram b.

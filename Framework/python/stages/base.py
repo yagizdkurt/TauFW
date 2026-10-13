@@ -1,3 +1,4 @@
+#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 # Author: Yagizhan Dinckurt (October 2026)
 """The stage contract: what every stage of a pipeline (production, histograms, fit, ...) must provide.
 

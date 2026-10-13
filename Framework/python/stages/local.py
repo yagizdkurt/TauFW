@@ -1,3 +1,4 @@
+#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 # Author: Yagizhan Dinckurt (October 2026)
 """Local stages: stages that run their module's scripts on this machine and finish in one advance() call.
 

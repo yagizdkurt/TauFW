@@ -1,3 +1,4 @@
+#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 # Author: Yagizhan Dinckurt (October 2026)
 """Run record: the saved state of one run, in taufw_runs/<name>_<YYYYmmdd-HHMMSS>/run.json.
 

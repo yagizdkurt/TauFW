@@ -1,3 +1,4 @@
+#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 # Author: Yagizhan Dinckurt (October 2026)
 """TauFW Framework: the single entry point that runs an analysis pipeline from a recipe.
 

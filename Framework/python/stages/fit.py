@@ -1,3 +1,4 @@
+#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 # Author: Yagizhan Dinckurt (October 2026)
 """Fit stage: shapes -> datacards -> TES and tau ID fit -> correction files, through the Fitter API.
 

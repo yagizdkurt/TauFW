@@ -1,3 +1,4 @@
+#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 # Author: Yagizhan Dinckurt (October 2026)
 """Analysis bundles: one directory with the recipe, every config file it uses and its own Python steps.
 

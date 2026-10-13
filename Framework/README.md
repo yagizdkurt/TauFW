@@ -1,3 +1,4 @@
+#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 # Framework
 
 The single entry point of TauFW: run an analysis pipeline from an analysis bundle (`Analyses/<name>/`: a recipe,

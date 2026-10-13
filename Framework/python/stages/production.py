@@ -1,3 +1,4 @@
+#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 # Author: Yagizhan Dinckurt (October 2026)
 """Production stage: turn NanoAOD into pico tuples on the batch system, through the public PicoProducer API.
 

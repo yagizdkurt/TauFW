@@ -1,3 +1,4 @@
+#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 # Author: Yagizhan Dinckurt (October 2026)
 """Where the Framework sends its messages: to the terminal and the run's run.log, or nowhere.
 

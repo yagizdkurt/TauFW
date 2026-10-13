@@ -1,3 +1,4 @@
+#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Direct FastSetup entry point, usable from a checkout before cmsenv or scram b."""
 from argparse import ArgumentParser
 import errno

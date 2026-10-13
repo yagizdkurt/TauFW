@@ -1,3 +1,4 @@
+#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 # Author: Yagizhan Dinckurt (October 2026)
 """Shared defaults of the Framework: file names, the run and bundle directories, timing and the time format.
 

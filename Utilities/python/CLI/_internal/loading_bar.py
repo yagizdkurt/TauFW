@@ -1,3 +1,4 @@
+#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """A text loading bar that redraws itself in place on one terminal line.
 
 Moved from TauFW.common.tools.LoadingBar (2026). The characters written are

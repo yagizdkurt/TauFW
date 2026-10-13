@@ -1,4 +1,5 @@
 #! /usr/bin/env python3
+#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 # Author: Yagizhan Dinckurt (October 2026)
 """taufw.py: run TauFW analysis pipelines from a recipe. A thin client of TauFW.Framework (no logic here).
 

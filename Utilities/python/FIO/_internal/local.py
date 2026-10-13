@@ -1,3 +1,4 @@
+#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Local filesystem mechanics with explicit overwrite and recursion."""
 
 import errno

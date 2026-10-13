@@ -1,3 +1,4 @@
+#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """The single public entry point for terminal input and output."""
 
 import sys

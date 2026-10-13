@@ -1,3 +1,4 @@
+#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Framework adapters for the Utilities menu navigation.
 
 Discovery, path resolution, record access, validation, and CLI dispatch belong

@@ -1,3 +1,4 @@
+#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """TauFW Framework: run analysis pipelines (production -> plots -> histograms -> fit) from a recipe.
 
     from TauFW.Framework import Framework

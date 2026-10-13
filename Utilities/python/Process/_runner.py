@@ -1,3 +1,4 @@
+#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Run external commands one after the other, each with its own log file.
 
 A Command names what to run (argv), where (cwd) and which files it must

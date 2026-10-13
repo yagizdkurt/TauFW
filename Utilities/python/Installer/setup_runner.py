@@ -1,3 +1,4 @@
+#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Persistent FastSetup UI and Bash supervisor; usable before CMSSW activation.
 
 The worker owns installation decisions. This module imports the complete UI

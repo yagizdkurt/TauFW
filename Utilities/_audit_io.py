@@ -1,3 +1,4 @@
+#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Regenerate IOInventory.md by inspecting source; never import framework code."""
 
 import ast

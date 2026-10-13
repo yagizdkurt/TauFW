@@ -1,3 +1,4 @@
+#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Private XRootD/GFAL commands; no site detection or environment mutation."""
 
 import errno

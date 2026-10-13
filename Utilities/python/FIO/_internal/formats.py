@@ -1,3 +1,4 @@
+#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Serialize ordinary values; optional YAML support is loaded on demand."""
 
 import csv

@@ -1,3 +1,4 @@
+#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 # Author: Yagizhan Dinckurt (October 2026)
 """Plots stage: data/MC control plots of the pico tuples, through the Plotter API (Plotter/plot.py).
 
