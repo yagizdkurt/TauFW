@@ -84,6 +84,26 @@ main "$@"
         self.assertIn("verify:combine", output)
         self.assertIn("retry:--non-interactive", output)
 
+    def test_reporting_pipe_keeps_plain_output_and_exact_retry(self):
+        output, directory = self.run_script(r'''
+exec 9>events.bin
+export FASTSETUP_EVENT_FD=9
+repo_dir='/installed clone'
+args=(--non-interactive --jobs 7 --skip-combine)
+banner Build
+log 'Building with 7 jobs'
+warn 'Architecture mismatch'
+print_retry
+exec 9>&-
+''')
+        events = (directory / "events.bin").read_bytes().split(b"\0")
+        self.assertEqual(events[:6], [b"stage", b"Build", b"activity", b"Building with 7 jobs",
+                                     b"warning", b"[FastSetup] WARNING: Architecture mismatch"])
+        self.assertEqual(events[6], b"retry")
+        self.assertIn(b"--jobs 7 --skip-combine", events[7])
+        self.assertIn("==== Build ====", output)
+        self.assertIn("WARNING: Architecture mismatch", output)
+
     def test_skipped_components_do_not_install_or_verify(self):
         output = self.run_setup("--non-interactive", "--skip-tauidsfs", "--skip-htt", "--skip-combine", "--run2-jme")
         self.assertNotIn("install:", output)

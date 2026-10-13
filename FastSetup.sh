@@ -104,11 +104,20 @@ trap 'exit 143' TERM
 
 main() {
   parse_args "$@"
-  banner 'Preflight'
   check_host               # Linux with Git
   locate_checkout          # this TauFW clone
+  if ! $non_interactive && [[ -t 0 && -t 1 ]]; then
+    local selected=()
+    if $tauidsfs; then selected+=(tauidsfs); fi
+    if $htt; then selected+=(htt); fi
+    if $combine; then selected+=(combine); fi
+    if $run2_jme; then selected+=(run2-jme); fi
+    exec python3 "$repo_dir/Utilities/python/Installer/setup_runner.py" \
+      --script "$repo_dir/FastSetup.sh" --selected "${selected[@]}" -- "$@"
+  fi
+  banner 'Preflight'
   choose_release_area      # where CMSSW_14_1_0_pre4 lives
-  select_components       # checklist before any installation or checkout move
+  select_components       # preserve the selection in resume arguments
   preflight_install       # reject known conflicts before relocating the clone
   choose_scram_arch        # el8/el9_amd64_gcc12
 
@@ -127,7 +136,14 @@ main() {
   build_release            # scram b; clean only when fitting tools require it
   banner 'Verification'
   verify_install
-  print_summary
+  if [[ -n ${FASTSETUP_EVENT_FD:-} ]]; then
+    local summary
+    summary=$(print_summary)
+    printf '%s\n' "$summary"
+    setup_event summary "$summary"
+  else
+    print_summary
+  fi
 }
 
 usage() {
@@ -139,6 +155,8 @@ offers a component checklist on interactive terminals, then builds with SCRAM.
 TauIDSFs, HTT efficiencies, Combine $COMBINE_TAG and CombineHarvester
 $HARVESTER_TAG are selected by default; standalone NanoAODTools is optional.
 Space/Enter toggles a component. Select Start install to begin; Esc cancels.
+Setup stays on screen through completion. L opens the log; Ctrl+C cancels.
+Enter closes the result screen. The full log is retained in TMPDIR (or /tmp).
 Without a terminal, the defaults and command-line options are used.
 
 Options:
@@ -170,27 +188,38 @@ EOF
 # =============================================================================
 # ==== Reporting and cleanup ====
 
-banner() { printf '\n%s\n==== %s ====\n' '=============================================================================' "$*"; }
-log()  { printf '\n[FastSetup] %s\n' "$*"; }
-warn() { printf '[FastSetup] WARNING: %s\n' "$*" >&2; warnings+=("$*"); }
-die()  { printf 'FastSetup: %s\n' "$*" >&2; exit 1; }
+# The interactive supervisor supplies a separate pipe; normal CLI output stays intact.
+setup_event() {
+  if [[ ${FASTSETUP_EVENT_FD:-} =~ ^[0-9]+$ ]]; then
+    printf '%s\0%s\0' "$1" "$2" >&"$FASTSETUP_EVENT_FD" || true
+  fi
+}
+banner() { setup_event stage "$*"; printf '\n%s\n==== %s ====\n' '=============================================================================' "$*"; }
+log()  { setup_event activity "$*"; printf '\n[FastSetup] %s\n' "$*"; }
+warn() { setup_event warning "[FastSetup] WARNING: $*"; printf '[FastSetup] WARNING: %s\n' "$*" >&2; warnings+=("$*"); }
+die()  { setup_event error "FastSetup: $*"; printf 'FastSetup: %s\n' "$*" >&2; exit 1; }
 
 # ERR trap: report the failing line and how to resume. The checkout may have
 # moved by now, so the hint uses its current location.
 on_error() {
   [[ $BASHPID == "$$" ]] || return 0 # report once, from the main shell
   error_reported=true
+  setup_event error "FastSetup failed at line $1."
   printf 'FastSetup failed at line %s.\n' "$1" >&2
   print_retry
 }
 
 print_retry() {
-  local script=${repo_dir:+$repo_dir/FastSetup.sh}
+  local script=${repo_dir:+$repo_dir/FastSetup.sh} message argument
   # A signal may arrive just after the checkout was renamed.
   if [[ ! -f ${script:-$0} && -f ${target:-}/FastSetup.sh ]]; then script=$target/FastSetup.sh; fi
-  printf 'Fix the error above, then rerun:\n  bash %q' "${script:-$0}" >&2
-  if ((${#args[@]})); then printf ' %q' "${args[@]}" >&2; fi
-  printf '\n' >&2
+  printf -v message 'Fix the error above, then rerun:\n  bash %q' "${script:-$0}"
+  for argument in "${args[@]}"; do
+    printf -v argument ' %q' "$argument"
+    message+=$argument
+  done
+  printf '%s\n' "$message" >&2
+  setup_event retry "$message"
 }
 
 on_exit() {
@@ -510,35 +539,7 @@ preflight_install() {
 # ==== Component selection ====
 
 select_components() {
-  local selection_file status=0 component
-  local selected=()
-  if ! $non_interactive && [[ -t 0 && -t 1 ]]; then
-    if $tauidsfs; then selected+=(tauidsfs); fi
-    if $htt; then selected+=(htt); fi
-    if $combine; then selected+=(combine); fi
-    if $run2_jme; then selected+=(run2-jme); fi
-    selection_file=$(mktemp "${TMPDIR:-/tmp}/FastSetup-selection.XXXXXX")
-    cleanup_paths+=("$selection_file")
-    python3 "$repo_dir/Utilities/python/Menu/setup_menu.py" \
-      --output "$selection_file" --selected "${selected[@]}" || status=$?
-    if ((status == 130)); then
-      log 'Setup cancelled; no installation changes were made.'
-      cancelled=true
-      exit 130
-    elif ((status != 0)); then
-      die 'Cannot open the checklist. Use --non-interactive to install with command-line options.'
-    fi
-    tauidsfs=false htt=false combine=false run2_jme=false
-    while IFS= read -r component; do
-      case $component in
-        tauidsfs) tauidsfs=true ;;
-        htt) htt=true ;;
-        combine) combine=true ;;
-        run2-jme) run2_jme=true ;;
-        *) die "Unknown checklist component: $component" ;;
-      esac
-    done < "$selection_file"
-  fi
+  # The Python runner passes checklist choices as flags before starting Bash.
   # Preserve the exact selection in failure/resume hints, including menu edits.
   args=(--non-interactive --cmssw-dir "$cmssw_dir" --jobs "$jobs")
   if ! $tauidsfs; then args+=(--skip-tauidsfs); fi

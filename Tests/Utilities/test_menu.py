@@ -84,6 +84,12 @@ class ScreenTests(unittest.TestCase):
         screen.getch.side_effect = [1002, 10]
         self.assertEqual(ui.setup_checklist([("first", "First")], ["first"]), ["first"])
 
+    def test_checklist_can_share_an_existing_terminal_session(self):
+        curses, screen = self.curses([1002, 10])
+        self.assertEqual(ConsoleUI(curses).setup_checklist(
+            [("first", "First")], ["first"], screen=screen), ["first"])
+        curses.wrapper.assert_not_called()
+
     def test_setup_launcher_writes_selection_only_after_start(self):
         from TauFW.Utilities.Menu import setup_menu
         ui = mock.Mock()

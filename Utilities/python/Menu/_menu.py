@@ -153,7 +153,7 @@ class ConsoleUI:
     # =========================================================================
     # =========================== SETUP CHECKLIST =============================
 
-    def setup_checklist(self, components, selected):
+    def setup_checklist(self, components, selected, screen=None):
         """Return selected component IDs only after Start install; None cancels."""
         enabled = set(selected)
 
@@ -211,7 +211,7 @@ class ConsoleUI:
                         enabled.add(component)
                 elif key == 27:
                     return None
-        return self.curses.wrapper(draw)
+        return draw(screen) if screen is not None else self.curses.wrapper(draw)
 
     def _action(self, title, choices, actions, back="back", welcome=None):
         selected = self.choose(title, choices) if welcome is None else self.choose(title, choices, welcome=welcome)
