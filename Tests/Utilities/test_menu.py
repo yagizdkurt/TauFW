@@ -34,7 +34,7 @@ class ScreenTests(unittest.TestCase):
         for installer in (False, True):
             with self.subTest(installer=installer):
                 curses, screen = self.curses([27])
-                screen.getmaxyx.return_value = (30, 80)
+                screen.getmaxyx.return_value = (34, 80)
                 ui = ConsoleUI(curses)
                 if installer:
                     ui.setup_checklist([("combine", "Combine")], ["combine"])
@@ -48,9 +48,9 @@ class ScreenTests(unittest.TestCase):
                 self.assertIn(welcome, drawn)
                 self.assertIn("Tau analysis framework", drawn[len(FULL) - 4])
                 self.assertIn("V0.0", drawn[len(FULL) - 3])
-                self.assertTrue(all(call.args[0] < 28 for call in calls[:-1]))
+                self.assertTrue(all(call.args[0] < 32 for call in calls[:-1]))
         from TauFW.Utilities.Menu.banner import BOXED
-        for dimensions in ((24, 80), (30, 65)):
+        for dimensions in ((24, 80), (30, 80), (30, 65)):
             with self.subTest(dimensions=dimensions):
                 curses, screen = self.curses([27])
                 screen.getmaxyx.return_value = dimensions
@@ -74,7 +74,7 @@ class ScreenTests(unittest.TestCase):
         for enabled in (True, False):
             with self.subTest(colors=enabled):
                 curses, screen = self.curses([])
-                screen.getmaxyx.return_value = (30, 80)
+                screen.getmaxyx.return_value = (34, 80)
                 curses.COLOR_MAGENTA, curses.COLOR_YELLOW, curses.A_BOLD = 5, 3, 128
                 ui = ConsoleUI(curses)
                 with mock.patch.object(ui, "colors_enabled", return_value=enabled):
@@ -89,7 +89,7 @@ class ScreenTests(unittest.TestCase):
                         self.assertEqual(call.args[:3], (row, column, text))
                         self.assertEqual(FULL[row][column:column + len(text)], text)
                         styles[role] = call.args[4]
-                        if 6 <= row <= 10:
+                        if 7 <= row <= 11:
                             self.assertLessEqual(column + len(text), 26)
                     self.assertEqual(len(set(styles.values())), 4)
                 else:

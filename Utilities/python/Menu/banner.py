@@ -29,7 +29,9 @@ _SCENE = (
     "                      tau- ------*---> anti-nu_mu",
     "                     /            \\",
     "                    /              nu_tau",
+    "                   /",
     *(track.ljust(25) + line for track, line in zip(_TRACKS, _LOGO)),
+    "                   \\",
     "                    \\              hadrons",
     "                     \\             /",
     "                      tau+ ------*---> pi+",
@@ -40,11 +42,11 @@ _SCENE = (
 # Wordmark rows only color the track area to the left of the ASCII letters.
 INTERACTIONS = []
 for _row, _line in enumerate(_SCENE, start=1):
-    _wordmark = 6 <= _row <= 10
+    _wordmark = 7 <= _row <= 11
     _split = 25 if _wordmark else 33
     _track = _line[:_split]
     if _track.strip():
-        INTERACTIONS.append((_row, 1, _track, "higgs" if _row == 8 else "tau"))
+        INTERACTIONS.append((_row, 1, _track, "higgs" if _row == 9 else "tau"))
     if not _wordmark and _line[_split:].strip():
         INTERACTIONS.append((_row, _split + 1, _line[_split:], "products"))
     for _column, _character in enumerate(_line):
@@ -54,7 +56,7 @@ INTERACTIONS = tuple(INTERACTIONS)
 FULL = tuple(
     ["*" * WIDTH]
     + ["*" + line.center(WIDTH - 2) + "*" for line in
-       (*(line.ljust(WIDTH - 2) for line in _SCENE),
+       (*(line.ljust(WIDTH - 2) for line in _SCENE), "", "",
         "Tau analysis framework", VERSION, "")]
     + ["*" * WIDTH]
 )
