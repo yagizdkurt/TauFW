@@ -1,5 +1,4 @@
-#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-# Author: Yagizhan Dinckurt (October 2026)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Fit stage: shapes -> datacards -> TES and tau ID fit -> correction files, through the Fitter API.
 
 It runs what Fitter/run_workflow_zmm.sh runs for every (era, jet WP, electron WP) point: the mumu control-region

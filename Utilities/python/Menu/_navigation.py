@@ -1,4 +1,4 @@
-#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Menu navigation independent of Framework, files, and batch operations.
 
 The injected operations object supplies launch_dir, recipes(), runs(),

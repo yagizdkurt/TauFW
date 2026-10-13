@@ -1,6 +1,6 @@
 # Jobs and workers: behavior audit after the PicoProducer cleanup
 
-**Author:** Yagizhan Dinckurt ([@yagizdkurt](https://github.com/yagizdkurt))
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 **Branch:** `Refactor-2025`
 **Date:** 2026-10-13
 **Compared:** `2580f35` ("Safety net before refactor", the last commit before any PicoProducer code moved)

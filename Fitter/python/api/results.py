@@ -1,4 +1,4 @@
-# Author: Yagizhan Dinckurt (October 2026)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Read the results the Fitter scripts write, without ROOT.
 
 FitparameterValues_<tag>_DeepTau_<era>-13TeV_<region>.txt (written by TauES_ID/makecombinedfitTES_SF.py, option 3)

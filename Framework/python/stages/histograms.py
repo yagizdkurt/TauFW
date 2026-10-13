@@ -1,5 +1,4 @@
-#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-# Author: Yagizhan Dinckurt (October 2026)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Histograms stage: pico tuples -> input histograms (shapes) of the TES + tau ID fit, through the Fitter API.
 
 It runs what Fitter/run_inputs.sh runs: TauES/createinputsTES.py for every era, working point pair and config.

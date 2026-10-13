@@ -1,4 +1,4 @@
-#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """One public file I/O class, independent of terminal and analysis modules."""
 
 from contextlib import contextmanager

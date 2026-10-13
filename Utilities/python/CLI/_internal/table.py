@@ -1,4 +1,4 @@
-#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """A printf-style table printed one row at a time, for debug and yield tables.
 
 Moved from TauFW.common.tools.Table (2026). Same logic: the characters

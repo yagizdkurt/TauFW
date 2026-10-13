@@ -1,5 +1,4 @@
-#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-# Author: Yagizhan Dinckurt (October 2026)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Where the Framework sends its messages: to the terminal and the run's run.log, or nowhere.
 
 No code in framework.py or stages/ prints. It calls a reporter instead, so the caller decides where the

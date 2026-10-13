@@ -1,4 +1,4 @@
-# Author: Yagizhan Dinckurt (October 2026)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Records of the public Fitter API: what a caller asks for and what each call returns.
 
   ShapesRequest   input histograms (shapes) for the TES + TauID fit: eras, configs, working points

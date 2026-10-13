@@ -1,5 +1,4 @@
-#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-# Author: Yagizhan Dinckurt (October 2026)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Shared defaults of the Framework: file names, the run and bundle directories, timing and the time format.
 
 Every other module takes these values from here, so a default is changed in one place only.

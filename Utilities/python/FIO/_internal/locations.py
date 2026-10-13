@@ -1,4 +1,4 @@
-#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Separate local paths from explicit remote URLs without guessing sites."""
 
 import os

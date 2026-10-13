@@ -1,4 +1,4 @@
-#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 # Utilities
 
 Independent terminal, menu presentation, file I/O, process, numeric and installer helpers. Like the other TauFW packages, the source lives under `Utilities/python/`, and `scram b` exposes it as `TauFW.Utilities` after `cmsenv`.

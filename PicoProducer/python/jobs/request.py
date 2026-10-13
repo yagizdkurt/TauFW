@@ -1,4 +1,4 @@
-# Author: Yagizhan Dinckurt (October 2026)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """What to produce: the settings of one local run, (re)submission, status check or merge, in one record.
 
 pico.py fills a JobRequest from its command-line arguments; the job functions read only this record (and the

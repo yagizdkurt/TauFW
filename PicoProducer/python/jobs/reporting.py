@@ -1,4 +1,4 @@
-# Author: Yagizhan Dinckurt (October 2026)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Where the job lifecycle reports progress: the console (pico.py) or nowhere (library callers).
 
 The job functions in jobs/ never print directly. They call a reporter, which the caller chooses:

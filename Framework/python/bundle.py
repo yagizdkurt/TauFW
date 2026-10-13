@@ -1,5 +1,4 @@
-#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-# Author: Yagizhan Dinckurt (October 2026)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Analysis bundles: one directory with the recipe, every config file it uses and its own Python steps.
 
     Analyses/tes_id_2025/

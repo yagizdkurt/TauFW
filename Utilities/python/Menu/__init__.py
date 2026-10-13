@@ -1,4 +1,4 @@
-#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Public menu presentation and navigation APIs; callers supply operations."""
 
 from ._menu import ConsoleUI

@@ -1,4 +1,4 @@
-#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """The stages of a pipeline. A recipe lists stages by name; STAGES maps each name to its class.
 
   production   NanoAOD -> pico tuples                    PicoProducer API, batch system (stepwise)

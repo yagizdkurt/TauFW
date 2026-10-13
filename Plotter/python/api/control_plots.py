@@ -1,4 +1,4 @@
-# Author: Yagizhan Dinckurt (October 2026)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """ControlPlots: the public API for data/MC control plots of pico tuples.
 
 The plots are still made by Plotter/plot.py. This API runs it as a separate process in Plotter/, one run per

@@ -1,5 +1,4 @@
-#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-# Author: Yagizhan Dinckurt (October 2026)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """The stage contract: what every stage of a pipeline (production, histograms, fit, ...) must provide.
 
 A stage is one step of the analysis, for example "produce pico tuples". The Framework calls the stage, and the

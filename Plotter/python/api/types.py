@@ -1,4 +1,4 @@
-# Author: Yagizhan Dinckurt (October 2026)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Records of the public Plotter API: what a caller asks for and what each call returns.
 
   PlotsRequest   control plots: eras, channel setups, filters and plot.py options

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 #
 # FastSetup.sh: install TauFW and its dependencies around an existing clone.
 #

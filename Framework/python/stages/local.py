@@ -1,5 +1,4 @@
-#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-# Author: Yagizhan Dinckurt (October 2026)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Local stages: stages that run their module's scripts on this machine and finish in one advance() call.
 
 The plots, histograms, fit and python stages all work the same way. Their module API (Plotter, Fitter; the step

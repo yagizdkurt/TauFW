@@ -1,4 +1,4 @@
-#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Small numeric helpers for binning, job chunking and plot layout.
 
 Moved from TauFW.common.tools.math (2026); same results for the same inputs.

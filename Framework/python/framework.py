@@ -1,5 +1,4 @@
-#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-# Author: Yagizhan Dinckurt (October 2026)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """TauFW Framework: the single entry point that runs an analysis pipeline from a recipe.
 
 Purpose:  run the stages of an analysis (production -> histograms -> fit) one after the other. The Framework

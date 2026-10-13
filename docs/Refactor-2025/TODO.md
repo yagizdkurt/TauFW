@@ -1,6 +1,6 @@
 # Refactor-2025: still to do
 
-**Author:** Yagizhan Dinckurt ([@yagizdkurt](https://github.com/yagizdkurt))
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 **Last updated:** 2026-10-13
 
 Everything the `Refactor-2025` branch has left open: checks that need lxplus, the rest of the `common` → `Utilities`

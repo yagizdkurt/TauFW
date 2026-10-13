@@ -1,4 +1,4 @@
-#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Run Python functions in parallel processes and collect what they return.
 
 Moved from TauFW.common.tools.parallel.MultiProcessor (2026); same queueing

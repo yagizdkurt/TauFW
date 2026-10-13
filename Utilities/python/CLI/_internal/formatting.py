@@ -1,4 +1,4 @@
-#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Pure terminal formatting for colors, tables and progress lines, without side effects."""
 
 from typing import Iterable, Sequence, TextIO

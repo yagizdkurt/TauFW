@@ -1,5 +1,4 @@
-#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-# Author: Yagizhan Dinckurt (October 2026)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Plots stage: data/MC control plots of the pico tuples, through the Plotter API (Plotter/plot.py).
 
     inputs:   pico tuples, read by plot.py through $PICODIR of the run's PicoProducer config (passed as

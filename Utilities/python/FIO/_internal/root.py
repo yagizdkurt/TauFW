@@ -1,4 +1,4 @@
-#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Lazy ROOT resource handling; callers retain scientific object/schema ownership."""
 
 from contextlib import contextmanager

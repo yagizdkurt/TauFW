@@ -1,4 +1,4 @@
-#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Public numeric helpers: ranges, chunking and plot-axis arithmetic."""
 
 from ._math import (float_range, partition, partition_by_sum, columnize,

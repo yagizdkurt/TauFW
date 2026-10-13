@@ -1,4 +1,4 @@
-# Author: Yagizhan Dinckurt (October 2026)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """PicoProducer: the public API for producing pico tuples (NanoAOD -> analysis tuples) on a batch system.
 
 One object, one configuration, explicit calls. Every call takes a JobRequest (what to produce) and returns a

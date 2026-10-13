@@ -1,4 +1,4 @@
-# Author: Yagizhan Dinckurt (October 2026)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """TauESID: the public API of the combined tau energy scale (TES) + tau ID scale factor fit.
 
 The fit is still done by the existing scripts. This API runs them, as separate processes in Fitter/, with exactly

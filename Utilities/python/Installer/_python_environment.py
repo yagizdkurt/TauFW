@@ -1,4 +1,4 @@
-#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Detect user-installed Python packages that shadow the active CMSSW runtime."""
 from importlib import metadata
 from importlib.machinery import EXTENSION_SUFFIXES, PathFinder

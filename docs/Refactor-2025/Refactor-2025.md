@@ -1,6 +1,6 @@
 # Refactor-2025: change log
 
-**Author:** Yagizhan Dinckurt ([@yagizdkurt](https://github.com/yagizdkurt))
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 **Branch:** `Refactor-2025`
 **Last updated:** 2026-10-13
 

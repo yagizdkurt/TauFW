@@ -1,4 +1,4 @@
-# Author: Yagizhan Dinckurt (October 2026)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Records of the public PicoProducer API: what a caller asks for and what each call returns.
 
 All records are frozen dataclasses with to_dict() / from_dict(), so a caller (e.g. the TauFW Framework) can store

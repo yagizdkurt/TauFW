@@ -1,4 +1,4 @@
-#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Shared TauFW entry branding. Update VERSION here until release metadata exists."""
 
 VERSION = "V0.0"

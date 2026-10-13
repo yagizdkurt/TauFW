@@ -1,5 +1,4 @@
-#Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-# Author: Yagizhan Dinckurt (October 2026)
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Recipe: what a run should do. It is read from a YAML (or JSON) file and checked before anything runs.
 
     name: mutau_2022_postEE
