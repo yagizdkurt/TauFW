@@ -437,6 +437,271 @@ def fitter_rebin(workspace):
             "subtracted": subtract}
 
 
+
+# ===== DRAWING (Plot, Stack, Ratio, Plot2D, CMSStyle, SampleStyle, histogram helpers, labels) =====
+
+_ADDRESS = re.compile(r"0x[0-9a-fA-F]+")
+_DRAWING_MODULE = re.compile(r"TauFW\.(?:Plotter\.(?:plot|sample)|Utilities\.Drawing)\.")
+
+
+def _drawing_modules():
+    """The drawing code under test. Only this function changes when the drawing code moves."""
+    import TauFW.Plotter.plot.CMSStyle as CMSStyle
+    import TauFW.Plotter.plot.utils as hist_tools
+    import TauFW.Plotter.plot.string as labels
+    import TauFW.Plotter.sample.SampleStyle as SampleStyle
+    from TauFW.Plotter.plot.Plot import Plot
+    from TauFW.Plotter.plot.Plot2D import Plot2D
+    from TauFW.Plotter.plot.Stack import Stack
+    from TauFW.Plotter.plot.Variable import Variable
+    return SimpleNamespace(CMSStyle=CMSStyle, hist_tools=hist_tools, labels=labels, SampleStyle=SampleStyle,
+                           LOG=hist_tools.LOG, Plot=Plot, Plot2D=Plot2D, Stack=Stack, Variable=Variable)
+
+
+def _clean(text):
+    """Object addresses and the module path of the drawing code are not part of the output."""
+    return _DRAWING_MODULE.sub("<drawing>.", _ADDRESS.sub("0x?", text))
+
+
+def _attempt(function):
+    try:
+        return function()
+    except Exception as error:
+        return {"exception": type(error).__name__, "message": _clean(str(error))}
+
+
+def _drawn_value(value):
+    from array import array
+    from ROOT import TObject
+    from BBB.snapshot import drawn_snapshot
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    if isinstance(value, TObject):
+        return drawn_snapshot(value)
+    if isinstance(value, (list, tuple, array)):
+        return [_drawn_value(item) for item in value]
+    if isinstance(value, dict):
+        return {str(key): _drawn_value(item) for key, item in value.items()}
+    return _clean(repr(value))
+
+
+_EDGES = [0, 20, 40, 60, 80, 100, 120, 160]
+_YIELDS = {"data": [12, 30, 55, 40, 22, 10, 4, 1], "DY": [8, 25, 45, 30, 15, 6, 2, 0.5],
+           "TT": [2, 3, 5, 6, 5, 3, 1.5, 0.4], "ST": [0.5, 1, 1.5, 1, 0.8, 0.5, 0.2, 0.1],
+           "WJ": [1, 2, 3, 2, 2, 1, 0.5, 0.1], "signal": [0, 0.5, 1, 3, 1, 0.5, 0, 0]}
+
+
+def _drawing_hist(name, values, edges=None):
+    from array import array
+    from ROOT import TH1D
+    if edges:
+        hist = TH1D(name, name, len(edges) - 1, array("d", edges))
+    else:
+        hist = TH1D(name, name, len(values), 0, 160)
+    for index, value in enumerate(values, start=1):
+        hist.SetBinContent(index, value)
+        hist.SetBinError(index, value ** 0.5)
+    return hist
+
+
+def _drawing_graph(name, hist):
+    from ROOT import TGraphAsymmErrors
+    graph = TGraphAsymmErrors()
+    graph.SetName(name)
+    graph.SetTitle(name)
+    for point in range(hist.GetNbinsX()):
+        axis, index = hist.GetXaxis(), point + 1
+        graph.SetPoint(point, axis.GetBinCenter(index), hist.GetBinContent(index))
+        width = axis.GetBinWidth(index) / 2
+        graph.SetPointError(point, width, width, hist.GetBinError(index), 1.5 * hist.GetBinError(index))
+    return graph
+
+
+def _drawn_plot(plot, outdir, name, extra=None):
+    from BBB.snapshot import drawn_snapshot
+    if extra:
+        extra(plot)
+    plot.saveas(name + ".png", name + ".pdf", outdir=str(outdir))
+    return drawn_snapshot(plot.canvas)
+
+
+def _drawing_plots(m, outdir):
+    hists = {name: _drawing_hist("h_" + name, values) for name, values in _YIELDS.items()}
+    varhists = {name: _drawing_hist("v_" + name, values[:7], _EDGES) for name, values in _YIELDS.items()}
+    variable = m.Variable("m_vis", "m_{vis} [GeV]", 8, 0, 160)
+    varbins = m.Variable("m_vis", "m_{vis} [GeV]", _EDGES)
+    result = {}
+
+    def compare():
+        plot = m.Plot(variable, [hists["DY"], hists["TT"], hists["WJ"]], clone=True)
+        plot.draw(ratio=True, staterr=True, grid=True, norm=True)
+        plot.drawlegend("topright", header="Synthetic")
+        plot.drawtext("BBB drawing", "second line")
+        return _drawn_plot(plot, outdir, "compare")
+    result["compare"] = _attempt(compare)
+
+    def variable_bins():
+        plot = m.Plot(varbins, [varhists["DY"], varhists["TT"]], clone=True)
+        plot.draw(ratio=False, logy=True)
+        plot.drawlegend("right")
+        snapshot = _drawn_plot(plot, outdir, "varbins")
+        bins = _attempt(lambda: _drawn_plot(plot, outdir, "varbins_lines", lambda p: p.drawbins(varbins)))
+        return {"plot": snapshot, "drawbins": bins}
+    result["variable_bins"] = _attempt(variable_bins)
+
+    def stack():
+        plot = m.Stack(variable, hists["data"], [hists["DY"], hists["TT"], hists["WJ"]], [hists["signal"]],
+                       clone=True)
+        plot.draw(ratio=True, staterr=True)
+        plot.drawlegend(position="right")
+        plot.drawtext("Stack")
+        return _drawn_plot(plot, outdir, "stack")
+    result["stack"] = _attempt(stack)
+
+    def fraction():
+        plot = m.Stack(variable, hists["data"], [hists["DY"], hists["TT"]], clone=True)
+        plot.draw(ratio=True, fraction=True, logy=True)
+        return _drawn_plot(plot, outdir, "fraction")
+    result["fraction"] = _attempt(fraction)
+
+    def graphs():
+        graph_list = [_drawing_graph("g_data", hists["data"]), _drawing_graph("g_DY", hists["DY"])]
+        plot = m.Plot("m_{vis} [GeV]", graph_list)
+        plot.draw(ratio=False)
+        plot.drawlegend()
+        return _drawn_plot(plot, outdir, "graphs")
+    result["graphs"] = _attempt(graphs)
+
+    def two_dimensional():
+        from ROOT import TH2D
+        hist = TH2D("h2_mvis_pt", "h2_mvis_pt", 8, 0, 160, 4, 20, 100)
+        for xbin in range(1, 9):
+            for ybin in range(1, 5):
+                hist.SetBinContent(xbin, ybin, xbin * ybin + 0.5 * ybin)
+        plot = m.Plot2D(variable, m.Variable("pt_1", "p_{T}", 4, 20, 100), hist)
+        plot.draw()
+        plot.drawtext("Plot2D")
+        return _drawn_plot(plot, outdir, "plot2d")
+    result["plot2d"] = _attempt(two_dimensional)
+    return result
+
+
+def _drawing_tools(m):
+    from ROOT import THStack
+    tools = m.hist_tools
+    result = {}
+
+    def fresh(name, edges=None):
+        return _drawing_hist("t_%s" % name, _YIELDS[name][:7] if edges else _YIELDS[name], edges)
+
+    def graph():
+        return _drawing_graph("t_graph", fresh("data"))
+
+    def normalize():
+        hists = [fresh("DY"), fresh("TT")]
+        tools.normalize(*hists)
+        return _drawn_value(hists)
+    result["normalize"] = _attempt(normalize)
+
+    def grouphists():
+        hists = [fresh(name) for name in ("DY", "TT", "ST", "WJ")]
+        for hist in hists:
+            hist.SetName(hist.GetName()[2:])
+        total = tools.grouphists(hists, ["TT", "ST"], "Top", replace=True)
+        return {"sum": _drawn_value(total), "left": [hist.GetName() for hist in hists]}
+    result["grouphists"] = _attempt(grouphists)
+
+    def capoff():
+        hist = fresh("DY")
+        return [tools.capoff(hist, 5, 40), hist]
+
+    def ensurepoisson():
+        hist = fresh("data")
+        return [tools.ensurepoisson(hist), hist]
+
+    calls = {
+        "gethistratio": lambda: tools.gethistratio(fresh("data"), fresh("DY")),
+        "getgraphratio": lambda: tools.getgraphratio(graph(), fresh("DY")),
+        "geterrorband": lambda: tools.geterrorband(fresh("DY"), fresh("TT")),
+        "dividebybinsize": lambda: tools.dividebybinsize(fresh("DY", _EDGES)),
+        "dividebybinsize_graph": lambda: tools.dividebybinsize(fresh("data", _EDGES), graph=True),
+        "addoverflow": lambda: tools.addoverflow(fresh("DY")),
+        "capoff": capoff,
+        "resetrange": lambda: tools.resetrange(fresh("DY"), 20, 140),
+        "getconstanthist": lambda: tools.getconstanthist(fresh("DY"), 1),
+        "getbinning": lambda: tools.getbinning(fresh("DY", _EDGES), 20, 140),
+        "resetedges": lambda: tools.resetedges(list(_EDGES), 10, 150),
+        "havesamebins": lambda: [tools.havesamebins(fresh("DY"), fresh("TT")),
+                                 tools.havesamebins(fresh("DY"), fresh("TT", _EDGES))],
+        "getbinedges": lambda: tools.getbinedges(fresh("DY", _EDGES)),
+        "getTGraphRange": lambda: tools.getTGraphRange([graph()], axis="xy"),
+        "sumhists": lambda: tools.sumhists([fresh("DY"), fresh("TT")], "t_sum"),
+        "ensurepoisson": ensurepoisson,
+    }
+    for name, call in calls.items():
+        result[name] = _attempt(lambda call=call: _drawn_value(call()))
+
+    def normalizebins():
+        stack = THStack("t_stack", "t_stack")
+        for name in ("DY", "TT", "WJ"):
+            stack.Add(fresh(name))
+        return _drawn_value(tools.normalizebins(stack))
+    result["normalizebins"] = _attempt(normalizebins)
+    return result
+
+
+def _drawing_labels(m):
+    names = ["pt_1", "pt_2", "m_vis", "eta_2", "jpt_1", "dzeta", "njets", "met", "mt_1", "m_vis [GeV]", "DM0",
+             "pt_1+pt_2+jpt_1", "abs(eta_2)", "idDeepTau2018v2p5VSjet_2>=5"]
+    labels = m.labels
+    return {"makelatex": [_attempt(lambda name=name: labels.makelatex(name)) for name in names],
+            "maketitle": [_attempt(lambda name=name: labels.maketitle(name)) for name in names],
+            "makehistname": _attempt(lambda: labels.makehistname("m_vis", "pt_1>20.5 && q_1*q_2<0", "DY")),
+            "makefilename": _attempt(lambda: labels.makefilename("pt_1>20 && abs(eta_2)<2.3", "m_t")),
+            "estimatelen": _attempt(lambda: labels.estimatelen("p_{T}^{miss}", "m_{#lower[-0.1]{vis}}", "#tau_{h}")),
+            "match": _attempt(lambda: [labels.match(["TT", "ST*"], label) for label in ("TT", "ST_t", "DY")])}
+
+
+def _drawing_styles(m):
+    cms, samples = m.CMSStyle, m.SampleStyle
+    result = {}
+
+    def texts():
+        return {"cms": cms.cmsText, "extra": cms.extraText, "lumi": cms.lumiText}
+
+    cms.setCMSEra("2018")
+    result["era_2018"] = texts()
+    result["lumitext_2022_postEE"] = _attempt(lambda: cms.getCMSLumiText("2022_postEE"))
+    cms.setCMSEra("2016", "2017")
+    result["era_2016_2017"] = texts()
+    cms.setCMSEra("2018")
+    result["colors"] = [_attempt(lambda name=name: samples.getcolor(name, verb=3))
+                        for name in ("DY", "ZTT", "TT", "Top", "no_such_sample")]
+    result["titles"] = [_attempt(lambda name=name: samples.gettitle(name, verb=3))
+                        for name in ("DY", "ZTT", "no_such_sample")]
+    return result
+
+
+def drawing_canvas(workspace):
+    """Exact drawn canvases, styles and verbose output of the drawing code (locked before it moved to Utilities)."""
+    from BBB.snapshot import style_snapshot
+    outdir = Path(workspace) / "plots"
+    outdir.mkdir()
+    output = io.StringIO()
+    with contextlib.redirect_stdout(output):
+        m = _drawing_modules()
+        result = {"style": style_snapshot()}
+        m.LOG.verbosity = 3
+        result["styles"] = _drawing_styles(m)
+        result["labels"] = _drawing_labels(m)
+        result["tools"] = _drawing_tools(m)
+        result["plots"] = _drawing_plots(m, outdir)
+        result["style_after"] = style_snapshot()
+    result["files"] = sorted(path.name for path in outdir.iterdir())
+    result["stdout"] = _clean(output.getvalue()).splitlines()
+    return result
+
+
 ROOT_DEPS = ["ROOT", "numpy", "past"]
 NANO_DEPS = ROOT_DEPS + ["PhysicsTools.NanoAODTools.postprocessing.framework.postprocessor"]
 PICO_DEPS = NANO_DEPS
@@ -459,5 +724,6 @@ CASES = {
     "pico.workers": {"run": pico_workers, "dependencies": PICO_DEPS, "description": "picojob.py/skimjob.py outputs, ranges, options, copy and preselection"},
     "framework.production": {"run": framework_production, "dependencies": PICO_DEPS, "description": "taufw.py start/advance/status: production stage through the PicoProducer API, resubmission, merge, run.json"},
     "fitter.shapes": {"run": fitter_shapes, "dependencies": ROOT_DEPS, "description": "Nominal/systematic shape naming and negative-bin sanitation"},
-    "fitter.rebin": {"run": fitter_rebin, "dependencies": ROOT_DEPS, "description": "Adaptive rebinning and non-ZTT background subtraction"}
+    "fitter.rebin": {"run": fitter_rebin, "dependencies": ROOT_DEPS, "description": "Adaptive rebinning and non-ZTT background subtraction"},
+    "drawing.canvas": {"run": drawing_canvas, "dependencies": ROOT_DEPS, "description": "Drawn canvases, styles, histogram helpers, labels and verbose output of the drawing code"}
 }

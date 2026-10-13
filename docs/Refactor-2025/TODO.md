@@ -12,6 +12,10 @@ Items marked **(verify)** may already be done; check before working on them.
 
 ## 1. Checks to run on lxplus
 
+- [ ] **Lock the new `drawing.canvas` case before the drawing code moves.** `python3 Tests/run.py bbb lock --replace`,
+      then `python3 Tests/run.py bbb diff`: only `drawing.canvas` ADDED, every other case `same`. If a scenario
+      records an `exception`, report it before locking. Commit the baseline; the move to `TauFW.Utilities.Drawing`
+      waits for it. (CL §18)
 - [ ] **BBB check after §15–§17.** `python3 Tests/run.py bbb check`; nothing should change (ParallelProcessor/loading
       bar, `Utilities.Math`, `CLI.table`). No re-lock. The `3d09ea6` lock may already include §15/§16 **(verify)**.
       (CL §15, §16, §17)

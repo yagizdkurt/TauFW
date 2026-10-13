@@ -1305,3 +1305,46 @@ end). The table no longer needs `LOG`: its two warnings write the old `LOG.warni
   on 3000 random tables (formats, row lengths, verbosities, prefixes; all identical).
 - BBB: `common.formatting` and `common.chunking` were run locally against their baselines (identical output). No baseline
   changes are expected; check on lxplus with `python3 Tests/run.py bbb check`; no re-lock.
+
+## 18. Drawing library moves to Utilities: BBB safety net first
+
+**Date:** 2026-10-14
+**Plan:** the Plotter's drawing code (`Plot`, `Plot2D`, `Stack`, `Ratio`, `CMSStyle`, `SampleStyle`, the histogram
+helpers of `plot/utils.py` and the label helpers of `plot/string.py`) moves to `TauFW.Utilities.Drawing`, so that the
+Fitter and PicoProducer can draw without importing the Plotter (target architecture: pipeline stages never import
+each other; shared libraries may be imported by all). The move must not change any output, and nothing recorded what
+the drawing code draws: the `plotter.*` cases cover histogram filling only. So the work is split in two steps:
+
+1. **(this step)** a new BBB case, `drawing.canvas`, is added and locked on lxplus with the code *before* the move;
+2. the move itself (next step), after which `bbb check` must pass with no difference.
+
+### The `drawing.canvas` case
+
+`Tests/BBB/cases.py` (`drawing_canvas` and its helpers; the code under test is imported in one place,
+`_drawing_modules()`, the only part that changes with the move). It builds fixed synthetic histograms and graphs (no
+files, no random numbers) and records:
+
+- the canvases of six plots: a `Plot` comparison with ratio, error band, normalization, legend and text; a `Plot` with
+  variable binning and log y (plus `drawbins`); a `Stack` with data, three backgrounds, signal, ratio and error band;
+  a `Stack` with the fraction panel; a `Plot` of two `TGraphAsymmErrors`; a `Plot2D`. A canvas is recorded as the
+  tree of pads and primitives with class, name, title, draw option, line/fill/marker/text attributes, pad margins,
+  log/grid/tick flags and user ranges, axis titles, ranges and sizes, histogram contents and errors, stack members,
+  graph points, legend entries, text and line coordinates;
+- the results of the histogram helpers (`normalize`, `grouphists` with the default `SampleStyle` color,
+  `gethistratio`, `getgraphratio`, `geterrorband`, `dividebybinsize`, `addoverflow`, `capoff`, `resetrange`,
+  `getconstanthist`, `getbinning`, `resetedges`, `havesamebins`, `getbinedges`, `getTGraphRange`, `sumhists`,
+  `ensurepoisson`, `normalizebins`);
+- `CMSStyle` texts for three era settings, `SampleStyle` colors and titles (including misses), the label helpers
+  (`makelatex`, `maketitle`, `makehistname`, `makefilename`, `estimatelen`, `match`);
+- the global `gStyle` settings before and after drawing (`CMSStyle.setTDRStyle` runs when `Plot` is imported);
+- everything printed at `LOG.verbosity = 3`, with object addresses replaced by `0x?` and the module path of the
+  drawing code by `<drawing>.`; the names of the saved png/pdf files (not their bytes).
+
+A scenario that raises records the exception type and message instead, so the lock does not depend on every scenario
+working. `Tests/BBB/snapshot.py` gained `drawn_snapshot`, `primitives_snapshot` and `style_snapshot` for this.
+
+### To do on lxplus
+
+`bbb check` refuses to run while the case list differs from the lock, and `lock` captures the whole suite. So:
+`python3 Tests/run.py bbb lock --replace`, then `python3 Tests/run.py bbb diff`, which must show only the new
+`drawing.canvas` baseline and no change to any other case. Commit the new baseline before the move.

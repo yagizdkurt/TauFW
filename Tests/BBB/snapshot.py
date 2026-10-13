@@ -174,3 +174,142 @@ def file_snapshot(path):
         return directory_snapshot(source)
     finally:
         source.Close()
+
+
+# ===== DRAWN OBJECTS (canvases, pads and their primitives) =====
+
+_ATTRIBUTES = (
+    ("TAttLine", ("GetLineColor", "GetLineStyle", "GetLineWidth")),
+    ("TAttFill", ("GetFillColor", "GetFillStyle")),
+    ("TAttMarker", ("GetMarkerColor", "GetMarkerStyle", "GetMarkerSize")),
+    ("TAttText", ("GetTextAlign", "GetTextAngle", "GetTextColor", "GetTextFont", "GetTextSize")),
+)
+_PAD = ("GetLeftMargin", "GetRightMargin", "GetTopMargin", "GetBottomMargin", "GetLogx", "GetLogy", "GetLogz",
+        "GetGridx", "GetGridy", "GetTickx", "GetTicky", "GetUxmin", "GetUxmax", "GetUymin", "GetUymax",
+        "GetXlowNDC", "GetYlowNDC", "GetWNDC", "GetHNDC", "GetFrameLineWidth", "GetFrameFillStyle")
+_AXIS = ("GetTitle", "GetXmin", "GetXmax", "GetFirst", "GetLast", "GetNdivisions", "GetTitleSize", "GetTitleOffset",
+         "GetTitleFont", "GetTitleColor", "GetLabelSize", "GetLabelOffset", "GetLabelFont", "GetLabelColor",
+         "GetTickLength", "GetCenterTitle", "GetMoreLogLabels", "GetNoExponent", "GetDecimals")
+_HIST = ("GetMinimumStored", "GetMaximumStored", "GetBarOffset", "GetBarWidth", "GetBinErrorOption", "GetNormFactor")
+_GRAPH_AXES = ("GetMinimum", "GetMaximum")
+_PAVE = ("GetX1NDC", "GetY1NDC", "GetX2NDC", "GetY2NDC", "GetBorderSize", "GetCornerRadius")
+_LEGEND = ("GetNColumns", "GetMargin", "GetEntrySeparation", "GetColumnSeparation")
+_LINE = ("GetX1", "GetY1", "GetX2", "GetY2")
+_TEXT = ("GetX", "GetY", "GetNDC", "GetLineWidth")
+_GAXIS = ("GetX1", "GetY1", "GetX2", "GetY2", "GetWmin", "GetWmax", "GetNdiv", "GetLabelSize", "GetTitleSize",
+          "GetLabelOffset", "GetTitleOffset", "GetTickSize", "GetOption")
+_STYLE = ("GetOptStat", "GetOptTitle", "GetOptFit", "GetPadTopMargin", "GetPadBottomMargin", "GetPadLeftMargin",
+          "GetPadRightMargin", "GetPadTickX", "GetPadTickY", "GetPadGridX", "GetPadGridY", "GetErrorX",
+          "GetEndErrorSize", "GetLegendBorderSize", "GetLegendFont", "GetLegendTextSize", "GetLegendFillColor",
+          "GetCanvasColor", "GetPadColor", "GetFrameBorderMode", "GetFrameLineWidth", "GetHistLineWidth",
+          "GetMarkerStyle", "GetMarkerSize", "GetTitleFont", "GetStatFont", "GetPaintTextFormat", "GetNumberContours")
+
+
+def _values(obj, getters):
+    """Results of the getters that exist on obj; plain values only."""
+    result = {}
+    for getter in getters:
+        method = getattr(obj, getter, None)
+        if method is None:
+            continue
+        try:
+            value = method()
+        except Exception as error:  # a getter that needs arguments or a painted pad
+            value = "error: %s" % type(error).__name__
+        if isinstance(value, bytes):
+            value = value.decode("utf-8", "replace")
+        if value is None or isinstance(value, (bool, int, float, str)):
+            result[getter] = value
+        else:
+            result[getter] = str(value)
+    return result
+
+
+def _attributes(obj):
+    result = {}
+    for base, getters in _ATTRIBUTES:
+        if obj.InheritsFrom(base):
+            result.update(_values(obj, getters))
+    return result
+
+
+def _hist_contents(hist):
+    sumw2 = hist.GetSumw2()
+    return {"entries": hist.GetEntries(),
+            "contents": [hist.GetBinContent(index) for index in range(hist.GetNcells())],
+            "errors": [hist.GetBinError(index) for index in range(hist.GetNcells())],
+            "sumw2": [sumw2.At(index) for index in range(sumw2.GetSize())]}
+
+
+def _axes(hist):
+    return [dict(_values(axis, _AXIS), nbins=axis.GetNbins(),
+                 edges=[axis.GetBinLowEdge(index) for index in range(1, axis.GetNbins() + 2)],
+                 labels=[axis.GetBinLabel(index) for index in range(1, axis.GetNbins() + 1)])
+            for axis in (hist.GetXaxis(), hist.GetYaxis(), hist.GetZaxis())]
+
+
+def _graph_points(graph):
+    count = graph.GetN()
+    xs, ys = graph.GetX(), graph.GetY()
+    return [[xs[index], ys[index], graph.GetErrorXlow(index), graph.GetErrorXhigh(index),
+             graph.GetErrorYlow(index), graph.GetErrorYhigh(index)] for index in range(count)]
+
+
+def drawn_snapshot(obj, option=""):
+    """Class, name, title, draw option, style attributes and content of a drawn ROOT object (recursive for pads)."""
+    if obj is None:
+        return None
+    result = {"class": obj.ClassName(), "name": obj.GetName(), "title": obj.GetTitle(), "option": str(option)}
+    result.update(_attributes(obj))
+    if obj.InheritsFrom("TPad"):
+        result["pad"] = _values(obj, _PAD)
+        result["primitives"] = primitives_snapshot(obj)
+    elif obj.InheritsFrom("TH1"):
+        result.update(_values(obj, _HIST))
+        result["axes"] = _axes(obj)
+        result.update(_hist_contents(obj))
+        result["functions"] = [drawn_snapshot(item) for item in obj.GetListOfFunctions()]
+    elif obj.InheritsFrom("THStack"):
+        result["hists"] = [drawn_snapshot(hist) for hist in (obj.GetHists() or [])]
+        result["range"] = _values(obj, ("GetMinimum", "GetMaximum"))
+        frame = obj.GetHistogram()
+        result["axes"] = _axes(frame) if frame else None
+    elif obj.InheritsFrom("TGraph"):
+        result["points"] = _graph_points(obj)
+        result["range"] = _values(obj, _GRAPH_AXES)
+        frame = obj.GetHistogram() if obj.GetN() else None
+        result["axes"] = _axes(frame) if frame else None
+    elif obj.InheritsFrom("TLegend"):
+        result["pave"] = _values(obj, _PAVE + _LEGEND)
+        result["entries"] = [dict(_attributes(entry), label=entry.GetLabel(), option=entry.GetOption(),
+                                  object=entry.GetObject().GetName() if entry.GetObject() else None)
+                             for entry in obj.GetListOfPrimitives()]
+    elif obj.InheritsFrom("TPave"):
+        result["pave"] = _values(obj, _PAVE)
+    elif obj.InheritsFrom("TGaxis"):
+        result["gaxis"] = _values(obj, _GAXIS)
+    elif obj.InheritsFrom("TLine") or obj.InheritsFrom("TBox"):
+        result["coordinates"] = _values(obj, _LINE)
+    elif obj.InheritsFrom("TText"):
+        result["text"] = _values(obj, _TEXT)
+    return result
+
+
+def primitives_snapshot(pad):
+    result = []
+    link = pad.GetListOfPrimitives().FirstLink()
+    while link:
+        result.append(drawn_snapshot(link.GetObject(), link.GetOption()))
+        link = link.Next()
+    return result
+
+
+def style_snapshot():
+    """The global gStyle settings that the drawing code changes (e.g. CMSStyle.setTDRStyle)."""
+    from ROOT import gStyle, TGaxis
+    result = _values(gStyle, _STYLE)
+    result["axes"] = {axis: {"title_size": gStyle.GetTitleSize(axis), "label_size": gStyle.GetLabelSize(axis),
+                             "title_offset": gStyle.GetTitleOffset(axis), "ndivisions": gStyle.GetNdivisions(axis)}
+                      for axis in ("X", "Y", "Z")}
+    result["max_digits"] = TGaxis.GetMaxDigits()
+    return result
