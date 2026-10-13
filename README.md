@@ -5,6 +5,9 @@ Framework for tau analysis using NanoAOD at CMS. Three main packages are
 2. [`Plotter`](Plotter): Tools for further analysis, auxiliary measurements, validation and plotting.
 3. [`Fitter`](Fitter): Tools for measurements and fits in combine. [Under development.]
 
+The [`Framework`](Framework) package runs these steps as one pipeline from a recipe file, see
+[Running a pipeline](#running-a-pipeline).
+
 ## Installation
 
 ### Automatic
@@ -125,3 +128,18 @@ Finally, run the `TauFW/scripts/tau_createROOT.sh` to generate your ROOT files. 
 IMPORTANT: please comment and do not delete older SFs
 
 The latest code used to create root files for SF can be taken from [here](https://github.com/saswatinandan/TauFW/blob/master/Fitter/createroot_TES.py)
+
+## Running a pipeline
+
+[`Framework`](Framework) is the single entry point for an analysis pipeline. A YAML recipe names the stages
+(today: `production` with PicoProducer; `histograms` and `fit` are declared placeholders), and `taufw.py` runs them
+step by step, keeping the state in `taufw_runs/<name>_<time>/run.json`:
+```
+taufw.py plan    Framework/recipes/example_mutau.yml     # what would be submitted; nothing is written
+taufw.py start   Framework/recipes/example_mutau.yml     # new run: submits the production jobs
+taufw.py advance taufw_runs/mutau_2022_postEE_<time>     # later: check, resubmit failed chunks, merge
+taufw.py status  taufw_runs/mutau_2022_postEE_<time>
+```
+See [Framework/README.md](Framework/README.md) for the recipe reference and the run model, and
+[PicoProducer/docs/API.md](PicoProducer/docs/API.md) for the PicoProducer API it uses.
+

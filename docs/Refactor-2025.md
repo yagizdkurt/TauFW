@@ -20,6 +20,7 @@ Sections are in the order the work was done. Each lists the relevant commits.
 | 9 | [PicoProducer cleanup, Part 4: jobs package](#9-picoproducer-cleanup-part-4-jobs-package) | 2026-10-13 |
 | 9 | [Plotter cleanup: legacy area](#9-plotter-cleanup-legacy-area) | 2026-10-13 |
 | 10 | [PicoProducer cleanup, Part 5: public API, command line, workers](#10-picoproducer-cleanup-part-5-public-api-command-line-workers) | 2026-10-13 |
+| 11 | [Framework: the TauFW orchestrator (Part F)](#11-framework-the-taufw-orchestrator-part-f) | 2026-10-13 |
 
 The reference environment for all of this is `CMSSW_14_1_0_pre4` (Python 3.9, ROOT 6.30).
 
@@ -877,4 +878,56 @@ BUGS.md locations now point to `cli/`, `api/` and `workers/`.
 Part 4: `python3 Tests/run.py bbb lock --replace` after checking that the differences are only the option order
 (P08/P09), `-m -1` (P10) and `--opts` (P12). The comparison harness against the A4 commit differs only in `--opts`;
 `pico.py install` was checked by hand.
+
+---
+
+## 11. Framework: the TauFW orchestrator (Part F)
+
+**Date:** 2026-10-13
+**Details:** [Framework/README.md](../Framework/README.md)
+
+TauFW had no single entry point: users chained `pico.py`, Plotter scripts and Fitter drivers by hand, and the
+production state lived only in PicoProducer's job configs. The new top-level package `Framework` (importable as
+`TauFW.Framework`) runs an analysis pipeline from a recipe, step by step, with a persisted run record.
+
+### What changed
+
+- **`Framework` class** (`Framework/python/framework.py`): `plan`, `start`, `advance`, `run`, `status`. It builds
+  each stage's request from the recipe, keeps `run.json`, and decides whether to wait, resubmit or move on. It
+  never prints (reporter), never sleeps unless asked (`advance(wait=True)`), and construction reads files only.
+- **Stages** (`Framework/python/stages/`): the contract (`Stage`, `StageState`: `NEW → SUBMITTED → WAITING →
+  MERGING → DONE`, plus `FAILED` and `NOT_IMPLEMENTED`; `StageOutcome`). `ProductionStage` uses only the public
+  PicoProducer API (`request`, `plan`, `submit`, `resubmit`, `status`, `merge`, `run_local`); its policy is the pure
+  function `decide_next` (wait / resubmit / merge / fail, with `max_tries`). `histograms` and `fit` are
+  placeholders with declared contracts (`HistogramSpec`/`ShapeArtifact`, `FitSpec`/`FitResult`).
+- **Recipes** (`recipe.py`): YAML (or JSON), validated up front; errors name the file and the key. Example:
+  `Framework/recipes/example_mutau.yml`.
+- **Run record** (`run_record.py`): `taufw_runs/<name>_<time>/run.json` (schema 1) with the recipe, the
+  PicoProducer configuration snapshot, and per stage: state, attempt, request, submissions, last status, artifacts
+  and history. Saved after every stage step, atomically (temporary file + `os.replace`).
+- **Reporting** (`reporting.py`): `FrameworkReporter` (TauFW.Utilities CLI + plain-text `run.log`) and
+  `SilentReporter`; PicoProducer's messages are routed to the same terminal and log.
+- **Command line** `Framework/scripts/taufw.py`: `plan RECIPE [--local -m N]`, `start RECIPE [--run-root DIR]
+  [--wait --poll S]`, `advance RUN_DIR [--wait --poll S]`, `status RUN_DIR`. No logic: each command calls the
+  Framework.
+- **PicoProducer API:** `PicoProducer.request(**fields)` builds a `JobRequest`, so the Framework never imports
+  PicoProducer internals (and imports PicoProducer only when a production stage is built).
+- **Repository:** `.gitignore` keeps `Framework/python/**/__init__.py` and ignores `taufw_runs/`;
+  `Tests/support/bootstrap.py` mirrors `Framework`; the root README has a "Running a pipeline" section.
+
+### Tests
+
+- `Tests/Framework/` (unittest, any Python 3.9+, no ROOT): a fake PicoProducer drives the state machine
+  (start → waiting; failed chunks resubmitted until `max_tries` → `FAILED`; complete → merge → `DONE` with artifacts;
+  invalid or refused merges; no samples; placeholder stage → `BLOCKED` without losing the production results;
+  `--wait` loop; an exception is recorded and the state kept; `status` is read-only), the `decide_next` truth table,
+  `run.json` round trip, crash-safe save and unique run directories, recipe validation, and `taufw.py` commands and
+  parser. 21 tests: `python -m unittest discover -s Tests/Framework`.
+- BBB case `framework.production` (lxplus): `taufw.py plan`, `start`, `advance` (a missing chunk is resubmitted),
+  `advance` (merge with cleanup; the `histograms` placeholder blocks), `status`, against the fake HTCondor of the
+  PicoProducer harness. It snapshots the plan and status output, the normalized `run.json` after each step, the
+  merged tuples and the remaining files. It is new, so it is added with the next lock
+  (`python3 Tests/run.py bbb lock --replace`, together with the intended changes of `pico.run` and `pico.jobs`).
+- On Windows, an integration run of the real `Framework` with the real `PicoProducer` API (fake catalog, storage and
+  scheduler) went through submit → resubmit → merge → `BLOCKED` with the expected artifacts and `run.log`.
 
