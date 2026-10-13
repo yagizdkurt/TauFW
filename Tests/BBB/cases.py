@@ -27,11 +27,11 @@ def common_formatting(workspace):
 
 def common_chunking(workspace):
     from TauFW.common.tools.utils import chunkify, ensurelist, unpacklistargs
-    from TauFW.common.tools.math import partition, partition_by_max
+    from TauFW.Utilities.Math import partition, partition_by_sum
     from TauFW.common.tools.string import repkey
     return {"chunks": {str(size): chunkify(list(range(7)), size) for size in (1, 3, 7, 10)},
-            "empty": chunkify([], 3), "partition": partition(list(range(7)), nparts=3),
-            "by_max": partition_by_max([2, 3, 4, 5, 1], 6),
+            "empty": chunkify([], 3), "partition": partition(list(range(7)), parts=3),
+            "by_max": partition_by_sum([2, 3, 4, 5, 1], 6),
             "ensure": [ensurelist(None), ensurelist(3), ensurelist((1, 2))],
             "unpacked": unpacklistargs(([1, 2],)),
             "path": repkey("$ERA/$SAMPLE.root", ERA="2018", SAMPLE="DY")}

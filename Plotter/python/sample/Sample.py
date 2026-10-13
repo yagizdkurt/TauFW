@@ -2,7 +2,7 @@
 # Author: Izaak Neutelings (July 2020)
 import os, re
 from TauFW.Plotter.sample.utils import *
-from TauFW.common.tools.math import round2digit, reldiff
+from TauFW.Utilities.Math import relative_difference
 from TauFW.common.tools.RDataFrame import RDF, RDataFrame, AddRDFColumn
 from TauFW.Plotter.sample.ResultDict import ResultDict, MeanResult # for containing RDataFRame RResultPtr
 from TauFW.Plotter.plot.string import *
@@ -326,7 +326,7 @@ class Sample(object):
       elif self.xsec>=0:
         self.setnevents(self.binnevts,self.binsumw,cutflow=self.cutflow)
         #self.normalize(lumi=self.lumi) # can affect scale computed by stitching
-      if reldiff(sumw_old,self.sumweights)>0.02 or reldiff(sumw_old,self.sumweights)>0.02:
+      if relative_difference(sumw_old,self.sumweights)>0.02 or relative_difference(sumw_old,self.sumweights)>0.02:
         LOG.warn("Sample.appendfilename: file %s has a different number of processed events (sumw=%s, nevts=%s, norm=%s, xsec=%s, lumi=%s) than %s (sumw=%s, nevts=%s, norm=%s)!"%\
                  (self.filename,self.sumweights,self.nevents,self.norm,self.xsec,self.lumi,oldfilename,sumw_old,nevts_old,norm_old))
     elif ':' not in self.filename and not os.path.isfile(self.filename):

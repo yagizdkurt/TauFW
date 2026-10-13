@@ -5,9 +5,10 @@
 #   test/testEventBased.py filesplit.root evtsplit.root
 #   test/testEventBased.py '*_filesplit.root' '*_evtsplit.root' -T Events
 import os, glob, platform
+from math import ceil
 from time import sleep
 from TauFW.common.tools.root import ensureTFile
-from TauFW.common.tools.math import partition_by_max, ceil
+from TauFW.Utilities.Math import partition_by_sum
 from TauFW.PicoProducer.datasets import MC as M
 from TauFW.PicoProducer.datasets import Data as D
 from TauFW.PicoProducer.datasets import Sample
@@ -63,7 +64,7 @@ def chunkify_by_evts(fnames,nmax,evenly=True):
   mylist = [ ]
   for nevts in nsmall:
     mylist.extend([nevts]*len(nsmall[nevts]))
-  for part in partition_by_max(mylist,nmax):
+  for part in partition_by_sum(mylist,nmax):
     result.append([ ])
     for nevts in part:
       fname = nsmall[nevts][0]

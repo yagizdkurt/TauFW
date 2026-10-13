@@ -5,7 +5,7 @@
 #   ./validateZpt.py -y 2018
 from config.samples import *
 from TauFW.Plotter.plot.utils import LOG as PLOG
-from TauFW.common.tools.math import frange
+from TauFW.Utilities.Math import float_range
 from ROOT import gROOT, gSystem
 gROOT.Macro('weights/zptweight.C+')
 from ROOT import loadZptWeights
@@ -20,7 +20,7 @@ Zmbins0  = [20,30,40,50,60,70,80,85,88,89,89.5,90,90.5,91,91.5,92,93,94,95,100,1
 Zmbins1  = [0,50,70,91,110,150,200,400,800,1500]
 ptbins0  = [0,5,10,15,20,25,30,35,40,45,50,60,70,100,140,200,300,500,1000]
 ptbins1  = [0,5,15,30,50,100,200,500,1000]
-dRbins   = [0,0.4,1.0,1.5,2.0]+frange(2.2,5.61,0.2)+[6.0]
+dRbins   = [0,0.4,1.0,1.5,2.0]+float_range(2.2,5.61,0.2)+[6.0]
 
 
 def plot(era,channel,weight="",tag="",title="",outdir="plots",parallel=True,pdf=False,dy='jets',verb=0):

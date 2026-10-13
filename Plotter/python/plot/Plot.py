@@ -2,9 +2,10 @@
 # Author: Izaak Neutelings (June 2020)
 # Description: Class to automatically make CMS plot comparing histograms.
 import os, re
+from math import ceil, log10
 #import ctypes # for passing by reference
 from TauFW.common.tools.utils import ensurelist, islist, isnumber, repkey
-from TauFW.common.tools.math import log10, magnitude, columnize, scalevec, ceil
+from TauFW.Utilities.Math import magnitude, columnize, scale_vector
 from TauFW.Plotter.plot.utils import *
 from TauFW.Plotter.plot.string import makelatex, maketitle, makehistname, estimatelen
 from TauFW.Plotter.plot.Variable import Variable, Var
@@ -1229,10 +1230,10 @@ class Plot(object):
           if axis=='x':
             logy = pad.GetLogy()>0
             x = xmin + (xmax-xmin)*(i+0.5)/nbins
-            y_ = scalevec(ymin,ymax,y,log=logy)
+            y_ = scale_vector(ymin,ymax,y,log=logy)
           else:
             logx = pad.GetLogx()>0
-            x = scalevec(xmin,xmax,y,log=logx)
+            x = scale_vector(xmin,xmax,y,log=logx)
             y_ = ymin + (ymax-ymin)*(i+0.5)/nbins
           if isinstance(bins,Variable):
             y1 = bins.getedge(ioffset+i) # edges mass bin

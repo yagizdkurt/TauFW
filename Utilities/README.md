@@ -1,11 +1,12 @@
 #Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 # Utilities
 
-Independent terminal, menu presentation, file I/O and installer helpers. Like the other TauFW packages, the source lives under `Utilities/python/`, and `scram b` exposes it as `TauFW.Utilities` after `cmsenv`.
+Independent terminal, menu presentation, file I/O, process, numeric and installer helpers. Like the other TauFW packages, the source lives under `Utilities/python/`, and `scram b` exposes it as `TauFW.Utilities` after `cmsenv`.
 
 ```python
 from TauFW.Utilities.CLI import CLI
 from TauFW.Utilities.FIO import FileIO
+from TauFW.Utilities.Math import float_range, partition
 from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation
 from TauFW.Utilities.Process import Command, ParallelProcessor, ProcessRunner
 ```
@@ -14,7 +15,7 @@ The package `__init__.py` files contain the public exports, so they are tracked 
 
 ## Package boundaries
 
-CLI and FIO each export one class; Menu exports `ConsoleUI` and `MenuNavigation`; Process exports `Command`, `CommandResult`, `ProcessRunner` and `ParallelProcessor`. `_cli.py`, `_file_io.py`, and `_menu.py` implement those entry points; CLI and FIO use `_internal/` for formatting, filesystem, serialization, command, transport and ROOT functions. Application code should import only the owning package's public class. Underscores and `__all__` document Python's private API convention; they do not prevent access to internal modules.
+CLI and FIO each export one class; Menu exports `ConsoleUI` and `MenuNavigation`; Process exports `Command`, `CommandResult`, `ProcessRunner` and `ParallelProcessor`; Math exports plain functions (`_math.py`). `_cli.py`, `_file_io.py`, and `_menu.py` implement those entry points; CLI and FIO use `_internal/` for formatting, filesystem, serialization, command, transport and ROOT functions. Application code should import only the owning package's public class. Underscores and `__all__` document Python's private API convention; they do not prevent access to internal modules.
 
 These packages do not import existing analysis/startup modules or Framework. Construction is silent and does not open files, change directories, read configuration or launch commands; only `ProcessRunner.run`/`run_all` and `ParallelProcessor.start` launch processes. There are no global utility instances, base classes or service registries. Pass instances explicitly to future framework components.
 
@@ -59,7 +60,7 @@ terminal.print_warning("A sample was skipped")
 
 Interactive progress updates flush immediately and overwrite their line. Redirected intermediate progress is suppressed until completion or an explicit finish. Finish a partial task in `finally` if the surrounding operation can fail. Reporting and failure control are separate: application code raises its own exceptions. CLI does not parse arguments, launch general processes or persist messages to files.
 
-Code moved here from `common/python/tools` keeps its old output byte for byte. Those old output formats sit in a separate `# ===== BACKWARD COMPATIBILITY, CLEANUP =====` section of the module (`CLI/_internal/loading_bar.py`, `Process/_parallel.py`), so they can be modernized later in their own commit, with a BBB re-lock where baselines record them.
+Code moved here from `common/python/tools` keeps its old output byte for byte (and `Math` its old results). Those old output formats sit in a separate `# ===== BACKWARD COMPATIBILITY, CLEANUP =====` section of the module (`CLI/_internal/loading_bar.py`, `Process/_parallel.py`), so they can be modernized later in their own commit, with a BBB re-lock where baselines record them.
 
 ## Menu presentation
 
@@ -208,6 +209,30 @@ for handle in processor:          # in start order
 ```
 
 `ParallelProcessor(name="nameless", max_parallel=-1, verbose=False)` replaces `TauFW.common.tools.parallel.MultiProcessor` with the same logic. `start(target, args=(), kwargs=None, name=None, verbose=False, parallel=True, kwret=None)` runs `target(*args, **kwargs)` in a `multiprocessing.Process` and sends its return value back through a pipe; a non-tuple `args` is one argument. At most `max_parallel` calls run at once (< 1: no limit); later ones are queued and start while the handles are iterated. `parallel=False` calls the target at once in this process. `kwret` names a keyword argument whose final value is returned too; `handle.join(**{kwret: dict_or_list})` merges it. `close()` closes the finished processes. The target must be picklable under the `spawn` start method (Windows, macOS); PicoProducer passes nested functions, which needs `fork` (Linux up to Python 3.13). Importing the module starts nothing (the old module started a `multiprocessing.Manager` on import).
+
+## Numeric helpers
+
+```python
+from TauFW.Utilities.Math import float_range, partition, partition_by_sum
+
+bins = [0, 0.4, 1.0] + float_range(1.2, 3.01, 0.2) + [4.0]
+chunks = partition(files, parts=4)                  # 4 chunks, sizes differ by at most 1
+groups = partition_by_sum([2, 3, 4, 5, 1], 6)       # [[5, 1], [4, 2], [3]]
+```
+
+`TauFW.Utilities.Math` replaces `TauFW.common.tools.math` with the same results for the same inputs. These are plain functions; none prints, reads files or keeps state.
+
+| Function | Result |
+|---|---|
+| `float_range(start, end, step, scale=1000)` | `start` (kept as given), then `start + i*step` while below `end`. Each value is computed from `start`, so rounding errors do not add up. Was `frange`. |
+| `partition(items, parts=None, max_size=None)` | `parts` chunks as evenly sized as possible, earlier chunks taking the remainder (7 items in 3 parts: sizes 3, 2, 2); chunks can be empty. `max_size` instead picks the fewest parts that keep each chunk at most that long. Neither given: `ValueError`. Was `partition(mylist, nparts, nmax)`. |
+| `partition_by_sum(values, maximum)` | Groups with sum ≤ `maximum`, largest values first; a value above `maximum` gets its own group. The input list is not changed. Was `partition_by_max`, which sorted its input in place. |
+| `columnize(items, columns=2)` | Reorders items so a row-by-row layout (a `TLegend`) reads column by column: `[1..7]` → `[1,5,2,6,3,7,4]`. Fewer than 2 columns returns `items` itself. Was `columnize(oldlist, ncol)`. |
+| `magnitude(x)` | Rough order of magnitude for log-axis ranges: digits before the decimal point for `x ≥ 1` (45 → 2, 10 → 2), `floor(log10(x))` below 1 (0.84 → -1); 0 → 0. |
+| `scale_vector(start, end, ratio, log=False)` | `start + ratio*(end-start)`; with `log`, `start*10**abs(ratio*log10(end/start))`, which needs nonzero `start` and `end` of the same sign (else `ValueError`). Was `scalevec`. |
+| `relative_difference(x, y)` | `abs(x-y)/x`; for `x == 0`: 0 if `y == 0`, else -1. Was `reldiff`. |
+
+`ceil` and `log10` are no longer re-exported; callers import them from the standard `math` module.
 
 ## Inventory and validation
 

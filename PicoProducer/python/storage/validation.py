@@ -66,7 +66,7 @@ def itervalid(fnames,checkevts=True,nchunks=None,ncores=4,verb=0,**kwargs):
       yield 0, fname
   elif ncores>=2 and len(fnames)>5: # run validation in parallel
     from TauFW.Utilities.Process import ParallelProcessor
-    from TauFW.common.tools.math import partition
+    from TauFW.Utilities.Math import partition
     processor = ParallelProcessor(max_parallel=ncores)
     def loopvalid(fnames_,**kwargs):
       """Help function for parallel running on subsets."""
@@ -100,7 +100,7 @@ def iterevts(fnames,tree,filenevts,refresh=False,nchunks=None,ncores=0,verb=0):
   """Help function for Sample._getnevents to iterate over file names and get number of events processed."""
   if ncores>=2 and len(fnames)>5: # run events check in PARALLEL
     from TauFW.Utilities.Process import ParallelProcessor
-    from TauFW.common.tools.math import partition
+    from TauFW.Utilities.Math import partition
     def loopevts(fnames_):
       """Help function for parallel running on subsets."""
       return [(getnevents(f,tree,verb=verb),f) for f in fnames_]

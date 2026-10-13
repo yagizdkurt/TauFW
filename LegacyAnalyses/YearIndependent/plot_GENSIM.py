@@ -22,7 +22,7 @@
 #   ./plot_GENSIM.py
 import os
 from TauFW.common.tools.log import bold
-from TauFW.common.tools.math import frange
+from TauFW.Utilities.Math import float_range
 import TauFW.Plotter.plot.Plot as _Plot
 import TauFW.Plotter.plot.CMSStyle as CMSStyle
 from TauFW.Plotter.plot.Plot import Plot, deletehist
@@ -167,8 +167,8 @@ bins_pt2   = list(range(0,1040,80)) + [1040,1200,1600]
 bins_pt3   = list(range(0,1040,80)) + [1040,1200,1500,1600,2000]
 bins_pt    = list(range(0,600,60)) + list(range(600,1000,100)) + [1000,1200,1500,2000]
 bins_ptvis = list(range(0,200,40)) + list(range(200,400,50)) + [400,500,800,1000,1500]
-bins_eta   = [-6.0,-4.0] + frange(-2.5,2.5,0.5) + [2.5,4.0,6.0]
-bins_dR    = [0,0.5,1.0,1.4,1.7] + frange(2.0,4.0,0.2) + [4.0,4.3,4.7,5.2,6.0] 
+bins_eta   = [-6.0,-4.0] + float_range(-2.5,2.5,0.5) + [2.5,4.0,6.0]
+bins_dR    = [0,0.5,1.0,1.4,1.7] + float_range(2.0,4.0,0.2) + [4.0,4.3,4.7,5.2,6.0] 
 bins_dphi  = [-3.15,-2.8,-2.6,-2.4,-2.2,-2.0,-1.7,-1.3,-0.9,-0.3,0.3,0.9,1.3,1.7,2.0,2.2,2.4,2.6,2.8,3.15]
 pt = "p_{#lower[-0.25]{T}}"
 #pt2 = "p_{#kern[-0.2]{#lower[-0.25]{T}}}"

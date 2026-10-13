@@ -25,6 +25,7 @@ Sections are in the order the work was done. Each lists the relevant commits.
 | 13 | [Test runner: quiet defaults and BBB lock logs](#13-test-runner-quiet-defaults-and-bbb-lock-logs) | 2026-10-13 |
 | 14 | [Framework: analysis bundles and Python steps (Part H)](#14-framework-analysis-bundles-and-python-steps-part-h) | 2026-10-13 |
 | 15 | [common tools moved to Utilities: parallel processes and the loading bar](#15-common-tools-moved-to-utilities-parallel-processes-and-the-loading-bar) | 2026-10-13 |
+| 16 | [common tools moved to Utilities: numeric helpers](#16-common-tools-moved-to-utilities-numeric-helpers) | 2026-10-13 |
 
 The reference environment for all of this is `CMSSW_14_1_0_pre4` (Python 3.9, ROOT 6.30).
 
@@ -1197,3 +1198,51 @@ output changes.
   On Windows the parallel path was checked separately under `spawn`.
 - BBB: no baseline changes are expected (`common.formatting` writes the same bytes). Check on lxplus with
   `python3 Tests/run.py bbb check`; no re-lock.
+
+## 16. common tools moved to Utilities: numeric helpers
+
+**Date:** 2026-10-13
+**Details:** [Utilities/README.md](../../Utilities/README.md#numeric-helpers)
+
+`common/python/tools/math.py` was re-implemented as the new package `TauFW.Utilities.Math` (`Math/_math.py`), in
+the same way as §15: Utilities style, no imports of `TauFW.common`, every caller updated, the old module deleted.
+The functions print nothing, so there is no BACKWARD COMPATIBILITY section; the rule here is the same results for the
+same inputs.
+
+### What moved
+
+| Old (`TauFW.common.tools.math`) | New (`TauFW.Utilities.Math`) | Notes |
+|---|---|---|
+| `frange(start, end, step, scale)` | `float_range(start, end, step, scale)` | Same values, including the first value kept as given (an `int` start stays `int`). |
+| `partition(mylist, nparts, nmax)` | `partition(items, parts, max_size)` | Neither given now raises `ValueError` (was `IOError`), same message. |
+| `partition_by_max(mylist, nmax)` | `partition_by_sum(values, maximum)` | Same groups. It sorts a copy; the old function sorted the caller's list in place (no caller used the list afterwards). |
+| `columnize(oldlist, ncol)` | `columnize(items, columns)` | Same order. The `assert len(parts)>0` could never fail and is gone. |
+| `magnitude(x)` | `magnitude(x)` | Unchanged. |
+| `scalevec(a, b, r, log)` | `scale_vector(start, end, ratio, log)` | The two log-mode `assert`s are `ValueError`s with the same messages (they no longer vanish under `python -O`). |
+| `reldiff(x, y)` | `relative_difference(x, y)` | Unchanged. |
+| `sqrt, log10, ceil, floor` (re-exported from `math`) | standard `math` module | Callers that imported `ceil`/`log10` from here import them from `math`. |
+
+### Dropped
+
+- **`ceil2digit`**: no callers, and it called `log`, which the module never imported (`NameError` on any nonzero input).
+- **`round2digit`**: no callers; `Plotter/python/sample/Sample.py` imported it without using it.
+
+### Callers updated
+
+- `PicoProducer/python/jobs/chunking.py`: `partition_by_sum`, `ceil` from `math`.
+- `PicoProducer/python/storage/validation.py` (`itervalid`, `iterevts`): `partition`.
+- `Plotter/python/plot/Plot.py`: `magnitude`, `columnize`, `scale_vector`; `ceil`, `log10` from `math`.
+- `Plotter/python/sample/Sample.py`: `relative_difference`.
+- `Fitter/Zpt/validateZpt.py` and the legacy script `LegacyAnalyses/YearIndependent/plot_GENSIM.py`: `float_range`.
+- `Fitter/Zpt/measureZpt.py`: unused `scalevec` import removed.
+- `Tests/BBB/cases.py` (`common.chunking`), `Tests/PicoProducer/testEventBased.py` (its `Tests/migration.json`
+  `edited` note updated).
+- `Utilities/IOInventory.md`: the deleted module and the shifted `chunking.py` lines (edited by hand, not regenerated).
+
+### Tests
+
+- `Tests/Utilities/test_math.py`: every function against results recorded from the old module before it was deleted,
+  including the empty and edge cases and the input-not-changed check. Before the deletion the new functions were also
+  compared with the old ones on 4000 random rounds (all identical).
+- BBB: `common.chunking` was run locally against its baseline (identical output). No baseline changes are expected;
+  check on lxplus with `python3 Tests/run.py bbb check`; no re-lock.

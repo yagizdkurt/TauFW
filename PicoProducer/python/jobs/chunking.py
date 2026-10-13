@@ -15,10 +15,11 @@ Public API:
 
 # ===== Imports =====
 import re
+from math import ceil
 from TauFW.common.tools.log import Logger
 from TauFW.common.tools.root import ensureTFile
-from TauFW.common.tools.math import partition_by_max, ceil
 from TauFW.Utilities.CLI import CLI
+from TauFW.Utilities.Math import partition_by_sum
 
 __all__ = ['evtsplitexp', 'chunkify_by_evts']
 
@@ -99,7 +100,7 @@ def chunkify_by_evts(fnames,maxevts,evenly=True,evtdict=None,verb=0,progress=Non
   mylist = [ ]
   for nevts in nsmall:
     mylist.extend([nevts]*len(nsmall[nevts]))
-  for part in partition_by_max(mylist,maxevts): # group small files into one chunk
+  for part in partition_by_sum(mylist,maxevts): # group small files into one chunk
     result.append([ ])
     for nevts in part:
       fname = nsmall[nevts][0]

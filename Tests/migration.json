@@ -183,7 +183,7 @@
       "moved": "Tests/PicoProducer/testEventBased.py",
       "sha256": "f6a1f5baeac911ae08b636c1d2770d00b2e167f53e45ed91b1e08be529f44c6c",
       "canonical_sha256": "f761b2b72ffbf3c7fde8bc041463dc6fdd0b5bddd448fe9bd69918e940085739",
-      "edited": "Imports follow the PicoProducer package restructuring (settings/, datasets/, storage/, batch/, jobs/) and the move of MultiThread to TauFW.common.tools.parallel (2026-10-12)."
+      "edited": "Imports follow the PicoProducer package restructuring (settings/, datasets/, storage/, batch/, jobs/) and the move of MultiThread to TauFW.common.tools.parallel (2026-10-12); partition_by_max and ceil now come from TauFW.Utilities.Math.partition_by_sum and the standard math module (2026-10-13)."
     },
     {
       "original": "PicoProducer/test/testSample.py",
