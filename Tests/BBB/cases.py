@@ -358,6 +358,51 @@ def pico_workers(workspace):
             "outputs": {name: file_snapshot(ws.root / name) for name in outputs}}
 
 
+# ===== Framework (black box: taufw.py in child processes, PicoProducer with the fake scheduler) =====
+
+def framework_production(workspace):
+    import json
+    from BBB.pico_harness import PicoWorkspace, REPO
+    from BBB.snapshot import file_snapshot
+    ws = PicoWorkspace(workspace)
+    taufw = REPO / "Framework" / "scripts" / "taufw.py"
+    recipe = ws.root / "recipe.json"
+    recipe.write_text(json.dumps({"name": "bbb", "pico": {"config": None}, "stages": [
+        {"stage": "production", "eras": ["2018"], "channels": ["mutau"], "samples": ["DY", "TT"], "max_tries": 2,
+         "merge": {"clean": True}},
+        {"stage": "histograms", "variables": ["m_vis"]}]}), encoding="utf-8")
+    runs = ws.root / "runs"
+
+    def record():
+        """run.json without times and run IDs; workspace paths as $WS."""
+        (run_dir,) = list(runs.iterdir())
+        data = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
+        for key in ("run_id", "created", "updated"):
+            data.pop(key)
+        for stage in data["stages"]:
+            for entry in stage["history"]:
+                entry.pop("time")
+        return ws.normalize(data)
+
+    result = {"plan": ws.execute(taufw, "plan", recipe)["lines"]}
+    ws.execute(taufw, "start", recipe, "--run-root", runs)  # submits DY (2 chunks) and TT (2 chunks)
+    result["started"] = record()
+    out = ws.root / "jobout" / "2018" / "mutau"
+    for sample, chunk in (("DYJetsToLL_M-50", 0), ("DYJetsToLL_M-50", 1), ("TTTo2L2Nu", 0)):
+        ws.write_pico(out / sample / ("pico_mutau_%d.root" % chunk))
+    (run_dir,) = list(runs.iterdir())
+    ws.execute(taufw, "advance", run_dir)  # TT chunk 1 is missing: resubmitted (try 2)
+    result["resubmitted"] = record()
+    ws.write_pico(out / "TTTo2L2Nu" / "pico_mutau_1.root")
+    ws.execute(taufw, "advance", run_dir)  # complete: merged and cleaned; histograms is not implemented
+    result["done"] = record()
+    result["status"] = ws.execute(taufw, "status", run_dir)["lines"]
+    result["merged"] = {name: file_snapshot(ws.root / "pico" / "2018" / group / name)
+                        for group, name in (("DY", "DYJetsToLL_M-50_mutau.root"), ("TT", "TTTo2L2Nu_mutau.root"))}
+    result["files"] = ws.tree(ws.basedir / "output", ws.root / "jobout", ws.root / "pico")
+    return result
+
+
 def fitter_shapes(workspace):
     from TauFW.Fitter.plot.datacard import createinputs
     from TauFW.Plotter.plot.Variable import Variable
@@ -412,6 +457,7 @@ CASES = {
     "pico.jobs": {"run": pico_jobs, "dependencies": PICO_DEPS, "description": "pico.py submit/status/resubmit: job configs, task lists, chunking, scheduler calls"},
     "pico.merge": {"run": pico_merge, "dependencies": PICO_DEPS, "description": "pico.py hadd/haddclean/clean: merge gate, merged tuple and cleanup"},
     "pico.workers": {"run": pico_workers, "dependencies": PICO_DEPS, "description": "picojob.py/skimjob.py outputs, ranges, options, copy and preselection"},
+    "framework.production": {"run": framework_production, "dependencies": PICO_DEPS, "description": "taufw.py start/advance/status: production stage through the PicoProducer API, resubmission, merge, run.json"},
     "fitter.shapes": {"run": fitter_shapes, "dependencies": ROOT_DEPS, "description": "Nominal/systematic shape naming and negative-bin sanitation"},
     "fitter.rebin": {"run": fitter_rebin, "dependencies": ROOT_DEPS, "description": "Adaptive rebinning and non-ZTT background subtraction"}
 }

@@ -8,7 +8,7 @@ import types
 
 TESTS = Path(__file__).resolve().parents[1]
 REPO = TESTS.parent
-PACKAGES = ("common", "Plotter", "PicoProducer", "Fitter", "Utilities")
+PACKAGES = ("common", "Plotter", "PicoProducer", "Fitter", "Utilities", "Framework")
 
 
 # Worker exit status for a missing declared dependency; normal runs report it as a skip.
