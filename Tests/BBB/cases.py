@@ -369,8 +369,7 @@ def framework_production(workspace):
     recipe = ws.root / "recipe.json"
     recipe.write_text(json.dumps({"name": "bbb", "pico": {"config": None}, "stages": [
         {"stage": "production", "eras": ["2018"], "channels": ["mutau"], "samples": ["DY", "TT"], "max_tries": 2,
-         "merge": {"clean": True}},
-        {"stage": "histograms", "variables": ["m_vis"]}]}), encoding="utf-8")
+         "merge": {"clean": True}}]}), encoding="utf-8")  # Part G: the local stages run scripts; not in BBB
     runs = ws.root / "runs"
 
     def record():
@@ -394,7 +393,7 @@ def framework_production(workspace):
     ws.execute(taufw, "advance", run_dir)  # TT chunk 1 is missing: resubmitted (try 2)
     result["resubmitted"] = record()
     ws.write_pico(out / "TTTo2L2Nu" / "pico_mutau_1.root")
-    ws.execute(taufw, "advance", run_dir)  # complete: merged and cleaned; histograms is not implemented
+    ws.execute(taufw, "advance", run_dir)  # complete: merged and cleaned; the run is DONE
     result["done"] = record()
     # The run ID ends with the start time; mask it so the snapshot is repeatable.
     result["status"] = [re.sub(r"bbb_\d{8}-\d{6}(?:-\d+)?", "bbb_<time>", line)

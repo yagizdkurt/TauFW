@@ -7,10 +7,12 @@
                                                           (--local: quick local test of the production stage)
   taufw.py start   RECIPE [--run-root DIR] [--wait [--poll S]]   new run: run directory, run.json, first steps
   taufw.py advance RUN_DIR [--wait [--poll S]]            continue a run: check, resubmit, merge, next stages
+                                                          (plots, histograms, fit: run locally, may take hours)
   taufw.py status  RUN_DIR                                saved and live state of a run (read-only)
 
 Exit code: 1 if the run failed, otherwise 0. See Framework/README.md.
 """
+import shlex
 import sys
 from argparse import ArgumentParser
 try:
@@ -46,6 +48,8 @@ def cmd_plan(args):
                            [(s.era, s.channel, s.name, s.nfiles, s.nchunks, s.subtry, "yes" if s.conflict else "")
                             for s in stage_plan.plan.samples])
             reporter.message("%d sample(s), %d job(s)" % (len(stage_plan.plan.samples), stage_plan.plan.nchunks))
+        elif hasattr(stage_plan.plan, 'commands'):  # plots, histograms, fit: the module's scripts, run locally
+            _show_commands(reporter, stage_plan.plan)
         else:
             reporter.message(repr(stage_plan.plan))
     return 0
@@ -82,13 +86,40 @@ def cmd_status(args):
             reporter.table(["sample", "chunks", "good", "pending", "failed", "missing", "complete"],
                            [(s.name, s.nchunks, len(s.good), len(s.pending), len(s.failed), len(s.missing),
                              "yes" if s.complete else "") for s in stage.live.samples])
+        elif isinstance(stage.live, list):  # fit: the fitted values
+            reporter.header("Stage %s: fitted values" % (stage.stage))
+            reporter.table(["era", "jet WP", "ele WP", "region", "poi", "value", "1 sigma"],
+                           [(v['era'], v['jet_wp'], v['ele_wp'], v['region'], v['poi'], "%.4f" % (v['value']),
+                             _interval(v)) for v in stage.live])
     return 1 if summary.state == RunState.FAILED else 0
+
+
+def _show_commands(reporter, plan):
+    """The commands of a local stage, as they would be typed in its working directory."""
+    reporter.message("Working directory: %s" % (plan.cwd))
+    reporter.table(["#", "step", "command"],
+                   [(index, command.label, _command_line(command.argv))
+                    for index, command in enumerate(plan.commands, 1)])
+    reporter.message("%d command(s)" % (len(plan.commands)))
+    for note in plan.notes:
+        reporter.warning(note)
+
+
+def _command_line(argv):
+    """A command line, with this Python shown as python3."""
+    return " ".join(shlex.quote("python3" if i == 0 and a == sys.executable else a) for i, a in enumerate(argv))
+
+
+def _interval(value):
+    if value.get('low') is None or value.get('high') is None:
+        return "-"
+    return "[%.4f, %.4f]" % (value['low'], value['high'])
 
 
 def _finish(reporter, record):
     """Tell the user where the run is and how to continue it; return the exit code."""
     reporter.message("Run directory: %s" % (record.run_dir))
-    if record.state == RunState.WAITING:
+    if not RunState(record.state).finished:
         reporter.message("Continue with: taufw.py advance %s" % (record.run_dir))
     return 1 if record.state == RunState.FAILED else 0
 

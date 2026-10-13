@@ -8,9 +8,12 @@ recipe ─▶ plan() ─▶ start() ─▶ advance() ─▶ … ─▶ advance()
              │          │            │
           RunPlan   RunRecord     RunRecord (run.json, saved after every stage step)
 
-stages:   production ─▶ histograms ─▶ fit
-          (PicoProducer API)  (placeholder)  (placeholder)
+stages:   production ──────▶ plots ─────────▶ histograms ──────▶ fit
+          PicoProducer API   Plotter API       Fitter API         Fitter API
+          batch, stepwise    plot.py, local    createinputsTES    run_workflow_zmm.sh steps, local
 ```
+
+A recipe may leave stages out, e.g. only `histograms` and `fit` on pico tuples made before.
 
 After `cmsenv` and `scram b`, the package is importable as `TauFW.Framework` and `taufw.py` is on the `PATH`.
 
@@ -21,7 +24,10 @@ The words below are used everywhere in the code and in this README.
 | Term | Meaning | In the code |
 |---|---|---|
 | **recipe** | A YAML file that says what to run: a name, the PicoProducer configuration and a list of stages with their options. You write it; the Framework checks it before anything runs. | `Recipe` (`recipe.py`) |
-| **stage** | One step of the analysis: `production` (NanoAOD → pico tuples), `histograms`, `fit`. Each stage calls the API of its own package. | `Stage` subclasses (`stages/`) |
+| **stage** | One step of the analysis: `production` (NanoAOD → pico tuples), `plots` (control plots), `histograms` (fit input shapes), `fit` (TES + tau ID fit). Each stage calls the API of its own package. | `Stage` subclasses (`stages/`) |
+| **local stage** | A stage that runs its package's existing scripts on this machine, one command after the other, and finishes in one `advance` (`plots`, `histograms`, `fit`). | `LocalStage` (`stages/local.py`) |
+| **stage context** | What a stage may know about its run: the run directory (for its logs) and the artifacts of the `DONE` stages before it. | `StageContext` (`stages/base.py`) |
+| **preflight** | The check, before a local stage runs, that its environment is ready (`cmsenv`, ROOT, `combine`, configs). A problem leaves the stage `NEW`. | `PreflightError` |
 | **spec** | The options of one stage after checking, as a typed, read-only object. For example, `ProductionSpec` holds `eras`, `channels`, `max_tries`, ... | `ProductionSpec`, ... |
 | **stage spec** | One entry of the recipe's `stages:` list: the stage name plus its spec. | `StageSpec` (`recipe.py`) |
 | **run** | One execution of a recipe. Each run gets its own directory, `taufw_runs/<name>_<time>/`. | `RunRecord.create` |
@@ -33,17 +39,19 @@ The words below are used everywhere in the code and in this README.
 | **advance** | "Do whatever can be done now": take steps until a stage waits for the batch system, fails or is not implemented. | `Framework.advance` |
 | **chunk** | One batch job of a sample. A sample with many files is split into several chunks. | PicoProducer |
 | **attempt** | How many times the production stage has submitted its jobs (first submission + resubmissions), limited by `max_tries`. | `StageRecord.attempt` |
-| **artifact** | A result of a stage that the next stage can use. For production: one merged pico tuple per sample. | `StageRecord.artifacts` |
+| **artifact** | A result of a stage that the next stage can use. Production: one merged pico tuple per sample; histograms: one shape file per config and working point; fit: the fitted values per working point. | `StageRecord.artifacts` |
 | **reporter** | The object that receives every message. It prints to the terminal and `run.log`, or keeps the messages silently (in tests). | `reporting.py` |
 
 ### Where to start reading the code
 
-1. `recipes/example_mutau.yml`: what a user writes.
-2. `python/stages/base.py`: the stage contract and the stage states (short).
+1. `recipes/example_mutau.yml` and `recipes/tes_id_2025.yml`: what a user writes.
+2. `python/stages/base.py`: the stage contract, the stage states and the stage context (short).
 3. `python/framework.py`: `start` → `advance` → `_advance_stages`, the loop that drives the stages.
-4. `python/stages/production.py`: the one real stage; `decide_next` holds its policy.
-5. `python/run_record.py`: what is written to `run.json`, and how the run state is computed.
-6. `scripts/taufw.py`: the command line, which only calls the `Framework`.
+4. `python/stages/production.py`: the batch stage; `decide_next` holds its policy.
+5. `python/stages/local.py`: the local stages (preflight, run the commands, DONE or FAILED); `plots.py`,
+   `histograms.py` and `fit.py` only map their options to the Plotter and Fitter APIs.
+6. `python/run_record.py`: what is written to `run.json`, and how the run state is computed.
+7. `scripts/taufw.py`: the command line, which only calls the `Framework`.
 
 ## Quick start
 
@@ -88,6 +96,7 @@ taufw.py start   Framework/recipes/example_mutau.yml           # creates taufw_r
 taufw.py advance taufw_runs/mutau_2022_postEE_20261013-120000  # check; resubmit failed chunks; merge when complete
 taufw.py status  taufw_runs/mutau_2022_postEE_20261013-120000  # recorded and live state (read-only)
 taufw.py advance taufw_runs/... --wait --poll 900              # keep advancing every 15 minutes until done
+taufw.py plan    Framework/recipes/tes_id_2025.yml             # the commands of the plots, histograms and fit stages
 ```
 
 The same from Python:
@@ -124,12 +133,25 @@ The production stage:
 | | chunks failed or missing, attempt = `max_tries` | `FAILED` |
 | `MERGING` | merge (`hadd`) each sample into one tuple; with `merge.clean`, remove the job files after the merged tuple is validated | `DONE`, with one artifact per sample |
 
-Placeholder stages (`histograms`, `fit`) report `NOT_IMPLEMENTED`; the run then stops in state `BLOCKED`, and the
-earlier stages keep their results.
+The local stages (`plots`, `histograms`, `fit`) take one step, `NEW` → `DONE` or `FAILED`:
 
-Run states (`RunState`): `NEW`, `RUNNING`, `WAITING` (a stage waits for jobs), `DONE`, `FAILED` (a stage failed),
-`BLOCKED` (stopped at a placeholder stage). `DONE`, `FAILED` and `BLOCKED` are final: advancing again changes nothing.
-`taufw.py` exits with 1 if the run failed.
+| Situation | Result |
+|---|---|
+| preflight finds a problem (no `cmsenv`, ROOT or `combine` missing, a config file missing, no shapes for the fit) | the stage stays `NEW`; the problem is its message and in its history; fix it and run `advance` again |
+| every command exits with 0 **and** writes its expected outputs | `DONE`, with the artifacts |
+| a command exits with another code, or does not write an expected output | `FAILED`; the message names the command, the exit code or the missing output, and the log; the last 20 log lines are printed |
+
+Each command's output goes to `<run dir>/<stage>/NN_<label>.log`, and `run.json` lists every command with its exit
+code and duration (`last_status.commands`). The expected outputs must be written by the command itself (modified
+after it started): the Fitter scripts run `combine` through `os.system` and exit with 0 even when it fails, and the
+output folders are shared by all runs, so neither the exit code nor an old file is trusted.
+
+A stage that is not implemented yet (none at the moment) reports `NOT_IMPLEMENTED`; the run then stops in state
+`BLOCKED`, and the earlier stages keep their results.
+
+Run states (`RunState`): `NEW`, `RUNNING` (e.g. a local stage is not ready yet), `WAITING` (a stage waits for jobs),
+`DONE`, `FAILED` (a stage failed), `BLOCKED` (stopped at a stage that is not implemented). `DONE`, `FAILED` and
+`BLOCKED` are final: advancing again changes nothing. `taufw.py` exits with 1 if the run failed.
 
 If a stage raises an error (for example, the batch system cannot be reached), the error is recorded in the stage's
 history, the state is unchanged, and the command fails; run `advance` again when the problem is solved.
@@ -143,7 +165,7 @@ name: mutau_2022_postEE         # letters, digits, '_', '.', '-'; the run direct
 pico:
   config: null                  # PicoProducer configuration; null: PicoProducer/config/config.json
                                 # (a relative path is relative to the recipe file)
-stages:                         # in the order production, histograms, fit; each at most once
+stages:                         # in the order production, plots, histograms, fit; each at most once
   - stage: production
     ...
 ```
@@ -167,11 +189,68 @@ stages:                         # in the order production, histograms, fit; each
 | `merge.force` | `false` | merge samples with failed or missing chunks too |
 | `verbosity` | `0` | PicoProducer verbosity |
 
-### `histograms`, `fit` (placeholders)
+### `plots`
 
-Accepted so that recipes can describe the whole analysis; they report `NOT_IMPLEMENTED` until the Plotter and the
-Fitter have public APIs. Declared options: `histograms`: `variables`, `selections`, `outfile`, `method`;
-`fit`: `observable`, `model`, `pois`. Their contracts (inputs, outputs) are documented in `python/stages/`.
+Data/MC control plots with `Plotter/plot.py`, one run per channel setup and era, in `Plotter/`
+(`TauFW.Plotter.api.ControlPlots`). Plots go to `Plotter/plots/<era>/`.
+
+| Option | Default | Meaning |
+|---|---|---|
+| `eras` | required | `plot.py -y` |
+| `configs` | `[mutau]` | channel names (`Plotter/config/setup_<channel>.yml`) or `.yml` files relative to `Plotter/` (`-c`) |
+| `variables`, `selections` | `[]` | `-V` and `-S` filters (glob patterns); `[]`: everything `plot.py` defines |
+| `serial`, `fraction`, `pdf`, `notauidsf` | `false` | `-s`, `-F`, `-p`, `-r` |
+| `tag`, `text` | `""` | `-t`, `-T` |
+| `timeout` | `null` | seconds per command (`null`: no limit) |
+
+Artifact per channel and era: `{kind: plots, era, config, channel, directory, nfiles}`.
+
+### `histograms`
+
+The input shapes of the TES + tau ID fit, as `Fitter/run_inputs.sh` makes them: `TauES/createinputsTES.py` for every
+era, working point pair and config, in `Fitter/` (`TauFW.Fitter.api.TauESID.make_shapes`). Shapes go to
+`Fitter/input_pt_less_region/againstjet_<J>/againstelectron_<E>/`.
+
+| Option | Default | Meaning |
+|---|---|---|
+| `eras` | required | `-y` |
+| `jet_wps`, `ele_wps` | required | DeepTau VSjet / VSe working points (`-j`, `-e`), e.g. `[VTight]`, `[Tight]` |
+| `configs` | `[TauES_ID/config/config_coarse_TT.yml, TauES/config/FitSetup_mumu.yml]` | configs relative to `Fitter/`: the mutau fit and the mumu control region |
+| `serial` | `false` | `-s` |
+| `timeout` | `null` | seconds per command |
+
+Artifact per shape file: `{kind: shapes, path, era, channel, config, jet_wp, ele_wp, observable}`.
+
+### `fit`
+
+The steps of `Fitter/run_workflow_zmm.sh` (option 3: 2D scan of `tes` and `tid_SF` per decay mode and pt region,
+with the Z→μμ control region), in `Fitter/` (`TauFW.Fitter.api.TauESID.fit`).
+
+| Option | Default | Meaning |
+|---|---|---|
+| `config`, `config_mumu` | the two `histograms` defaults | the mutau fit config and the mumu control-region config |
+| `eras`, `jet_wps`, `ele_wps` | `[]` | the points to fit. Empty `jet_wps`/`ele_wps`: every (era, WP pair) for which the `histograms` stage of the run made shapes of both configs |
+| `steps` | `[fit, postfit, plots, corrections, summary]` | `fit`: mumu datacards + MultiDimFit; `postfit`: FitDiagnostics, post-fit shapes; `plots`; `corrections`: `createroot_TES` ROOT and JSON; `summary` (once per era): grids, merged JSON, NLL profiles, combined TES+ID file |
+| `impacts` | `true` | impacts in the `postfit` step (slow) |
+| `timeout` | `null` | seconds per command |
+
+Artifact per point: `{kind: fit, era, jet_wp, ele_wp, output_dir, postfit_dir, values, corrections}`, where
+`values` are the fitted `{region, poi, value, low, high}` (read from `FitparameterValues_*.txt`); `taufw.py status`
+shows them as a table. With `summary`: `{kind: corrections, era, path}` (the merged JSON).
+
+### Known limitations of the local stages
+
+These come from the wrapped scripts; they will go away when the Plotter and Fitter are cleaned up behind the same
+APIs.
+- The scripts write into `Plotter/` and `Fitter/` (`plots/`, `input_pt_less_region/`, `output_*`, `postfit_*`,
+  `tau_sf/`, ...). These folders are shared: runs overwrite each other, and two runs at the same time clash.
+  `run.json` records paths, not copies. The `summary` step uses every working point found on disk.
+- The pico tuples are found through `$PICODIR` of `PicoProducer/config/config.json`; the recipe's `pico.config` is
+  not used by the scripts (a warning says so when they differ). The TES, LTF and JTF variation tuples need their own
+  PicoProducer channels (e.g. `mutau_TES0p950`) and, today, their own production runs.
+- A local stage cannot be resumed half way: a `FAILED` stage is final, and Ctrl+C leaves it `NEW` with partial
+  outputs. A full working point scan keeps one `advance` busy for hours.
+- Only the uncorrelated DeepTau variant of option 3 is wrapped (not `corrTES`, `fullcorr`, PNet or UParT).
 
 ## Run directory
 
@@ -179,6 +258,9 @@ Fitter have public APIs. Declared options: `histograms`: `variables`, `selection
 taufw_runs/<name>_<YYYYmmdd-HHMMSS>/
   run.json    the run record (below)
   run.log     plain-text copy of the messages of every start/advance
+  plots/, histograms/, fit/
+              one log per command of the local stages: NN_<label>.log (header with cwd and command line,
+              the command's output, footer with exit code, duration and missing outputs)
 ```
 
 `run.json` (schema 1):
@@ -207,20 +289,26 @@ taufw_runs/<name>_<YYYYmmdd-HHMMSS>/
 | `python/reporting.py` | `Reporter` (interface), `FrameworkReporter` (terminal + `run.log`), `SilentReporter`; adapter for PicoProducer's messages |
 | `python/defaults.py` | shared defaults: `taufw_runs`, `run.json`, `run.log`, the polling interval (600 s), the time format |
 | `python/interactive.py` | the Framework side of the console menu (recipe/run discovery, dispatch to the commands) |
-| `python/stages/base.py` | the stage contract: `Stage`, `StageState`, `StageOutcome`, `StageNotImplemented` |
+| `python/stages/base.py` | the stage contract: `Stage`, `StageState`, `StageOutcome`, `StageContext`, `StageNotImplemented`, `PreflightError` |
 | `python/stages/production.py` | `ProductionStage` and the pure `decide_next` policy |
-| `python/stages/histograms.py`, `fit.py` | placeholders with declared contracts |
+| `python/stages/local.py` | `LocalStage`: preflight, run the commands, `DONE` or `FAILED` (log tail) |
+| `python/stages/plots.py`, `histograms.py`, `fit.py` | the local stages and their specs (`fit.py` also picks the working points) |
 | `scripts/taufw.py` | the command line (no logic: argparse → `Framework`) |
-| `recipes/example_mutau.yml` | documented example recipe |
+| `recipes/example_mutau.yml` | documented example recipe: production, then control plots |
+| `recipes/tes_id_2025.yml` | the TES + tau ID fit on existing tuples: plots, histograms, fit |
 
-Dependencies point one way: `Framework → PicoProducer.api` (later also Plotter/Fitter APIs). No other package
-imports the Framework. The Framework imports PicoProducer only when a production stage is built, so recipes,
-run records and the stage logic can be tested without ROOT.
+Dependencies point one way: `Framework → PicoProducer.api, Plotter.api, Fitter.api`. No other package imports the
+Framework. The Framework imports each API only when its stage is built, and the Plotter and Fitter APIs never import
+ROOT (they run the scripts as separate processes, through `TauFW.Utilities.Process`), so recipes, run records and the
+stage logic can be tested without ROOT.
 
 ## Tests
 
 - `python -m unittest discover -s Tests/Framework` (any Python 3.9+, no ROOT): the state machine with a fake
-  PicoProducer (submit, wait, resubmit until `max_tries`, merge, placeholder stages, errors), `decide_next`,
-  `run.json` round trip and crash-safe save, recipe validation, and `taufw.py`.
+  PicoProducer (submit, wait, resubmit until `max_tries`, merge, not-implemented stages, errors), `decide_next`,
+  `run.json` round trip and crash-safe save, recipe validation, and `taufw.py`; the local stages with fake Plotter
+  and Fitter APIs (`test_stages.py`: the whole pipeline, preflight, failures, fit points, planned artifacts).
+- `Tests/Fitter/api`, `Tests/Plotter/api`: the commands of the APIs equal those of `run_inputs.sh`,
+  `run_workflow_zmm.sh` and `plot.py`, and outputs are checked (fake process runner, no ROOT).
 - BBB case `framework.production` (lxplus): `taufw.py plan/start/advance/status` against the fake HTCondor of the
   PicoProducer BBB harness, with a resubmission and a merge; snapshots the normalized `run.json` and the merged tuples.

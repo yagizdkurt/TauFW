@@ -85,14 +85,9 @@ def find_boost_params(fit_result_file, poi1_name, poi2_name, threshold=0):
 # Generating the datacards for mutau channel
 def generate_datacards_mutau(era, config, extratag,input_dir):
     print(' >>>>>> Generating datacards for mutau channel')
-    # Accept input_file as an optional argument for the root file
-    input_file = None
-    if 'input_file' in locals() or 'input_file' in globals():
-        input_file = locals().get('input_file', None) or globals().get('input_file', None)
-    if input_file:
-        os.system("python3 TauES_ID/harvestDatacards_TES_idSF_MCStat.py -y %s -c %s -e %s -i %s --input_file %s" % (era, config, extratag, input_dir, input_file))
-    else:
-        os.system("python3 TauES_ID/harvestDatacards_TES_idSF_MCStat.py -y %s -c %s -e %s -i %s" % (era, config, extratag, input_dir))
+    # BUGS F04: an `input_file` lookup in locals()/globals() was removed here; it never found a value (and
+    # harvestDatacards_TES_idSF_MCStat.py has no --input_file option), so the datacards always came from input_dir
+    os.system("python3 TauES_ID/harvestDatacards_TES_idSF_MCStat.py -y %s -c %s -e %s -i %s" % (era, config, extratag, input_dir))
 
 # Generating the datacards for mumu channel
 def generate_datacards_mumu(era, config_mumu, extratag, output_dir):
@@ -420,12 +415,15 @@ def run_combined_fit(setup, setup_mumu, option, **kwargs):
                         nuis_seeds.append((bname, v))
 
                     with open(param_file, "w") as pf:
+                        # BUGS F05: a missing 1-sigma interval (None) is left out instead of raising TypeError
                         pf.write(f"tes_{r}: {tes_val:.6f}\n")
-                        pf.write(f"tes_{r}_1sigma_low: {tes_low:.6f}\n")
-                        pf.write(f"tes_{r}_1sigma_high: {tes_high:.6f}\n")
+                        if tes_low is not None:
+                            pf.write(f"tes_{r}_1sigma_low: {tes_low:.6f}\n")
+                            pf.write(f"tes_{r}_1sigma_high: {tes_high:.6f}\n")
                         pf.write(f"tid_SF_{r}: {tid_val:.6f}\n")
-                        pf.write(f"tid_SF_{r}_1sigma_low: {tid_low:.6f}\n")
-                        pf.write(f"tid_SF_{r}_1sigma_high: {tid_high:.6f}\n")
+                        if tid_low is not None:
+                            pf.write(f"tid_SF_{r}_1sigma_low: {tid_low:.6f}\n")
+                            pf.write(f"tid_SF_{r}_1sigma_high: {tid_high:.6f}\n")
                         for bname, v in nuis_seeds:
                             pf.write(f"{bname}: {v:.6f}\n")
                     print(f"[INFO] Parameter values written to {param_file} ({len(nuis_seeds)} nuisances seeded)")
@@ -630,7 +628,7 @@ if __name__ == '__main__':
     parser.add_argument('-cmm', '--config_mumu', dest='config_mumu', type=str, default='None', action='store', help="set config file containing sample & fit setup")
     parser.add_argument('--mumu_datacard_file', dest='mumu_datacard_file', type=str, default=None, help="Path to the mumu datacard file to use (if not generating)")
     parser.add_argument('-i', '--input_dir', dest='input_dir', type=str, help="inputdir containing root files for datacard")
-    parser.add_argument('--input_file', dest='input_file', type=str, required=True, help="Path to the input root file")
+    # BUGS F04: --input_file (required, but never used) was removed
     args = parser.parse_args()
 
     main(args)

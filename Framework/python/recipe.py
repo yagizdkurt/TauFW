@@ -8,7 +8,8 @@
         eras: [2022_postEE]
         channels: [mutau]
         samples: ["DY*", "TT*"]
-      - stage: histograms             # placeholder: reported NOT_IMPLEMENTED
+      - stage: plots                  # options: see PlotSpec (stages/plots.py); then histograms, fit
+        eras: [2022_postEE]
 
 An error names the file and the key, e.g. "recipe.yml: stages[0] (production): unknown option 'samplez'".
 

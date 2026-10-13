@@ -2,6 +2,7 @@
 # Author: Izaak Neutelings (August 2020)
 # Description: Create input histograms for datacards
 #   ./createinputs.py  -y UL2017 -c <config>
+import os
 import sys
 from collections import OrderedDict
 sys.path.append("../Plotter/") # for config.samples
@@ -305,7 +306,7 @@ def main(args):
             run_plotinputs_all(fname,varprocs,obs_region_groups,text=text,
                        pname=pname,tag=tag,group=groups, parallel=parallel)
             rebinning(fname, obs=obs_region_groups[0][0].filename, tag=tag) 
-            fname = fname.split('/')[0] + '/rebinning/' + fname.split('/')[-1]
+            fname = os.path.join(os.path.dirname(fname), 'rebinning', os.path.basename(fname))  # BUGS F07: was <outbase>/rebinning/
         else:
             print("WARNING: No observable/region groups found. Skipping plotting.")
         plotdir   = ensuredir(plotdir,"rebinning")

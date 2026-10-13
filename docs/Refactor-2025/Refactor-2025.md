@@ -21,6 +21,7 @@ Sections are in the order the work was done. Each lists the relevant commits.
 | 9 | [Plotter cleanup: legacy area](#9-plotter-cleanup-legacy-area) | 2026-10-13 |
 | 10 | [PicoProducer cleanup, Part 5: public API, command line, workers](#10-picoproducer-cleanup-part-5-public-api-command-line-workers) | 2026-10-13 |
 | 11 | [Framework: the TauFW orchestrator (Part F)](#11-framework-the-taufw-orchestrator-part-f) | 2026-10-13 |
+| 12 | [Framework: plots, histograms and fit stages (Part G)](#12-framework-plots-histograms-and-fit-stages-part-g) | 2026-10-13 |
 
 The reference environment for all of this is `CMSSW_14_1_0_pre4` (Python 3.9, ROOT 6.30).
 
@@ -954,3 +955,86 @@ production state lived only in PicoProducer's job configs. The new top-level pac
 - On Windows, an integration run of the real `Framework` with the real `PicoProducer` API (fake catalog, storage and
   scheduler) went through submit → resubmit → merge → `BLOCKED` with the expected artifacts and `run.log`.
 
+---
+
+## 12. Framework: plots, histograms and fit stages (Part G)
+
+**Date:** 2026-10-13
+**Details:** [Framework/README.md](../../Framework/README.md), [Fitter/docs/BUGS.md](../../Fitter/docs/BUGS.md),
+[Plotter/docs/BUGS.md](../../Plotter/docs/BUGS.md)
+
+After Part F only the production stage ran; `histograms` and `fit` were placeholders. To have a working framework
+to test now, the Framework is connected to the Plotter and Fitter **as they are**: their existing scripts are run
+with the arguments analysts use today, behind small public APIs. The modules are cleaned up later behind the same
+APIs, without changing the Framework. The wrapped workflow is the combined TES + TauID fit (`Fitter/run_inputs.sh`
+and `Fitter/run_workflow_zmm.sh`, option 3), plus control plots with `Plotter/plot.py`.
+
+### What changed
+
+- **`TauFW.Utilities.Process`** (new): `Command`, `CommandResult`, `ProcessRunner`. Runs commands one after the
+  other without a shell, one log file per command, and stops at the first failure. A command is ok only if it exits
+  with 0 **and** writes every expected output (modified after it started): the Fitter scripts run `combine` through
+  `os.system` and ignore its exit code, and their output folders are shared by all runs.
+- **`TauFW.Fitter.api`** (new, `Fitter/python/api/`): `TauESID` with `plan_shapes`/`make_shapes`/`preflight_shapes`
+  (= `run_inputs.sh`) and `plan_fit`/`fit`/`preflight_fit` (= `run_workflow_zmm.sh`: datacards, MultiDimFit,
+  FitDiagnostics and post-fit shapes, plots, correction files, and once per era the summary). The commands are
+  pure data (tested against the shell scripts word for word); `read_fit_values` parses `FitparameterValues_*.txt`.
+- **`TauFW.Plotter.api`** (new, `Plotter/python/api/`): `ControlPlots` with `plan`/`make`/`preflight` around
+  `plot.py`.
+- **Stage context** (`Framework/python/stages/base.py`): every stage now gets a `StageContext` (run directory,
+  artifacts of the `DONE` stages before it); signatures are `plan(spec, context)` and
+  `advance(spec, stage_record, reporter, context)`. `plan()` passes the planned artifacts forward, so the fit plan
+  already shows the working points of the histograms plan. `PreflightError`: an environment that is not ready
+  (no `cmsenv`, `combine` missing, ...) leaves the stage `NEW` with the reason as its message.
+- **Local stages** (`stages/local.py`, `plots.py`, `histograms.py`, `fit.py`): `NEW → DONE` or `FAILED` in one
+  `advance`. Logs go to `<run dir>/<stage>/NN_<label>.log`; `run.json` lists every command with exit code and
+  duration; a failure prints the last 20 log lines. The fit takes its working points from the recipe or from the
+  shapes of the histograms stage. Stage order: `production, plots, histograms, fit`; any subset is allowed.
+- **`taufw.py`:** `plan` shows the commands of the local stages as a table, with preflight problems as warnings;
+  `status` shows the fitted values; every unfinished run gets the "Continue with" hint.
+- **Recipes:** new `Framework/recipes/tes_id_2025.yml` (plots, histograms, fit on existing tuples);
+  `example_mutau.yml` now ends with a `plots` stage instead of the old histograms placeholder.
+- **Repository:** `.gitignore` keeps `Fitter/python/api/__init__.py` and `Plotter/python/api/__init__.py`; the menu
+  help (`Utilities/python/Menu/faq.py`) describes the stages; "Public API" sections in the Fitter and Plotter
+  READMEs.
+
+### Bugs fixed on the wrapped path
+
+New registers `Fitter/docs/BUGS.md` and `Plotter/docs/BUGS.md` (same policy as PicoProducer; `# BUGS <ID>` at the
+changed lines).
+
+| ID | Fix |
+| --- | --- |
+| F01 | `run_workflow_zmm.sh`: `merge_tau_jsons.py -y $YEAR` (the default 2024 made the 2025 merge find nothing) |
+| F02 | `run_workflow_zmm.sh`: `make_tid_2025.py -y $YEAR` |
+| F03 | `run_inputs.sh` (and `_2526`, `_pnet`): the mutau exit status is read right after its pipe; a mumu failure counts too |
+| F04 | `makecombinedfitTES_SF.py`: the dead `input_file` lookup and the required-but-unused `--input_file` are removed; callers updated |
+| F05 | `makecombinedfitTES_SF.py`: no 1-sigma interval no longer raises `TypeError` (the parameter file is written) |
+| F06 | `makecombinedfitTES_SF_postfit.py`: `--impacts` / `--impacts-parallel` are honored; `run_workflow_zmm.sh` passes `--impacts` |
+| F07 | `createinputsTES.py`: the rebinned file is read where `rebinning.py` writes it (to confirm on lxplus) |
+| L01 | `plot.py`: misspelled DeepTau branch names (`VSVjet`, `VSVSe`) |
+
+Registered only (off the path): F08-F10 (options 4-6 of `makecombinedfitTES_SF.py`), L02 (`fname=` vs `file=` in
+the Plotter sample builders).
+
+### Known limitations
+
+The scripts still write into `Plotter/` and `Fitter/`, shared by all runs; the pico tuples are found through
+`$PICODIR` of `PicoProducer/config/config.json`; a local stage cannot resume half way; only the uncorrelated DeepTau
+variant of option 3 is wrapped. See the Framework README.
+
+### Tests
+
+- `Tests/Utilities/test_process.py` (10): logs, exit codes, expected and stale outputs, timeout, missing program,
+  stop at the first failure.
+- `Tests/Fitter/api` (14), `Tests/Plotter/api` (5): the API commands equal `run_inputs.sh`, `run_workflow_zmm.sh`
+  and `plot.py` command lines; missing outputs fail although the exit code is 0; preflight; fit values.
+- `Tests/Framework/test_stages.py` (16): the whole pipeline after production with fake APIs, preflight leaves the
+  stage `NEW` and a later `advance` continues, a failed command fails the stage (log tail), fit points from the
+  recipe or the shapes, planned artifacts, spec validation, `taufw.py plan`. `test_framework.py` updated for the new
+  signatures. `Tests/run.py` runs the two new API suites with the unit checks.
+- BBB `framework.production`: its recipe no longer has the histograms placeholder (the local stages run scripts and
+  are not part of BBB). Its snapshot changes on purpose (the plan has no histograms stage, the run ends `DONE`
+  instead of `BLOCKED`): re-lock on lxplus with `python3 Tests/run.py bbb lock --replace --case framework.production`.
+- On lxplus (to do): `taufw.py plan Framework/recipes/tes_id_2025.yml`, then a VTight/Tight run compared with the
+  shell scripts in a clean copy (`FitparameterValues__mutau_*`, `tau_sf/*VSjetVTight_VSeleTight*`).

@@ -35,7 +35,8 @@ FAQ = (
      "live job counts without advancing or saving. Refresh checks again. "
      "NEW means unstarted; RUNNING means work in progress; WAITING means jobs "
      "are submitted or running; DONE means all stages finished; FAILED means "
-     "a stage failed; BLOCKED means a requested stage is not implemented."),
+     "a stage failed; BLOCKED means a requested stage is not implemented. "
+     "Inspect also lists the fitted values of a finished fit."),
 
     ("Retries", 
      "Production waits until pending jobs finish before resubmitting "
@@ -43,11 +44,13 @@ FAQ = (
      "submissions, including the first. FAILED runs are terminal; Continue "
      "does not reset the retry limit."),
 
-    ("Placeholder stages", 
-     "Production is implemented through PicoProducer. "
-     "Histograms and fit are placeholders. A recipe containing them stops as "
-     "BLOCKED after earlier stages finish. Earlier results remain available. "
-     "The bundled example includes histograms."),
+    ("Stages",
+     "Production runs on the batch system through PicoProducer. Plots, "
+     "histograms and fit run the Plotter and Fitter scripts on this machine "
+     "and finish within one Continue, which can take hours for the fit. "
+     "A stage that is not ready (no cmsenv, combine missing) stays NEW with "
+     "the reason as its message; fix it and Continue. Logs are in the run "
+     "directory, one folder per stage. Outputs stay in Plotter/ and Fitter/."),
 
     ("CLI equivalents", 
      "taufw.py plan RECIPE previews; taufw.py start RECIPE "

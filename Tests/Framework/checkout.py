@@ -1,4 +1,5 @@
-"""Import TauFW.Framework and TauFW.Utilities from this checkout, with or without CMSSW (no PicoProducer, no ROOT)."""
+"""Import TauFW.Framework, TauFW.Utilities and the Fitter/Plotter APIs from this checkout, with or without CMSSW
+(no PicoProducer, no ROOT)."""
 import importlib.util
 from pathlib import Path
 import sys
@@ -24,4 +25,10 @@ if "TauFW" not in sys.modules:
 for _name in ("Utilities", "Framework"):
     if "TauFW." + _name not in sys.modules:
         _package("TauFW." + _name, REPO / _name / "python")
+for _name in ("Fitter", "Plotter"):  # no tracked __init__.py (SCRAM generates it): namespace modules for their api/
+    if "TauFW." + _name not in sys.modules:
+        _namespace = types.ModuleType("TauFW." + _name)
+        _namespace.__path__ = [str(REPO / _name / "python")]
+        sys.modules["TauFW." + _name] = _namespace
+        setattr(sys.modules["TauFW"], _name, _namespace)
 TAUFW_SCRIPT = REPO / "Framework" / "scripts" / "taufw.py"

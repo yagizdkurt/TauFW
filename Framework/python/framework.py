@@ -15,13 +15,17 @@ Pipeline map:
                  │          │            │
               RunPlan   RunRecord     RunRecord (saved after every stage step)
 
-    stage order: production ─▶ histograms (placeholder) ─▶ fit (placeholder)
+    stage order: production ─▶ plots ─▶ histograms ─▶ fit   (a recipe may leave stages out)
+                 production runs on the batch system (PicoProducer API); plots, histograms and fit run their
+                 module's scripts locally (Plotter and Fitter APIs) and finish inside one advance() call.
     run model:   stepwise. start() and advance() move the run as far as they can (until a stage waits for the
-                 batch system, fails, or is not implemented), save run.json and return. advance(wait=True)
-                 repeats this every `poll` seconds until the run no longer waits.
+                 batch system, fails, is not ready or is not implemented), save run.json and return.
+                 advance(wait=True) repeats this every `poll` seconds until the run no longer waits.
+    stage data:  every stage gets a StageContext: the run directory (its logs go to <run_dir>/<stage>/) and
+                 the artifacts of the DONE stages before it (production's tuples, the histograms' shapes).
 
 Public API:
-  Framework.from_recipe(recipe_or_path, reporter) / Framework.from_record(record, reporter)
+  Framework.from_recipe(recipe_or_path, reporter, pico, fitter, plotter) / Framework.from_record(record, ...)
   plan, start, advance, run, status           pipelines
   load_run(run_dir)                           the RunRecord of a run directory
   RunPlan, RunSummary, StageSummary           records (bottom of this file)
@@ -35,7 +39,8 @@ from TauFW.Framework.defaults import (DEFAULT_RUN_ROOT, RUN_LOG_NAME, DEFAULT_PO
 from TauFW.Framework.recipe import Recipe
 from TauFW.Framework.run_record import RunRecord, RunState
 from TauFW.Framework.reporting import FrameworkReporter
-from TauFW.Framework.stages import STAGES, StageState, StageNotImplemented, ProductionStage
+from TauFW.Framework.stages import (STAGES, StageState, StageContext, StageNotImplemented, PreflightError,
+                                    ProductionStage, PlotStage, HistogramStage, FitStage)
 
 __all__ = ['Framework', 'RunPlan', 'StagePlan', 'RunSummary', 'StageSummary', 'load_run',
            'RUN_LOG_NAME', 'DEFAULT_RUN_ROOT']
@@ -57,7 +62,7 @@ class Framework:
                     run(recipe=None, run_root, wait, poll)    -> RunRecord   start(), then advance() while waiting
                     status(record)                            -> RunSummary  read-only: saved and live state
     Stage dispatch: _advance_stages, _advance_stage, _apply, _stage_for
-    Construction:   from_recipe(recipe_or_path, reporter, pico); from_record(record, reporter, pico);
+    Construction:   from_recipe(recipe_or_path, reporter, pico, fitter, plotter); from_record(record, ...);
                     Framework(recipe, stages, reporter, files, sleep, clock)
 
     Naming used below: a `stage_spec` is one stage of the recipe (a StageSpec: its name and options), and a
@@ -68,14 +73,18 @@ class Framework:
     # =============================== PIPELINES ===============================
 
     def plan(self, recipe=None):
-        """What each stage would do, without changing anything. Placeholder stages are listed as not implemented."""
+        """What each stage would do, without changing anything. Placeholder stages are listed as not implemented.
+        Each stage sees the artifacts that the stages before it plan to make (e.g. the fit sees the planned
+        shapes), so the plan of a whole recipe is complete before anything runs."""
         recipe = recipe or self.recipe
-        plans = []
+        plans, planned = [], {}
         for stage_spec in recipe.stages:
+            context = StageContext(upstream=dict(planned), pico_config=recipe.pico_config)
             try:
-                stage_plan = self._stage_for(stage_spec.stage).plan(stage_spec.spec)
+                stage_plan = self._stage_for(stage_spec.stage).plan(stage_spec.spec, context)
                 plans.append(StagePlan(stage=stage_spec.stage, plan=stage_plan))
-            except StageNotImplemented as err:
+                planned[stage_spec.stage] = tuple(getattr(stage_plan, 'artifacts', ()) or ())
+            except (StageNotImplemented, PreflightError) as err:  # placeholder, or cannot be planned yet
                 plans.append(StagePlan(stage=stage_spec.stage, plan=None, note=str(err)))
         return RunPlan(name=recipe.name, stages=tuple(plans))
 
@@ -140,6 +149,8 @@ class Framework:
           - FAILED, NOT_IMPLEMENTED:  stop; this stage can never move again.
           - waiting for jobs:         take one step (a status check). If the stage still waits, stop: advance()
                                       must be called again later.
+          - not ready (PreflightError): stop; the stage keeps its state, the reason is in its message and
+                                      history, and advance() can be called again once it is fixed.
           - otherwise:                take a step and look again.
         A stage that has not settled after MAX_STEPS steps also stops the call (a safety net).
         run.json is saved after every step, so a crash never loses a step that was done.
@@ -155,7 +166,10 @@ class Framework:
                 if step > 0 and state.waiting:
                     return  # already checked once in this call: come back later
                 try:
-                    outcome = self._advance_stage(stage_spec, stage_record)
+                    outcome = self._advance_stage(stage_spec, stage_record, self._context(record, stage_spec))
+                except PreflightError:
+                    record.save(self.files)  # not ready: the reason is in the stage's message and history
+                    return
                 except Exception:
                     record.save(self.files)  # keep the error in the stage's history; the state is unchanged
                     raise
@@ -166,15 +180,21 @@ class Framework:
             else:
                 return  # MAX_STEPS reached without settling: stop here
 
-    def _advance_stage(self, stage_spec, stage_record):
+    def _advance_stage(self, stage_spec, stage_record, context):
         """One step of one stage. If the stage raises an error, the error is written to the stage's history (the
-        state is not changed) and raised again."""
+        state is not changed) and raised again. A PreflightError (environment not ready) also becomes the stage's
+        message."""
         stage = self._stage_for(stage_spec.stage)
         if stage_record.request is None and hasattr(stage_spec.spec, 'request_dict'):
             stage_record.request = stage_spec.spec.request_dict()  # save the request once, for run.json
         self.reporter.header("Stage %s (%s)" % (stage_spec.stage, stage_record.state))
         try:
-            return stage.advance(stage_spec.spec, stage_record, self.reporter)
+            return stage.advance(stage_spec.spec, stage_record, self.reporter, context)
+        except PreflightError as err:
+            stage_record.message = "not ready: %s" % (err)
+            stage_record.log('preflight', str(err), time=self._now())
+            self.reporter.warning("Stage %s is not ready: %s" % (stage_spec.stage, err))
+            raise
         except Exception as err:
             stage_record.log('error', "%s: %s" % (type(err).__name__, err), time=self._now())
             self.reporter.warning("Stage %s raised %s: %s" % (stage_spec.stage, type(err).__name__, err))
@@ -197,6 +217,18 @@ class Framework:
         report = self.reporter.warning if outcome.state is StageState.FAILED else self.reporter.message
         report("Stage %s: %s%s" % (stage_record.name, outcome.state.value,
                                    " - " + outcome.message if outcome.message else ""))
+
+    def _context(self, record, stage_spec):
+        """The StageContext of one stage: the run directory, and the artifacts of the DONE stages before it."""
+        upstream = {}
+        for earlier in self._recipe_of(record).stages:
+            if earlier.stage == stage_spec.stage:
+                break
+            earlier_record = record.stage(earlier.stage)
+            if StageState(earlier_record.state) is StageState.DONE:
+                upstream[earlier.stage] = tuple(earlier_record.artifacts)
+        return StageContext(run_dir=record.run_dir, upstream=upstream,
+                            pico_config=(record.pico_config or {}).get('path'))
 
     def _stage_for(self, name):
         """The Stage object for a stage name."""
@@ -225,25 +257,35 @@ class Framework:
     # ======================= CONSTRUCTION & LIFECYCLE ========================
 
     @classmethod
-    def from_recipe(cls, recipe, reporter=None, pico=None):
+    def from_recipe(cls, recipe, reporter=None, pico=None, fitter=None, plotter=None):
         """recipe: a Recipe, or the path of a recipe file.
-        pico: the PicoProducer to use (default: one built from the recipe's pico.config, reporting through the
-        Framework's reporter). Only reads files."""
+        pico:    the PicoProducer to use (default: one built from the recipe's pico.config, reporting through the
+                 Framework's reporter).
+        fitter:  the Fitter API of the histograms and fit stages (default: TauFW.Fitter.api.TauESID()).
+        plotter: the Plotter API of the plots stage (default: TauFW.Plotter.api.ControlPlots()).
+        Only the APIs of the stages in the recipe are built. Only reads files."""
         if isinstance(recipe, str):
             recipe = Recipe.load(recipe)
         reporter = reporter or FrameworkReporter()
         stages = {}
         for stage_spec in recipe.stages:
-            if stage_spec.stage == 'production':
-                stages['production'] = ProductionStage(pico or _picoproducer(recipe, reporter))
+            name = stage_spec.stage
+            if name == 'production':
+                stages[name] = ProductionStage(pico or _picoproducer(recipe, reporter))
+            elif name == 'plots':
+                stages[name] = PlotStage(plotter or _plotter())
+            elif name in ('histograms', 'fit'):
+                fitter = fitter or _fitter()
+                stages[name] = HistogramStage(fitter) if name == 'histograms' else FitStage(fitter)
             else:
-                stages[stage_spec.stage] = STAGES[stage_spec.stage]()
+                stages[name] = STAGES[name]()
         return cls(recipe, stages, reporter=reporter)
 
     @classmethod
-    def from_record(cls, record, reporter=None, pico=None):
+    def from_record(cls, record, reporter=None, pico=None, fitter=None, plotter=None):
         """A Framework that continues a run, with the recipe saved in its run.json."""
-        return cls.from_recipe(Recipe.from_dict(record.recipe, source=record.run_id), reporter=reporter, pico=pico)
+        return cls.from_recipe(Recipe.from_dict(record.recipe, source=record.run_id), reporter=reporter, pico=pico,
+                               fitter=fitter, plotter=plotter)
 
     def __init__(self, recipe, stages, reporter=None, files=None, sleep=None, clock=None):
         """All services can be passed in (the tests pass fakes). Creating a Framework never writes, submits or
@@ -327,3 +369,15 @@ def _picoproducer(recipe, reporter):
     without PicoProducer and ROOT."""
     from TauFW.PicoProducer.api import PicoProducer
     return PicoProducer.from_config(recipe.pico_config, reporter=reporter.pico_reporter('production'))
+
+
+def _fitter():
+    """The Fitter API of the histograms and fit stages (imported only here; it does not import ROOT)."""
+    from TauFW.Fitter.api import TauESID
+    return TauESID()
+
+
+def _plotter():
+    """The Plotter API of the plots stage (imported only here; it does not import ROOT)."""
+    from TauFW.Plotter.api import ControlPlots
+    return ControlPlots()

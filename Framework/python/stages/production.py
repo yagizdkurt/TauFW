@@ -96,8 +96,9 @@ class ProductionStage(Stage):
     # =========================================================================
     # =============================== PIPELINE ================================
 
-    def advance(self, spec, stage_record, reporter):
-        """One step, starting from stage_record.state (see the table at the top of this file)."""
+    def advance(self, spec, stage_record, reporter, context=None):
+        """One step, starting from stage_record.state (see the table at the top of this file). The context is not
+        needed: PicoProducer keeps its own job directories."""
         state = StageState(stage_record.state)
         request = self.request(spec)
         if state is StageState.NEW:
@@ -108,7 +109,7 @@ class ProductionStage(Stage):
             return self._merge(spec, request)
         return StageOutcome(state, "nothing to do (%s)" % (state.value))
 
-    def plan(self, spec):
+    def plan(self, spec, context=None):
         """The JobPlan of the first submission (nothing is written)."""
         return self.pico.plan(self.request(spec))
 

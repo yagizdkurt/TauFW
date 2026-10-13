@@ -14,6 +14,8 @@ __init__.py
 !Utilities/python/**/__init__.py
 !PicoProducer/python/**/__init__.py
 !Framework/python/**/__init__.py
+!Fitter/python/api/__init__.py
+!Plotter/python/api/__init__.py
 taufw_runs/
 */compare
 config.json

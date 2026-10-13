@@ -19,15 +19,16 @@ for JET_WP in "${J_VALUES[@]}"; do
 
     echo "=== Step 1: Running MultiDimFit ==="
     python3 TauES_ID/harvestDatacards_zmm.py -y $YEAR -c $CONFIG_MM -i ${BASE_INPUT}/ -o ${BASE_OUTPUT}/$YEAR/
+    # BUGS F04: --input_file was required but ignored, and is gone
     python3 TauES_ID/makecombinedfitTES_SF.py -y $YEAR -c $CONFIG_TT -i ${BASE_INPUT}/ \
-      --input_file ${BASE_INPUT}/ztt_mt_tes_m_vis.inputs-$YEAR-13TeV_mutau.root \
       -o 3 --mumu_datacard_file ${BASE_OUTPUT}/$YEAR/ztt_mm_m_vis-baseline_mumu-$YEAR-13TeV.txt \
       2>&1 | tee step1_multidimfit_${JET_WP}_${ELE_WP}.log
 
     echo "=== Step 2: Running FitDiagnostics + PostFit ==="
     python3 TauES_ID/makecombinedfitTES_SF_postfit.py -y $YEAR -c $CONFIG_TT --indir ${BASE_OUTPUT}/ -o 3 \
       --mumu_input_file ${BASE_OUTPUT}/$YEAR/ztt_mm_m_vis-baseline_mumu-$YEAR-13TeV.txt \
-      -cmm $CONFIG_MM --jet_wp ${JET_WP} --ele_wp ${ELE_WP} 2>&1 | tee step2_postfit_${JET_WP}_${ELE_WP}.log
+      -cmm $CONFIG_MM --jet_wp ${JET_WP} --ele_wp ${ELE_WP} --impacts 2>&1 | tee step2_postfit_${JET_WP}_${ELE_WP}.log
+    # BUGS F06: impacts now run only with --impacts (they always ran before), so it is passed here
 
     echo "=== Step 3: Running Plots ==="
     python3 python/plot/runpostfit.py -c $CONFIG_TT -j ${JET_WP} -e ${ELE_WP} -y $YEAR --include-cr \
@@ -51,13 +52,13 @@ python3 make_measurements_grid.py
 
 # Merge all JSON correction files
 echo "=== Merging all JSON correction files ==="
-python3 merge_tau_jsons.py --type both -o tau_sf/TauCorrections_$YEAR.json
+python3 merge_tau_jsons.py --type both -o tau_sf/TauCorrections_$YEAR.json -y $YEAR  # BUGS F01: -y (default 2024)
 
 echo "=== Plotting 1D profile NLLs from 2D MultiDimFit outputs ==="
 python3 plot1D_NLL_profiles.py --year $YEAR
 
 echo "=== Building combined TauEnergy_SF + TauID_SF with per-(DM, pT-bin) uncorrelated systs ==="
-python3 make_tid_2025.py
+python3 make_tid_2025.py -y $YEAR  # BUGS F02: -y (default 2025)
 
 echo "All workflows completed successfully!"
 

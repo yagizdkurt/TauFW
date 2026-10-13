@@ -141,3 +141,153 @@ class FakePicoProducer:
 
     def names(self):
         return [c[0] for c in self.calls]
+
+
+# =============================================================================
+# ===================== FAKE MODULE APIS OF THE LOCAL STAGES ==================
+
+
+@dataclass(frozen=True)
+class Command:
+    label: str
+    argv: Tuple[str, ...] = ()
+    cwd: str = "/fake"
+
+
+@dataclass(frozen=True)
+class Result(_Record):
+    label: str
+    returncode: int = 0
+    missing: Tuple[str, ...] = ()
+    log: str = ""
+    seconds: float = 1.0
+
+    @property
+    def ok(self):
+        return self.returncode == 0 and not self.missing
+
+
+@dataclass(frozen=True)
+class CommandPlan:
+    cwd: str
+    commands: Tuple[Command, ...]
+    artifacts: Tuple[dict, ...] = ()
+    notes: Tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class RunReport:
+    results: Tuple[Result, ...]
+    total: int
+    artifacts: Tuple[dict, ...] = ()
+
+    @property
+    def ok(self):
+        return len(self.results) == self.total and all(r.ok for r in self.results)
+
+    @property
+    def failed(self):
+        return next((r for r in self.results if not r.ok), None)
+
+
+@dataclass
+class _FakeLocalAPI:
+    """problems: returned by every preflight; fail: label of the command that fails (exit code 2, log written).
+    Every call is recorded in calls; logdirs records where each run wrote its logs."""
+    problems: Tuple[str, ...] = ()
+    fail: str = None
+    calls: list = field(default_factory=list)
+    logdirs: list = field(default_factory=list)
+    pico_config_source: str = "/repo/PicoProducer/config/config.json"
+
+    def _run(self, plan, logdir, progress):
+        import os
+        self.logdirs.append(logdir)
+        os.makedirs(logdir, exist_ok=True)
+        results = []
+        for index, command in enumerate(plan.commands, 1):
+            progress(index, len(plan.commands), command, None)
+            log = os.path.join(logdir, "%02d.log" % (index))
+            with open(log, "w") as stream:
+                stream.write("".join("line %d\n" % (n) for n in range(30)))
+            result = Result(command.label, returncode=2 if command.label == self.fail else 0, log=log)
+            results.append(result)
+            progress(index, len(plan.commands), command, result)
+            if not result.ok:
+                break
+        report = RunReport(tuple(results), len(plan.commands))
+        return RunReport(report.results, report.total, plan.artifacts if report.ok else ())
+
+    def names(self):
+        return [c[0] for c in self.calls]
+
+    def call(self, name):
+        """The arguments (after the name) of the last call of `name`."""
+        return [c[1:] for c in self.calls if c[0] == name][-1]
+
+
+class FakePlotter(_FakeLocalAPI):
+    @staticmethod
+    def request(**fields):
+        return dict(fields)
+
+    def plan(self, request):
+        self.calls.append(("plan", request))
+        commands = tuple(Command("plots %s %s" % (c, e), ("python3", "plot.py", "-y", e, "-c", c))
+                         for c in request["configs"] for e in request["eras"])
+        artifacts = tuple({"kind": "plots", "era": e, "config": c} for c in request["configs"] for e in request["eras"])
+        return CommandPlan("/repo/Plotter", commands, artifacts)
+
+    def preflight(self, request):
+        self.calls.append(("preflight", request))
+        return self.problems
+
+    def make(self, request, logdir, progress):
+        self.calls.append(("make", request))
+        return self._run(self.plan(request), logdir, progress)
+
+
+class FakeFitter(_FakeLocalAPI):
+    @staticmethod
+    def shapes_request(**fields):
+        return dict(fields)
+
+    @staticmethod
+    def fit_request(**fields):
+        return dict(fields)
+
+    def plan_shapes(self, request):
+        self.calls.append(("plan_shapes", request))
+        commands, artifacts = [], []
+        for era in request["eras"]:
+            for jet in request["jet_wps"]:
+                for ele in request["ele_wps"]:
+                    for config in request["configs"]:
+                        commands.append(Command("shapes %s %s %s %s" % (era, jet, ele, config)))
+                        artifacts.append({"kind": "shapes", "path": "/fit/%s_%s_%s.root" % (era, jet, ele),
+                                          "era": era, "jet_wp": jet, "ele_wp": ele, "config": config})
+        return CommandPlan("/repo/Fitter", tuple(commands), tuple(artifacts))
+
+    def preflight_shapes(self, request):
+        self.calls.append(("preflight_shapes", request))
+        return self.problems
+
+    def make_shapes(self, request, logdir, progress):
+        self.calls.append(("make_shapes", request))
+        return self._run(self.plan_shapes(request), logdir, progress)
+
+    def plan_fit(self, request):
+        self.calls.append(("plan_fit", request))
+        commands = tuple(Command("fit %s %s %s" % point) for point in request["points"])
+        artifacts = tuple({"kind": "fit", "era": era, "jet_wp": jet, "ele_wp": ele,
+                           "values": [{"region": "DM0", "poi": "tes", "value": 0.98, "low": 0.97, "high": 0.99}]}
+                          for era, jet, ele in request["points"])
+        return CommandPlan("/repo/Fitter", commands, artifacts)
+
+    def preflight_fit(self, request, check_shapes=True):
+        self.calls.append(("preflight_fit", request, check_shapes))
+        return self.problems
+
+    def fit(self, request, logdir, progress):
+        self.calls.append(("fit", request))
+        return self._run(self.plan_fit(request), logdir, progress)

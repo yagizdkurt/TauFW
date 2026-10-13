@@ -8,23 +8,35 @@ what it did, and the Framework writes that into the run record.
 
 The states of one stage:
 
+    batch stage (production):
     NEW ─▶ SUBMITTED ─▶ WAITING ─▶ MERGING ─▶ DONE
               ▲  │         │
               └──┴─────────┘ (resubmission)          FAILED, NOT_IMPLEMENTED: final
 
+    local stage (plots, histograms, fit):  NEW ─▶ DONE or FAILED, in one advance() call
+
+A stage also gets a StageContext: the run directory (for its log files) and the artifacts of the stages before
+it, so the histograms stage knows which tuples production made and the fit stage which shapes exist.
+
 Public API:
   StageState           the states above
   StageOutcome         the result of one advance() call
-  Stage                base class: plan(spec), advance(spec, stage_record, reporter), status(spec, stage_record)
+  StageContext         what a stage may know about its run: run directory, artifacts of earlier stages
+  Stage                base class: plan(spec, context), advance(spec, stage_record, reporter, context),
+                       status(spec, stage_record)
   StageNotImplemented  raised by placeholder stages
+  PreflightError       raised by a stage whose environment is not ready (the stage stays NEW)
   SpecError            invalid stage options in a recipe
   spec_from_dict       turns the options written in a recipe into a stage's Spec
+  as_strings, spec_to_dict   small helpers for Spec classes
 """
-from dataclasses import dataclass, fields, MISSING
+from dataclasses import asdict, dataclass, field, fields, MISSING
 from enum import Enum
-from typing import Optional, Tuple
+import os
+from typing import Mapping, Optional, Tuple
 
-__all__ = ['StageState', 'StageOutcome', 'Stage', 'StageNotImplemented', 'SpecError', 'spec_from_dict']
+__all__ = ['StageState', 'StageOutcome', 'StageContext', 'Stage', 'StageNotImplemented', 'PreflightError',
+           'SpecError', 'spec_from_dict', 'as_strings', 'spec_to_dict']
 
 
 # =============================================================================
@@ -73,27 +85,59 @@ class StageOutcome:
 
 
 # =============================================================================
+# ================================== CONTEXT ==================================
+
+
+@dataclass(frozen=True)
+class StageContext:
+    """What a stage may know about its run, besides its own options and record.
+
+    run_dir:     the run directory; a stage writes its log files to stage_dir(name)
+    upstream:    stage name -> artifacts (dicts) of the stages before this one. In advance() these are the
+                 recorded artifacts of DONE stages; in plan() the artifacts the earlier stages plan to make.
+    pico_config: the PicoProducer configuration recorded for the run (path), or None
+    """
+    run_dir:     str = ""
+    upstream:    Mapping[str, Tuple[dict, ...]] = field(default_factory=dict)
+    pico_config: Optional[str] = None
+
+    def artifacts(self, stage=None, kind=None):
+        """The upstream artifacts of one stage (or of all stages), optionally only those of one kind."""
+        stages = [stage] if stage else list(self.upstream)
+        return tuple(artifact for name in stages for artifact in self.upstream.get(name, ())
+                     if kind is None or artifact.get('kind') == kind)
+
+    def stage_dir(self, name):
+        """The directory for the files (logs) of one stage: <run_dir>/<name>."""
+        return os.path.join(self.run_dir, name)
+
+
+# =============================================================================
 # =================================== STAGE ===================================
 
 
 class Stage:
     """Base class of all stages. A subclass sets `name` and `Spec`, and implements plan, advance and status.
 
-    plan(spec)                             -> object        preview of what advance() would do; changes nothing
-    advance(spec, stage_record, reporter)  -> StageOutcome  one step, starting from stage_record.state;
-                                                            never sleeps or loops
-    status(spec, stage_record)             -> object        live status, read-only (None if there is nothing to check)
+    plan(spec, context)                             -> object        preview of what advance() would do;
+                                                                     changes nothing
+    advance(spec, stage_record, reporter, context)  -> StageOutcome  one step, starting from stage_record.state;
+                                                                     never sleeps or loops
+    status(spec, stage_record)                      -> object        live status, read-only (None if there is
+                                                                     nothing to check)
 
     `spec` is always the stage's Spec: the validated options of the stage from the recipe (for example a
-    ProductionSpec). `stage_record` is the StageRecord of this stage in run.json.
+    ProductionSpec). `stage_record` is the StageRecord of this stage in run.json. `context` is a StageContext
+    (None: an empty one). A plan object may have an `artifacts` attribute (dicts): the Framework passes them to
+    the plans of the later stages as their upstream artifacts.
     """
     name = None  # the stage's name, as written in recipes and run.json
     Spec = None  # frozen dataclass with the stage's recipe options; built by spec_from_dict()
 
-    def plan(self, spec):
+    def plan(self, spec, context=None):
         raise StageNotImplemented(self.name)
 
-    def advance(self, spec, stage_record, reporter):
+    def advance(self, spec, stage_record, reporter, context=None):
         raise StageNotImplemented(self.name)
 
     def status(self, spec, stage_record):
@@ -113,6 +157,11 @@ class StageNotImplemented(NotImplementedError):
     def __init__(self, name, reason=""):
         super().__init__("Stage %r is not implemented yet%s" % (name, ": " + reason if reason else ""))
         self.stage = name
+
+
+class PreflightError(RuntimeError):
+    """The environment of a stage is not ready (for example `combine` is not on PATH). Nothing was run: the stage
+    stays NEW, the error is written to its history, and advance() can be called again once it is fixed."""
 
 
 class SpecError(ValueError):
@@ -153,3 +202,15 @@ def spec_from_dict(cls, data, where="stage"):
         missing = [f.name for f in fields(cls)
                    if f.name not in values and f.default is MISSING and f.default_factory is MISSING]
         raise SpecError("%s: missing required option %r" % (where, missing[0] if missing else str(err)))
+
+
+def as_strings(values):
+    """A single value or a list, as a tuple of strings (YAML may give numbers, e.g. eras: [2025])."""
+    if isinstance(values, (str, int, float)):
+        values = (values,)
+    return tuple(str(value) for value in values or ())
+
+
+def spec_to_dict(spec):
+    """A Spec as a JSON-ready dict (tuples become lists), e.g. for the request saved in run.json."""
+    return {key: list(value) if isinstance(value, tuple) else value for key, value in asdict(spec).items()}

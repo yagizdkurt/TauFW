@@ -136,7 +136,7 @@ def execute_scripts(cases, extra_args, quiet=False, tail_lines=80, log_kind="nor
 def check_cases():
     """Standalone checks kept separate from the preserved script inventory."""
     cases = []
-    for directory in ("Utilities", "Framework", "Setup", "PicoProducer/compat"):
+    for directory in ("Utilities", "Framework", "Setup", "PicoProducer/compat", "Fitter/api", "Plotter/api"):
         path = "Tests/" + directory
         command = ["-m", "unittest", "discover", "-s", path, "-p", "test_*.py", "-q"]
         cases.append({"id": "unit." + directory.replace("/", ".").lower(),

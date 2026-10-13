@@ -11,7 +11,7 @@ from unittest import mock
 import checkout  # noqa: F401  (must precede TauFW imports)
 import fakes
 from TauFW.Framework import Framework, Recipe, RecipeError, RunRecord, SilentReporter, StageState
-from TauFW.Framework.stages import ProductionStage, HistogramStage, decide_next, Action
+from TauFW.Framework.stages import ProductionStage, StageOutcome, decide_next, Action
 from TauFW.Framework.stages.production import StatusCounts
 
 RECIPE = {
@@ -35,12 +35,24 @@ class Clock:
         return self.now
 
 
-def framework(pico, recipe=None, histograms=False):
-    data = json.loads(json.dumps(recipe or RECIPE))
-    if histograms:
-        data["stages"].append({"stage": "histograms", "variables": ["m_vis"]})
-    recipe = Recipe.from_dict(data, source="test.yml")
-    stages = {"production": ProductionStage(pico), "histograms": HistogramStage()}
+class NotImplementedStage:
+    """A stub stage that cannot run, like a future placeholder stage."""
+    name = 'plots'
+
+    def plan(self, spec, context=None):
+        from TauFW.Framework.stages import StageNotImplemented
+        raise StageNotImplemented(self.name, "no API yet")
+
+    def advance(self, spec, stage_record, reporter, context=None):
+        return StageOutcome(StageState.NOT_IMPLEMENTED, "no API yet", "not_implemented")
+
+    def status(self, spec, stage_record):
+        return None
+
+
+def framework(pico, recipe=None, stages=None):
+    recipe = Recipe.from_dict(json.loads(json.dumps(recipe or RECIPE)), source="test.yml")
+    stages = dict({"production": ProductionStage(pico)}, **(stages or {}))
     return Framework(recipe, stages, reporter=SilentReporter(), sleep=lambda s: None, clock=Clock())
 
 
@@ -116,10 +128,11 @@ class StateMachineTests(FrameworkTestCase):
 
     def test_placeholder_stage_does_not_break_production(self):
         pico = fakes.FakePicoProducer(statuses=[fakes.complete("DY", "TT")])
-        fw = framework(pico, histograms=True)
+        recipe = dict(RECIPE, stages=RECIPE["stages"] + [{"stage": "plots", "eras": ["2018"]}])
+        fw = framework(pico, recipe, stages={"plots": NotImplementedStage()})
         record = fw.advance(fw.start(run_root=self.root))
         self.assertEqual(record.stage("production").state, "DONE")
-        self.assertEqual(record.stage("histograms").state, "NOT_IMPLEMENTED")
+        self.assertEqual(record.stage("plots").state, "NOT_IMPLEMENTED")
         self.assertEqual(record.state, "BLOCKED")
         self.assertEqual(len(record.stage("production").artifacts), 2)
         plan = fw.plan()
@@ -237,7 +250,7 @@ class RecipeTests(FrameworkTestCase):
     def test_errors_name_the_key(self):
         self.assertIn("unknown key 'stagez'", self.error({"name": "x", "stagez": []}))
         self.assertIn("'stages' must be a non-empty list", self.error({"name": "x", "stages": []}))
-        self.assertIn("unknown stage 'plots'", self.error({"name": "x", "stages": [{"stage": "plots"}]}))
+        self.assertIn("unknown stage 'trigger'", self.error({"name": "x", "stages": [{"stage": "trigger"}]}))
         self.assertIn("unknown option 'samplez'", self.error(
             {"name": "x", "stages": [{"stage": "production", "eras": ["2018"], "channels": ["mutau"], "samplez": []}]}))
         self.assertIn("missing required option 'channels'", self.error(
@@ -252,13 +265,14 @@ class RecipeTests(FrameworkTestCase):
 
     def test_stage_order_and_duplicates(self):
         self.assertIn("must be in the order", self.error(
-            {"name": "x", "stages": [{"stage": "fit"}, {"stage": "histograms"}]}))
+            {"name": "x", "stages": [{"stage": "fit"}, {"stage": "histograms", "eras": [2025], "jet_wps": ["Tight"],
+                                                         "ele_wps": ["Tight"]}]}))
         self.assertIn("more than once", self.error({"name": "x", "stages": [{"stage": "fit"}, {"stage": "fit"}]}))
 
     def test_load_yaml_example_and_relative_config(self):
         example = os.path.join(checkout.REPO, "Framework", "recipes", "example_mutau.yml")
         recipe = Recipe.load(example)
-        self.assertEqual([s.stage for s in recipe.stages], ["production", "histograms"])
+        self.assertEqual([s.stage for s in recipe.stages], ["production", "plots"])
         self.assertIsNone(recipe.pico_config)
         path = os.path.join(self.root, "r.json")
         with open(path, "w") as stream:
@@ -283,7 +297,7 @@ class CommandLineTests(FrameworkTestCase):
             json.dump(RECIPE, stream)
         real = Framework.from_recipe
         with mock.patch.object(self.cli.Framework, "from_recipe",
-                               side_effect=lambda r, reporter=None, pico=None, fake=pico: real(r, reporter=reporter, pico=fake)):
+                               side_effect=lambda r, reporter=None, fake=pico, **kw: real(r, reporter=reporter, pico=fake)):
             self.assertEqual(self.cli.main(["start", recipe, "--run-root", self.root]), 0)
             runs = os.listdir(self.root)
             run_dir = os.path.join(self.root, [r for r in runs if r.startswith("test_mutau_")][0])

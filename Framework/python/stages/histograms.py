@@ -1,42 +1,59 @@
 # Author: Yagizhan Dinckurt (October 2026)
-"""Histogram stage (placeholder): pico tuples -> histograms (shapes), through a future Plotter API.
+"""Histograms stage: pico tuples -> input histograms (shapes) of the TES + tau ID fit, through the Fitter API.
 
-The stage does not run yet. Its contract is declared already, so that recipes can name the stage today and a
-Plotter API can be plugged in later without changing the Framework:
+It runs what Fitter/run_inputs.sh runs: TauES/createinputsTES.py for every era, working point pair and config.
 
-    inputs:   the TupleArtifacts of the production stage (path, sample, group, era, channel, tag, dtype, nevents)
-    options:  HistogramSpec (variables, selections, output file)
-    outputs:  one ShapeArtifact per (era, channel): a ROOT file with one histogram per process, variable and
-              selection
+    inputs:   pico tuples, read by the scripts through $PICODIR of PicoProducer/config/config.json (the
+              production stage's tuples, if the recipe has one, are recorded as the stage's inputs). The TES,
+              LTF and JTF variations need their own tuples (e.g. <sample>_mutau_TES0p950.root).
+    options:  HistogramSpec (eras, configs, jet and electron working points)
+    outputs:  one shapes artifact per shape file: {kind: 'shapes', path, era, channel, config, jet_wp, ele_wp,
+              observable}; the files are in Fitter/input_pt_less_region/againstjet_<J>/againstelectron_<E>/
 
-Until the Plotter has a public API, advance() returns NOT_IMPLEMENTED and plan() raises StageNotImplemented.
-The stages before it are not affected.
+The stage runs locally and finishes in one advance() call (see stages/local.py).
 
 Public API:
-  HistogramStage, HistogramSpec, ShapeArtifact
+  HistogramStage(fitter), HistogramSpec, DEFAULT_CONFIGS
 """
 from dataclasses import dataclass
-from typing import Tuple
-from TauFW.Framework.stages.base import Stage, StageState, StageOutcome, StageNotImplemented
+from typing import Optional, Tuple
 
-__all__ = ['HistogramStage', 'HistogramSpec', 'ShapeArtifact']
+from TauFW.Framework.stages.base import as_strings, spec_to_dict
+from TauFW.Framework.stages.local import LocalStage
+
+__all__ = ['HistogramStage', 'HistogramSpec', 'DEFAULT_CONFIGS']
+
+
+# =============================================================================
+# ================================= CONSTANTS =================================
+
+
+# The configs of Fitter/run_inputs.sh (relative to Fitter/): the mutau fit and the mumu control region.
+DEFAULT_CONFIGS = ('TauES_ID/config/config_coarse_TT.yml', 'TauES/config/FitSetup_mumu.yml')
 
 
 # =============================================================================
 # =================================== STAGE ===================================
 
 
-class HistogramStage(Stage):
-    """Placeholder: declares the contract and does nothing."""
+class HistogramStage(LocalStage):
+    """Input histograms with the Fitter API.
+    fitter: a TauFW.Fitter.api.TauESID, or any object with the same methods (tests pass a fake one)."""
     name = 'histograms'
+    reads_tuples = True
     # Spec = HistogramSpec: set at the bottom of this file.
 
-    def advance(self, spec, stage_record, reporter):
-        return StageOutcome(StageState.NOT_IMPLEMENTED, "the histogram stage needs a Plotter API (not implemented yet)",
-                            "not_implemented")
+    def request(self, spec, context):
+        return self.api.shapes_request(**spec.request_dict())
 
-    def plan(self, spec):
-        raise StageNotImplemented(self.name, "the Plotter has no public API yet")
+    def plan_commands(self, request):
+        return self.api.plan_shapes(request)
+
+    def preflight(self, request, context):
+        return self.api.preflight_shapes(request)
+
+    def execute(self, request, logdir, progress):
+        return self.api.make_shapes(request, logdir, progress)
 
 
 # =============================================================================
@@ -45,21 +62,24 @@ class HistogramStage(Stage):
 
 @dataclass(frozen=True)
 class HistogramSpec:
-    """Recipe options: variables ('name' or 'name(nbins,min,max)'), selections ('name: cut'), output file pattern."""
-    variables:  Tuple[str, ...] = ()
-    selections: Tuple[str, ...] = ()
-    outfile:    str = "shapes_$ERA_$CHANNEL.root"
-    method:     str = ""   # background method, e.g. 'QCD_OSSS'
+    """Recipe options: eras, jet and electron working points (DeepTau WP names, e.g. VTight, Tight), the configs
+    (relative to Fitter/, default: those of run_inputs.sh) and createinputsTES.py -s (serial)."""
+    eras:    Tuple[str, ...]
+    jet_wps: Tuple[str, ...]
+    ele_wps: Tuple[str, ...]
+    configs: Tuple[str, ...] = DEFAULT_CONFIGS
+    serial:  bool = False
+    timeout: Optional[float] = None   # seconds per createinputsTES.py run; None: no limit
 
+    def __post_init__(self):
+        for name in ('eras', 'jet_wps', 'ele_wps', 'configs'):
+            object.__setattr__(self, name, as_strings(getattr(self, name)))
+            if not getattr(self, name):
+                raise ValueError("%s must not be empty" % (name))
 
-@dataclass(frozen=True)
-class ShapeArtifact:
-    """One shape file: the histograms per process, variable and selection of one era and channel."""
-    path:       str
-    era:        str
-    channel:    str
-    variables:  Tuple[str, ...] = ()
-    selections: Tuple[str, ...] = ()
+    def request_dict(self):
+        """The options as the Fitter ShapesRequest fields (saved in run.json)."""
+        return spec_to_dict(self)
 
 
 HistogramStage.Spec = HistogramSpec

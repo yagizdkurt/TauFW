@@ -25,8 +25,9 @@ From the repository root, run:
 python3 Tests/run.py all
 ```
 
-This runs the Utilities, Framework, Setup and processor compatibility unit tests,
-the harness and ROOT serializer checks, every normal case, and `bbb check` in
+This runs the Utilities, Framework, Setup, processor compatibility, Fitter API and
+Plotter API unit tests (`Tests/Fitter/api`, `Tests/Plotter/api`: the commands of the
+Fitter and Plotter scripts, with a fake process runner), the harness and ROOT serializer checks, every normal case, and `bbb check` in
 quiet mode. Passing output is captured in logs; failures show their output tail
 and rerun command. Use `all --tail N` to change the tail length. Check logs are in
 `Tests/.artifacts/logs/checks/`; normal and BBB logs retain their usual locations.

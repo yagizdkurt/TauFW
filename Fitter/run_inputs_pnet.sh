@@ -32,6 +32,8 @@ for YEAR in "${YEARS[@]}"; do
       python3 TauES/createinputsTES.py -y ${YEAR} -c ${CONFIG}    -j ${j} -e ${e} -O ${OUTBASE} 2>&1 | tee -a "$LOGFILE"
       STATUS=${PIPESTATUS[0]}
       python3 TauES/createinputsTES.py -y ${YEAR} -c ${CONFIG_MM} -j ${j} -e ${e} -O ${OUTBASE}
+      STATUS_MM=$?
+      [[ $STATUS -eq 0 ]] && STATUS=$STATUS_MM   # BUGS F03: a mumu failure counts too
 
       if [[ $STATUS -ne 0 ]]; then
         echo "❌ ERROR: ${TAGGER} year=${YEAR} j=${j} e=${e} (exit ${STATUS}) — skipping" | tee -a "$LOGFILE"

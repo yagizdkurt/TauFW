@@ -6,15 +6,16 @@ Independent terminal, menu presentation, file I/O and installer helpers. Like th
 from TauFW.Utilities.CLI import CLI
 from TauFW.Utilities.FIO import FileIO
 from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation
+from TauFW.Utilities.Process import Command, ProcessRunner
 ```
 
 The package `__init__.py` files contain the public exports, so they are tracked despite the repository-wide `__init__.py` ignore rule meant for SCRAM-generated files (see the exception in `.gitignore`).
 
 ## Package boundaries
 
-CLI and FIO each export one class; Menu exports `ConsoleUI` and `MenuNavigation`. `_cli.py`, `_file_io.py`, and `_menu.py` implement those entry points; CLI and FIO use `_internal/` for formatting, filesystem, serialization, command, transport and ROOT functions. Application code should import only the owning package's public class. Underscores and `__all__` document Python's private API convention; they do not prevent access to internal modules.
+CLI and FIO each export one class; Menu exports `ConsoleUI` and `MenuNavigation`; Process exports `Command`, `CommandResult` and `ProcessRunner`. `_cli.py`, `_file_io.py`, and `_menu.py` implement those entry points; CLI and FIO use `_internal/` for formatting, filesystem, serialization, command, transport and ROOT functions. Application code should import only the owning package's public class. Underscores and `__all__` document Python's private API convention; they do not prevent access to internal modules.
 
-These packages do not import existing analysis/startup modules or Framework. Construction is silent and does not open files, change directories, read configuration or launch commands. There are no global utility instances, base classes or service registries. Pass instances explicitly to future framework components.
+These packages do not import existing analysis/startup modules or Framework. Construction is silent and does not open files, change directories, read configuration or launch commands; only `ProcessRunner.run`/`run_all` launch processes. There are no global utility instances, base classes or service registries. Pass instances explicitly to future framework components.
 
 ## Installer helpers
 
@@ -170,6 +171,20 @@ PyROOT is imported only for ROOT operations. `open_root_file(location, mode="REA
 XRootD `READ` handles stream directly. Other remote ROOT reads are staged; writable remote ROOT files are staged, closed, and uploaded only after successful context exit. `UPDATE` first downloads an existing file; a missing destination creates a new one. Callers own object contents, tree branches, schema decisions and keys.
 
 `merge_root_files(sources, destination, overwrite=False, merge_command=("hadd",))` stages its output before copying it to the destination. XRootD inputs can stream; other remote inputs are downloaded. Supply an argument sequence such as `("python3", "/path/to/haddnano.py")` for an alternative merger. Merging does not import PyROOT. A successful command must produce its output file, but scientific integrity, event counts, input compatibility and workflow cleanup remain domain-owned.
+
+## External commands
+
+```python
+runner = ProcessRunner()
+command = Command("shapes 2025", ("python3", "TauES/createinputsTES.py", "-y", "2025"),
+                  cwd="/path/to/Fitter", expects=("input_pt_less_region/*/*/*.root",), timeout=None)
+results = runner.run_all([command], logdir="taufw_runs/<run>/histograms")
+results[-1].ok, results[-1].log, results[-1].missing
+```
+
+`ProcessRunner(execute=None, clock=time.time, env=None)` runs each `Command(label, argv, cwd, expects=(), timeout=None)` without a shell. Standard output and errors go to one log file per command (`NN_<label>.log` under `logdir`), framed by a header (cwd, command line, start time) and a footer (exit code, duration, missing outputs). `PYTHONUNBUFFERED=1` keeps Python output in order; `env` adds variables.
+
+A `CommandResult` is `ok` only when the exit code is 0 **and** every `expects` glob (relative to `cwd`) matches a file modified after the command started. Many analysis scripts call tools through `os.system` and exit 0 when those tools fail, and output trees are shared between runs, so neither the exit code nor an old file is trusted. A timeout gives returncode -1, a missing program 127. `run_all` stops after the first result that is not ok and calls `progress(index, total, command, result)` before (result `None`) and after each command. `execute(argv, cwd, stream, timeout, env) -> returncode` can be injected; tests pass a fake.
 
 ## Inventory and validation
 

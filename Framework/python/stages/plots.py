@@ -1,0 +1,82 @@
+# Author: Yagizhan Dinckurt (October 2026)
+"""Plots stage: data/MC control plots of the pico tuples, through the Plotter API (Plotter/plot.py).
+
+    inputs:   pico tuples, read by plot.py through $PICODIR of PicoProducer/config/config.json (the production
+              stage's tuples, if the recipe has one, are recorded as the stage's inputs)
+    options:  PlotSpec (eras, channel setups, variable and selection filters, plot.py options)
+    outputs:  one plots artifact per channel setup and era: {kind: 'plots', era, config, channel, directory,
+              nfiles}; the plots are in Plotter/plots/<era>/
+
+The stage runs locally and finishes in one advance() call (see stages/local.py). It comes right after production,
+so the tuples can be checked by eye before the long histogram and fit stages.
+
+Public API:
+  PlotStage(plotter), PlotSpec
+"""
+from dataclasses import dataclass
+from typing import Optional, Tuple
+
+from TauFW.Framework.stages.base import as_strings, spec_to_dict
+from TauFW.Framework.stages.local import LocalStage
+
+__all__ = ['PlotStage', 'PlotSpec']
+
+
+# =============================================================================
+# =================================== STAGE ===================================
+
+
+class PlotStage(LocalStage):
+    """Control plots with the Plotter API.
+    plotter: a TauFW.Plotter.api.ControlPlots, or any object with the same methods (tests pass a fake one)."""
+    name = 'plots'
+    reads_tuples = True
+    # Spec = PlotSpec: set at the bottom of this file.
+
+    def request(self, spec, context):
+        return self.api.request(**spec.request_dict())
+
+    def plan_commands(self, request):
+        return self.api.plan(request)
+
+    def preflight(self, request, context):
+        return self.api.preflight(request)
+
+    def execute(self, request, logdir, progress):
+        return self.api.make(request, logdir, progress)
+
+
+# =============================================================================
+# ================================= CONTRACT ==================================
+
+
+@dataclass(frozen=True)
+class PlotSpec:
+    """Recipe options: eras, channel setups (a channel name means Plotter/config/setup_<channel>.yml), the
+    plot.py filters -V (variables) and -S (selections), and its flags."""
+    eras:       Tuple[str, ...]
+    configs:    Tuple[str, ...] = ('mutau',)
+    variables:  Tuple[str, ...] = ()
+    selections: Tuple[str, ...] = ()
+    serial:     bool = False
+    fraction:   bool = False
+    pdf:        bool = False
+    notauidsf:  bool = False
+    tag:        str = ""
+    text:       str = ""
+    timeout:    Optional[float] = None   # seconds per plot.py run; None: no limit
+
+    def __post_init__(self):
+        for name in ('eras', 'configs', 'variables', 'selections'):
+            object.__setattr__(self, name, as_strings(getattr(self, name)))
+        if not self.eras:
+            raise ValueError("eras must not be empty")
+        if not self.configs:
+            raise ValueError("configs must not be empty")
+
+    def request_dict(self):
+        """The options as the Plotter PlotsRequest fields (saved in run.json)."""
+        return spec_to_dict(self)
+
+
+PlotStage.Spec = PlotSpec
