@@ -1324,8 +1324,8 @@ the drawing code draws: the `plotter.*` cases cover histogram filling only. So t
 `_drawing_modules()`, the only part that changes with the move). It builds fixed synthetic histograms and graphs (no
 files, no random numbers) and records:
 
-- the canvases of six plots: a `Plot` comparison with ratio, error band, normalization, legend and text; a `Plot` with
-  variable binning and log y (plus `drawbins`); a `Stack` with data, three backgrounds, signal, ratio and error band;
+- the canvases of seven plots: a `Plot` comparison with ratio, error band, normalization, legend and text; a `Plot`
+  with variable binning and log y; a `Plot` with `drawbins` lines and labels; a `Stack` with data, three backgrounds, signal, ratio and error band;
   a `Stack` with the fraction panel; a `Plot` of two `TGraphAsymmErrors`; a `Plot2D`. A canvas is recorded as the
   tree of pads and primitives with class, name, title, draw option, line/fill/marker/text attributes, pad margins,
   log/grid/tick flags and user ranges, axis titles, ranges and sizes, histogram contents and errors, stack members,
@@ -1341,7 +1341,12 @@ files, no random numbers) and records:
   drawing code by `<drawing>.`; the names of the saved png/pdf files (not their bytes).
 
 A scenario that raises records the exception type and message instead, so the lock does not depend on every scenario
-working. `Tests/BBB/snapshot.py` gained `drawn_snapshot`, `primitives_snapshot` and `style_snapshot` for this.
+working. The first lock on lxplus showed four such scenarios. Two were wrong calls in the case and were changed to
+match the real callers: `drawbins` needs a plot with `ymin`/`ymax` (as in `Fitter/Zpt/measureZpt.py`), and
+`normalizebins` needs a stack that has been drawn (as in the `Ratio` fraction panel). Two are real latent bugs in
+code without callers that reaches them, registered as [Plotter BUGS](../Plotter/BUGS.md) L03 (`sumhists` adds to an
+undefined `sighist`; its `NameError` stays recorded until it is fixed after the move) and L04 (`estimatelen` with
+several arguments; the case now passes one list, like `Plot.drawlegend`). `Tests/BBB/snapshot.py` gained `drawn_snapshot`, `primitives_snapshot` and `style_snapshot` for this.
 
 ### To do on lxplus
 

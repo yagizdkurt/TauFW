@@ -544,10 +544,15 @@ def _drawing_plots(m, outdir):
         plot = m.Plot(varbins, [varhists["DY"], varhists["TT"]], clone=True)
         plot.draw(ratio=False, logy=True)
         plot.drawlegend("right")
-        snapshot = _drawn_plot(plot, outdir, "varbins")
-        bins = _attempt(lambda: _drawn_plot(plot, outdir, "varbins_lines", lambda p: p.drawbins(varbins)))
-        return {"plot": snapshot, "drawbins": bins}
+        return _drawn_plot(plot, outdir, "varbins")
     result["variable_bins"] = _attempt(variable_bins)
+
+    def drawbins():  # as in Fitter/Zpt/measureZpt.py: drawbins needs the plot's ymin and ymax
+        plot = m.Plot(variable, [hists["DY"], hists["TT"]], clone=True, ymin=0, ymax=60)
+        plot.draw(ratio=False)
+        plot.drawbins(varbins, y=0.96, text="m_{vis}", addoverflow=True)
+        return _drawn_plot(plot, outdir, "drawbins")
+    result["drawbins"] = _attempt(drawbins)
 
     def stack():
         plot = m.Stack(variable, hists["data"], [hists["DY"], hists["TT"], hists["WJ"]], [hists["signal"]],
@@ -641,11 +646,16 @@ def _drawing_tools(m):
     for name, call in calls.items():
         result[name] = _attempt(lambda call=call: _drawn_value(call()))
 
-    def normalizebins():
+    def normalizebins():  # as in Ratio (fraction panel): the stack is drawn, so it has an axis
+        from ROOT import TCanvas
+        canvas = TCanvas("t_canvas", "t_canvas")
         stack = THStack("t_stack", "t_stack")
         for name in ("DY", "TT", "WJ"):
             stack.Add(fresh(name))
-        return _drawn_value(tools.normalizebins(stack))
+        stack.Draw("HIST")
+        result = _drawn_value(tools.normalizebins(stack))
+        canvas.Close()
+        return result
     result["normalizebins"] = _attempt(normalizebins)
     return result
 
@@ -658,7 +668,8 @@ def _drawing_labels(m):
             "maketitle": [_attempt(lambda name=name: labels.maketitle(name)) for name in names],
             "makehistname": _attempt(lambda: labels.makehistname("m_vis", "pt_1>20.5 && q_1*q_2<0", "DY")),
             "makefilename": _attempt(lambda: labels.makefilename("pt_1>20 && abs(eta_2)<2.3", "m_t")),
-            "estimatelen": _attempt(lambda: labels.estimatelen("p_{T}^{miss}", "m_{#lower[-0.1]{vis}}", "#tau_{h}")),
+            "estimatelen": _attempt(lambda: labels.estimatelen(["p_{T}^{miss}", "m_{#lower[-0.1]{vis}}", "#tau_{h}",
+                                                                "two\nlines"])),
             "match": _attempt(lambda: [labels.match(["TT", "ST*"], label) for label in ("TT", "ST_t", "DY")])}
 
 
