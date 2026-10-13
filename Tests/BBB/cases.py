@@ -396,7 +396,9 @@ def framework_production(workspace):
     ws.write_pico(out / "TTTo2L2Nu" / "pico_mutau_1.root")
     ws.execute(taufw, "advance", run_dir)  # complete: merged and cleaned; histograms is not implemented
     result["done"] = record()
-    result["status"] = ws.execute(taufw, "status", run_dir)["lines"]
+    # The run ID ends with the start time; mask it so the snapshot is repeatable.
+    result["status"] = [re.sub(r"bbb_\d{8}-\d{6}(?:-\d+)?", "bbb_<time>", line)
+                        for line in ws.execute(taufw, "status", run_dir)["lines"]]
     result["merged"] = {name: file_snapshot(ws.root / "pico" / "2018" / group / name)
                         for group, name in (("DY", "DYJetsToLL_M-50_mutau.root"), ("TT", "TTTo2L2Nu_mutau.root"))}
     result["files"] = ws.tree(ws.basedir / "output", ws.root / "jobout", ws.root / "pico")
