@@ -5,10 +5,10 @@ from pathlib import Path
 import sys
 
 if __package__:
-    from . import rename_directory, verify_modules, verify_htt_files
+    from . import rename_directory, verify_modules, verify_htt_files, python_environment_warnings
 else:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from Installer import rename_directory, verify_modules, verify_htt_files
+    from Installer import rename_directory, verify_modules, verify_htt_files, python_environment_warnings
 
 
 # =============================================================================
@@ -17,6 +17,7 @@ else:
 def main(argv=None):
     parser = ArgumentParser(description="Filesystem and verification helpers for FastSetup.")
     commands = parser.add_subparsers(dest="command", required=True)
+    commands.add_parser("environment", help="Warn about user packages shadowing CMSSW's CVMFS packages.")
 
     rename = commands.add_parser("rename", help="Rename a checkout; exit 3 for another filesystem.")
     rename.add_argument("source")
@@ -32,7 +33,10 @@ def main(argv=None):
     htt.add_argument("files", nargs="+")
 
     args = parser.parse_args(argv)
-    if args.command == "rename":
+    if args.command == "environment":
+        for warning in python_environment_warnings():
+            print(warning)
+    elif args.command == "rename":
         try:
             rename_directory(args.source, args.destination)
         except OSError as error:

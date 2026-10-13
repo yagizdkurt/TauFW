@@ -710,6 +710,11 @@ verify_combine() {
 }
 
 verify_install() {
+  local environment_warnings warning
+  environment_warnings=$(installer_python environment)
+  while IFS= read -r warning; do
+    if [[ -n $warning ]]; then warn "$warning"; fi
+  done <<< "$environment_warnings"
   log 'Checking TauFW and the selected tools'
   verify_python_modules "$repo_dir" TauFW.PicoProducer TauFW.Plotter TauFW.Fitter \
     TauFW.Utilities TauFW.Framework:Framework

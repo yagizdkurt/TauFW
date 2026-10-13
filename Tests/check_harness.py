@@ -33,6 +33,21 @@ def contents(directory):
 
 
 class HarnessChecks(unittest.TestCase):
+    def test_environment_command_checks_without_running_tests(self):
+        with mock.patch.object(run, "check_python_environment") as check, \
+                mock.patch.object(run, "inventory") as inventory:
+            self.assertEqual(run.main(["environment"]), 0)
+        check.assert_called_once_with()
+        inventory.assert_not_called()
+
+    def test_environment_warning_preserves_uninstall_command(self):
+        result = mock.Mock(returncode=0, stdout="numpy: Run: pip3 uninstall numpy\n")
+        output = io.StringIO()
+        with mock.patch.object(run.subprocess, "run", return_value=result), \
+                contextlib.redirect_stderr(output):
+            run.check_python_environment()
+        self.assertIn("WARNING: numpy: Run: pip3 uninstall numpy", output.getvalue())
+
     def test_relocated_contents(self):
         migration = json.loads((TESTS / "migration.json").read_text(encoding="utf-8"))
         self.assertEqual(len(migration["files"]), 38)

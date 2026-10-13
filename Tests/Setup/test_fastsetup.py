@@ -94,6 +94,28 @@ print_summary
         self.assertNotIn("checkout was moved", output)
         self.assertNotIn("\x1b[", output)
 
+    def test_environment_warning_precedes_verification_and_is_retained(self):
+        output, _ = self.run_script(r'''
+exec 2>&1
+repo_dir=/checkout
+CMSSW_RELEASE_BASE=/release
+run2_jme=false
+tauidsfs=false
+htt=false
+combine=false
+installer_python() {
+  if [[ $1 == environment ]]; then
+    printf 'numpy imports from ~/.local instead of /cvmfs. Run: pip3 uninstall numpy\n'
+  fi
+}
+verify_python_modules() { printf 'module verification\n'; }
+verify_install
+printf 'retained:%s\n' "${warnings[@]}"
+''')
+        self.assertIn("WARNING: numpy imports", output)
+        self.assertIn("retained:numpy imports", output)
+        self.assertLess(output.index("pip3 uninstall numpy"), output.index("module verification"))
+
     def test_event_summary_is_plain_and_wrapper_has_activation_prompt(self):
         output, directory = self.run_script(r'''
 export LC_ALL=C

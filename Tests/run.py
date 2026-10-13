@@ -16,6 +16,18 @@ from support.progress import Lines, elapsed, file_groups, paint, reset_logs, sec
 TESTS = Path(__file__).resolve().parent
 
 
+def check_python_environment():
+    """Use the same pre-build helper as FastSetup; warnings never fail a run."""
+    helper = TESTS.parent / "Utilities/python/Installer/setup_tools.py"
+    result = subprocess.run([sys.executable, "-B", str(helper), "environment"],
+                            capture_output=True, text=True)
+    for line in result.stdout.splitlines():
+        print("WARNING: " + line, file=sys.stderr, flush=True)
+    if result.returncode:
+        print("WARNING: Could not check CMSSW Python package origins: " + result.stderr.strip(),
+              file=sys.stderr, flush=True)
+
+
 def inventory():
     with (TESTS / "inventory.json").open(encoding="utf-8") as stream:
         return json.load(stream)["cases"]
@@ -155,8 +167,8 @@ def run_all(tail_lines=80):
     suites = (
         ("Unit and harness checks", lambda: execute_scripts(
             check_cases(), [], quiet=True, tail_lines=tail_lines, log_kind="checks")),
-        ("Normal tests", lambda: main(["normal", "-q", "--tail", str(tail_lines)])),
-        ("BBB regression checks", lambda: main(["bbb", "check", "-q", "--tail", str(tail_lines)])),
+        ("Normal tests", lambda: main(["normal", "-q", "--tail", str(tail_lines)], check_environment=False)),
+        ("BBB regression checks", lambda: main(["bbb", "check", "-q", "--tail", str(tail_lines)], check_environment=False)),
     )
     failed = []
     for name, execute in suites:
@@ -177,7 +189,7 @@ def run_all(tail_lines=80):
     return 1 if failed else 0
 
 
-def main(argv=None):
+def main(argv=None, check_environment=True):
     argv = list(sys.argv[1:] if argv is None else argv)
     extra = []
     if "--" in argv:
@@ -186,6 +198,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command")
     sub.add_parser("list", help="List scripts, classifications, and BBB IDs without importing ROOT")
+    sub.add_parser("environment", help="Warn about ~/.local packages shadowing CMSSW; no tests run")
     all_tests = sub.add_parser("all", help="Run unit, harness, normal and BBB checks (quiet by default)")
     all_tests.set_defaults(quiet=True)
     for command in ("normal", "integration"):
@@ -205,6 +218,12 @@ def main(argv=None):
     if sys.version_info < (3, 9):
         parser.error("The test harness requires Python 3.9 or newer; use your lxplus Python 3.9 runtime.")
     try:
+        if check_environment and args.command != "list" and not (args.command == "bbb" and args.action == "list"):
+            check_python_environment()
+        if args.command == "environment":
+            if extra:
+                raise ValueError("environment does not accept script arguments.")
+            return 0
         if getattr(args, "tail", None) is not None and not args.quiet:
             raise ValueError("--tail applies only with --quiet.")
         tail_lines = 80 if getattr(args, "tail", None) is None else args.tail

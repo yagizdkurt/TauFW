@@ -56,6 +56,13 @@ These pins provide reproducible source versions, not a claim of full analysis
 validation. The default uses CMSSW's built-in NanoAODTools. Each installed or
 reused dependency's actual commit is printed during setup.
 
+Verification warns when a Python package (for example NumPy) resolves to
+`~/.local` while CMSSW provides a copy through `/cvmfs`. Each warning shows both
+paths and the exact `pip3 uninstall <distribution>` command; setup does not
+uninstall anything automatically. The same check runs before `Tests/run.py`
+executes tests. To run only this check after `cmsenv`, use
+`python3 Tests/run.py environment`. User packages absent from CMSSW do not warn.
+
 
 ## Existing files
 
