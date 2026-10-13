@@ -11,6 +11,16 @@ The [`Framework`](Framework) package runs these steps as one pipeline from a rec
 Run all automated tests quietly with `python3 Tests/run.py all` (see the
 [test setup and requirements](Tests/README.md#all-automated-tests-quiet-shortcut)).
 
+## Contributing responsibly
+
+Before pushing changes or opening a pull request, read the
+[basic coding guidelines](docs/HowToCodeGood.md) and
+[legacy code policy](docs/LegacyCode.md). Take responsibility for the code you
+introduce: document its purpose, check its dependencies, and archive completed
+one-off work in the appropriate data-year folder. Include the required legacy
+banner and update the inventory; leave clear context instead of unexplained
+copies for the next developer.
+
 ## Installation
 
 ### Automatic

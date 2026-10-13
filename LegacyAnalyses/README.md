@@ -1,5 +1,7 @@
 # Legacy analysis archive
 
+For future additions and retirements, follow the [legacy code policy](../docs/LegacyCode.md).
+
 Archived on **2026-10-13**. This directory holds 33 one-off or retired analysis files whose relocation has no identified executable consumer in this checkout. It uses the existing `LegacyAnalyses/` name. These files are reference material; moving them does not certify that they run.
 
 ## Layout and move decisions
