@@ -27,3 +27,28 @@ only. The Fitter has no BBB case, so **Output impact** describes the change for 
 | F08 | `TauES_ID/makecombinedfitTES_SF.py` `run_combined_fit` | `merge_datacards_regions` is called with 7 arguments (with `mumu_input_file`) but takes 6 | crash (options 4-6) | registered only (option 3 does not reach it) | |
 | F09 | `TauES_ID/makecombinedfitTES_SF.py` `merge_datacards_regions` | `hasattr(setup, 'mumu_datacard_file')` on the setup dict is always false, so the Zmm card is never added | latent (options 4-6) | registered only | |
 | F10 | `TauES_ID/makecombinedfitTES_SF.py` `merge_datacards_regions` | the combined card is written to `output_{era}/` instead of the output directory | wrong (options 4-6) | registered only | |
+
+## How old
+
+Open bugs only; fixed ones are left out.
+
+- **F08** The 7-argument call has been broken since commit `f0f75f3` (2025-10-24, "2D fit"). That commit added
+  `mumu_input_file` support (a new optional argument of `merge_datacards_ZmmCR` and `mumu_input_file = kwargs.get(...)`
+  in `run_combined_fit`), and added `mumu_input_file` to the `merge_datacards_regions(...)` call without changing that
+  function's 6-argument signature. `f66a886` (2025-12-04) then passed `mumu_input_file=args.mumu_datacard_file` from
+  `main`, still without fixing the signature. Options 4-6 have raised `TypeError` ever since. Nobody noticed because
+  every driver (`run_workflow*.sh`, `api/tes_id.py`) runs option 3 only.
+- **F09** The `hasattr(setup, 'mumu_datacard_file')` check has been broken since the day it was written: commit
+  `5a08f58` (2025-09-26, "2D parabola"). That commit replaced the old `if str(config_mumu) != 'None':` Zmm-CR branch
+  (left behind as a comment) with this check, and set `setup['mumu_datacard_file']` in `main`. `setup` is a dict
+  loaded from YAML, so `hasattr` on a key is always false and the Zmm card was never added. Nobody noticed because
+  only options 4-6 reach this code, and since `f0f75f3` they crash first (F08).
+- **F10** The `output_{era}/` path is older than the output-directory option. It goes back to the first commit of
+  the folder, `2c8819e` (2022-11-09, "TauES_ID folder containing code to to do the combined fit of TES and ID SF"),
+  and became `merge_datacards_regions` in `6dc9a0a` (2023-07-06, "update of the combined fit script, option to
+  include Zmm CR"). Back then everything used `output_{era}`, so it was correct. It became wrong with `9ebb7a0`
+  (2024-06-19, "introduce input and output directory separate for different wps of against jet and against
+  electron"), which made `run_combined_fit` read `{output_dir}/{datacardfile}.txt` but left this function writing to
+  `output_<era>/`. `5a08f58` (2025-09-26) moved the regions-only card to `output_dir` but kept the combined card in
+  `output_{era}/`. Nobody noticed because the line sits behind the always-false F09 check, and options 4-6 crash
+  first anyway (F08).

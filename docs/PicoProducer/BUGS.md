@@ -80,7 +80,7 @@ the baseline, and fixing it changes that baseline on purpose.
 
 | ID | Location | Symptom | Severity | BBB | Session | Fix | Output impact |
 |---|---|---|---|---|---|---|---|
-| A01 | `analysis/ModuleMuTau.py:168`, `ModuleETau.py:155`, `ModuleEMu.py:133`, `ModuleTauTau.py:131`, `ModuleMuTau_nanoV10_DeepTau2p5.py:172`, `ETauFakeRate/ModuleETau.py:201` (and the `legacy/` copies `ModuleMuTau_nanoV10_DeepTau2p1`, `TauES/ModuleMuTau`, `MuTauFakeRate/ModuleMuTau`) | `getlepvetoes(...)` is called without the now-required `era` argument (changed in `eb15fdc`), so a `TypeError` is raised on the first event that reaches the vetoes | crash | no | S6 | | |
+| A01 | `analysis/ModuleMuTau.py:168`, `ModuleETau.py:155`, `ModuleEMu.py:133`, `ModuleTauTau.py:131`, `ModuleMuTau_nanoV10_DeepTau2p5.py:172`, `ETauFakeRate/ModuleETau.py:201` (and the `legacy/` copies `ModuleMuTau_nanoV10_DeepTau2p1`, `TauES/ModuleMuTau`, `MuTauFakeRate/ModuleMuTau`) | `getlepvetoes(...)` is called without the now-required `era` argument (changed in `877e636`), so a `TypeError` is raised on the first event that reaches the vetoes | crash | no | S6 | | |
 | A02 | `analysis/ModuleMuTau.py:40-46` vs `285-302` | Tau ID / e→τ / μ→τ SF tools are commented out but still used for MC with genmatch 1–5 (`AttributeError`); the comments at 293/298 swap muon and electron | crash | no | S6 | | |
 | A03 | `analysis/TreeProducerTauPair.py` vs `ModuleTauPair.py:562-566` | With `jec=True`, `met_<unc>`, `mt_1_<unc>` and `dzeta_<unc>` are filled but never declared, and `pzeta_vis` is undefined (the variable is `pzetavis`) | crash | no | S6 | | |
 | A04 | `analysis/ModuleEMu.py:198` | Writes `idiso_2`, which `TreeProducerEMu` does not define (probably `idiso_3`) | crash | no | S6 | | |
@@ -112,6 +112,185 @@ the baseline, and fixing it changes that baseline on purpose.
 | C11 | `corrections/RecoilCorrectionTool.py:12` | A correction imports `analysis.utils` (layering inversion); the `RecoilCorrectionTool` class itself is unused | latent | no | S6 | | |
 | C12 | `corrections/MetTriggerSF.py:8`, `WmassCorrection.py:7` | Paths are built from `os.getenv('CMSSW_BASE')+…`, bypassing `datadir`; `TypeError` without CMSSW; `data/Wstar/` and `trigger/mettrigger_<era>.root` are absent | crash | no | S6 | | |
 | C13 | `corrections/MuonSFs.py:27`, `DYandRecoilCorrlib.py:27` | `getcorr()` is duplicated verbatim; DYandRecoilCorrlib docstrings still say "muon" | latent | no | S6 | | |
+
+## How old
+
+Open bugs only (including won't-fix and moved-not-fixed); fixed ones are left out. Found with `git log -S/-G`,
+`git show` and `git blame` on old revisions. Where the reason nobody noticed is a guess, it says so.
+
+### Control plane, batch, workers
+
+- **P15** The missing options on `status`/`hadd`/`clean` come from a pattern that has been in the code since the
+  first commit, `f60cfbd` (2020-05-18, "first commit"). That commit already built
+  `parser_chk = ArgumentParser(add_help=False,parents=[parser_job])` partway through the `parser_job.add_argument(...)`
+  calls. argparse copies a parent's options when the child is built, so `parser_chk` only gets the options added
+  before that line. Later commits added more options below it: `-P/--prompt` in `36d3bdb` (2020-07-07, "add prompt
+  option for submission; add gitignore stuff") and `-m/--maxevts` in `4e46663` (2021-02-09, "add option to limit
+  number of events per job"). Then `a3e7e38` (2021-06-16, "add maxopenedfiles for hadd; add checkexpnevts for
+  debugging") gave `hadd` its own `-m/--maxopenfiles`, which only works because `-m` never reached `parser_chk`
+  (otherwise argparse raises a conflicting-option error). So it was never a regression, and nobody noticed because
+  these subcommands never need the submission options.
+- **S16** `guess_batch` has had the NAF branch commented out since the day it was written: commit `bce39ac`
+  (2023-06-08, "raw_input -> input; split HTCondor batch systems; guess functions"). That commit split HTCondor into
+  the KIT/DESY/NAF subclasses and added `guess_batch` with DESY and NAF as `###elif "etp" in host:` placeholders,
+  both copy-pasted from the KIT test. `5f836ac` (2023-10-12, "Fixed batch system issue with DESY") made the DESY
+  branch real but left NAF commented out. It moved to `settings/defaults.py` unchanged in `a4fbd42` (2026-10-12).
+  Nobody noticed because NAF users set the batch system explicitly (and, probably, NAF hosts match the DESY branch).
+- **W01** `-E/--opts` in skimjob has never been used since it was added: commit `7e4d94c` (2020-07-06, "add extra
+  option; allow flags to be passed processor in skimming channel; allow post-fix filtering of nanAOD files"). In that
+  commit pico.py started adding `--opt '...'` to every job command, and the option was added to
+  `processors/skimjob.py` so the skim worker would accept the flag instead of failing in argparse. `args.extraopts`
+  has never been read there. Accepting and ignoring the flag was the point, so nobody noticed.
+- **W03** `dumpGen.py` has had no references from day one: commit `d5c9d36` (2020-05-25, "add dump gen processor")
+  added it as a standalone script ("Standalone to dump gen particle information"; its usage line still says
+  `python dumpLHE.py`, a copy-paste leftover). The only mentions are a link in the header of `analysis/GenDumper.py`
+  (`195c53d`, 2020-06-22) and a line in `processors/README.md` (`fc46a42`, 2021-07-16). It is a script run by hand,
+  so it never had a caller. It moved to legacy in `0bc4d62` (2026-10-12).
+
+### Analysis modules and writers
+
+- **A01** The callers were fine when they were written. A later signature change broke them. The
+  `getlepvetoes(..., self.channel)` calls in `ModuleMuTau`, `ModuleETau`, `ModuleTauTau` and
+  `ETauFakeRate/ModuleETau` come from `463774e` (2020-07-18, "add ditau channel"), the one in `ModuleEMu` from
+  `6c69dcd` (2020-07-18, "add emu channel"), and the `legacy/` copies from the same commits. The function then had
+  no `era`. `9411be0` (2023-10-19, "Working version of Run 3 mt channel") added `era='2018'` with a default, so the
+  old callers still worked. The break is commit `877e636` (2024-02-20, "update tutorial"), which made `era` required
+  (and left a stray `print(era)` in the electron loop) but only updated the tutorial module. Nobody noticed because
+  Run 3 work runs through `Run3_DEV/*` and the top-level `ModuleMuMu`, which all pass `era=self.era`. The old Run 2
+  channel modules have apparently not been run since February 2024.
+- **A02** The crash comes from commit `891bb3a` (2025-06-18, "no TES"). That commit commented out `tesTool`,
+  `tauSFsT/M/T_dm`, `etfSFs` and `mtfSFs` in `ModuleMuTau.__init__` and set `tes = 1.0`, but left the tau-weight
+  block that uses them (from `64ce575`, 2020-07-06, "add TauIDSFs, Z pt and top pt tool"). Probably the tools were
+  turned off because `tauSFVersion` has no 2024 key (A06), but that is a guess. Nobody noticed because A01 was already
+  in the file: the `getlepvetoes` crash fires before the weights on every event. The swapped comments are older,
+  from `64ce575` itself; only the comments are wrong, the code uses the right tools.
+- **A03** The fill loop and the `pzeta_vis` typo have been there since the file was created: commit `f8ba048`
+  (2020-06-21, "add full mutau and etau analysis modules and correction"). The matching declarations in
+  `TreeProducerTauPair` were already commented out then, and so was the `dojecsys` block that sets
+  `metUncLabels`, so the loop never ran. `463774e` (2020-07-18) deleted the commented declarations. The loop came alive
+  in `6f137fa` (2023-12-07, "merge"), which uncommented the `dojecsys` block but did not restore the declarations or
+  fix `pzeta_vis`. Nobody noticed because the path needs `jec=True` (default `False`), MC and `dosys`; apparently no
+  JEC-systematics ditau job has run since December 2023.
+- **A04** `ModuleEMu` writing `idiso_2` has been broken since the day it was written: commit `f591dc1` (2020-07-18,
+  "fix small bugs; add documentation for branches"). That commit added `addBranch('idiso_3', ...)` to
+  `TreeProducerEMu` and wrote `self.out.idiso_2[0] = idIso(tau)` in the module, a `_2` -> `_3` rename that missed one
+  line. The same line in `ModuleMuMu` was commented out in `5837e8c` (2023-03-20) instead of renamed. Why it was never
+  hit in `ModuleEMu` is not fully clear: it only runs for an e-mu event with a tau above 20 GeV, the guard before
+  `d8005c9` (2023-06-12) was `if maxtau>-1:`, and the e-mu channel seems to be rarely run.
+- **A05** `ModuleDiJet` reading `idisoweight_1` has been broken since the day it was written: commit `be8c553`
+  (2023-02-14, "Squashed commits", the HighPT import). The weight line is copied word for word from `ModuleMuNu`,
+  whose tree declares `idisoweight_1`; `TreeProducerDiJet`/`TreeProducerHighPT` never have. It only crashes on MC,
+  the DiJet selection is for jet -> tau fake factors measured in data, and no config refers to the module, so its MC
+  path has probably never run.
+- **A06** `tauSFVersion` was Run 2 only from the start: commit `f8ba048` (2020-06-21) created it as
+  `{2016, 2017, 2018}`. `c679b49` (2023-10-12, "Run 3 dev - correction and basic mutau setup") added only
+  `2022: '2022ReReco'`. Nobody added 2023+ because Run 3 development moved to `Run3_DEV/*`, which does not use
+  `tauSFVersion`; only the old top-level `ModuleETau`/`ModuleTauTau` index it, and only for MC. The same dict is also
+  in `ModuleHighPT.py`, `Tau_trig_SF_studies/ModuleTauPair_trig.py` and the `legacy/` copies.
+- **A07** `getTotalWeight` was correct when written: commit `fb23b0b` (2023-10-09, "Produced
+  nanoaod_sumw_2022_postEE.json ...") summed a scalar `total_w = 0.`. It was broken twice after that: `e56fb46`
+  (2023-10-11) added `if len(selection>0):`, which raises `TypeError` in Python 3 on every call, and `b26b97e`
+  (2023-10-13, "Change all bins in one loop ... -- not yet debugged, need nTuples with cutflow for this") changed it to
+  `total_w = []` with `total_w[iSel] += ...` outside the inner loop. The commit message itself says it was never
+  tested. Nobody noticed because the callers (`scripts/get_dataset_info.py`,
+  `LegacyAnalyses/2022/modify_cutflow_hist*.py`) are one-off scripts, and the JSON was made with the working version.
+- **A08** `getmet`/`getmetfilters` have printed regardless of `verb` since commit `ac73d84` (2023-12-09, "update
+  metfilter"). That commit added Run 3 MET-filter handling and, under the existing `if verb>=1: LOG.verb(...)` lines,
+  unconditional `print(">>> getmet: ...")` and `print(">>> getmetfilters: ...")`, probably leftover debug prints. Each
+  function runs once per module at setup, so the cost is one extra log line per job and nobody minded.
+- **A09** `loosestIso` has used `idDeepTau2017v2p1VSjet` since the day it was written: commit `b8952b1` (2020-06-21,
+  "add hulp functions"). In 2020 that was the current ID, so it was correct then and only went stale with
+  DeepTau2018v2p5 and Run 3. Its only callers lost their `loosestIso(tau)` calls in `64ce575` (2020-07-06); about
+  15 modules still import it, but nothing calls it, so nobody noticed.
+- **A10** The missing 2025 trigger goes back to commit `c679b49` (2023-10-12, "Run 3 dev - correction and basic mutau
+  setup"). That commit created `Run3_DEV/ModuleMuTau.py` from the Run 2 module and replaced its catch-all `else:`
+  with explicit year branches and no `else`, so any year without a branch leaves `self.trigger` unset. 2023 came in
+  `f1c36d8` (2024-03-13) and 2024 in `6f2db3c` (2025-03-18, "Module expanded to include 2024"). The 2025 import
+  `eb15fdc` (2026-03-11) put 2025 only into `ModuleMuTau_Inclusive.py`, and 2025 only passes the `ModuleTauPair` year
+  check since `53770ac` (2026-03-16, "2025 Updates"). Nobody noticed because the 2025 campaign apparently runs the
+  `_Inclusive` module. The `self.muSFs = 1` for 2024 comes from `6f2db3c`, which also sets the 2024 weights to 1, so
+  the integer is never used.
+- **A11** `CheckMuTrigger` has been like this since the day it was written: commit `62b74a8` (2021-07-20, "split
+  triggers") created it as `analysis/ModuleMuTrigger.py`, already with the unused threshold lambdas, the hard-coded
+  `if muon.pt<24: continue` and `self.out.trigsf[0] = 1.0 # TODO`. Since then it was only renamed (`eea9c66`,
+  `18da2c3`, `490dd93`, 2021-07-23) and moved (`0bc4d62`, `623a040`, 2026-10). It is a one-off trigger-overlap study
+  and nothing reads `trigsf`, so nobody noticed.
+- **A12** The `recoil` option has been dead since the day it was written: commit `f8ba048` (2020-06-21) created
+  `ModuleTauPair` with `self.doRecoil = kwargs.get('doRecoil', False)`, and in that same commit the import, the
+  `RecoilCorrectionTool(...)` construction and the correction calls were already commented out. `64ce575`
+  (2020-07-06) renamed it to `kwargs.get('recoil', False)`; the tool was never turned back on. The default is `False`
+  and no config passes `recoil=`, so nobody noticed.
+- **A13** The `datadir` leak has been there since the day the code was written: commit `f8ba048` (2020-06-21) created
+  `PileupTool.py` with a module-level `datadir = os.path.join(datadir,"pileup")` (and `BTagTool.py` with `"btag"`),
+  and `ModuleTauPair.py` star-imported `PileupTool`. `TauTriggerSFs` (`8ce519b`, 2020-07-18) and `JetVetoMapTool`
+  (`26271a6`, 2024-03-25) later rebound it the same way. The `replace("/pileup","")` workaround came in `5853bb3`
+  (2022-06-21, JetTauFake modules, with the comment "for some reason the pileup subfolder is selected as datadir ...
+  fixme") and was copied in `50f604f` (2022-07-26). Maintained modules almost never use `datadir` directly, and the
+  one author who hit it patched around it, so it was never fixed.
+- **A14** The undefined `fes` came in later. `a0ac361` (2021-06-17, "ETauFR modules") created the file with a working
+  `fes = self.fesTool.getFES(...)`. `486a11d` (2023-10-10, "ETau Update") commented out the tool and that line and set
+  `fes = 1.0`, which still worked. The bug is `43f229c` (2024-01-26, "Add combined fit + minor changes"), which
+  commented out `fes = 1.0` too, leaving `tau.pt *= fes` with nothing defining `fes`. The branch is only reached on MC
+  with the `fes` option set and `ltf` not set; the ETauFR workflow passes `ltf`, whose branch catches genmatch 1/3
+  first, so the `NameError` never runs.
+
+### Corrections
+
+- **C01** The UL2017 branch of `MuonSFs` has loaded the 2018 file since the correctionlib version was written: commit
+  `b41afdc` (2024-05-03, "add correctionlib JSONs for muon SFs"). That commit replaced the per-year ROOT files with
+  central JSONs, and its 2017 line is a copy-paste of the 2018 one (before that, 2017 correctly used `Run2017UL/...`).
+  The 2017 and 2018 JSONs have the same keys, so loading works and the numbers are only somewhat off; it never fails.
+- **C02** The id/iso log line has printed `sf_id` twice since `b41afdc` (2024-05-03). In that first version the
+  trigger print also had 5 arguments for 4 placeholders; `ed8fc45` (2024-05-03, "fix defaults: ...") fixed the count
+  but kept the duplicate `sf_id`. It only affects a log line, so nobody noticed.
+- **C03** `self.sftool_trig = 1.0 # no trigger SF in 2024 at the moment` first came in with `c82b25d` (2025-05-31, "DY
+  Zpt correction: JSON and script"), was removed in `fdadaa6` (2025-06-05) and re-added unchanged in `e2cd367`
+  (2025-06-05, "muon ID&Iso implementation 2024"). It was wrong from the start, but it never crashed because every
+  Run 3 module sets `trigweight = 1.` for 2024 without calling `getTriggerSF`. `16f3cfa` (2026-05-08, "muon Json
+  2025") copied the same float fallback into the 2025 branch.
+- **C04** `getTriggerSF` has taken its systematic from `sftool_id` since it was written in `b41afdc` (2024-05-03),
+  a copy-paste of the identical line in `getIdSF`/`getIsoSF`. No caller ever passes `syst`, so nobody noticed.
+- **C05** The `fname_id=None` plus `os.path.exists(fname_id)` pattern dates from `b41afdc` (2024-05-03), which dropped
+  the readable `assert ... "Did not find muon SF tool for %r"` of the old ROOT version (`ed8fc45` renamed `fname` to
+  `fname_id` the same day). Callers only pass known eras, and the 2024/2025 modules skip `MuonSFs`, so it never showed.
+- **C06** Two origins. The `getDYpTCorr` mapping `'2024' -> "2022postEE"` has been there since `DYandRecoilCorrlib`
+  was written in `c82b25d` (2025-05-31), as a deliberate placeholder (re-added unchanged in `612dd05`, 2025-06-05).
+  The 2025 crash came with `53770ac` (2026-03-16, "2025 Updates"), which allowed 2025 in `ModuleTauPair` but did not
+  add `'2025'` to the `fname_id` condition here. It needs MC with `dozpt` (a DY sample); probably no 2025 DY job has
+  run through `ModuleTauPair` since, or it ran with `zpt=False`.
+- **C07** Three origins. The stray string literals come from `bea7f54` (2021-06-10, "add lepton SFs; add pileup;
+  update modules"); they look like leftover file-name notes and do nothing. The "MuonSFs" text in the 2023 message
+  comes from `24efb7e` (2024-03-11, "add EleSF and Zpt for 2023"), copy-pasted from `MuonSFs`. The final assert is
+  from `bea7f54`, and no 2024/2025 branch has ever existed. Nobody noticed because the only Run 3 caller for those
+  eras, `Run3_DEV/ModuleETau_Inclusive.py`, sets `self.eleSFs = 1` for 2024 and 2025.
+- **C08** `JetVetoMapTool` has never had a working 2024 branch. `aab3232` (2025-01-20, "2024 updates") sent 2024 to
+  the 2023 BPix map, and `459b30b` (2025-02-24, "some comments for PR implemented") removed that again. `6f2db3c`
+  (2025-03-18) narrowed the `ModuleTauPair` check to 2022/2023, so 2024 silently skips the veto. The 2024 map only
+  arrived in `0b174cf` (2026-09-15, "Import upstream Tau trigger-SF framework + ... + 2024 jetveto map"), without a
+  code branch. That commit also added `Tau_trig_SF_studies/ModuleTauPair_trig.py`, whose check includes 2024/2025,
+  so there it raises "Did not recognize era" instead.
+- **C09** The `getjmecalib` data branch has been broken since `785e9a4` (2020-08-16, "improve UL2017 sample list;
+  repace PATH by DAS; improve getjmecalib; ..."), which replaced the old `jetRecalib` dictionary with
+  `createJMECorrector(..., jesUncert=jmeUncs, ..., metBranchName=MET)` while `jmeUncs`/`MET` are only set in the MC
+  branch. The same commit switched `skimjob.py` to NanoAODTools' `createJMECorrector` directly, so the function has had
+  no caller since the day the bug went in.
+- **C10** `PreFireTool` has been broken since it was added in `7c97e15` (2020-06-21, "add correction tools"), with
+  `from corrections import modulepath, extractTH1` (`modulepath` was never defined in this repo; probably a
+  leftover of an older standalone setup) and the `CMSSW_BASE` path. `RecoilCorrectionTool` had the same bad import
+  and was fixed in `64ce575` (2020-07-06); `PreFireTool` never was. Every use has always been commented out, so it
+  was never imported. `0bc4d62` (2026-10-12) only moved it to `legacy/`.
+- **C11** The import `from TauFW.PicoProducer.analysis.utils import hasbit` comes from `64ce575` (2020-07-06, "add
+  TauIDSFs, Z pt and top pt tool"), which replaced the broken imports of `7c97e15` with working ones and took
+  `hasbit` from `analysis.utils`. It works at runtime, so there was no reason to notice. The class itself has never
+  been used: its only use in `ModuleTauPair` has always been commented out.
+- **C12** Both files have been like this since they were written in `be8c553` (2023-02-14, "Squashed commits", the
+  HighPT/W* import); later commits only changed them for Python 3. `data/Wstar/kfactor_*.root` and
+  `data/trigger/mettrigger_<era>.root` have never been committed (`*.root` is in `.gitignore`). The only callers are
+  the HighPT modules `ModuleTauNu`/`ModuleMuNu`; most likely their author ran them inside CMSSW with the ROOT files
+  copied locally (a guess).
+- **C13** Both problems have been there since `DYandRecoilCorrlib.py` was created in `c82b25d` (2025-05-31, "DY Zpt
+  correction: JSON and script") by copying `MuonSFs.py`: the muon header comments, `getcorr` verbatim, the "muon"
+  docstrings and the unused `pathHTT`/`pathPOG`/`pathMUO`. `getcorr` is never called there, so nothing broke.
 
 ## BBB coverage notes
 
