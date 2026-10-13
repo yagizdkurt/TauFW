@@ -8,7 +8,8 @@ in the [README](../README.md#manual) around an existing TauFW clone.
 Run from a standalone TauFW clone on a Linux CMS node or container with bash
 4.4 or newer, Python 3, CMS software (normally via CVMFS), Git and network
 access. The interactive checklist also requires Python curses. Linked Git
-worktrees are not supported because moving them would break their metadata.
+worktree checkouts are not supported. A main clone that owns linked worktrees
+is also rejected when it would need to move; use a separate clone instead.
 The script detects EL8/EL9 for
 `SCRAM_ARCH`, or respects an explicitly set `el8_amd64_gcc12` or
 `el9_amd64_gcc12`. `CMS_SETUP` can override the default CMS setup script,
@@ -34,15 +35,26 @@ The release location depends on where the checkout already is:
 
 A release is never created inside another release area. If the destination is
 on another filesystem (e.g. a different AFS volume), the checkout is copied and
-the original is removed only after the copy is complete.
+the original is retained. Setup prints its location; finish any edits in that
+original before manually removing it. Copying is not a snapshot of concurrent edits.
 
 By default, TauIDSFs, HTT lepton efficiencies, Combine `v10.6.1` and
 CombineHarvester `v3.1.0` are selected for installation, then the release is
 built with four jobs. The fitting tool
 versions follow the [Combine v10 installation instructions](https://cms-analysis.github.io/HiggsAnalysis-CombinedLimit/v10.6.1/)
 and [CombineHarvester's CMSSW 14_1_X recommendation](https://github.com/cms-analysis/CombineHarvester).
-TauIDSFs and the HTT efficiencies follow their default branches. The default
-uses CMSSW's built-in NanoAODTools.
+Fresh downloads use shallow histories and fixed versions. The remaining pins,
+captured from the upstream default branches on 2026-10-13, are:
+
+| Dependency | Commit |
+| --- | --- |
+| Standalone NanoAODTools | `d163c18096fe2c5963ff5a9764bb420b46632178` |
+| TauIDSFs | `34f69acfd17c1655a67a709135c594512b84a76f` |
+| HTT LeptonEfficiencies | `a31ca914227f109e08c192d3a1b1c9ea07f929b2` |
+
+These pins provide reproducible source versions, not a claim of full analysis
+validation. The default uses CMSSW's built-in NanoAODTools. Each installed or
+reused dependency's actual commit is printed during setup.
 
 ## Interactive checklist
 
@@ -60,7 +72,7 @@ by default. Standalone NanoAODTools is optional for Run 2 JEC/JER. Command-line
 component flags set the initial selections, which can be changed in the menu.
 CMSSW setup and the TauFW build always run, even if every optional component
 is unselected. Unselected dependencies are left unchanged; installation checks
-for skipped TauIDSFs and Combine are omitted.
+for skipped TauIDSFs, HTT and Combine are omitted.
 
 For automation, use `--non-interactive`. When stdin or stdout is not a terminal,
 the checklist is skipped automatically and defaults plus command-line options
@@ -80,15 +92,23 @@ to continue with the command-line selections.
 The script never force-overwrites or deletes your work:
 
 - An existing `src/TauFW` destination is never overwritten.
-- Existing dependency checkouts are reused as they are, without pulling or
-  switching versions. If Combine or CombineHarvester is not at the tested tag,
-  or a dependency is a clone of a fork, the script prints a warning and repeats
-  it at the end.
-- The bundled HTT directory is backed up outside `src` before it is replaced.
-  TauFW's Git is then told to ignore that directory, so `git status` stays clean
-  and `git add -A` cannot commit the swap. To undo this, run
-  `git update-index --no-skip-worktree -- PicoProducer/data/lepton/HTT/README.md`
-  and remove its line from `.git/info/exclude`.
+- Existing dependency checkouts must have a valid commit, the expected upstream
+  remote (or a same-name fork/mirror), and nonempty required source/data files.
+  They are never pulled, reset or switched. Different commits, forks and local
+  changes produce warnings repeated in the summary.
+- Known conflicts and incomplete checkouts are checked before TauFW is moved.
+- New downloads are validated in temporary directories before being renamed
+  into place. Interrupted downloads do not leave a partial dependency at its
+  final path. Temporary downloads are removed on normal failure or cancellation.
+- New HTT installs live at `<release>/external/LeptonEfficiencies`. Only the
+  `Electron` and `Muon` correction directories are linked into the bundled HTT
+  directory; tracked files such as its README are preserved. The two untracked
+  links are locally excluded through `.git/info/exclude`.
+- Existing HTT Git checkouts and complete local correction directories are
+  preserved. Local directories without Git metadata produce a version warning.
+  Selecting HTT also clears the old installer's `skip-worktree` flags, so edits
+  to TauFW's tracked HTT files remain visible. Old `FastSetup-backup.*` directories
+  are left untouched.
 
 ## Options
 
@@ -99,7 +119,7 @@ The script never force-overwrites or deletes your work:
 | `--run2-jme` | Install standalone NanoAODTools for the [Run 2 JEC/JER workflows](../README.md#run-2-jetmet-corrections-backward-compatibility). |
 | `--non-interactive` | Skip the checklist and use defaults plus command-line options. |
 | `--skip-tauidsfs` | Do not install or verify TauIDSFs. |
-| `--skip-htt` | Do not install HTT lepton efficiencies. |
+| `--skip-htt` | Do not install or verify HTT lepton efficiencies. |
 | `--skip-combine` | Do not install or verify Combine/CombineHarvester. |
 | `--help` | Show usage and requirements. |
 
@@ -127,8 +147,16 @@ cmsenv
 
 On failure the script prints the exact command to rerun from the checkout's
 current location, preserving the chosen components for a noninteractive retry.
-Completed steps are skipped. The build starts clean only when
-the run cloned new packages; otherwise it resumes the previous build.
+Completed steps are validated and reused. Only adding fitting packages requests
+a global clean, recorded in `<release>/.FastSetup-needs-clean` before downloading.
+That marker survives retries and is removed only after `scram b clean` succeeds.
+An interrupted clean is retried; an interrupted build resumes without another
+clean. Installing TauIDSFs, HTT or NanoAODTools alone does not request a clean.
+
+Final checks import TauFW's packages and the actual selected Python tools from
+their expected locations. They also exercise CombineHarvester's native bindings,
+run the local Combine executable's help command, and open the HTT ROOT correction
+files. These checks establish basic installation usability, not physics validation.
 
 The [TauPOG-internal JSON and ROOT correction production](../README.md#taupog-corrections)
 requires measured SF values and manual edits, so it is not performed by the

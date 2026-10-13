@@ -7,9 +7,8 @@
 # the extra tools and builds everything with SCRAM. The steps are listed in
 # main() below; usage is in `bash FastSetup.sh --help` and docs/FastSetup.md.
 #
-# The script is safe to rerun after an interruption or a failure: each step
-# skips work that is already done, and nothing is force-overwritten or deleted
-# without a backup.
+# Existing dependency checkouts are validated and kept unchanged. New downloads
+# are staged before publication; cross-filesystem copies keep the original.
 
 # Plain POSIX syntax, so that sh, dash or zsh reach this message instead of a
 # parse error further down.
@@ -30,7 +29,8 @@ fi
 set -Eeuo pipefail
 shopt -s inherit_errexit
 
-# ─── Configuration ───────────────────────────────────────────────────────────
+# =============================================================================
+# ==== Configuration ====
 
 readonly RELEASE=CMSSW_14_1_0_pre4
 readonly SUPPORTED_ARCHS=(el8_amd64_gcc12 el9_amd64_gcc12)
@@ -39,6 +39,10 @@ readonly SUPPORTED_ARCHS=(el8_amd64_gcc12 el9_amd64_gcc12)
 # https://github.com/cms-analysis/CombineHarvester
 readonly COMBINE_TAG=v10.6.1
 readonly HARVESTER_TAG=v3.1.0
+# Fixed snapshots of the formerly unpinned default branches (2026-10-13).
+readonly NANOAODTOOLS_REF=d163c18096fe2c5963ff5a9764bb420b46632178
+readonly TAUIDSFS_REF=34f69acfd17c1655a67a709135c594512b84a76f
+readonly HTT_REF=a31ca914227f109e08c192d3a1b1c9ea07f929b2
 
 readonly NANOAODTOOLS_URL=https://github.com/cms-nanoAOD/nanoAOD-tools.git
 readonly TAUIDSFS_URL=https://github.com/cms-tau-pog/TauIDSFs
@@ -46,24 +50,44 @@ readonly HTT_URL=https://github.com/CMS-HTT/LeptonEfficiencies
 readonly COMBINE_URL=https://github.com/cms-analysis/HiggsAnalysis-CombinedLimit.git
 readonly HARVESTER_URL=https://github.com/cms-analysis/CombineHarvester.git
 readonly HTT_PATH=PicoProducer/data/lepton/HTT # relative to the TauFW checkout
+readonly NANOAODTOOLS_FILES=(
+  python/postprocessing/framework/postprocessor.py
+  python/postprocessing/modules/jme/jetmetHelperRun2.py
+)
+readonly TAUIDSFS_FILES=(python/TauIDSFTool.py)
+readonly COMBINE_FILES=(BuildFile.xml python/PhysicsModel.py)
+readonly HARVESTER_FILES=(CombineTools/BuildFile.xml CombineTools/python/ch.py)
+readonly HTT_FILES=(
+  Electron/Run2016_legacy/Electron_Run2016_legacy_Ele25.root
+  Electron/Run2016_legacy/Electron_Run2016_legacy_IdIso.root
+  Electron/Run2017/Electron_Ele35.root
+  Electron/Run2017/Electron_Run2017_IdIso.root
+  Electron/Run2018/Electron_Run2018_Ele32orEle35.root
+  Electron/Run2018/Electron_Run2018_IdIso.root
+  Muon/Run2017/Muon_IsoMu24orIsoMu27.root
+)
 
 # Fail instead of waiting for a password if a clone needs credentials.
 export GIT_TERMINAL_PROMPT=0
 
-# ─── State ───────────────────────────────────────────────────────────────────
+# =============================================================================
+# ==== Options and state ====
 
-jobs=4           # --jobs
-run2_jme=false   # --run2-jme
-tauidsfs=true    # --skip-tauidsfs
-htt=true         # --skip-htt
-combine=true     # --skip-combine
+jobs=4                # --jobs
+run2_jme=false         # --run2-jme
+tauidsfs=true          # --skip-tauidsfs
+htt=true              # --skip-htt
+combine=true          # --skip-combine
 non_interactive=false # --non-interactive
 cmssw_dir=       # --cmssw-dir, or chosen by choose_release_area
 repo_dir=        # this checkout; updated once it has been moved
 target=          # final checkout location: $cmssw_dir/src/TauFW
 cms_setup=       # CMS environment script
 moved=false      # whether this run moved the checkout
-need_clean=false # whether this run cloned a package, so the build starts clean
+clean_marker=    # persisted until a requested fitting-tool clean succeeds
+copied_from=     # original checkout retained after a cross-filesystem copy
+error_reported=false
+cancelled=false
 warnings=()      # repeated in the summary, so they are not lost in build output
 cleanup_paths=() # temporary directories, removed on exit
 temp_dir=        # output of make_temp_dir
@@ -71,28 +95,37 @@ args=("$@")      # for the rerun hint after an error
 
 readonly ERR_TRAP='on_error "$LINENO"'
 trap "$ERR_TRAP" ERR
-trap cleanup EXIT
+trap on_exit EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-# ─── Pipeline ────────────────────────────────────────────────────────────────
+# =============================================================================
+# ==== Installation pipeline ====
 
 main() {
   parse_args "$@"
+  banner 'Preflight'
   check_host               # Linux with Git
   locate_checkout          # this TauFW clone
   choose_release_area      # where CMSSW_14_1_0_pre4 lives
   select_components       # checklist before any installation or checkout move
+  preflight_install       # reject known conflicts before relocating the clone
   choose_scram_arch        # el8/el9_amd64_gcc12
+
+  banner 'CMSSW environment'
   load_cms_software        # source cmsset_default.sh
   create_release           # cmsrel, unless the release exists
   activate_release         # cmsenv
   move_checkout            # to $CMSSW_BASE/src/TauFW
+
+  banner 'Dependencies'
   install_nanoaodtools     # only with --run2-jme
   if $tauidsfs; then install_tauidsfs; fi
   if $htt; then install_htt_efficiencies; fi
   if $combine; then install_combine; fi # Combine and CombineHarvester
-  build_release            # scram b
+  banner 'Build'
+  build_release            # scram b; clean only when fitting tools require it
+  banner 'Verification'
   verify_install
   print_summary
 }
@@ -118,7 +151,7 @@ Options:
                     Otherwise use the framework shipped with CMSSW.
   --non-interactive Skip the checklist (for automation).
   --skip-tauidsfs   Do not install or verify TauIDSFs.
-  --skip-htt        Do not install HTT lepton efficiencies.
+  --skip-htt        Do not install or verify HTT lepton efficiencies.
   --skip-combine    Do not install or verify Combine/CombineHarvester.
   -h, --help        Show this help.
 Values can also be given as --cmssw-dir=PATH and --jobs=N.
@@ -129,11 +162,15 @@ otherwise it is detected from /etc/os-release. CMS_SETUP may override
 /cvmfs/cms.cern.ch/cmsset_default.sh.
 
 Measured-SF edits and TauPOG-internal correction production remain manual.
+Fresh downloads use fixed versions and shallow histories. Cross-filesystem
+copies keep the original checkout. See docs/FastSetup.md for recovery details.
 EOF
 }
 
-# ─── Helpers ─────────────────────────────────────────────────────────────────
+# =============================================================================
+# ==== Reporting and cleanup ====
 
+banner() { printf '\n%s\n==== %s ====\n' '=============================================================================' "$*"; }
 log()  { printf '\n[FastSetup] %s\n' "$*"; }
 warn() { printf '[FastSetup] WARNING: %s\n' "$*" >&2; warnings+=("$*"); }
 die()  { printf 'FastSetup: %s\n' "$*" >&2; exit 1; }
@@ -142,10 +179,28 @@ die()  { printf 'FastSetup: %s\n' "$*" >&2; exit 1; }
 # moved by now, so the hint uses its current location.
 on_error() {
   [[ $BASHPID == "$$" ]] || return 0 # report once, from the main shell
+  error_reported=true
+  printf 'FastSetup failed at line %s.\n' "$1" >&2
+  print_retry
+}
+
+print_retry() {
   local script=${repo_dir:+$repo_dir/FastSetup.sh}
-  printf 'FastSetup failed at line %s. Fix the error above, then rerun:\n  bash %q' "$1" "${script:-$0}" >&2
+  # A signal may arrive just after the checkout was renamed.
+  if [[ ! -f ${script:-$0} && -f ${target:-}/FastSetup.sh ]]; then script=$target/FastSetup.sh; fi
+  printf 'Fix the error above, then rerun:\n  bash %q' "${script:-$0}" >&2
   if ((${#args[@]})); then printf ' %q' "${args[@]}" >&2; fi
   printf '\n' >&2
+}
+
+on_exit() {
+  local status=$?
+  [[ $BASHPID == "$$" ]] || return "$status"
+  trap - ERR
+  set +e
+  if ((status != 0)) && ! $cancelled && ! $error_reported; then print_retry; fi
+  cleanup
+  return "$status"
 }
 
 # EXIT trap: remove temporary directories left by an interrupted step.
@@ -153,6 +208,9 @@ cleanup() {
   local path
   for path in "${cleanup_paths[@]}"; do rm -rf -- "$path"; done
 }
+
+# =============================================================================
+# ==== Filesystem and environment helpers ====
 
 # Run a command from CMS's own setup scripts. They are not written for strict
 # mode, so strict mode and the error trap are paused while they run. Their exit
@@ -191,13 +249,14 @@ enclosing_release() { # PATH
 
 # Rename SRC to DST. A rename is impossible across filesystems, including
 # separate AFS volumes. In that case copy SRC to a staging directory beside DST,
-# rename that into place, and only then delete SRC, so that DST is either
-# complete or absent.
+# rename that into place. Keep SRC: edits made while copying must not be lost.
 move_dir() { # SRC DST
   local src=$1 dst=$2 status=0
   python3 - "$src" "$dst" <<'EOF' || status=$?
 import errno, os, sys
 try:
+    if os.path.lexists(sys.argv[2]):
+        raise FileExistsError("Destination already exists: " + sys.argv[2])
     os.rename(sys.argv[1], sys.argv[2])
 except OSError as err:
     sys.exit(3 if err.errno == errno.EXDEV else str(err))
@@ -207,13 +266,18 @@ EOF
     3) ;;
     *) die "Could not move $src to $dst." ;;
   esac
-  log "The destination is on another filesystem; copying instead (this can take a while)."
-  make_temp_dir "$cmssw_dir" move
+  log "The destination is on another filesystem; copying and keeping the original."
+  make_temp_dir "$(dirname -- "$dst")" move
   cp -a -- "$src/." "$temp_dir/"
   chmod --reference="$src" -- "$temp_dir" # mktemp made it private
+  [[ ! -e $dst && ! -L $dst ]] || die "Destination appeared while copying: $dst."
   mv -T -- "$temp_dir" "$dst"
-  rm -rf -- "$src"
+  copied_from=$src
+  warn "Original checkout retained at $src. Finish any edits there before manually removing it."
 }
+
+# =============================================================================
+# ==== Dependency validation and downloads ====
 
 # Reduce a Git remote to host/owner/repo, so that the HTTPS, SSH and scp-style
 # spellings of the same repository compare equal.
@@ -229,55 +293,89 @@ normalize_remote() { # URL
   printf '%s\n' "${url%.git}"
 }
 
-# Clone URL into PATH (at TAG, if given), or reuse an existing checkout of it.
-# An existing checkout is never pulled, reset or switched. If it is not at TAG,
-# it is kept as it is and a warning names the tested tag.
-install_repo() { # URL PATH [TAG]
-  local url=$1 path=$2 tag=${3:-} top origin have want
-  local clone_opts=()
-  if [[ ! -e $path && ! -L $path ]]; then
-    log "Cloning $url${tag:+ ($tag)} into $path"
-    mkdir -p -- "$(dirname -- "$path")"
-    if [[ -n $tag ]]; then clone_opts=(--branch "$tag"); fi
-    git -c advice.detachedHead=false clone "${clone_opts[@]}" -- "$url" "$path"
-    need_clean=true
-    return
-  fi
-
+# Reject incomplete checkouts before they can be reused or published. Existing
+# forks are allowed when their repository name and required files match.
+check_repo() { # URL PATH REQUIRED_FILE...
+  local url=$1 path=$2 top origin have want
+  shift 2
   top=$(git -C "$path" rev-parse --show-toplevel 2>/dev/null) ||
     die "$path exists but is not a Git checkout. Move it away and rerun."
   [[ -z $(git -C "$path" rev-parse --show-cdup) ]] || # PATH must be the checkout's root
     die "$path is inside another Git checkout ($top), not a clone of $url."
+  git -C "$path" rev-parse --verify 'HEAD^{commit}' >/dev/null 2>&1 ||
+    die "$path has no checked-out commit. Move the incomplete checkout away and rerun."
   origin=$(git -C "$path" remote get-url origin 2>/dev/null) ||
     die "$path has no 'origin' remote; expected a clone of $url."
   have=$(normalize_remote "$origin")
   want=$(normalize_remote "$url")
-  if [[ $have == "$want" ]]; then
-    log "Reusing $path"
-  elif [[ ${have##*/} == "${want##*/}" ]]; then # same repository name: a fork or mirror
-    warn "Reusing $path, which is a clone of $origin rather than $url."
-  else
+  if [[ $have != "$want" && ${have##*/} != "${want##*/}" ]]; then
     die "$path is a clone of $origin, not $url. Move it away and rerun."
   fi
+  check_payload "$path" "$@"
+}
 
-  if [[ -n $tag && $(git -C "$path" rev-parse HEAD) != "$(git -C "$path" rev-parse -q --verify "refs/tags/$tag^{commit}" || true)" ]]; then
-    warn "$path is at $(git -C "$path" describe --tags --always), not the tested $tag. It was kept as it is; to switch: git -C $path checkout $tag"
+check_payload() { # PATH REQUIRED_FILE...
+  local path=$1 file
+  shift
+  for file in "$@"; do
+    [[ -s $path/$file ]] || die "Missing or empty dependency file: $path/$file. Restore it or move the incomplete checkout away and rerun."
+  done
+}
+
+report_repo() { # URL PATH REF
+  local url=$1 path=$2 ref=$3 origin head expected
+  origin=$(git -C "$path" remote get-url origin)
+  head=$(git -C "$path" rev-parse HEAD)
+  expected=$(git -C "$path" rev-parse -q --verify "$ref^{commit}" || true)
+  log "Dependency $path: $head"
+  if [[ $(normalize_remote "$origin") != "$(normalize_remote "$url")" ]]; then
+    warn "$path uses fork or mirror $origin; it was kept unchanged."
+  fi
+  if [[ $head != "$expected" ]]; then
+    warn "$path is at $head, not the pinned $ref; it was kept unchanged."
+  fi
+  if [[ -n $(git -C "$path" status --porcelain --untracked-files=normal) ]]; then
+    warn "$path has local changes; its files were kept unchanged."
   fi
 }
 
-# Hide PATH (relative to the TauFW checkout) from TauFW's Git, because a
-# separate clone replaced the files that TauFW tracks there. This keeps
-# `git status` clean and stops `git add -A` or `git commit -a` from committing
-# the swap. To undo: git update-index --no-skip-worktree -- PATH, and delete
-# its line from .git/info/exclude.
-hide_from_taufw_git() { # PATH
-  local rel=$1 exclude=$repo_dir/.git/info/exclude
-  mkdir -p -- "$repo_dir/.git/info"
-  grep -qxF -- "/$rel/" "$exclude" 2>/dev/null || printf '/%s/\n' "$rel" >>"$exclude"
-  git -C "$repo_dir" ls-files -z -- "$rel" | xargs -0 -r git -C "$repo_dir" update-index --skip-worktree --
+download_repo() { # URL PATH REF (PATH must not exist)
+  local url=$1 path=$2 ref=$3
+  if [[ $ref =~ ^[0-9a-f]{40}$ ]]; then
+    git init --quiet "$path"
+    git -C "$path" remote add origin "$url"
+    git -C "$path" fetch --depth 1 --no-tags origin "$ref"
+    git -C "$path" -c advice.detachedHead=false checkout --quiet --detach FETCH_HEAD
+  else
+    git -c advice.detachedHead=false clone --depth 1 --branch "$ref" -- "$url" "$path"
+  fi
 }
 
-# ─── Pipeline steps ──────────────────────────────────────────────────────────
+install_repo() { # URL PATH REF REQUIRED_FILE...
+  local url=$1 path=$2 ref=$3
+  shift 3
+  if [[ ! -e $path && ! -L $path ]]; then
+    log "Downloading $url ($ref) into $path"
+    mkdir -p -- "$(dirname -- "$path")"
+    make_temp_dir "$(dirname -- "$path")" clone
+    local stage=$temp_dir/checkout
+    # Persist the requirement before changing fitting packages, including on failure.
+    if [[ $url == "$COMBINE_URL" || $url == "$HARVESTER_URL" ]]; then
+      touch -- "$clean_marker"
+    fi
+    download_repo "$url" "$stage" "$ref"
+    check_repo "$url" "$stage" "$@"
+    [[ ! -e $path && ! -L $path ]] || die "Destination appeared during download: $path."
+    mv -T -- "$stage" "$path"
+  else
+    check_repo "$url" "$path" "$@"
+    log "Reusing $path"
+  fi
+  report_repo "$url" "$path" "$ref"
+}
+
+# =============================================================================
+# ==== Arguments and preflight ====
 
 parse_args() {
   while (($#)); do
@@ -348,7 +446,70 @@ choose_release_area() {
   fi
 }
 
-# --- Component selection -----------------------------------------------------
+preflight_repo() { # URL PATH REQUIRED_FILE...
+  local url=$1 path=$2
+  shift 2
+  if [[ -e $path || -L $path ]]; then check_repo "$url" "$path" "$@"; fi
+}
+
+check_checkout_move() {
+  if [[ $repo_dir != "$target" ]]; then
+    local worktrees
+    worktrees=$(git -C "$repo_dir" worktree list --porcelain | grep -c '^worktree ')
+    ((worktrees == 1)) || die 'This clone owns linked worktrees. Use a separate clone for installation; moving this one would break those worktrees.'
+  fi
+}
+
+check_htt_link() { # LINK EXPECTED_DESTINATION
+  if [[ -e $1 || -L $1 ]]; then
+    [[ -L $1 && $(realpath -m -- "$1") == "$(realpath -m -- "$2")" ]] ||
+      die "HTT destination already contains other files or a different link: $1. Keep it unchanged with --skip-htt, or move it away before rerunning."
+  fi
+}
+
+uses_local_htt() { # HTT_DIRECTORY
+  [[ (-d $1/Electron && ! -L $1/Electron) || (-d $1/Muon && ! -L $1/Muon) ]]
+}
+
+preflight_install() {
+  clean_marker=$cmssw_dir/.FastSetup-needs-clean
+  check_checkout_move
+  if [[ -e $cmssw_dir || -L $cmssw_dir ]]; then
+    [[ -d $cmssw_dir/src && -d $cmssw_dir/.SCRAM ]] ||
+      die "Not a complete CMSSW release area: $cmssw_dir. Move the incomplete area away and rerun."
+  fi
+
+  local nano=$cmssw_dir/src/PhysicsTools/NanoAODTools
+  if $run2_jme; then
+    preflight_repo "$NANOAODTOOLS_URL" "$nano" "${NANOAODTOOLS_FILES[@]}"
+  elif [[ -e $nano || -L $nano ]]; then
+    die "Standalone NanoAODTools already overrides the release ($nano). Rerun with --run2-jme, or move it outside src."
+  fi
+  if $tauidsfs; then
+    preflight_repo "$TAUIDSFS_URL" "$cmssw_dir/src/TauPOG/TauIDSFs" "${TAUIDSFS_FILES[@]}"
+  fi
+  if $combine; then
+    preflight_repo "$COMBINE_URL" "$cmssw_dir/src/HiggsAnalysis/CombinedLimit" "${COMBINE_FILES[@]}"
+    preflight_repo "$HARVESTER_URL" "$cmssw_dir/src/CombineHarvester" "${HARVESTER_FILES[@]}"
+  fi
+  if $htt; then
+    local path=$repo_dir/$HTT_PATH external=$cmssw_dir/external/LeptonEfficiencies component
+    if [[ -e $path || -L $path ]]; then
+      [[ -d $path && ! -L $path ]] || die "HTT must be a directory: $path. Use --skip-htt to preserve a custom layout."
+    fi
+    if [[ -e $path/.git || -L $path/.git ]]; then
+      check_repo "$HTT_URL" "$path" "${HTT_FILES[@]}"
+    elif uses_local_htt "$path"; then
+      check_payload "$path" "${HTT_FILES[@]}"
+    else
+      preflight_repo "$HTT_URL" "$external" "${HTT_FILES[@]}"
+      for component in Electron Muon; do check_htt_link "$path/$component" "$external/$component"; done
+    fi
+  fi
+}
+
+# =============================================================================
+# ==== Component selection ====
 
 select_components() {
   local selection_file status=0 component
@@ -364,6 +525,7 @@ select_components() {
       --output "$selection_file" --selected "${selected[@]}" || status=$?
     if ((status == 130)); then
       log 'Setup cancelled; no installation changes were made.'
+      cancelled=true
       exit 130
     elif ((status != 0)); then
       die 'Cannot open the checklist. Use --non-interactive to install with command-line options.'
@@ -387,6 +549,9 @@ select_components() {
   if $run2_jme; then args+=(--run2-jme); fi
 }
 
+# =============================================================================
+# ==== CMSSW environment ====
+
 choose_scram_arch() {
   if [[ -z ${SCRAM_ARCH:-} ]]; then
     [[ $(uname -m) == x86_64 ]] || die "This script supports only x86_64 (${SUPPORTED_ARCHS[*]})."
@@ -406,6 +571,7 @@ choose_scram_arch() {
 load_cms_software() {
   cms_setup=${CMS_SETUP:-/cvmfs/cms.cern.ch/cmsset_default.sh}
   [[ -r $cms_setup ]] || die "CMS setup is unavailable: $cms_setup. Run on a CMS node with CVMFS, or set CMS_SETUP."
+  cms_setup=$(realpath -- "$cms_setup")
   log "Loading CMS software ($SCRAM_ARCH)"
   relaxed source "$cms_setup" || true
   command -v scram >/dev/null || die 'Loading CMS software failed: scram is not available.'
@@ -442,78 +608,167 @@ move_checkout() {
   fi
   log "Moving $repo_dir to $target"
   move_dir "$repo_dir" "$target"
+  case $cms_setup in "$repo_dir/"*) cms_setup=$target/${cms_setup#"$repo_dir/"} ;; esac
   repo_dir=$target
   moved=true
 }
+
+# =============================================================================
+# ==== Selected dependencies ====
 
 # PicoProducer uses the NanoAODTools in CMSSW by default. A standalone checkout
 # in src overrides that, so it is only accepted when it was asked for.
 install_nanoaodtools() {
   local path=$cmssw_dir/src/PhysicsTools/NanoAODTools
   if $run2_jme; then
-    install_repo "$NANOAODTOOLS_URL" "$path"
+    install_repo "$NANOAODTOOLS_URL" "$path" "$NANOAODTOOLS_REF" "${NANOAODTOOLS_FILES[@]}"
   elif [[ -e $path || -L $path ]]; then
     die "Standalone NanoAODTools already overrides the release ($path). Rerun with --run2-jme, or move that checkout outside src and rerun."
   fi
 }
 
 install_tauidsfs() {
-  install_repo "$TAUIDSFS_URL" "$cmssw_dir/src/TauPOG/TauIDSFs"
+  install_repo "$TAUIDSFS_URL" "$cmssw_dir/src/TauPOG/TauIDSFs" "$TAUIDSFS_REF" "${TAUIDSFS_FILES[@]}"
 }
 
-# TauFW ships a placeholder HTT directory. README.md replaces it with rm -rf.
-# This step clones first and swaps afterwards, so a failed clone changes
-# nothing, and it keeps the placeholder outside src as a backup.
+# Keep the tracked placeholder. Only untracked correction-directory links are
+# added; there is no directory swap to roll back and no hidden tracked changes.
 install_htt_efficiencies() {
-  local htt=$repo_dir/$HTT_PATH backup
-  if [[ -e $htt && ! -e $htt/.git ]]; then
-    make_temp_dir "$cmssw_dir" HTT
-    git clone -- "$HTT_URL" "$temp_dir/HTT"
-    backup=$(mktemp -d "$cmssw_dir/FastSetup-backup.XXXXXX")
-    mv -- "$htt" "$backup/HTT"
-    mv -- "$temp_dir/HTT" "$htt"
-    log "Original HTT directory saved at $backup/HTT"
+  local htt=$repo_dir/$HTT_PATH external=$cmssw_dir/external/LeptonEfficiencies component exclude
+  if [[ -e $htt/.git ]]; then
+    # Preserve installations made by the old script or the manual instructions.
+    install_repo "$HTT_URL" "$htt" "$HTT_REF" "${HTT_FILES[@]}"
+  elif uses_local_htt "$htt"; then
+    check_payload "$htt" "${HTT_FILES[@]}"
+    warn "Using existing local HTT corrections at $htt; their version is not pinned and their files were kept unchanged."
+  else
+    install_repo "$HTT_URL" "$external" "$HTT_REF" "${HTT_FILES[@]}"
+    mkdir -p -- "$htt"
+    exclude=$repo_dir/.git/info/exclude
+    mkdir -p -- "$(dirname -- "$exclude")"
+    for component in Electron Muon; do
+      check_htt_link "$htt/$component" "$external/$component"
+      grep -qxF -- "/$HTT_PATH/$component" "$exclude" 2>/dev/null ||
+        printf '/%s/%s\n' "$HTT_PATH" "$component" >>"$exclude"
+      if [[ ! -L $htt/$component ]]; then ln -s -- "$external/$component" "$htt/$component"; fi
+    done
   fi
-  install_repo "$HTT_URL" "$htt"
-  hide_from_taufw_git "$HTT_PATH"
+  # Undo only the old installer's skip-worktree flags. Tracked edits stay visible.
+  if git -C "$repo_dir" ls-files -v -- "$HTT_PATH" | grep '^[Ss] ' >/dev/null; then
+    log 'Restoring visibility of tracked HTT files in TauFW Git'
+    git -C "$repo_dir" ls-files -z -- "$HTT_PATH" | xargs -0 -r git -C "$repo_dir" update-index --no-skip-worktree --
+  fi
 }
 
 install_combine() {
-  install_repo "$COMBINE_URL" "$cmssw_dir/src/HiggsAnalysis/CombinedLimit" "$COMBINE_TAG"
-  install_repo "$HARVESTER_URL" "$cmssw_dir/src/CombineHarvester" "$HARVESTER_TAG"
+  install_repo "$COMBINE_URL" "$cmssw_dir/src/HiggsAnalysis/CombinedLimit" "$COMBINE_TAG" "${COMBINE_FILES[@]}"
+  install_repo "$HARVESTER_URL" "$cmssw_dir/src/CombineHarvester" "$HARVESTER_TAG" "${HARVESTER_FILES[@]}"
 }
 
-# Start from a clean build after new packages were cloned, as CombineHarvester
-# recommends. A rerun with nothing new resumes the previous build instead of
-# starting over.
+# =============================================================================
+# ==== Build and verification ====
+
+# Only new fitting packages request a global clean. The marker survives failed
+# downloads and interrupted runs, and is removed only after scram clean succeeds.
 build_release() {
   cd -- "$cmssw_dir/src"
-  if $need_clean; then
-    log 'New packages were added; cleaning the previous build'
+  if [[ -e $clean_marker ]]; then
+    log 'Fitting packages require a clean build'
     scram b clean
+    rm -- "$clean_marker"
   fi
   log "Building all packages with $jobs jobs"
   scram b -j"$jobs"
 }
 
-verify_install() {
-  log 'Checking the installed tools'
-  python3 -c 'import PhysicsTools.NanoAODTools.postprocessing.framework.postprocessor as m; print("NanoAODTools:", m.__file__); import correctionlib' ||
-    die 'The build finished, but a Python import failed (see above).'
-  if $tauidsfs; then
-    python3 -c 'import TauPOG.TauIDSFs' || die 'The build finished, but TauIDSFs cannot be imported.'
-  fi
-  if $combine; then
-    command -v combine >/dev/null || die 'The build finished, but combine is not on PATH.'
-  fi
+verify_python_modules() { # EXPECTED_ROOT MODULE[:SYMBOL]...
+  python3 - "$@" <<'PY' || die 'A Python module is missing, unusable, or comes from another installation (see above).'
+import importlib
+from pathlib import Path
+import sys
+
+root = Path(sys.argv[1]).resolve()
+for spec in sys.argv[2:]:
+    name, _, symbol = spec.partition(":")
+    module = importlib.import_module(name)
+    location = getattr(module, "__file__", None)
+    if not location:
+        raise RuntimeError("%s has no implementation file" % name)
+    path = Path(location).resolve()
+    path.relative_to(root)  # Reject modules shadowed by another PYTHONPATH entry.
+    if symbol:
+        getattr(module, symbol)
+    print("%s: %s" % (name, path))
+PY
 }
+
+verify_htt() {
+  check_payload "$repo_dir/$HTT_PATH" "${HTT_FILES[@]}"
+  python3 - "$repo_dir/$HTT_PATH" "${HTT_FILES[@]}" <<'PY' || die 'HTT correction files cannot be read by ROOT (see above).'
+from pathlib import Path
+import sys
+import ROOT
+
+for relative in sys.argv[2:]:
+    path = Path(sys.argv[1]) / relative
+    handle = ROOT.TFile.Open(str(path), "READ")
+    if not handle or handle.IsZombie():
+        raise RuntimeError("Cannot open HTT correction file: %s" % path)
+    try:
+        if handle.GetListOfKeys().GetSize() == 0:
+            raise RuntimeError("HTT correction file contains no objects: %s" % path)
+    finally:
+        handle.Close()
+print("HTT correction files are readable")
+PY
+}
+
+verify_combine() {
+  local executable expected=$cmssw_dir/bin/$SCRAM_ARCH/combine
+  executable=$(type -P combine) || die 'combine is not on PATH.'
+  [[ $(realpath -- "$executable") == "$(realpath -m -- "$expected")" ]] ||
+    die "combine resolves to $executable, not $expected."
+  "$executable" --help >/dev/null || die 'The installed combine executable cannot run.'
+  verify_python_modules "$cmssw_dir/src/HiggsAnalysis/CombinedLimit" HiggsAnalysis.CombinedLimit.PhysicsModel:PhysicsModel
+  verify_python_modules "$cmssw_dir/src/CombineHarvester" CombineHarvester.CombineTools.ch:CombineHarvester
+  python3 -c 'from CombineHarvester.CombineTools import ch; ch.CombineHarvester()' ||
+    die 'CombineHarvester native bindings cannot be used.'
+}
+
+verify_install() {
+  log 'Checking TauFW and the selected tools'
+  verify_python_modules "$repo_dir" TauFW.PicoProducer TauFW.Plotter TauFW.Fitter \
+    TauFW.Utilities TauFW.Framework:Framework
+  local nano_root
+  if $run2_jme; then
+    nano_root=$cmssw_dir/src/PhysicsTools/NanoAODTools
+  else
+    [[ -n ${CMSSW_RELEASE_BASE:-} ]] || die 'The CMSSW release base is unavailable.'
+    nano_root=$CMSSW_RELEASE_BASE
+  fi
+  verify_python_modules "$nano_root" PhysicsTools.NanoAODTools.postprocessing.framework.postprocessor:PostProcessor
+  if $run2_jme; then
+    verify_python_modules "$nano_root" PhysicsTools.NanoAODTools.postprocessing.modules.jme.jetmetHelperRun2:createJMECorrector
+  fi
+  python3 -c 'from correctionlib import CorrectionSet' || die 'correctionlib cannot be used.'
+  if $tauidsfs; then
+    verify_python_modules "$cmssw_dir/src/TauPOG/TauIDSFs" \
+      TauPOG.TauIDSFs.TauIDSFTool:TauIDSFTool TauPOG.TauIDSFs.TauIDSFTool:TauESTool
+  fi
+  if $htt; then verify_htt; fi
+  if $combine; then verify_combine; fi
+}
+
+# =============================================================================
+# ==== Completion summary ====
 
 selection_label() {
   if "$1"; then printf 'selected'; else printf 'skipped'; fi
 }
 
 print_summary() {
-  log "Setup complete: $repo_dir"
+  banner 'Setup complete'
+  printf 'TauFW: %s\n' "$repo_dir"
   printf '\nComponent selection (unselected components were left unchanged):\n'
   printf '  TauIDSFs: %s\n  HTT efficiencies: %s\n  Combine + CombineHarvester: %s\n  Standalone NanoAODTools: %s\n' \
     "$(selection_label "$tauidsfs")" "$(selection_label "$htt")" \
@@ -524,7 +779,9 @@ print_summary() {
   fi
   printf '\nActivate this environment in your terminal now and in each new session:\n'
   printf '  source %q\n  export SCRAM_ARCH=%q\n  cd %q\n  cmsenv\n' "$cms_setup" "$SCRAM_ARCH" "$cmssw_dir/src"
-  if $moved; then
+  if [[ -n $copied_from ]]; then
+    printf '\nOriginal checkout retained at: %s\nUse the activation commands above to work from the installed copy.\n' "$copied_from"
+  elif $moved; then
     printf '\nThe checkout was moved. A terminal that was inside it still shows the old path; the cd above fixes that.\n'
   fi
   printf '\nTauPOG correction production still requires your measured SFs and the manual instructions in README.md.\n'
