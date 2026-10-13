@@ -11,16 +11,6 @@ The [`Framework`](Framework) package runs these steps as one pipeline from a rec
 Run all automated tests quietly with `python3 Tests/run.py all` (see the
 [test setup and requirements](Tests/README.md#all-automated-tests-quiet-shortcut)).
 
-## Contributing responsibly
-
-Before pushing changes or opening a pull request, read the
-[basic coding guidelines](docs/HowToCodeGood.md) and
-[legacy code policy](docs/LegacyCode.md). Take responsibility for the code you
-introduce: document its purpose, check its dependencies, and archive completed
-one-off work in the appropriate data-year folder. Include the required legacy
-banner and update the inventory; leave clear context instead of unexplained
-copies for the next developer.
-
 ## Installation
 
 ### Automatic
@@ -45,13 +35,17 @@ From the TauFW folder, after setting up the CMSSW environment, use the root laun
 python3 taufw.py         # interactive menu
 python3 taufw.py --help  # available commands
 ```
-The launcher delegates to `Framework/scripts/taufw.py`; relative recipe and run paths
-are resolved from your working directory. After `cmsenv` and `scram b`, `taufw.py`
-is also available on `PATH`.
 
 See [Analyses/README.md](Analyses/README.md) for analysis bundles (recipe, configs
 and Python steps in one directory), stage options, examples, and planning,
 starting, or continuing a pipeline.
-See [Framework/README.md](Framework/README.md) for the run model and
-[docs/PicoProducer/API.md](docs/PicoProducer/API.md) for the PicoProducer API it uses.
 
+## Contributing responsibly
+
+Before pushing changes or opening a pull request, read the
+[basic coding guidelines](docs/HowToCodeGood.md) and
+[legacy code policy](docs/LegacyCode.md). Take responsibility for the code you
+introduce: document its purpose, check its dependencies, and archive completed
+one-off work in the appropriate data-year folder. Include the required legacy
+banner and update the inventory; leave clear context instead of unexplained
+copies for the next developer.
