@@ -41,6 +41,8 @@ the baseline, and fixing it changes that baseline on purpose.
 | P18 | `settings/store.py` (was `tools/config.py:76-117`) | Reading the config created or rewrote `config/config.json`, also from a batch worker (`picojob.py -c`), Plotter (`$PICODIR`) or a script | wrong | yes | S3 | Part 3B: `getconfig(write=False)` by default; only `pico.py` (`pico/common.py`) passes `write=True`. Library readers get missing keys repaired in memory and a warning if the file is missing | none for `pico.py` (BBB unchanged); workers/Plotter/scripts no longer write the file |
 | P19 | `pico/job.py:975` | `TODO: check if hadd was succesful`: cleanup after `haddclean` is gated only on the command's exit code, not on the merged file (A04) | wrong | yes | S4 | | |
 | P20 | `pico/job.py` `_Prompt.existing` + `jobs/pipeline.py` (was `pico/job.py:177-182`) | `submit --prompt` on an existing job config: answering `y` skips the sample and `n` submits it (the `skip` flag is set on the wrong branch). Unreachable today because of P02 | wrong | no | S4 | | |
+| P21 | `pico/job.py` `main_status` (status branch) | `pico.py status --checkexpevts` has no effect: the status-only branch does not pass `checkexpevts` to the status check (`hadd`/`clean` and `resubmit` do), so it falls back to `False` | wrong | no | S4 | | |
+| P22 | `jobs/status.py` `check_sample` (was `pico/job.py:361`) | Checking the status creates the output directory (`getstorage(outdir,ensure=True)`), so `status`, and the read-only `status()`/`plan()` of the coming API, write to storage | wrong (side effect) | no | S4 | | |
 
 ## Storage and batch
 

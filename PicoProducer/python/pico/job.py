@@ -8,7 +8,7 @@ from TauFW.PicoProducer.jobs.jobconfig import getcfgsamples
 from TauFW.PicoProducer.jobs.pipeline import iter_plans, submit_plan, record_submission
 from TauFW.PicoProducer.jobs.reporting import ConsoleReporter
 from TauFW.PicoProducer.jobs.request import JobRequest
-from TauFW.PicoProducer.jobs.status import checkchunks
+from TauFW.PicoProducer.jobs.status import check_sample
 from TauFW.PicoProducer.storage.factory import getstorage
 from TauFW.PicoProducer.datasets.catalog import print_no_samples
 from TauFW.common.tools.log import bold
@@ -120,6 +120,7 @@ def main_status(args):
   jobdirformat   = CONFIG.jobdir
   storedirformat = CONFIG.picodir
   jobs           = None
+  reporter       = ConsoleReporter(LOG)
   if subcmd not in ['hadd','clean','haddclean']:
     if not channels:
       channels = ['*']
@@ -197,10 +198,10 @@ def main_status(args):
             print(">>> %-12s = %s"%('infiles',infiles))
             if subcmd in ['hadd','haddclean']:
               print(">>> %-12s = %r"%('outfile',outfile))
-          resubfiles, chunkdict, npend = checkchunks(sample,CONFIG,channel=channel_,tag=tag,jobs=jobs,checkqueue=checkqueue,checkevts=checkevts,
-                                                     das=checkdas,checkexpevts=checkexpevts,ncores=ncores,verb=verbosity)
-          if (len(resubfiles)>0 or npend>0) and not force: # only clean or hadd if all jobs were successful
-            LOG.warn("Cannot %s job output because %d chunks need to be resubmitted..."%(subcmd,len(resubfiles))+
+          status = check_sample(sample,CONFIG,reporter,channel=channel_,tag=tag,jobs=jobs,checkqueue=checkqueue,checkevts=checkevts,
+                                das=checkdas,checkexpevts=checkexpevts,ncores=ncores,verb=verbosity)
+          if not status.mergeable and not force: # only clean or hadd if all jobs were successful
+            LOG.warn("Cannot %s job output because %d chunks need to be resubmitted..."%(subcmd,len(status.resubfiles))+
                      " Please use -f or --force to %s anyway.\n"%(subcmd))
             continue
           
@@ -248,8 +249,8 @@ def main_status(args):
             print(">>> %-12s = %r"%('jobdir',jobdir))
             print(">>> %-12s = %r"%('outdir',outdir))
             print(">>> %-12s = %r"%('logdir',logdir))
-          checkchunks(sample,CONFIG,channel=channel_,tag=tag,jobs=jobs,showlogs=showlogs,checkqueue=checkqueue,
-                      checkevts=checkevts,das=checkdas,ncores=ncores,verb=verbosity)
+          check_sample(sample,CONFIG,reporter,channel=channel_,tag=tag,jobs=jobs,showlogs=showlogs,checkqueue=checkqueue,
+                       checkevts=checkevts,das=checkdas,ncores=ncores,verb=verbosity)
         
         print('')
       

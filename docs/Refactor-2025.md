@@ -663,3 +663,28 @@ with and without `--force`, `--prompt` answers, resubmission with good/pending/c
 and `status` (with log lookup, and for all eras/channels). The terminal output, the job lists, the job configs
 (without `time`) and the scheduler calls are identical. The only difference is the exception type of P02.
 
+### A3. Job status: observations and classifiers
+
+`checkchunks` (a 400-line function) is now `jobs/status.py`:
+
+| Part | Responsibility |
+|---|---|
+| `check_sample(sample, config, reporter, ...)` | the pipeline for one sample: expected events (job config or DAS), the batch queue, the storage listing and file validation, then the summary and the log files of failed chunks. Returns a `ChunkStatus` |
+| `_SkimClassifier`, `_TreeClassifier` | assign pending jobs and output files to chunks and decide which chunks are good, pending, failed or missing, and which input files to resubmit. They do not access files, storage or the batch queue; `check_sample` feeds them the observations in the original order (for trees, only outputs of non-pending chunks are validated, as before) |
+| `ChunkStatus` | chunk numbers per state, processed and expected events, the files to resubmit and the chunks to keep. `mergeable` is the condition for `hadd`/cleanup (nothing to resubmit, nothing pending) |
+| `format_summary(status)` | the `SUCCESS/PEND/FAIL/MISS` lines |
+
+- All output goes through the reporter, including the progress bar (`reporter.progress`).
+- `check_sample` no longer modifies the sample's job config: the classifiers work on a copy of its `chunkdict`,
+  and the expected number of events is returned (`status.nexpected`) instead of being written into
+  `sample.jobcfg['nevents']`. Resubmission and `main_status` use the returned values.
+- `pipeline.iter_plans` (resubmission) and `pico/job.py` `main_status` call `check_sample`.
+
+**New bugs found:** P21 (`status --checkexpevts` is ignored) and P22 (checking the status creates the output
+directory). Both are kept as they are and fixed in B.
+
+**Check:** the A2 comparison harness was extended with progress bars (15 or more outputs, skims and trees),
+`--checkexpevts`, `--skipevts`, log lookup with log files, and pending jobs for skims and trees: 184 scenarios
+(verbosity 0-3), compared with the code before Part 4A-2 (`3c401cd`). Output, job lists, job configs and
+scheduler calls are identical; the only difference is still the exception type of P02.
+

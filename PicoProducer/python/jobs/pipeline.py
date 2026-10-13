@@ -40,7 +40,7 @@ from TauFW.PicoProducer.jobs.chunking import chunkify_by_evts
 from TauFW.PicoProducer.jobs.jobconfig import make_jobcfg, write_jobcfg, getcfgsamples
 from TauFW.PicoProducer.jobs.planner import sample_layout, assign_chunks, cfg_globs
 from TauFW.PicoProducer.jobs.reporting import Reporter
-from TauFW.PicoProducer.jobs.status import checkchunks
+from TauFW.PicoProducer.jobs.status import check_sample
 from TauFW.PicoProducer.jobs.worker_command import resolve_worker
 
 __all__ = ['iter_plans', 'submit_plan', 'record_submission', 'SamplePlan']
@@ -156,10 +156,12 @@ def iter_plans(config,request,reporter=None,on_existing=None,materialize=True):
           if request.checkqueue==1 and jobs!=None: # BUGS P04: never true; check jobs only once to speed up performance
             batch = getbatch(config,verb=verbosity)
             jobs  = batch.jobs(verb=verbosity-1)
-          infiles, chunkdict = checkchunks(sample,config,channel=channel,tag=tag,jobs=jobs,checkqueue=request.checkqueue,
-                                           checkevts=request.checkevts,checkexpevts=request.checkexpevts,
-                                           das=request.checkdas,ncores=request.ncores,verb=verbosity)[:2]
-          nevents = sample.jobcfg['nevents'] # updated in checkchunks
+          status  = check_sample(sample,config,reporter,channel=channel,tag=tag,jobs=jobs,checkqueue=request.checkqueue,
+                                 checkevts=request.checkevts,checkexpevts=request.checkexpevts,
+                                 das=request.checkdas,ncores=request.ncores,verb=verbosity)
+          infiles   = status.resubfiles # input files of failed and missing chunks
+          chunkdict = status.chunkdict  # chunks that are done
+          nevents   = status.nexpected
         else: # first-time submission
           infiles = sample.getfiles(das=request.dasfiles,verb=verbosity-1)
           if request.checkdas:
