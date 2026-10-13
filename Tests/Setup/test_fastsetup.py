@@ -20,6 +20,12 @@ if BASH is None:
         BASH = str(candidate)
 
 
+def write_lf(path, text):
+    """Write a shell script with LF line endings (Path.write_text(newline=) needs Python 3.10)."""
+    with open(path, "w", encoding="utf-8", newline="\n") as stream:
+        stream.write(text)
+
+
 @unittest.skipUnless(BASH, "Bash is unavailable")
 class FastSetupTests(unittest.TestCase):
     def run_script(self, body, *args, expected=0, directory=None, helper_from_checkout=False):
@@ -34,7 +40,7 @@ class FastSetupTests(unittest.TestCase):
         source += '\npython3() { "$FASTSETUP_TEST_PYTHON" "$@"; }\n'
         if not helper_from_checkout:
             source += 'installer_python() { python3 "$FASTSETUP_TEST_INSTALLER" "$@"; }\n'
-        script.write_text(source + body, encoding="utf-8", newline="\n")
+        write_lf(script, source + body)
         env = dict(os.environ, FASTSETUP_TEST_PYTHON=sys.executable,
                    FASTSETUP_TEST_INSTALLER=str(INSTALLER), MSYS="winsymlinks:sys",
                    PYTHONDONTWRITEBYTECODE="1")

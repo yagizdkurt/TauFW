@@ -10,6 +10,9 @@ from pathlib import Path
 from TauFW.Framework.defaults import (ANALYSES_DIR, DEFAULT_POLL_SECONDS, DEFAULT_RUN_ROOT, RECIPE_NAME,
                                       RUN_RECORD_NAME)
 from TauFW.Framework.run_record import RunRecord, RunState
+from TauFW.Framework.recipe import Recipe
+from TauFW.Framework.framework import Framework
+from TauFW.Framework.reporting import SilentReporter
 from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation
 
 
@@ -37,6 +40,32 @@ class _Operations:
                        if (p.is_dir() and (p / RECIPE_NAME).is_file())
                        or (p.is_file() and p.suffix in (".yml", ".yaml", ".json"))),
                       key=lambda p: p.name) if self.recipes_dir.is_dir() else []
+
+    @staticmethod
+    def _recipe_view(recipe, path):
+        """Plain presentation data; Utilities never needs Framework objects."""
+        return dict(name=recipe.name, path=str(path),
+                    stages=tuple((stage.id, stage.stage) for stage in recipe.stages), notes=())
+
+    def recipe_preview(self, path):
+        """Read recipe metadata only, without constructing stage APIs."""
+        return self._recipe_view(Recipe.load(str(path)), path)
+
+    def prepare_review(self, path):
+        """Reload and dry-plan the selected recipe without terminal output or writes."""
+        recipe = Recipe.load(str(path))
+        reporter = SilentReporter()
+        plan = Framework.from_recipe(recipe, reporter=reporter).plan()
+        view = self._recipe_view(recipe, path)
+        notes = []
+        for stage in plan.stages:
+            if stage.note:
+                notes.append("%s: %s" % (stage.stage, stage.note))
+            notes.extend("%s: %s" % (stage.stage, note)
+                         for note in getattr(stage.plan, "notes", ()))
+        notes.extend(message for kind, message in reporter.messages if kind == "warning")
+        view["notes"] = tuple(notes)
+        return view
 
     def runs(self):
         root = self.launch_dir / DEFAULT_RUN_ROOT

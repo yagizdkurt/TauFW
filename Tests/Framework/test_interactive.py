@@ -2,6 +2,7 @@
 import contextlib
 import importlib.util
 import io
+import json
 import tempfile
 import unittest
 from datetime import datetime
@@ -22,7 +23,7 @@ class FakeUI(ConsoleUI):
         self.screens = []
         self.pauses = 0
 
-    def choose(self, title, choices, welcome=None):
+    def choose(self, title, choices, welcome=None, **layout):
         self.screens.append((title, choices))
         return next(self.choices)
 
@@ -35,6 +36,13 @@ class FakeUI(ConsoleUI):
     def help(self):
         pass
 
+    def select_recipe(self, names, preview=None):
+        return super().select_recipe(names)
+
+    def confirm_recipe(self, path, review=None, position=None):
+        self.review = review
+        return super().confirm_recipe(path)
+
 
 class MenuTests(unittest.TestCase):
     def setUp(self):
@@ -45,9 +53,18 @@ class MenuTests(unittest.TestCase):
         self.recipes.mkdir()
         self.commands = {name: mock.Mock(return_value=0)
                          for name in ("plan", "start", "advance", "status")}
+        patcher = mock.patch("TauFW.Framework.interactive.Framework.from_recipe")
+        self.framework = patcher.start()
+        self.addCleanup(patcher.stop)
+        self.framework.return_value.plan.return_value = mock.Mock(stages=())
 
     def menu(self, ui):
         return Menu(self.commands, ui, self.root, self.recipes)
+
+    def recipe_file(self, path, name="test", stages=None):
+        path.write_text(json.dumps(dict(name=name, stages=stages or [{"stage": "fit"}])),
+                        encoding="utf-8")
+        return path
 
     def record(self, name="test", state="WAITING", day=1):
         recipe = Recipe.from_dict({"name": name, "stages": [{"stage": "fit"}]})
@@ -66,25 +83,31 @@ class MenuTests(unittest.TestCase):
         (self.recipes / "c_bundle" / "recipe.yml").touch()
         (self.recipes / "d_not_a_bundle").mkdir()
         ui = FakeUI([3, 0], ["custom.yml"])
+        self.recipe_file(self.root / "custom.yml")
         order = []
-        for name in ("plan", "start"):
-            self.commands[name].side_effect = lambda args, name=name: order.append(name) or 0
+        planned = self.framework.return_value
+        self.framework.side_effect = lambda *args, **values: order.append("prepare") or planned
+        self.commands["start"].side_effect = lambda args: order.append("start") or 0
         self.menu(ui).start()
         self.assertEqual(ui.screens[0][1][:3], ["a.json", "b.yml", "c_bundle"])
-        self.assertEqual(order, ["plan", "start"])
+        self.assertEqual(order, ["prepare", "start"])
+        self.commands["plan"].assert_not_called()
         args = self.commands["start"].call_args.args[0]
         self.assertEqual(args.recipe, str(self.root / "custom.yml"))
         self.assertFalse(args.wait)
         self.assertIsNone(args.run_root)
-        self.assertEqual(ui.pauses, 2)
+        self.assertEqual(ui.pauses, 1)
 
     def test_recipe_error_allows_another_selection(self):
-        self.commands["plan"].side_effect = [ValueError("invalid recipe"), 0]
-        ui = FakeUI([0, 0, 1, 1], ["bad.yml", "good.yml"])
+        self.recipe_file(self.root / "bad.yml")
+        self.recipe_file(self.root / "good.yml")
+        self.framework.side_effect = [ValueError("invalid recipe"), self.framework.return_value]
+        ui = FakeUI([0, 0, 2, 1], ["bad.yml", "good.yml"])
         with contextlib.redirect_stdout(io.StringIO()) as output:
             self.menu(ui).start()
         self.assertIn("invalid recipe", output.getvalue())
-        self.assertEqual(self.commands["plan"].call_count, 2)
+        self.assertEqual(self.framework.call_count, 2)
+        self.commands["plan"].assert_not_called()
         self.commands["start"].assert_not_called()
 
     def test_run_order_and_polling_validation(self):
@@ -164,10 +187,88 @@ class MenuTests(unittest.TestCase):
         ui.select_recipe.return_value = ("manual", None)
         ui.recipe_path.return_value = "custom.yml"
         ui.confirm_recipe.return_value = "start"
+        self.recipe_file(self.root / "custom.yml")
         self.assertEqual(self.menu(ui).run(), 0)
         self.commands["start"].assert_called_once()
         ui.choose.assert_not_called()
         ui.prompt.assert_not_called()
+
+    def test_bundled_previews_use_recipe_order_without_planning(self):
+        operations = self.menu(FakeUI()).operations
+        expected = {
+            "example_mutau": (("production", "production"), ("plots", "plots")),
+            "tes_id_2025": (("plots", "plots"), ("histograms", "histograms"),
+                            ("fit", "fit"), ("fit_summary", "python")),
+        }
+        for bundle, stages in expected.items():
+            with self.subTest(bundle=bundle):
+                view = operations.recipe_preview(checkout.REPO / "Analyses" / bundle)
+                self.assertEqual(view["stages"], stages)
+        self.framework.assert_not_called()
+        self.assertFalse((self.root / "taufw_runs").exists())
+
+    def test_multiple_python_steps_keep_custom_and_default_ids(self):
+        path = self.recipe_file(self.recipes / "custom.json", stages=[
+            {"stage": "python", "id": "prepare", "file": "steps/prep.py"},
+            {"stage": "plots", "eras": [2025]},
+            {"stage": "python", "file": "steps/check.py"},
+            {"stage": "fit"},
+            {"stage": "python", "id": "report", "file": "steps/report.py"},
+        ])
+        view = self.menu(FakeUI()).operations.recipe_preview(path)
+        self.assertEqual(view["stages"], (("prepare", "python"), ("plots", "plots"),
+                                          ("check", "python"), ("fit", "fit"), ("report", "python")))
+        self.framework.assert_not_called()
+
+    def test_review_reloads_recipe_and_preserves_nonfatal_notes_silently(self):
+        path = self.recipe_file(self.recipes / "test.json", name="before")
+        operations = self.menu(FakeUI()).operations
+        self.assertEqual(operations.recipe_preview(path)["name"], "before")
+        self.recipe_file(path, name="after")
+
+        def build(recipe, reporter):
+            reporter.warning("configuration warning")
+            self.assertEqual(recipe.name, "after")
+            return mock.Mock(plan=mock.Mock(return_value=mock.Mock(stages=[
+                mock.Mock(stage="fit", note="environment unavailable", plan=None),
+                mock.Mock(stage="plots", note="", plan=mock.Mock(notes=("missing ROOT",)))
+            ])))
+
+        self.framework.side_effect = build
+        before = path.read_bytes()
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            review = operations.prepare_review(path)
+        self.assertEqual(output.getvalue(), "")
+        self.assertEqual(review["name"], "after")
+        self.assertEqual(review["notes"], ("fit: environment unavailable", "plots: missing ROOT",
+                                          "configuration warning"))
+        self.assertEqual(path.read_bytes(), before)
+        self.assertFalse((self.root / "taufw_runs").exists())
+
+    def test_detailed_plan_returns_to_review_before_launch(self):
+        path = self.recipe_file(self.recipes / "test.json")
+        ui = mock.Mock()
+        ui.select_recipe.return_value = ("select", 0)
+        ui.confirm_recipe.side_effect = ["plan", "start"]
+        self.menu(ui).start()
+        self.assertEqual(ui.confirm_recipe.call_count, 2)
+        first, second = ui.confirm_recipe.call_args_list
+        self.assertIs(first.kwargs["position"], second.kwargs["position"])
+        self.assertIs(first.kwargs["review"], second.kwargs["review"])
+        self.assertEqual(self.framework.call_count, 1)
+        self.assertEqual(self.commands["plan"].call_args.args[0].recipe, str(path))
+        self.assertEqual(self.commands["start"].call_args.args[0].recipe, str(path))
+        self.assertEqual(ui.pause.call_count, 2)
+
+    def test_invalid_selected_recipe_never_plans_or_starts(self):
+        (self.recipes / "broken.json").write_text("{}")
+        ui = FakeUI([0, 2])
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            self.menu(ui).start()
+        self.assertIn("RecipeError", output.getvalue())
+        self.framework.assert_not_called()
+        self.commands["start"].assert_not_called()
+        self.assertEqual(ui.pauses, 1)
 
     def test_terminal_failure_returns_cli_fallback(self):
         curses = mock.Mock()

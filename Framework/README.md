@@ -70,7 +70,14 @@ optional console menu (Python's standard-library `curses`; no extra dependency).
 Use Up/Down to move, Enter to select, and Esc to go back or exit the main menu.
 
 - **Start a new run** lists the analysis bundles in `Analyses/` or accepts another path, displays
-  the plan, then offers to start the run.
+  the selected recipe's pipeline, then offers to start the run. The picker always uses two equal-width
+  panels: a recipe table on the left and numbered stage boxes connected by downward arrows on the right.
+  Up/Down changes the recipe; Page Up/Page Down scrolls its pipeline. At least 64 columns and 12 rows
+  are required; smaller terminals show a resize message and Esc still returns to the main menu.
+  The preview follows the recipe's actual stage order, including custom Python steps, without planning jobs.
+  Selecting a recipe reloads it and prepares its read-only plan silently before showing the review screen,
+  including any nonfatal planning notes. **View detailed plan** displays the existing textual plan and
+  returns to the same review after Enter. **Start run** launches the run; **Back** returns to the picker.
 - **Continue an existing run** lists saved runs in `taufw_runs/` (newest first)
   or accepts another run directory. Choose one advance or repeated checking;
   polling defaults to 600 seconds. Terminal runs offer status inspection instead.
@@ -91,7 +98,11 @@ wording, screen choices, and terminal lifecycle; `_navigation.py` owns screen
 transitions, back behavior, refresh loops, and operation feedback; `faq.py` owns
 help content.
 `python/interactive.py` keeps recipe/run discovery, validation, record access,
-and command dispatch. UI screens return named actions so layout and label
+read-only recipe previews and plan preparation, and command dispatch. Recipe preview data is cached
+for each picker visit; Framework objects stay in the adapter. UI screens use ASCII frames, cyan accents,
+selection markers, and a shared keyboard-controls footer. Colors are optional and all status labels
+remain readable without them. Entry screens retain the adaptive TauFW artwork.
+UI screens return named actions so layout and label
 and navigation changes stay in Utilities. Source section banners document both sides of this
 boundary.
 

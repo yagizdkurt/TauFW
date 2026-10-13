@@ -57,6 +57,26 @@ class ConsoleUI:
 
     def _setup(self, screen):
         screen.keypad(True)
+        self.styles = dict(accent=0, good=0, waiting=0, error=0)
+        try:
+            if self.colors_enabled() and self.curses.has_colors():
+                self.curses.start_color()
+                background = self.curses.COLOR_BLACK
+                try:
+                    self.curses.use_default_colors()
+                    background = -1
+                except self.curses.error:
+                    pass
+                for role, pair, foreground in (
+                    ("accent", 3, self.curses.COLOR_CYAN),
+                    ("good", 1, self.curses.COLOR_GREEN),
+                    ("waiting", 8, self.curses.COLOR_YELLOW),
+                    ("error", 2, self.curses.COLOR_RED),
+                ):
+                    self.curses.init_pair(pair, foreground, background)
+                    self.styles[role] = self.curses.color_pair(pair)
+        except self.curses.error:
+            self.styles = dict(accent=0, good=0, waiting=0, error=0)
         try:
             self.curses.curs_set(0)
         except self.curses.error:
@@ -70,6 +90,135 @@ class ConsoleUI:
                                color | (self.curses.A_REVERSE if selected else 0))
             except self.curses.error:
                 pass  # A resize may have happened between size and draw.
+
+    def _panel(self, screen, top, left, height, width, title=""):
+        """Draw an ASCII frame and return its padded content rectangle."""
+        if height >= 3 and width >= 6:
+            edge = "+" + "-" * (width - 2) + "+"
+            self._line(screen, top, left, edge, color=self.styles["accent"])
+            self._line(screen, top + height - 1, left, edge, color=self.styles["accent"])
+            for row in range(top + 1, top + height - 1):
+                self._line(screen, row, left, "|", color=self.styles["accent"])
+                self._line(screen, row, left + width - 1, "|", color=self.styles["accent"])
+            if title:
+                self._line(screen, top, left + 2, (" " + title + " ")[:width - 4],
+                           color=self.styles["accent"])
+            return top + 1, left + 2, height - 2, width - 4
+        return top, left, max(1, height), max(1, width)
+
+    def _header(self, screen, title):
+        self._line(screen, 0, 1, "TauFW " + VERSION, color=self.styles["accent"])
+        self._line(screen, 1, 1, title)
+
+    def _footer(self, screen, text):
+        height, _ = screen.getmaxyx()
+        self._line(screen, height - 2, 1, text, color=self.styles["accent"])
+
+    @staticmethod
+    def _wrap(value, width):
+        return [line for paragraph in str(value).splitlines()
+                for line in (textwrap.wrap(paragraph, max(1, width)) or [""])] or [""]
+
+    def _pipeline_lines(self, view, width, show_path=False, compact=False):
+        """Turn presentation data into a vertical, scrollable ASCII pipeline."""
+        lines = self._wrap("Recipe: " + view.get("name", ""), width)
+        if view.get("error"):
+            return lines + [""] + self._wrap("Cannot preview: " + view["error"], width)
+        if view.get("hint"):
+            return self._wrap(view["hint"], width)
+        if show_path:
+            lines += self._wrap("Path: " + view.get("path", ""), width)
+        stages = view.get("stages", ())
+        if not compact:
+            lines += ["%d stage(s)" % len(stages), ""]
+        card_width = max(6, min(width, 32))
+        padding = " " * max(0, (width - card_width) // 2)
+        edge = padding + "+" + "-" * (card_width - 2) + "+"
+        for index, (stage_id, stage_type) in enumerate(stages):
+            if index:
+                center = padding + " " * (card_width // 2)
+                lines += [center + "|", center + "v"]
+            labels = self._wrap("%d. %s" % (index + 1, stage_id), card_width - 4)
+            if stage_type == "python":
+                labels.append("Python step")
+            lines += [edge]
+            lines += [padding + "| " + label.center(card_width - 4) + " |" for label in labels]
+            lines += [edge]
+        notes = view.get("notes", ())
+        if notes:
+            lines += ["", "Planning notes:"]
+            for note in notes:
+                lines += self._wrap(note, width) + [""]
+        return lines
+
+    def _viewport(self, screen, rect, lines, offset, color=0):
+        top, left, rows, width = rect
+        visible = max(1, rows - (1 if len(lines) > rows else 0))
+        offset = min(max(0, offset), max(0, len(lines) - visible))
+        for index, line in enumerate(lines[offset:offset + visible]):
+            self._line(screen, top + index, left, line[:width], color=color)
+        if len(lines) > rows:
+            self._line(screen, top + rows - 1, left,
+                       ("Lines %d-%d/%d" % (offset + 1, min(len(lines), offset + visible),
+                                            len(lines)))[:width], color=self.styles["accent"])
+        return offset, visible
+
+    def _pipeline_choice(self, title, choices, preview, review=False, position=None):
+        """Two equal columns, with independent recipe/action and pipeline scrolling."""
+        position = position if position is not None else {}
+
+        def draw(screen):
+            self._setup(screen)
+            selected, offset = position.get("selected", 0), position.get("offset", 0)
+            while True:
+                screen.erase()
+                height, width = screen.getmaxyx()
+                self._header(screen, title)
+                usable = width >= 64 and height >= 12
+                page = 1
+                if usable:
+                    panel_width = (width - 1) // 2
+                    left = (width - (2 * panel_width - 1)) // 2
+                    left_rect = self._panel(screen, 3, left, height - 6, panel_width,
+                                            "Actions" if review else "Recipes")
+                    right_rect = self._panel(screen, 3, left + panel_width - 1,
+                                             height - 6, panel_width, "Pipeline")
+                    top, column, rows, columns = left_rect
+                    self._line(screen, top, column, "Action" if review else "Recipe / bundle",
+                               color=self.styles["accent"])
+                    top, rows = top + 2, max(1, rows - 2)
+                    first = max(0, selected - rows + 1)
+                    for index in range(first, min(len(choices), first + rows)):
+                        label = ("> " if index == selected else "  ") + choices[index]
+                        self._line(screen, top + index - first, column, label[:columns],
+                                   index == selected)
+                    view = preview(selected)
+                    lines = self._pipeline_lines(view, right_rect[3], show_path=review,
+                                                 compact=right_rect[2] <= 6)
+                    offset, page = self._viewport(screen, right_rect, lines, offset,
+                                                  self.styles["error"] if view.get("error") else 0)
+                else:
+                    self._line(screen, 3, 1, "Enlarge terminal (at least 64 x 12).")
+                self._footer(screen, "Up/Down Move | Enter Select | PgUp/Dn Pipeline | Esc Back")
+                screen.refresh()
+                key = screen.getch()
+                if key == 27:
+                    position.update(selected=selected, offset=offset)
+                    return None
+                if not usable:
+                    continue
+                if key in (self.curses.KEY_UP, self.curses.KEY_DOWN):
+                    selected = (selected + (1 if key == self.curses.KEY_DOWN else -1)) % len(choices)
+                    if not review:
+                        offset = 0
+                elif key == self.curses.KEY_NPAGE:
+                    offset += page
+                elif key == self.curses.KEY_PPAGE:
+                    offset = max(0, offset - page)
+                elif key in (10, 13, self.curses.KEY_ENTER):
+                    position.update(selected=selected, offset=offset)
+                    return selected
+        return self.curses.wrapper(draw)
 
     def _entry_header(self, screen, welcome, minimum_rows):
         """Reserve room for controls, using compact branding on smaller terminals."""
@@ -115,25 +264,36 @@ class ConsoleUI:
         self._line(screen, len(lines) + 1, 0, welcome)
         return len(lines) + 3
 
-    def choose(self, title, choices, welcome=None):
+    def choose(self, title, choices, welcome=None, descriptions=None, row_colors=None):
         def draw(screen):
             self._setup(screen)
             selected = 0
             while True:
                 screen.erase()
-                height, _ = screen.getmaxyx()
+                height, width = screen.getmaxyx()
                 if welcome is None:
-                    self._line(screen, 0, 0, title)
-                    start = 2
+                    self._header(screen, title)
+                    start = 3
                 else:
-                    start = self._entry_header(screen, welcome, len(choices))
-                rows = max(1, height - start - 2)
+                    start = self._entry_header(screen, welcome, len(choices) + 3)
+                top, left, rows, columns = self._panel(screen, start, 1,
+                                                      height - start - 3, width - 2, "Menu")
+                show_description = descriptions and rows >= len(choices) + 3
+                if show_description:
+                    rows -= 3
+                stride = 2 if rows >= 2 * len(choices) - 1 else 1
+                rows = max(1, (rows + stride - 1) // stride)
                 first = max(0, selected - rows + 1)
                 for index in range(first, min(len(choices), first + rows)):
-                    self._line(screen, index - first + start, 0,
-                               ("> " if index == selected else "  ") + choices[index],
-                               index == selected)
-                self._line(screen, height - 2, 0, "Up/Down Move | Enter Select | Esc Back")
+                    label = ("> " if index == selected else "  ") + choices[index]
+                    role = row_colors[index] if row_colors and index < len(row_colors) else "accent"
+                    self._line(screen, (index - first) * stride + top, left, label[:columns],
+                               index == selected, self.styles.get(role, 0) if row_colors else 0)
+                if show_description:
+                    for index, line in enumerate(self._wrap(descriptions[selected], columns)[:2]):
+                        self._line(screen, height - 6 + index, left, line,
+                                   color=self.styles["accent"])
+                self._footer(screen, "Up/Down Move | Enter Select | Esc Back")
                 screen.refresh()
                 key = screen.getch()
                 if key == self.curses.KEY_UP:
@@ -156,9 +316,10 @@ class ConsoleUI:
             while True:
                 screen.erase()
                 height, width = screen.getmaxyx()
-                self._line(screen, 0, 0, title)
-                self._line(screen, 2, 0, "> " + value[-max(1, width - 4):])
-                self._line(screen, height - 2, 0, "Type | Backspace Delete | Enter Accept | Esc Back")
+                self._header(screen, title)
+                top, left, _, columns = self._panel(screen, 3, 1, height - 6, width - 2, "Input")
+                self._line(screen, top, left, "> " + value[-max(1, columns - 2):])
+                self._footer(screen, "Type | Backspace Delete | Enter Accept | Esc Back")
                 screen.refresh()
                 key = screen.get_wch()
                 if key in ("\n", "\r", self.curses.KEY_ENTER):
@@ -237,15 +398,21 @@ class ConsoleUI:
                     return None
         return draw(screen) if screen is not None else self.curses.wrapper(draw)
 
-    def _action(self, title, choices, actions, back="back", welcome=None):
-        selected = self.choose(title, choices) if welcome is None else self.choose(title, choices, welcome=welcome)
+    def _action(self, title, choices, actions, back="back", welcome=None, **layout):
+        selected = self.choose(title, choices, welcome=welcome, **layout)
         return back if selected is None else actions[selected]
 
     def main_menu(self):
         return self._action("TauFW", ["Start a new run", "Continue an existing run",
                                      "Inspect run status", "Help", "Exit"],
                             ["start", "continue", "inspect", "help", "exit"], back="exit",
-                            welcome="Welcome to TauFW!")
+                            welcome="Welcome to TauFW!", descriptions=[
+                                "Choose an analysis recipe and review its pipeline before starting.",
+                                "Resume a saved run, once or with repeated checking.",
+                                "Inspect the recorded and live status of an existing run.",
+                                "Browse workflow explanations and frequently asked questions.",
+                                "Close the menu and return to your terminal.",
+                            ])
 
     def _pick(self, title, labels, manual_label):
         selected = self.choose(title, labels + [manual_label, "Back"])
@@ -255,22 +422,49 @@ class ConsoleUI:
             return "manual", None
         return "select", selected
 
-    def select_recipe(self, names):
+    def select_recipe(self, names, preview=None):
         """Return (select, index), (manual, None), or (back, None)."""
-        return self._pick("Select a recipe", names, "Enter another recipe path")
+        if preview is None:
+            return self._pick("Select a recipe", names, "Enter another recipe path")
+
+        def view(index):
+            if index < len(names):
+                return preview(index)
+            return dict(hint="Enter a recipe file or bundle directory to review its pipeline."
+                        if index == len(names) else "Return to the main menu.")
+
+        selected = self._pipeline_choice("Start a new run / Select a recipe",
+                                         names + ["Enter another recipe path", "Back"], view)
+        if selected is None or selected == len(names) + 1:
+            return "back", None
+        return ("manual", None) if selected == len(names) else ("select", selected)
 
     def recipe_path(self, launch_dir):
         return self.prompt("Recipe path (relative to %s)" % launch_dir)
 
-    def confirm_recipe(self, path):
-        return self._action("Recipe: %s" % path, ["Start run", "Back"], ["start", "back"])
+    def confirm_recipe(self, path, review=None, position=None):
+        choices, actions = ["Start run", "View detailed plan", "Back"], ["start", "plan", "back"]
+        if review is None:
+            return self._action("Recipe: %s" % path, choices, actions)
+        selected = self._pipeline_choice("Start a new run / Review", choices,
+                                         lambda index: review, review=True, position=position)
+        return "back" if selected is None else actions[selected]
 
     def select_run(self, summaries):
         """Summaries are (run_id, state, updated); state=None marks unreadable runs."""
-        labels = ["%s | UNREADABLE" % run_id if state is None else
-                  "%s | %s | updated %s" % (run_id, state, updated)
-                  for run_id, state, updated in summaries]
-        return self._pick("Select an existing run", labels, "Enter another run directory")
+        id_width = min(36, max([len(row[0]) for row in summaries] or [0]))
+        labels = []
+        for run_id, state, updated in summaries:
+            label = (run_id if len(run_id) <= id_width else run_id[:id_width - 3] + "...").ljust(id_width)
+            labels.append("%s | UNREADABLE" % label if state is None else
+                          "%s | %-7s | updated %s" % (label, state, updated))
+        colors = ["error" if state in (None, "FAILED", "BLOCKED") else
+                  "good" if state == "DONE" else "waiting" for _, state, _ in summaries]
+        selected = self.choose("Select an existing run", labels + ["Enter another run directory", "Back"],
+                               row_colors=colors + ["accent", "accent"])
+        if selected is None or selected == len(labels) + 1:
+            return "back", None
+        return ("manual", None) if selected == len(labels) else ("select", selected)
 
     def run_path(self, launch_dir):
         return self.prompt("Run directory (relative to %s)" % launch_dir)
@@ -299,20 +493,21 @@ class ConsoleUI:
             while True:
                 screen.erase()
                 height, width = screen.getmaxyx()
-                self._line(screen, 0, 0, "TauFW Help")
+                self._header(screen, "Help")
                 if width < 55 or height < 8:
-                    self._line(screen, 2, 0, "Enlarge terminal for FAQ (at least 55 x 8).")
+                    self._line(screen, 3, 1, "Enlarge terminal for FAQ (at least 55 x 8).")
+                    rows = 1
                 else:
-                    left = 27
-                    rows = max(1, height - 5)
+                    topics = self._panel(screen, 3, 1, height - 6, 27, "Topics")
+                    body = self._panel(screen, 3, 27, height - 6, width - 28, "Explanation")
+                    top, left, rows, columns = topics
                     first = max(0, selected - rows + 1)
                     for index in range(first, min(len(FAQ), first + rows)):
-                        self._line(screen, index - first + 2, 0, FAQ[index][0], index == selected)
-                    lines = textwrap.wrap(FAQ[selected][1], width - left - 2)
-                    offset = min(offset, max(0, len(lines) - rows))
-                    for index, line in enumerate(lines[offset:offset + rows]):
-                        self._line(screen, index + 2, left, line)
-                self._line(screen, height - 2, 0, "Up/Down Topic | PgUp/PgDn Scroll | Esc Back")
+                        label = ("> " if index == selected else "  ") + FAQ[index][0]
+                        self._line(screen, index - first + top, left, label[:columns], index == selected)
+                    lines = self._wrap(FAQ[selected][1], body[3])
+                    offset, rows = self._viewport(screen, body, lines, offset)
+                self._footer(screen, "Up/Down Topic | PgUp/PgDn Scroll | Esc Back")
                 screen.refresh()
                 key = screen.getch()
                 if key == 27:
@@ -321,9 +516,9 @@ class ConsoleUI:
                     selected = (selected + (1 if key == self.curses.KEY_DOWN else -1)) % len(FAQ)
                     offset = 0
                 elif key == self.curses.KEY_NPAGE:
-                    offset += max(1, height - 5)
+                    offset += rows
                 elif key == self.curses.KEY_PPAGE:
-                    offset = max(0, offset - max(1, height - 5))
+                    offset = max(0, offset - rows)
         self.curses.wrapper(draw)
 
     # =========================================================================

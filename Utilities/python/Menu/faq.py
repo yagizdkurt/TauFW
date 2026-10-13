@@ -9,7 +9,7 @@ Keep explanations aligned with the CLI behavior; rendering lives in _menu.py.
 FAQ = (
     ("Navigation", 
      "Use Up/Down to move and Enter to select. Esc goes back; "
-     "at the main menu it exits. Page Up/Page Down scroll help. After an "
+     "at the main menu it exits. Page Up/Page Down scroll help or the pipeline. After an "
      "operation, press Enter to return. Ctrl+C returns to the menu."),
 
     ("Recipes",
@@ -21,7 +21,11 @@ FAQ = (
      "the bundle, made when it starts."),
 
     ("Starting a run", 
-     "Select a recipe, review its plan, then select Start run. "
+     "Choose a recipe in the left table; its pipeline appears on the right, "
+     "with stages running from top to bottom. The picker needs at least 64 columns "
+     "and 12 rows. Select a recipe to prepare its read-only plan and review the "
+     "pipeline and planning notes. View detailed plan opens the textual plan; "
+     "press Enter to return to the review. Select Start run to launch. "
      "This submits production jobs and creates taufw_runs/<name>_<timestamp>/ "
      "with run.json and run.log. Starting returns after submission."),
 

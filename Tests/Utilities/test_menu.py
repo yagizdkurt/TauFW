@@ -34,7 +34,7 @@ class ScreenTests(unittest.TestCase):
         for installer in (False, True):
             with self.subTest(installer=installer):
                 curses, screen = self.curses([27])
-                screen.getmaxyx.return_value = (34, 80)
+                screen.getmaxyx.return_value = (40, 80)
                 ui = ConsoleUI(curses)
                 if installer:
                     ui.setup_checklist([("combine", "Combine")], ["combine"])
@@ -48,9 +48,9 @@ class ScreenTests(unittest.TestCase):
                 self.assertIn(welcome, drawn)
                 self.assertIn("Tau analysis framework", drawn[len(FULL) - 4])
                 self.assertIn("V0.0", drawn[len(FULL) - 3])
-                self.assertTrue(all(call.args[0] < 32 for call in calls[:-1]))
+                self.assertTrue(all(call.args[0] < 38 for call in calls[:-1]))
         from TauFW.Utilities.Menu.banner import BOXED
-        for dimensions in ((24, 80), (30, 80), (30, 65)):
+        for dimensions in ((28, 80), (30, 80), (30, 65)):
             with self.subTest(dimensions=dimensions):
                 curses, screen = self.curses([27])
                 screen.getmaxyx.return_value = dimensions
@@ -99,8 +99,9 @@ class ScreenTests(unittest.TestCase):
     def test_checklist_toggles_only_and_starts_from_button(self):
         curses, screen = self.curses([32, 10, 1002, 13, 1002, 10])
         ui = ConsoleUI(curses)
-        self.assertEqual(ui.setup_checklist([("first", "First"), ("second", "Second")], ["first"]),
-                         ["first", "second"])
+        with mock.patch.object(ui, "colors_enabled", return_value=True):  # not a terminal under Tests/run.py
+            self.assertEqual(ui.setup_checklist([("first", "First"), ("second", "Second")], ["first"]),
+                             ["first", "second"])
         curses.wrapper.assert_called_once()
         drawn = screen.addnstr.call_args_list
         self.assertTrue(any(call.args[2] == "[ Start install ]" for call in drawn))
@@ -162,7 +163,6 @@ class ScreenTests(unittest.TestCase):
         ui.poll_interval.side_effect = ["bad", "30"]
         self.assertEqual(MenuNavigation(ui, operations).run(), 0)
         self.assertEqual(operations.execute.call_args_list, [
-            mock.call("plan", recipe=str(Path("recipes/example.yml"))),
             mock.call("start", recipe=str(Path("recipes/example.yml"))),
             mock.call("advance", run_dir="runs/example", wait=True, poll=30),
         ])
@@ -170,13 +170,14 @@ class ScreenTests(unittest.TestCase):
         operations.can_advance.assert_called_once_with(record)
         self.assertEqual(operations.validate_poll.call_args_list, [mock.call("bad"), mock.call("30")])
         ui.invalid_poll_interval.assert_called_once()
-        self.assertEqual(ui.pause.call_count, 3)
+        operations.prepare_review.assert_called_once_with(str(Path("recipes/example.yml")))
+        self.assertEqual(ui.pause.call_count, 2)
 
     def test_semantic_screen_actions_and_cancellation(self):
         ui = ConsoleUI(mock.Mock())
         cases = [
             (ui.main_menu, (), ["start", "continue", "inspect", "help", "exit"]),
-            (ui.confirm_recipe, ("example.yml",), ["start", "back"]),
+            (ui.confirm_recipe, ("example.yml",), ["start", "plan", "back"]),
             (ui.status_actions, ("run",), ["refresh", "back"]),
             (ui.terminal_run_actions, ("DONE",), ["inspect", "back"]),
             (ui.continue_actions, ("run",), ["advance", "wait", "back"]),
@@ -264,6 +265,148 @@ ConsoleUI(None)
         ConsoleUI(curses).help()
         drawn = [call.args[2] for call in screen.addnstr.call_args_list]
         self.assertTrue(any("An analysis is a" in line for line in drawn))
+
+    def rendered_terminal(self, keys, dimensions=(24, 100)):
+        """Capture terminal cells, including clipping and frame boundaries."""
+        curses, screen = self.curses(keys)
+        screen.getmaxyx.return_value = dimensions
+        cells, frames = {}, []
+
+        def add(y, x, value, count, style):
+            height, width = screen.getmaxyx()
+            self.assertTrue(0 <= y < height - 1 and 0 <= x < width - 1)
+            self.assertLessEqual(x + min(len(value), count), width - 1)
+            for offset, character in enumerate(value[:count]):
+                cells[y, x + offset] = character
+
+        def refresh():
+            height, width = screen.getmaxyx()
+            frames.append(["".join(cells.get((y, x), " ") for x in range(width))
+                           for y in range(height)])
+
+        screen.erase.side_effect = cells.clear
+        screen.addnstr.side_effect = add
+        screen.refresh.side_effect = refresh
+        return ConsoleUI(curses), screen, frames
+
+    def test_picker_equal_columns_and_vertical_cards_at_supported_sizes(self):
+        for dimensions in ((12, 64), (24, 80), (36, 121)):
+            with self.subTest(dimensions=dimensions):
+                ui, screen, frames = self.rendered_terminal([27], dimensions)
+                preview = dict(name="example", stages=(("production", "production"),
+                                                       ("plots", "plots")))
+                self.assertEqual(ui.select_recipe(["example"], lambda index: preview), ("back", None))
+                width = dimensions[1]
+                panel_width = (width - 1) // 2
+                left = (width - (2 * panel_width - 1)) // 2
+                divider = left + panel_width - 1
+                for row in range(4, dimensions[0] - 4):
+                    self.assertEqual(frames[0][row][left], "|")
+                    self.assertEqual(frames[0][row][divider], "|")
+                    self.assertEqual(frames[0][row][left + 2 * panel_width - 2], "|")
+                self.assertIn("Recipe: example", "\n".join(frames[0]))
+                self.assertIn("1. production", "\n".join(frames[0]))
+                if dimensions[0] >= 24:
+                    self.assertIn("2. plots", "\n".join(frames[0]))
+                    self.assertIn("v", [line.strip() for line in ui._pipeline_lines(preview, 30)])
+
+    def test_picker_updates_errors_and_special_row_hints(self):
+        ui, screen, frames = self.rendered_terminal([1002, 1002, 1002, 27])
+        preview = mock.Mock(side_effect=[dict(name="good", stages=(("plots", "plots"),)),
+                                         dict(name="bad", error="invalid recipe")])
+        self.assertEqual(ui.select_recipe(["good", "bad"], preview), ("back", None))
+        self.assertEqual(preview.call_args_list, [mock.call(0), mock.call(1)])
+        self.assertIn("Cannot preview: invalid recipe", "\n".join(frames[1]))
+        self.assertIn("Enter a recipe file", "\n".join(frames[2]))
+        self.assertIn("Return to the main menu.", "\n".join(frames[3]))
+
+    def test_pipeline_scroll_wrap_and_reset_on_recipe_change(self):
+        ui, screen, frames = self.rendered_terminal([1004] * 12 + [1002, 27], (18, 64))
+        long_id = "very_long_custom_python_stage_identifier"
+        stages = (("production", "production"), (long_id, "python"), ("fit", "fit"))
+        view = dict(name="first", stages=stages)
+        other = dict(name="second", stages=(("plots", "plots"),))
+        ui.select_recipe(["first", "second"], lambda index: (view, other)[index])
+        text = "\n".join(line for frame in frames for line in frame)
+        self.assertIn("Python step", text)
+        self.assertIn("3. fit", text)
+        self.assertIn("Recipe: second", "\n".join(frames[-1]))
+        wrapped = ui._pipeline_lines(view, 20)
+        self.assertTrue(all(len(line) <= 20 for line in wrapped))
+        self.assertIn(long_id, "".join(line[2:-2].strip() for line in wrapped if line.startswith("| ")))
+
+    def test_resize_message_ignores_selection_and_preserves_focus(self):
+        ui, screen, frames = self.rendered_terminal([], (24, 80))
+        events = iter(((1002, (11, 63)), (10, (24, 80)), (10, (24, 80))))
+
+        def key():
+            value, dimensions = next(events)
+            screen.getmaxyx.return_value = dimensions
+            return value
+
+        screen.getch.side_effect = key
+        preview = mock.Mock(return_value=dict(name="recipe", stages=(("fit", "fit"),)))
+        self.assertEqual(ui.select_recipe(["first", "second"], preview), ("select", 1))
+        self.assertIn("Enlarge terminal", "\n".join(frames[1]))
+        self.assertEqual(preview.call_args_list, [mock.call(0), mock.call(1)])
+        self.assertIn("> second", "\n".join(frames[2]))
+
+    def test_review_preserves_position_after_detailed_plan(self):
+        ui, screen, frames = self.rendered_terminal([1004, 1002, 10], (18, 80))
+        review = dict(name="analysis", path="Analyses/analysis", stages=(("fit", "fit"),),
+                      notes=("fit: environment is not ready",))
+        position = {}
+        self.assertEqual(ui.confirm_recipe("analysis", review, position), "plan")
+        self.assertEqual(position["selected"], 1)
+        self.assertGreater(position["offset"], 0)
+        screen.getch.side_effect = [1002, 10]
+        self.assertEqual(ui.confirm_recipe("analysis", review, position), "back")
+        text = "\n".join(line for frame in frames for line in frame)
+        self.assertIn("Path: Analyses/analysis", text)
+        self.assertIn("Planning notes:", text)
+
+    def test_picker_preview_cache_and_exception_recovery(self):
+        ui, operations = mock.Mock(), mock.Mock()
+        operations.recipes.return_value = [Path("good.yml"), Path("bad.yml")]
+        operations.recipe_preview.side_effect = [dict(name="good"), ValueError("bad recipe")]
+
+        def select(names, preview):
+            self.assertEqual(preview(0), preview(0))
+            self.assertEqual(preview(1), preview(1))
+            self.assertEqual(preview(1)["error"], "bad recipe")
+            return "back", None
+
+        ui.select_recipe.side_effect = select
+        MenuNavigation(ui, operations).start()
+        self.assertEqual(operations.recipe_preview.call_count, 2)
+        operations.prepare_review.assert_not_called()
+        operations.execute.assert_not_called()
+
+    def test_framed_screens_without_color_and_with_color_failure(self):
+        for fail in (False, True):
+            with self.subTest(color_failure=fail):
+                ui, screen, frames = self.rendered_terminal([27])
+                if fail:
+                    ui.curses.start_color.side_effect = ui.curses.error("unsupported")
+                else:
+                    ui.curses.has_colors.return_value = False
+                with mock.patch.object(ui, "colors_enabled", return_value=True):
+                    ui.choose("Menu", ["First", "Second"])
+                self.assertIn(" Menu ", "\n".join(frames[0]))
+                self.assertIn("> First", "\n".join(frames[0]))
+                self.assertEqual(set(ui.styles.values()), {0})
+
+    def test_run_status_columns_and_roles_include_long_unreadable_names(self):
+        ui = ConsoleUI(mock.Mock())
+        summaries = [("short", "DONE", "today"), ("a" * 50, None, None),
+                     ("failed", "FAILED", "today"), ("waiting", "WAITING", "today")]
+        with mock.patch.object(ui, "choose", return_value=None) as choose:
+            self.assertEqual(ui.select_run(summaries), ("back", None))
+        labels = choose.call_args.args[1][:4]
+        self.assertEqual(len({label.index("|") for label in labels}), 1)
+        self.assertIn("... | UNREADABLE", labels[1])
+        self.assertEqual(choose.call_args.kwargs["row_colors"][:4],
+                         ["good", "error", "error", "waiting"])
 
 
 if __name__ == "__main__":

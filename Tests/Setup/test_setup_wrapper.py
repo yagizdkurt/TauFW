@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 import unittest
 
-from test_fastsetup import BASH, REPO
+from test_fastsetup import BASH, REPO, write_lf
 
 
 @unittest.skipUnless(BASH, "Bash is unavailable")
@@ -24,7 +24,7 @@ class SetupWrapperTests(unittest.TestCase):
         worker = (REPO / "Utilities/FastSetup.sh").read_text()
         publication = worker[worker.index("invalidate_setup_record() {"):
                              worker.index("selection_label() {")]
-        (self.original / "Utilities/FastSetup.sh").write_text(
+        write_lf(self.original / "Utilities/FastSetup.sh",
             "#!/usr/bin/env bash\nset -eu\n" + publication + r'''
 cleanup_paths=()
 if [[ ${1:-} == --help ]]; then echo 'worker help'; exit 0; fi
@@ -58,8 +58,8 @@ else
     printf '%s\n' "$TEST_ROOT/retained installation.log" > "$FASTSETUP_RESULT_FILE.log-path"
   fi
 fi
-''', newline="\n")
-        (self.root / "cms.sh").write_text(r'''
+''')
+        write_lf(self.root / "cms.sh", r'''
 set +u
 set +o pipefail
 shopt -s nullglob
@@ -75,7 +75,7 @@ voms-proxy-info() {
   printf 'info %s\n' "$*" >> "$TEST_ROOT/voms-commands"
   return "${TEST_VOMS_STATUS:-0}"
 }
-''', newline="\n")
+''')
 
     def shell(self, body, expected=0):
         bootstrap = r'''

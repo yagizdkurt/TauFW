@@ -2,7 +2,9 @@
 
 The injected operations object supplies launch_dir, recipes(), runs(),
 resolve_path(value), load_run(path), can_advance(record), validate_poll(value),
-and execute(command, **values). Records expose run_id, run_dir, and state;
+recipe_preview(path), prepare_review(path), and execute(command, **values).
+Recipe views contain name, path, ordered (stage id, type) pairs, and notes.
+Records expose run_id, run_dir, and state;
 run rows are (created, path, (run_id, state, updated)). Only operations reads
 files, validates values, or invokes commands. This class owns screen transitions.
 """
@@ -41,7 +43,17 @@ class MenuNavigation:
     def start(self):
         while True:
             recipes = self.operations.recipes()
-            action, index = self.ui.select_recipe([p.name for p in recipes])
+            previews = {}
+
+            def preview(index):
+                if index not in previews:
+                    try:
+                        previews[index] = self.operations.recipe_preview(str(recipes[index]))
+                    except Exception as error:
+                        previews[index] = dict(name=recipes[index].name, error=str(error))
+                return previews[index]
+
+            action, index = self.ui.select_recipe([p.name for p in recipes], preview=preview)
             if action == "back":
                 return
             if action == "manual":
@@ -51,11 +63,25 @@ class MenuNavigation:
                 path = self.operations.resolve_path(value)
             else:
                 path = str(recipes[index])
-            if not self._execute("plan", recipe=path):
+            try:
+                review = self.operations.prepare_review(path)
+            except KeyboardInterrupt:
+                return
+            except Exception as error:
+                self.ui.operation_error(error)
+                self.ui.pause()
                 continue
-            if self.ui.confirm_recipe(path) == "start":
-                if self._execute("start", recipe=path):
-                    return
+            position = {}
+            while True:
+                action = self.ui.confirm_recipe(path, review=review, position=position)
+                if action == "back":
+                    break
+                if action == "plan":
+                    self._execute("plan", recipe=path)
+                elif action == "start":
+                    if self._execute("start", recipe=path):
+                        return
+                    break
 
     # =========================================================================
     # ============================= RUN NAVIGATION ============================
