@@ -1,0 +1,30 @@
+# Example TauFW recipe: produce mutau pico tuples for 2022_postEE with PicoProducer.
+#   taufw.py plan    Framework/recipes/example_mutau.yml        # what would be submitted (nothing is written)
+#   taufw.py start   Framework/recipes/example_mutau.yml        # new run in taufw_runs/; submits the jobs
+#   taufw.py advance taufw_runs/mutau_2022_postEE_<time>        # later: check, resubmit failed chunks, merge
+#   taufw.py status  taufw_runs/mutau_2022_postEE_<time>
+name: mutau_2022_postEE
+
+pico:
+  config: null              # PicoProducer configuration; null: PicoProducer/config/config.json
+                            # (a relative path is relative to this file)
+
+stages:
+  - stage: production       # NanoAOD -> pico tuples (PicoProducer API)
+    eras: [2022_postEE]     # eras and channels as in the PicoProducer configuration
+    channels: [mutau]
+    samples: ["DY*", "TT*"] # glob patterns of sample names; also: vetoes, dtypes, dasfilters, dasvetoes
+    tag: ""                 # extra tag in job and output names
+    extraopts: []           # KEY=VALUE module options; precedence: channel < sample < these
+    split:
+      nfilesperjob: null    # files per job (null: sample, then configuration)
+      maxevts: null         # events per job, split by events if > 1 (null: sample, then configuration)
+    queue: null             # batch queue (HTCondor job flavour); null: configuration
+    max_tries: 3            # (re)submissions before failed chunks fail the stage
+    merge:
+      clean: false          # remove job files and job output after a validated merge
+      force: false          # merge samples with failed or missing chunks too
+
+  - stage: histograms       # placeholder until the Plotter has an API: reported NOT_IMPLEMENTED
+    variables: ["m_vis(30,0,150)", "pt_1(40,0,200)"]
+    selections: ["baseline: q_1*q_2<0 && iso_1<0.15"]

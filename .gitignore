@@ -13,6 +13,8 @@ core.*
 __init__.py
 !Utilities/python/**/__init__.py
 !PicoProducer/python/**/__init__.py
+!Framework/python/**/__init__.py
+taufw_runs/
 */compare
 config.json
 PicoProducer/config

@@ -39,6 +39,7 @@ run_local(): a quick local test of a channel on a few files, without the batch s
 | `merge(request, clean=False, force=None, haddcmd=None, maxopenfiles=None)` | `MergeReport` | creates the storage directory (`picodir`) and writes the merged tuples; with `clean`, removes the job files and job output after the merged tuple is validated | `hadd` / `haddclean` |
 | `clean(request, force=None)` | `MergeReport` | removes the job files and job output | `clean` |
 | `run_local(request)` | `(LocalResult, ...)` | runs the workers locally (not with `request.dryrun`); they write to `request.outdir` | `run` |
+| `request(**fields)` (static) | `JobRequest` | none; unknown fields raise `KeyError`. Lets callers build requests without importing `jobs/` | |
 
 - `on_existing(cfgname)` is called when a sample's job config already exists and `request.force` is not set: return
   `'yes'` (submit), `'no'` (skip), `'force'` (submit this and all further samples), or `None` (skip with a warning,

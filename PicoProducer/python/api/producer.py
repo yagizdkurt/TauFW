@@ -24,6 +24,7 @@ Public API:
   PicoProducer.from_config(config, reporter, basedir)
   plan, submit, resubmit, status, merge, clean, run_local    pipelines
   iter_plan                                                  plan() as a stream, one PlannedSample at a time
+  request(**fields)                                          build a JobRequest
 """
 
 # ===== Imports =====
@@ -40,7 +41,7 @@ from TauFW.PicoProducer.jobs.status import check_sample
 from TauFW.PicoProducer.jobs.merge import merge_sample, MERGE_ACTIONS
 from TauFW.PicoProducer.jobs.local import iter_local_runs, execute_run
 from TauFW.PicoProducer.api.types import (JobPlan, PlannedSample, Submission, SubmittedSample, StageStatus,
-                                          SampleStatus, MergeReport, TupleArtifact, LocalResult)
+                                          SampleStatus, MergeReport, TupleArtifact, LocalResult, request_from_dict)
 
 __all__ = ['PicoProducer']
 
@@ -56,6 +57,7 @@ class PicoProducer(object):
                  clean(request, force)                  -> MergeReport    remove job files and job output
                  run_local(request)                     -> (LocalResult,) runs workers locally
   Streams:       iter_plan(request)                     -> PlannedSample, one at a time
+  Requests:      request(**fields)                      -> JobRequest (unknown fields are an error)
   Construction:  from_config(config, reporter, basedir); PicoProducer(config, reporter, basedir)
   """
 
@@ -144,6 +146,14 @@ class PicoProducer(object):
     only while a sample is planned, not while the caller handles it."""
     plans = iter_plans(self.config,request,self.reporter,on_existing=_plan_anyway,materialize=False)
     yield from self._scoped(_planned(plan) for plan in plans) # _planned checks the job config inside the directory
+
+  # ===== Requests =====
+
+  @staticmethod
+  def request(**fields):
+    """A JobRequest from keyword fields; unknown fields raise KeyError. Lets callers (e.g. the Framework) build
+    requests without importing the jobs package."""
+    return request_from_dict(fields)
 
   # ===== Steps =====
 
