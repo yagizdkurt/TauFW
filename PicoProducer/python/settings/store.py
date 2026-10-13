@@ -8,7 +8,8 @@ Outputs: a cached Config; missing keys are restored from the backup or the defau
 
 Public API:
   getconfig(verb, refresh, write)   load the configuration once (cached); write=True creates/repairs the file
-  setdefaultconfig(verb)     overwrite the configuration file with the defaults
+  loadconfig(path, verb)            load a configuration file without caching or writing (public API, tests)
+  setdefaultconfig(verb)            overwrite the configuration file with the defaults
 """
 
 # ===== Imports =====
@@ -20,7 +21,7 @@ from TauFW.common.tools.log import Logger
 from TauFW.PicoProducer.settings.defaults import getdefaultconfig
 from TauFW.PicoProducer.settings.model import Config
 
-__all__ = ['getconfig', 'setdefaultconfig']
+__all__ = ['getconfig', 'loadconfig', 'setdefaultconfig']
 
 
 # ===== Constants =====
@@ -98,6 +99,32 @@ def getconfig(verb=0,refresh=False,write=False):
   CONFIG = Config(cfgdict,cfgname)
   return CONFIG
   
+
+def loadconfig(path=None,verb=0):
+  """Load a configuration without caching it and without writing any file.
+  path: a JSON file (default: config/config.json); missing keys get their default value, in memory only.
+  Raises IOError if an explicitly given path does not exist; without a path and without config/config.json,
+  the defaults are used (with a warning), as getconfig() does."""
+  cfgdefaults = getdefaultconfig(verb=verb)
+  cfgname     = path or os.path.join(basedir,"config","config.json")
+  cfgdict     = cfgdefaults.copy()
+  if os.path.isfile(cfgname):
+    with open(cfgname,'r') as file:
+      cfgdict = json.load(file,object_pairs_hook=OrderedDict)
+    for key in cfgdefaults.keys(): # missing keys
+      if key not in cfgdict:
+        if verb>=1:
+          LOG.warning("Key '%s' not set in config file %s. Using default %r"%(key,cfgname,cfgdefaults[key]))
+        cfgdict[key] = cfgdefaults[key]
+  elif path:
+    raise IOError("Config file %r does not exist"%(path))
+  else:
+    LOG.warning("Config file '%s' does not exist. Using defaults (run pico.py to create it)..."%(cfgname))
+  for key, value in cfgdefaults.items(): # required types
+    if isinstance(value,(str,dict)):
+      assert isinstance(cfgdict.get(key),type(value)),        "Required value for '%s' must be of type %s! Instead is %r"%(key,type(value).__name__,cfgdict.get(key))
+  return Config(cfgdict,cfgname)
+
 
 def setdefaultconfig(verb=0):
   """Set configuration to default values."""
