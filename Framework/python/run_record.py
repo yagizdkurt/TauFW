@@ -1,5 +1,5 @@
 # Author: Yagizhan Dinckurt (October 2026)
-"""Run record: the persisted state of one run, taufw_runs/<name>_<YYYYmmdd-HHMMSS>/run.json.
+"""Run record: the saved state of one run, in taufw_runs/<name>_<YYYYmmdd-HHMMSS>/run.json.
 
     {"schema": 1, "run_id": "...", "created": "...", "updated": "...",
      "recipe": {...}, "pico_config": {"path": "...", "snapshot": {...}},
@@ -7,159 +7,182 @@
                  "request": {...}, "submissions": [...], "last_status": {...}, "artifacts": [...],
                  "history": [{"time": "...", "event": "submitted", "state": "SUBMITTED", "detail": "..."}]}]}
 
-The record holds references and summaries. The source of truth for the jobs stays with each stage's package
-(production: PicoProducer's job configs), so a lost record can be rebuilt from them.
+The record holds references and summaries only. The real state of the jobs stays with each stage's package (for
+production: PicoProducer's job configs), so a lost record can be rebuilt from them.
 
-save() is crash-safe: it writes run.json.tmp and renames it over run.json (os.replace), so run.json is always
-either the old or the new complete file.
+save() is crash-safe: it writes run.json.tmp first and then renames it to run.json (os.replace). run.json is
+therefore always either the old or the new complete file, never a half-written one.
 
 Inputs:  run.json (load), or a recipe (create).
 Outputs: run.json in the run directory.
 
 Public API:
   RunRecord.create(recipe, run_root, pico_config, now) / RunRecord.load(run_dir) / record.save()
-  RunRecord.state      overall state: DONE, FAILED, WAITING, BLOCKED (a placeholder stage), RUNNING, NEW
+  RunRecord.state      overall state of the run, a RunState
+  RunState             NEW, RUNNING, WAITING, DONE, FAILED, BLOCKED
   StageRecord          one stage's state, attempt, request, submissions, last status, artifacts, history
 """
-
-# ===== Imports =====
 import os
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
+from enum import Enum
 from typing import List, Optional
+from TauFW.Framework.defaults import RUN_RECORD_NAME, timestamp, default_file_io
+from TauFW.Framework.stages.base import StageState
 
-__all__ = ['RunRecord', 'StageRecord', 'RUN_RECORD_NAME', 'SCHEMA']
-
-
-# ===== Constants =====
-RUN_RECORD_NAME = "run.json"
-SCHEMA          = 1
-TIMEFORMAT      = "%Y-%m-%d %H:%M:%S"
+__all__ = ['RunRecord', 'RunState', 'StageRecord', 'RUN_RECORD_NAME', 'SCHEMA']
 
 
-# ===== Records =====
+# =============================================================================
+# ================================= CONSTANTS =================================
+
+
+SCHEMA = 1  # version of the run.json layout; increase it when the layout changes
+
+
+# =============================================================================
+# ================================== STATES ===================================
+
+
+class RunState(str, Enum):
+    """Overall state of a run, computed from the states of its stages (see RunRecord.state).
+    It is a str, so it compares equal to the plain strings ('WAITING', ...) and prints as one."""
+    NEW     = 'NEW'      # no stage has started
+    RUNNING = 'RUNNING'  # a stage is working (none waits, failed or is blocked)
+    WAITING = 'WAITING'  # a stage waits for batch jobs: advance again later
+    DONE    = 'DONE'     # every stage is done
+    FAILED  = 'FAILED'   # a stage failed
+    BLOCKED = 'BLOCKED'  # stopped at a placeholder stage that is not implemented yet
+
+    @property
+    def finished(self):
+        """True if advancing the run again cannot change it."""
+        return self in (RunState.DONE, RunState.FAILED, RunState.BLOCKED)
+
+    def __str__(self):
+        return self.value
+
+
+# =============================================================================
+# ================================== RECORDS ==================================
+
 
 @dataclass
 class StageRecord:
-  """Persisted state of one stage."""
-  name:        str
-  state:       str = 'NEW'
-  attempt:     int = 0
-  message:     str = ""
-  request:     Optional[dict] = None
-  submissions: List[dict] = field(default_factory=list)
-  last_status: Optional[dict] = None
-  artifacts:   List[dict] = field(default_factory=list)
-  history:     List[dict] = field(default_factory=list)
+    """The saved state of one stage. `state` is a StageState value (a plain string, as in run.json)."""
+    name:        str
+    state:       str = 'NEW'
+    attempt:     int = 0
+    message:     str = ""
+    request:     Optional[dict] = None
+    submissions: List[dict] = field(default_factory=list)
+    last_status: Optional[dict] = None
+    artifacts:   List[dict] = field(default_factory=list)
+    history:     List[dict] = field(default_factory=list)
 
-  def log(self,event,detail="",time=None):
-    """Append a history entry."""
-    self.history.append({'time': time or _now(), 'event': event, 'state': self.state, 'detail': detail})
+    def log(self, event, detail="", time=None):
+        """Add an entry to the stage's history."""
+        self.history.append({'time': time or timestamp(), 'event': event, 'state': self.state, 'detail': detail})
 
 
 @dataclass
 class RunRecord:
-  """Persisted state of a run. run_dir is where run.json lives (not stored in the file)."""
-  run_id:      str
-  created:     str
-  updated:     str
-  recipe:      dict
-  pico_config: dict
-  stages:      List[StageRecord]
-  schema:      int = SCHEMA
-  run_dir:     str = ""
+    """The saved state of a run. run_dir is the directory of run.json (it is not written into the file)."""
+    run_id:      str
+    created:     str
+    updated:     str
+    recipe:      dict
+    pico_config: dict
+    stages:      List[StageRecord]
+    schema:      int = SCHEMA
+    run_dir:     str = ""
 
-  # ===== State =====
+    # =========================================================================
+    # ================================= STATE =================================
 
-  @property
-  def state(self):
-    """Overall state: FAILED (a stage failed), DONE (all done), WAITING (a stage waits for jobs),
-    BLOCKED (stopped at a placeholder stage), NEW (nothing started), otherwise RUNNING."""
-    states = [s.state for s in self.stages]
-    if 'FAILED' in states:
-      return 'FAILED'
-    if all(s=='DONE' for s in states):
-      return 'DONE'
-    if any(s in ('SUBMITTED','WAITING') for s in states):
-      return 'WAITING'
-    if 'NOT_IMPLEMENTED' in states:
-      return 'BLOCKED'
-    if all(s=='NEW' for s in states):
-      return 'NEW'
-    return 'RUNNING'
+    @property
+    def state(self):
+        """The overall RunState, computed from the stage states. The first rule that matches wins:
+        a stage FAILED -> FAILED; all stages DONE -> DONE; a stage waits for jobs -> WAITING;
+        a placeholder stage was reached -> BLOCKED; nothing started -> NEW; otherwise RUNNING."""
+        states = [s.state for s in self.stages]
+        if StageState.FAILED in states:
+            return RunState.FAILED
+        if all(s == StageState.DONE for s in states):
+            return RunState.DONE
+        if any(s in (StageState.SUBMITTED, StageState.WAITING) for s in states):
+            return RunState.WAITING
+        if StageState.NOT_IMPLEMENTED in states:
+            return RunState.BLOCKED
+        if all(s == StageState.NEW for s in states):
+            return RunState.NEW
+        return RunState.RUNNING
 
-  def stage(self,name):
-    """The StageRecord of a stage."""
-    for record in self.stages:
-      if record.name==name:
+    def stage(self, name):
+        """The StageRecord of a stage."""
+        for stage_record in self.stages:
+            if stage_record.name == name:
+                return stage_record
+        raise KeyError("Run %s has no stage %r" % (self.run_id, name))
+
+    @property
+    def path(self):
+        """The path of run.json."""
+        return os.path.join(self.run_dir, RUN_RECORD_NAME)
+
+    # =========================================================================
+    # ============================== PERSISTENCE ==============================
+
+    def save(self, files=None, now=None):
+        """Write run.json crash-safely (temporary file, then os.replace) and set the 'updated' time."""
+        files = files or default_file_io()
+        self.updated = now or timestamp()
+        tmpname = self.path + ".tmp"
+        files.write_json(tmpname, self.to_dict(), overwrite=True)
+        os.replace(tmpname, self.path)
+        return self.path
+
+    @classmethod
+    def load(cls, run_dir, files=None):
+        """Read run.json from a run directory (or from the path of run.json itself)."""
+        files = files or default_file_io()
+        path = run_dir if run_dir.endswith(RUN_RECORD_NAME) else os.path.join(run_dir, RUN_RECORD_NAME)
+        record = cls.from_dict(files.read_json(path))
+        record.run_dir = os.path.dirname(os.path.abspath(path))
         return record
-    raise KeyError("Run %s has no stage %r"%(self.run_id,name))
 
-  @property
-  def path(self):
-    return os.path.join(self.run_dir,RUN_RECORD_NAME)
+    # =========================================================================
+    # ============================= CONSTRUCTION ==============================
 
-  # ===== Persistence =====
+    @classmethod
+    def create(cls, recipe, run_root, pico_config=None, now=None):
+        """A new record for a recipe, with one NEW StageRecord per stage.
+        The run directory is <run_root>/<name>_<YYYYmmdd-HHMMSS>, with a -2, -3, ... suffix if that directory
+        exists already. The directory itself is not created here."""
+        now = now or datetime.now()
+        run_id = "%s_%s" % (recipe.name, now.strftime("%Y%m%d-%H%M%S"))
+        base, i = run_id, 1
+        while os.path.exists(os.path.join(run_root, run_id)):
+            i += 1
+            run_id = "%s-%d" % (base, i)
+        stamp = timestamp(now)
+        return cls(run_id=run_id, created=stamp, updated=stamp, recipe=recipe.to_dict(),
+                   pico_config=pico_config or {'path': recipe.pico_config, 'snapshot': None},
+                   stages=[StageRecord(name=s.stage) for s in recipe.stages],
+                   run_dir=os.path.join(os.path.abspath(run_root), run_id))
 
-  def save(self,files=None,now=None):
-    """Write run.json atomically (temporary file + os.replace) and update the 'updated' time."""
-    files = files or _fileio()
-    self.updated = now or _now()
-    tmpname = self.path+".tmp"
-    files.write_json(tmpname,self.to_dict(),overwrite=True)
-    os.replace(tmpname,self.path)
-    return self.path
+    @classmethod
+    def from_dict(cls, data):
+        if data.get('schema') != SCHEMA:
+            raise ValueError("Unsupported run.json schema %r (expected %s)" % (data.get('schema'), SCHEMA))
+        stages = [StageRecord(**s) for s in data['stages']]
+        return cls(run_id=data['run_id'], created=data['created'], updated=data['updated'], recipe=data['recipe'],
+                   pico_config=data['pico_config'], stages=stages, schema=data['schema'])
 
-  @classmethod
-  def load(cls,run_dir,files=None):
-    """Read run.json from a run directory (or the path of run.json itself)."""
-    files   = files or _fileio()
-    path    = run_dir if run_dir.endswith(RUN_RECORD_NAME) else os.path.join(run_dir,RUN_RECORD_NAME)
-    record  = cls.from_dict(files.read_json(path))
-    record.run_dir = os.path.dirname(os.path.abspath(path))
-    return record
+    def to_dict(self):
+        data = asdict(self)
+        data.pop('run_dir')
+        return {key: data[key] for key in ('schema', 'run_id', 'created', 'updated', 'recipe', 'pico_config', 'stages')}
 
-  # ===== Construction =====
-
-  @classmethod
-  def create(cls,recipe,run_root,pico_config=None,now=None):
-    """A new record for a recipe: one NEW StageRecord per stage. The run directory is
-    <run_root>/<name>_<YYYYmmdd-HHMMSS> (with a -2, -3, ... suffix if it exists); it is not created here."""
-    now    = now or datetime.now()
-    run_id = "%s_%s"%(recipe.name,now.strftime("%Y%m%d-%H%M%S"))
-    base, i = run_id, 1
-    while os.path.exists(os.path.join(run_root,run_id)):
-      i += 1
-      run_id = "%s-%d"%(base,i)
-    stamp  = now.strftime(TIMEFORMAT)
-    return cls(run_id=run_id,created=stamp,updated=stamp,recipe=recipe.to_dict(),
-               pico_config=pico_config or {'path': recipe.pico_config,'snapshot': None},
-               stages=[StageRecord(name=s.stage) for s in recipe.stages],
-               run_dir=os.path.join(os.path.abspath(run_root),run_id))
-
-  @classmethod
-  def from_dict(cls,data):
-    if data.get('schema')!=SCHEMA:
-      raise ValueError("Unsupported run.json schema %r (expected %s)"%(data.get('schema'),SCHEMA))
-    stages = [StageRecord(**s) for s in data['stages']]
-    return cls(run_id=data['run_id'],created=data['created'],updated=data['updated'],recipe=data['recipe'],
-               pico_config=data['pico_config'],stages=stages,schema=data['schema'])
-
-  def to_dict(self):
-    data = asdict(self)
-    data.pop('run_dir')
-    return {key: data[key] for key in ('schema','run_id','created','updated','recipe','pico_config','stages')}
-
-  def __repr__(self):
-    return "<RunRecord %s: %s>"%(self.run_id,self.state)
-
-
-# ===== Helpers =====
-
-def _now():
-  return datetime.now().strftime(TIMEFORMAT)
-
-
-def _fileio():
-  from TauFW.Utilities.FIO import FileIO
-  return FileIO()
+    def __repr__(self):
+        return "<RunRecord %s: %s>" % (self.run_id, self.state)

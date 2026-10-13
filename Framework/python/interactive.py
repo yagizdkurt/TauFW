@@ -7,7 +7,8 @@ import os
 from argparse import Namespace
 from pathlib import Path
 
-from TauFW.Framework.run_record import RunRecord
+from TauFW.Framework.defaults import DEFAULT_POLL_SECONDS, DEFAULT_RUN_ROOT, RUN_RECORD_NAME
+from TauFW.Framework.run_record import RunRecord, RunState
 from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation
 
 
@@ -35,11 +36,11 @@ class _Operations:
                       key=lambda p: p.name) if self.recipes_dir.is_dir() else []
 
     def runs(self):
-        root = self.launch_dir / "taufw_runs"
+        root = self.launch_dir / DEFAULT_RUN_ROOT
         runs = []
         if root.is_dir():
             for directory in root.iterdir():
-                if directory.is_dir() and (directory / "run.json").is_file():
+                if directory.is_dir() and (directory / RUN_RECORD_NAME).is_file():
                     try:
                         record = self.load_run(str(directory))
                         runs.append((record.created, str(directory),
@@ -57,7 +58,7 @@ class _Operations:
 
     @staticmethod
     def can_advance(record):
-        return record.state not in ("DONE", "FAILED", "BLOCKED")
+        return not RunState(record.state).finished
 
     @staticmethod
     def validate_poll(value):
@@ -67,7 +68,7 @@ class _Operations:
         return poll
 
     def execute(self, command, **values):
-        args = dict(verbose=0, wait=False, poll=600, run_root=None, local=False, maxevts=100)
+        args = dict(verbose=0, wait=False, poll=DEFAULT_POLL_SECONDS, run_root=None, local=False, maxevts=100)
         args.update(values)
         return self.commands[command](Namespace(**args))
 

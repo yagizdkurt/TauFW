@@ -14,6 +14,37 @@ stages:   production ─▶ histograms ─▶ fit
 
 After `cmsenv` and `scram b`, the package is importable as `TauFW.Framework` and `taufw.py` is on the `PATH`.
 
+## Concepts
+
+The words below are used everywhere in the code and in this README.
+
+| Term | Meaning | In the code |
+|---|---|---|
+| **recipe** | A YAML file that says what to run: a name, the PicoProducer configuration and a list of stages with their options. You write it; the Framework checks it before anything runs. | `Recipe` (`recipe.py`) |
+| **stage** | One step of the analysis: `production` (NanoAOD → pico tuples), `histograms`, `fit`. Each stage calls the API of its own package. | `Stage` subclasses (`stages/`) |
+| **spec** | The options of one stage after checking, as a typed, read-only object. For example, `ProductionSpec` holds `eras`, `channels`, `max_tries`, ... | `ProductionSpec`, ... |
+| **stage spec** | One entry of the recipe's `stages:` list: the stage name plus its spec. | `StageSpec` (`recipe.py`) |
+| **run** | One execution of a recipe. Each run gets its own directory, `taufw_runs/<name>_<time>/`. | `RunRecord.create` |
+| **run record** | The saved state of a run, `run.json`. It is updated after every step, so a run can be continued later, even from another session. | `RunRecord` (`run_record.py`) |
+| **stage record** | The part of `run.json` that belongs to one stage: its state, attempt, submissions, last status, artifacts and history. | `StageRecord` |
+| **step** | One call of `Stage.advance()`: it moves a stage from one state to the next (for example `NEW` → `SUBMITTED`). | `StageOutcome` |
+| **stage state** | Where one stage is: `NEW`, `SUBMITTED`, `WAITING`, `MERGING`, `DONE`, `FAILED`, `NOT_IMPLEMENTED`. | `StageState` (`stages/base.py`) |
+| **run state** | Where the whole run is, computed from the stage states: `NEW`, `RUNNING`, `WAITING`, `DONE`, `FAILED`, `BLOCKED`. | `RunState` (`run_record.py`) |
+| **advance** | "Do whatever can be done now": take steps until a stage waits for the batch system, fails or is not implemented. | `Framework.advance` |
+| **chunk** | One batch job of a sample. A sample with many files is split into several chunks. | PicoProducer |
+| **attempt** | How many times the production stage has submitted its jobs (first submission + resubmissions), limited by `max_tries`. | `StageRecord.attempt` |
+| **artifact** | A result of a stage that the next stage can use. For production: one merged pico tuple per sample. | `StageRecord.artifacts` |
+| **reporter** | The object that receives every message. It prints to the terminal and `run.log`, or keeps the messages silently (in tests). | `reporting.py` |
+
+### Where to start reading the code
+
+1. `recipes/example_mutau.yml`: what a user writes.
+2. `python/stages/base.py`: the stage contract and the stage states (short).
+3. `python/framework.py`: `start` → `advance` → `_advance_stages`, the loop that drives the stages.
+4. `python/stages/production.py`: the one real stage; `decide_next` holds its policy.
+5. `python/run_record.py`: what is written to `run.json`, and how the run state is computed.
+6. `scripts/taufw.py`: the command line, which only calls the `Framework`.
+
 ## Quick start
 
 Run `taufw.py` without arguments in an interactive Linux terminal to open the
@@ -92,8 +123,9 @@ The production stage:
 Placeholder stages (`histograms`, `fit`) report `NOT_IMPLEMENTED`; the run then stops in state `BLOCKED`, and the
 earlier stages keep their results.
 
-Run states: `NEW`, `RUNNING`, `WAITING` (a stage waits for jobs), `DONE`, `FAILED` (a stage failed), `BLOCKED` (stopped
-at a placeholder stage). `taufw.py` exits with 1 if the run failed.
+Run states (`RunState`): `NEW`, `RUNNING`, `WAITING` (a stage waits for jobs), `DONE`, `FAILED` (a stage failed),
+`BLOCKED` (stopped at a placeholder stage). `DONE`, `FAILED` and `BLOCKED` are final: advancing again changes nothing.
+`taufw.py` exits with 1 if the run failed.
 
 If a stage raises an error (for example, the batch system cannot be reached), the error is recorded in the stage's
 history, the state is unchanged, and the command fails; run `advance` again when the problem is solved.
@@ -167,8 +199,10 @@ taufw_runs/<name>_<YYYYmmdd-HHMMSS>/
 |---|---|
 | `python/framework.py` | `Framework`: `plan`, `start`, `advance`, `run`, `status`; stage dispatch; construction (`from_recipe`, `from_record`) |
 | `python/recipe.py` | `Recipe`, `StageSpec`, `RecipeError`: load and validate recipes |
-| `python/run_record.py` | `RunRecord`, `StageRecord`: `run.json`, crash-safe save |
-| `python/reporting.py` | `FrameworkReporter` (terminal + `run.log`), `SilentReporter`; adapter for PicoProducer's messages |
+| `python/run_record.py` | `RunRecord`, `RunState`, `StageRecord`: `run.json`, crash-safe save |
+| `python/reporting.py` | `Reporter` (interface), `FrameworkReporter` (terminal + `run.log`), `SilentReporter`; adapter for PicoProducer's messages |
+| `python/defaults.py` | shared defaults: `taufw_runs`, `run.json`, `run.log`, the polling interval (600 s), the time format |
+| `python/interactive.py` | the Framework side of the console menu (recipe/run discovery, dispatch to the commands) |
 | `python/stages/base.py` | the stage contract: `Stage`, `StageState`, `StageOutcome`, `StageNotImplemented` |
 | `python/stages/production.py` | `ProductionStage` and the pure `decide_next` policy |
 | `python/stages/histograms.py`, `fit.py` | placeholders with declared contracts |
