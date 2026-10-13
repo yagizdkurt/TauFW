@@ -1,7 +1,7 @@
 # FastSetup
 
 [`setup.sh`](../setup.sh) automates the software installation described
-in the [README](../README.md#manual) around an existing TauFW clone.
+in the [manual installation guide](ManualInstallation.md) around an existing TauFW clone.
 
 ## Requirements
 
@@ -97,7 +97,7 @@ The script never force-overwrites or deletes your work:
 | `--install` | Reopen installation even if a successful setup is recorded. |
 | `--cmssw-dir PATH` | Use this full release path, ending in `CMSSW_14_1_0_pre4`. |
 | `--jobs N` | Set build parallelism (default: 4). |
-| `--run2-jme` | Install standalone NanoAODTools for the [Run 2 JEC/JER workflows](../README.md#run-2-jetmet-corrections-backward-compatibility). |
+| `--run2-jme` | Install standalone NanoAODTools for the [Run 2 JEC/JER workflows](ManualInstallation.md#run-2-jetmet-corrections-backward-compatibility). |
 | `--non-interactive` | Skip the checklist and use defaults plus command-line options. |
 | `--skip-tauidsfs` | Do not install or verify TauIDSFs. |
 | `--skip-htt` | Do not install or verify HTT lepton efficiencies. |
@@ -181,7 +181,7 @@ exercise CombineHarvester's native bindings, run the local Combine executable's
 help command, and open the HTT ROOT correction
 files. These checks establish basic installation usability, not physics validation.
 
-The [TauPOG-internal JSON and ROOT correction production](../README.md#taupog-corrections)
+The [TauPOG-internal JSON and ROOT correction production](ManualInstallation.md#taupog-corrections)
 requires measured SF values and manual edits, so it is not performed by the
 setup script.
 
