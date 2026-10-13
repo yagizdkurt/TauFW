@@ -20,6 +20,16 @@ def rename_directory(source, destination):
 def verify_modules(specs, expected_root=None, instantiate=False):
     """Import MODULE[:SYMBOL] specs, check their origin, and optionally construct symbols."""
     root = Path(expected_root).resolve() if expected_root is not None else None
+    roots = [root] if root is not None else []
+    if root is not None:
+        for parent in root.parents:
+            if parent.name == "src" and (parent.parent / ".SCRAM").is_dir():
+                # SCRAM generates package initializers and exposes Python files
+                # under <release>/python/<subsystem>/<package>. Limit acceptance
+                # to the corresponding checkout, not the whole release.
+                # Keep this root unresolved so links to other installs fail.
+                roots.append(parent.parent / "python" / root.relative_to(parent))
+                break
     for spec in specs:
         name, _, symbol = spec.partition(":")
         module = importlib.import_module(name)
@@ -27,9 +37,9 @@ def verify_modules(specs, expected_root=None, instantiate=False):
         if not location:
             raise RuntimeError("%s has no implementation file" % name)
         path = Path(location).resolve()
-        if root is not None:
-            # Reject modules shadowed by another PYTHONPATH entry.
-            path.relative_to(root)
+        if roots and not any(path == allowed or allowed in path.parents for allowed in roots):
+            raise RuntimeError("%s resolves to %s, outside expected module roots: %s" %
+                               (name, path, ", ".join(str(allowed) for allowed in roots)))
         if symbol:
             value = getattr(module, symbol)
             if instantiate:

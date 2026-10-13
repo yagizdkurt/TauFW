@@ -23,7 +23,7 @@ def main(argv=None):
     rename.add_argument("destination")
 
     modules = commands.add_parser("modules", help="Check Python implementations and native bindings.")
-    modules.add_argument("--root", help="Require module files to belong to this directory.")
+    modules.add_argument("--root", help="Require module files in this directory or its corresponding CMSSW Python directory.")
     modules.add_argument("--instantiate", action="store_true", help="Construct each requested symbol.")
     modules.add_argument("specs", nargs="+", metavar="MODULE[:SYMBOL]")
 

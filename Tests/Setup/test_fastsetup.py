@@ -290,6 +290,16 @@ verify_python_modules "$PWD" InstalledTool:Symbol
 ''')
         self.assertIn("InstalledTool:", output)
 
+    def test_python_verification_accepts_cmssw_generated_package(self):
+        output, _ = self.run_script(r'''
+mkdir -p release/.SCRAM release/src/TauFW release/python/TauFW/PicoProducer
+printf '' > release/python/TauFW/__init__.py
+printf 'Symbol = object()\n' > release/python/TauFW/PicoProducer/__init__.py
+export PYTHONPATH="$PWD/release/python"
+verify_python_modules "$PWD/release/src/TauFW" TauFW.PicoProducer:Symbol
+''')
+        self.assertIn("TauFW.PicoProducer:", output)
+
     def test_htt_links_preserve_tracked_placeholder_and_recover_after_failure(self):
         # MSYS link emulation lets Bash exercise link semantics on Windows too.
         fixture_body = r'''
@@ -367,6 +377,69 @@ class InstallerHelperTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "native library unavailable"):
                 self.helpers.verify_modules(["Tool:Native"], instantiate=True)
         constructor.assert_called_once()
+
+    def test_cmssw_source_and_python_origins(self):
+        with tempfile.TemporaryDirectory() as directory:
+            release = Path(directory).resolve() / "release"
+            (release / ".SCRAM").mkdir(parents=True)
+            for checkout, module_file in (
+                ("TauFW", "TauFW/PicoProducer/__init__.py"),
+                ("TauFW", "TauFW/Plotter/__init__.py"),
+                ("TauFW", "TauFW/Fitter/__init__.py"),
+                ("TauPOG/TauIDSFs", "TauPOG/TauIDSFs/TauIDSFTool.py"),
+                ("PhysicsTools/NanoAODTools", "PhysicsTools/NanoAODTools/postprocessing/framework/postprocessor.py"),
+                ("HiggsAnalysis/CombinedLimit", "HiggsAnalysis/CombinedLimit/PhysicsModel.py"),
+                ("CombineHarvester", "CombineHarvester/CombineTools/ch.py"),
+            ):
+                root = release / "src" / checkout
+                for location in (root / "python/tool.py", release / "python" / module_file):
+                    with self.subTest(checkout=checkout, location=location):
+                        module = SimpleNamespace(__file__=str(location), Symbol=object())
+                        with patch.object(self.helpers.importlib, "import_module", return_value=module):
+                            self.helpers.verify_modules(["Tool:Symbol"], root)
+
+            for location in (
+                release.parent / "other-release/python/TauFW/PicoProducer/__init__.py",
+                release / "python/TauFWOther/PicoProducer/__init__.py",
+                release / "python/TauPOG/TauIDSFs/TauIDSFTool.py",
+            ):
+                with self.subTest(rejected=location):
+                    module = SimpleNamespace(__file__=str(location))
+                    with patch.object(self.helpers.importlib, "import_module", return_value=module):
+                        with self.assertRaisesRegex(RuntimeError, "outside expected module roots"):
+                            self.helpers.verify_modules(["Tool"], release / "src/TauFW")
+
+    def test_python_mapping_requires_a_cmssw_release(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            module = SimpleNamespace(__file__=str(root / "python/TauFW/tool.py"))
+            with patch.object(self.helpers.importlib, "import_module", return_value=module):
+                with self.assertRaisesRegex(RuntimeError, "outside expected module roots"):
+                    self.helpers.verify_modules(["Tool"], root / "src/TauFW")
+
+    def test_cmssw_python_symlinks_check_their_resolved_origin(self):
+        with tempfile.TemporaryDirectory() as directory:
+            release = Path(directory).resolve() / "release"
+            source = release / "src/TauFW/PicoProducer/python/tool.py"
+            source.parent.mkdir(parents=True)
+            source.write_text("Symbol = object()\n")
+            (release / ".SCRAM").mkdir()
+            installed = release / "python/TauFW/PicoProducer/tool.py"
+            installed.parent.mkdir(parents=True)
+            external = release.parent / "other-install/tool.py"
+            external.parent.mkdir()
+            external.write_text("Symbol = object()\n")
+            try:
+                installed.symlink_to(source)
+            except OSError as error:
+                self.skipTest("File symlinks unavailable: %s" % error)
+            module = SimpleNamespace(__file__=str(installed))
+            with patch.object(self.helpers.importlib, "import_module", return_value=module):
+                self.helpers.verify_modules(["Tool"], release / "src/TauFW")
+                installed.unlink()
+                installed.symlink_to(external)
+                with self.assertRaisesRegex(RuntimeError, "outside expected module roots"):
+                    self.helpers.verify_modules(["Tool"], release / "src/TauFW")
 
     def test_htt_verification_closes_an_unusable_root_file(self):
         handle = SimpleNamespace(IsZombie=lambda: True, Close=Mock())

@@ -56,36 +56,6 @@ These pins provide reproducible source versions, not a claim of full analysis
 validation. The default uses CMSSW's built-in NanoAODTools. Each installed or
 reused dependency's actual commit is printed during setup.
 
-## Interactive checklist
-
-On an interactive terminal, checklist opens before any installation
-or move:
-
-- Up/Down moves between components and the **Start install** button.
-- Space or Enter toggles the focused component. Green `[x]` means selected;
-  red `[ ]` means unselected. Checkboxes also work without color.
-- Space or Enter on **Start install** begins setup.
-- Esc or Ctrl+C cancels setup.
-
-TauIDSFs, HTT lepton efficiencies, and Combine + CombineHarvester are selected
-by default. Standalone NanoAODTools is optional for Run 2 JEC/JER. Command-line
-component flags set the initial selections, which can be changed in the menu.
-CMSSW setup and the TauFW build always run, even if every optional component
-is unselected. Unselected dependencies are left unchanged; installation checks
-for skipped TauIDSFs, HTT and Combine are omitted.
-
-For automation, use `--non-interactive`. When stdin or stdout is not a terminal,
-the checklist is skipped automatically and defaults plus command-line options
-apply:
-
-```bash
-bash FastSetup.sh --non-interactive --skip-combine --jobs 4
-bash FastSetup.sh --run2-jme
-bash FastSetup.sh --help
-```
-
-If terminal initialization fails, setup stops. Use `--non-interactive` explicitly
-to continue with the command-line selections.
 
 ## Existing files
 
@@ -154,8 +124,11 @@ An interrupted clean is retried; an interrupted build resumes without another
 clean. Installing TauIDSFs, HTT or NanoAODTools alone does not request a clean.
 
 Final checks import TauFW's packages and the actual selected Python tools from
-their expected locations. They also exercise CombineHarvester's native bindings,
-run the local Combine executable's help command, and open the HTT ROOT correction
+their expected locations: the source checkout or its corresponding
+`<release>/python/<subsystem>/<package>` directory populated by SCRAM. Imports
+from other releases or unrelated package directories are rejected. They also
+exercise CombineHarvester's native bindings, run the local Combine executable's
+help command, and open the HTT ROOT correction
 files. These checks establish basic installation usability, not physics validation.
 
 The [TauPOG-internal JSON and ROOT correction production](../README.md#taupog-corrections)
