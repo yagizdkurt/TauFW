@@ -1,15 +1,14 @@
 #! /usr/bin/env python
 # Author: Izaak Neutelings (April 2020)
-import os, re, glob
-from TauFW.common.tools.utils import execute
-from TauFW.common.tools.string import repkey, lreplace
+import os, re
+from TauFW.common.tools.string import repkey
 from TauFW.PicoProducer.batch.factory import getbatch
 from TauFW.PicoProducer.jobs.jobconfig import getcfgsamples
 from TauFW.PicoProducer.jobs.pipeline import iter_plans, submit_plan, record_submission
 from TauFW.PicoProducer.jobs.reporting import ConsoleReporter
 from TauFW.PicoProducer.jobs.request import JobRequest
 from TauFW.PicoProducer.jobs.status import check_sample
-from TauFW.PicoProducer.storage.factory import getstorage
+from TauFW.PicoProducer.jobs.merge import merge_sample
 from TauFW.PicoProducer.datasets.catalog import print_no_samples
 from TauFW.common.tools.log import bold
 from TauFW.PicoProducer.pico.common import CONFIG, LOG
@@ -106,7 +105,6 @@ def main_status(args):
   dasvetoes      = args.dasvetoes    # exclude these DAS paths (glob patterns)
   force          = args.force
   subcmd         = args.subcommand
-  cleanup        = subcmd=='clean' or (subcmd=='hadd' and args.cleanup) or subcmd=='haddclean'
   haddcmd        = ""
   maxopenfiles   = 0
   if 'hadd' in subcmd:
@@ -115,10 +113,7 @@ def main_status(args):
   dryrun         = args.dryrun       # run through routine without actually executing hadd, rm, ...
   ncores         = args.ncores       # number of cores; validate output files in parallel
   verbosity      = args.verbosity
-  cmdverb        = max(1,verbosity)
-  outdirformat   = CONFIG.outdir
   jobdirformat   = CONFIG.jobdir
-  storedirformat = CONFIG.picodir
   jobs           = None
   reporter       = ConsoleReporter(LOG)
   if subcmd not in ['hadd','clean','haddclean']:
@@ -175,66 +170,12 @@ def main_status(args):
         
         # HADD or CLEAN
         if subcmd in ['hadd','haddclean','clean']:
-          cfgname  = sample.jobcfg['config'] # config file
-          jobdir   = sample.jobcfg['jobdir'] # job directory
-          cfgdir   = sample.jobcfg['cfgdir'] # job configuration directory
-          logdir   = sample.jobcfg['logdir'] # job log directory
-          outdir   = sample.jobcfg['outdir'] # job output directory
-          postfix  = sample.jobcfg['postfix']
-          storedir = repkey(storedirformat,ERA=era,CHANNEL=channel_,TAG=tag,SAMPLE=sample.name,
-                                           DAS=sample.paths[0].strip('/'),GROUP=sample.group)
-          storage  = getstorage(storedir,ensure=True,haddcmd=haddcmd,verb=verbosity)
-          outfile  = "%s_%s%s.root"%(sample.name,channel_,tag)
-          infiles  = os.path.join(outdir,"*%s_[0-9]*.root"%(postfix))
-          cfgfiles = os.path.join(cfgdir,"job*%s_try[0-9]*.*"%(postfix))
-          logfiles = os.path.join(logdir,"*%s*.*.log"%(postfix))
-          if verbosity>=1:
-            print(">>> %sing job output for '%s'"%(subcmd.capitalize(),sample.name))
-            print(">>> %-12s = %r"%('cfgname',cfgname))
-            print(">>> %-12s = %r"%('jobdir',jobdir))
-            print(">>> %-12s = %r"%('cfgdir',cfgdir))
-            print(">>> %-12s = %r"%('outdir',outdir))
-            print(">>> %-12s = %r"%('storedir',storedir))
-            print(">>> %-12s = %s"%('infiles',infiles))
-            if subcmd in ['hadd','haddclean']:
-              print(">>> %-12s = %r"%('outfile',outfile))
-          status = check_sample(sample,CONFIG,reporter,channel=channel_,tag=tag,jobs=jobs,checkqueue=checkqueue,checkevts=checkevts,
-                                das=checkdas,checkexpevts=checkexpevts,ncores=ncores,verb=verbosity)
-          if not status.mergeable and not force: # only clean or hadd if all jobs were successful
-            LOG.warn("Cannot %s job output because %d chunks need to be resubmitted..."%(subcmd,len(status.resubfiles))+
-                     " Please use -f or --force to %s anyway.\n"%(subcmd))
+          result = merge_sample(sample,CONFIG,subcmd,era,channel_,tag,reporter,clean=args.cleanup if subcmd=='hadd' else False,
+                                force=force,haddcmd=haddcmd,maxopenfiles=maxopenfiles,jobs=jobs,checkqueue=checkqueue,
+                                checkevts=checkevts,checkexpevts=checkexpevts,das=checkdas,ncores=ncores,
+                                dryrun=dryrun,verb=verbosity)
+          if result.refused:
             continue
-          
-          if subcmd in ['hadd','haddclean']:
-            haddout = storage.hadd(infiles,outfile,dry=dryrun,verb=cmdverb,maxopenfiles=maxopenfiles)
-            # TODO: add option to print out cutflow for outfile
-          
-          # CLEAN UP
-          # TODO: check if hadd was succesful with isvalid
-          if cleanup:
-            allcfgs = os.path.join(cfgdir,"job*_try[0-9]*.*")
-            rmcmds  = [ ]
-            if len(glob.glob(allcfgs))>=len(glob.glob(cfgfiles)): # check for other jobs in same directory
-              if verbosity>=2:
-                print(">>> %-12s = %s"%('cfgfiles',cfgfiles))
-              rmcmds.append("rm -r %s"%(jobdir)) # remove whole job directory
-              if outdir!=jobdir and len(glob.glob(infiles))>=len(glob.glob(os.path.join(outdir,"*.root"))): # check for other jobs in same directory
-                rmcmds.append("rm -r %s"%(outdir)) # remove whole output directory with ROOT output files
-            else: # only remove files related to this job (era/channel/sample)
-              rmfiles   = [ ]
-              rmfileset = [infiles,cfgfiles,logfiles]
-              for files in rmfileset:
-                if len(glob.glob(files))>0:
-                  rmfiles.append(files)
-              if verbosity>=2:
-                print(">>> %-12s = %s"%('cfgfiles',cfgfiles))
-                print(">>> %-12s = %s"%('rmfileset',rmfileset))
-              if rmfiles:
-                rmcmds.append("rm %s"%(' '.join(rmfiles)))
-            for rmcmd in rmcmds:
-              if verbosity>=1:
-                rmcmd = lreplace(rmcmd,'rm',"rm -v",1)
-              execute(rmcmd,dry=dryrun,verb=cmdverb)
         
         # ONLY CHECK STATUS
         else:

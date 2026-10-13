@@ -688,3 +688,26 @@ directory). Both are kept as they are and fixed in B.
 (verbosity 0-3), compared with the code before Part 4A-2 (`3c401cd`). Output, job lists, job configs and
 scheduler calls are identical; the only difference is still the exception type of P02.
 
+### A4. Merge and cleanup
+
+The `hadd`/`haddclean`/`clean` branch of `main_status` is now `jobs/merge.py`:
+
+| Part | Responsibility |
+|---|---|
+| `merge_sample(sample, config, action, era, channel, tag, reporter, ...)` | the pipeline for one sample: merge target, `check_sample`, the gate, `storage.hadd`, then cleanup. Returns a `MergeResult` (`refused`, `merged`, the rm commands, `outpath`) |
+| `merge_target(sample, picodir, era, channel, tag)` | pure: the storage directory and file name of the merged tuple, and the glob patterns of the sample's job outputs, job configs and logs (`MergeTarget`) |
+| `merge_gate(status, force)` | pure: merge or clean only if no chunk needs to be resubmitted (`status.mergeable`), unless forced |
+| `cleanup_commands(target, count)` | pure: the rm commands; `count(pattern)` is the only observation (the number of files matching a glob) |
+
+- `main_status` calls `merge_sample` for `hadd`, `haddclean` and `clean`; a refused merge still skips the blank
+  line after the sample, as before.
+- The verbose output goes through the reporter.
+
+**New bug found:** P23. The "other jobs in the same job directory" test of the cleanup is always true, so cleaning
+one tag removes the job configs and logs of every other tag in that directory. Kept as it is and fixed in B.
+
+**Check:** the comparison harness got a fake `hadd` and `rm` (which really removes files) and 13 merge scenarios
+(verbosity 0-3 each): `hadd` with complete and incomplete samples, `--force`, `haddclean`, `clean`, `hadd -r`, dry
+runs, two tags in one job directory, foreign files in the output directory, skim channels, `--maxopenfiles` and
+`--skipevts`. Output, scheduler and hadd calls, rm commands and the remaining files are identical to `3c401cd`.
+
