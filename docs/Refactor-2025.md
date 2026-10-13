@@ -832,17 +832,17 @@ abbreviations, `list`, `install`, `channel`/`rm`/`set` edits, an unknown subcomm
 ### A3. `processors/` renamed to `workers/`
 
 `PicoProducer/python/processors/` (`picojob.py`, `skimjob.py`, `Bookkeeper.py`, the `keep_and_drop_*.txt` branch
-selections) is now `PicoProducer/python/workers/` (`git mv`), importable as `TauFW.PicoProducer.workers`. There is
-no compatibility module (hard-break rule). Updated callers: `jobs/worker_command.py` (`PROCDIR`), `cli/config.py`
+selections) is now `PicoProducer/python/workers/` (`git mv`), importable as `TauFW.PicoProducer.workers`. The
+rename itself added no compatibility module (hard-break rule); one was added afterwards, see A5. Updated callers: `jobs/worker_command.py` (`PROCDIR`), `cli/config.py`
 (`pico.py channel` checks the skim script there), `analysis/SumWeights.py`, the two `legacy/analysis` generator
 modules, the HTCondor submit template comment, `Tests/BBB/cases.py` (`pico.bookkeeper`),
 `Tests/BBB/pico_harness.py` (`pico.workers`), `Tests/PicoProducer/processors/testBookkeeper.py` (marked `edited` in
 `Tests/migration.json`), `Utilities/_audit_io.py`, the CMSDAS 2020 preselection notes and the READMEs.
 
-**For users:** a private script that imports `TauFW.PicoProducer.processors` must import
-`TauFW.PicoProducer.workers`. Job lists written before this change name `.../python/processors/picojob.py`; resubmit
-them from a fresh `pico.py submit`, or keep a checkout of the old tree until those jobs are done. Channels in
-`config/config.json` name only the script (`skimjob.py`), so they need no change.
+**For users:** a private script that imports `TauFW.PicoProducer.processors` should import
+`TauFW.PicoProducer.workers`; the old name still works with a warning (A5). Job lists written before this change name
+`python/processors/picojob.py`; they still run through the forwarders of A5, and `pico.py resubmit` rewrites them
+with `python/workers/`. Channels in `config/config.json` name only the script (`skimjob.py`), so they need no change.
 
 **Check:** BBB normalizes worker paths to `<pico>/picojob.py`, so no baseline changes. The comparison harness is
 unchanged (296 scenarios), and `Tests/check_harness.py` passes.
@@ -860,6 +860,29 @@ unchanged (296 scenarios), and `Tests/check_harness.py` passes.
 system): `plan` writes nothing and restores the working directory, `submit` → `status` → `merge(clean=True)` returns
 the expected artifacts and removes the job output, and every record survives a JSON round trip
 (`to_dict`/`from_dict`).
+
+### A5. Compatibility layer for `processors/`
+
+An exception to the hard-break rule, at the user's request: the rename in A3 broke private scripts and job lists
+outside the repository, which in-repo caller updates cannot reach. `PicoProducer/python/processors/` is back as a
+deprecated layer with no worker code ([README](../PicoProducer/python/processors/README.md)):
+
+- `__init__.py` re-exports `TauFW.PicoProducer.workers` and `processors/Bookkeeper.py` puts the
+  `workers.Bookkeeper` module object into `sys.modules` under the old name (same classes, so `isinstance` holds).
+  Both raise a `FutureWarning` naming the replacement; `FutureWarning` is shown by default, `DeprecationWarning`
+  is not.
+- `picojob.py` and `skimjob.py` forward to `workers/` with `runpy` (same arguments, `__main__`, `sys.argv[0]`,
+  output and exit status) after one notice on stderr. They load their helper `_forward.py` as a sibling file, so
+  they work even where the package is not installed in `$CMSSW_BASE/python`.
+
+`pico.py resubmit` already rebuilds the job list from the job config (`jobs/pipeline.py`), so the forwarders matter
+only for jobs queued before the update, job-list lines run by hand and task files submitted without `pico.py`.
+Nothing in the repository uses the layer, so no output changes. **Removal:** delete the directory and
+`Tests/PicoProducer/compat/` once no job lists from before 2026-10-13 are in use.
+
+**Check:** `python -m unittest discover -s Tests/PicoProducer/compat` (any Python 3.9+, no ROOT; 10 tests): the
+shim runs against a fake `workers/` package (import aliases, warnings, forwarded arguments and exit status, a missing
+worker) and is checked against the checkout (every file `processors/` had is covered, every shim has a worker).
 
 ### B. Command-line and worker fixes (P12, P13, P14, P15, W01, W02), with re-locked baselines
 
