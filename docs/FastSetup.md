@@ -105,7 +105,15 @@ the script asks you to move that checkout outside `src`.
 
 The installer runs in a subprocess and keeps its interactive checklist and run
 screen. After you close a successful result screen, the sourced wrapper activates
-CMSSW in your terminal and enters the installed `src/TauFW` checkout.
+CMSSW in your terminal and enters the installed `src/TauFW` checkout. The
+result screen reports components verified this run and those not selected;
+without standalone NanoAODTools, the CMSSW version is used. After dismissal,
+the terminal confirms activation and shows the next-session command and retained
+installation log path. Warnings and retained-original notices remain visible.
+
+Success ticks and colors fall back to plain text on limited terminals. Set
+`NO_COLOR=1` to disable colors; redirected output and `TERM=dumb` also disable
+them. An ASCII locale uses `[OK]`, `[!]`, and `[FAIL]` instead of Unicode marks.
 
 In each new session, source the wrapper from that checkout (or use its full path):
 

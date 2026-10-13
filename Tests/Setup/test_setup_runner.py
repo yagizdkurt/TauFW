@@ -129,6 +129,78 @@ class RunnerTests(unittest.TestCase):
         self.assertTrue(any("/moved/" in str(call) for call in output.call_args_list))
 
 
+    def test_success_summary_has_one_heading_and_one_warning(self):
+        worker = self.state()
+        worker.returncode, worker.cancelled = 0, False
+        worker.log_path = "/tmp/installation.log"
+        worker.summary = "[OK] Setup complete\n\nOptional components\n  None selected\nOriginal checkout retained at: /original"
+        worker.diagnostics = ["existing checkout differs"]
+        result = worker.result()
+        self.assertEqual(result.count("Setup complete"), 1)
+        self.assertEqual(result.count("existing checkout differs"), 1)
+        self.assertIn("Installation log: /tmp/installation.log", result)
+        notices = worker.completion_notices()
+        self.assertNotIn("Setup complete", notices)
+        self.assertIn("Original checkout retained at: /original", notices)
+
+    def test_color_and_unicode_fallbacks(self):
+        with patch.dict(os.environ, {"LC_ALL": "C", "TERM": "xterm", "NO_COLOR": ""}), \
+                patch.object(runner.sys.stdout, "isatty", return_value=True):
+            self.assertTrue(runner.colors_enabled())
+            self.assertEqual(runner.presentation("[OK] Setup complete"), ("[OK] Setup complete", "success"))
+            self.assertEqual(runner.presentation("  TauIDSFs: Not selected")[1], "skipped")
+            with patch.dict(os.environ, {"NO_COLOR": "1"}):
+                self.assertFalse(runner.colors_enabled())
+                self.assertEqual(runner.screen_palette(Mock()), {})
+            with patch.dict(os.environ, {"TERM": "dumb"}):
+                self.assertFalse(runner.colors_enabled())
+        with patch.object(runner.sys.stdout, "isatty", return_value=False):
+            self.assertFalse(runner.colors_enabled())
+        with patch.object(runner, "unicode_enabled", return_value=True):
+            self.assertEqual(runner.presentation("[OK] Setup complete")[0], "? Setup complete")
+            self.assertEqual(runner.presentation("[FAIL] Setup failed")[0], "? Setup failed")
+
+    def test_terminal_colors_only_when_enabled(self):
+        for enabled in (False, True):
+            with self.subTest(enabled=enabled), \
+                    patch.object(runner, "colors_enabled", return_value=enabled), \
+                    patch.object(runner, "unicode_enabled", return_value=False), patch("builtins.print") as output:
+                runner.print_terminal("[OK] Setup complete\n  None selected")
+                rendered = "\n".join(call.args[0] for call in output.call_args_list)
+                self.assertEqual("\x1b[" in rendered, enabled)
+
+    def test_wrapper_success_hands_off_log_without_replaying_summary(self):
+        ui, screen = Mock(), Mock()
+        ui.setup_checklist.return_value = []
+        ui.curses.wrapper.side_effect = lambda action: action(screen)
+        worker = Mock(log_path="/tmp/retained log.log")
+        worker.completion_notices.return_value = "[!] warning\nOriginal checkout retained at: /original"
+        with tempfile.TemporaryDirectory() as directory:
+            handoff = str(Path(directory) / "result")
+            with patch.dict(os.environ, {"FASTSETUP_RESULT_FILE": handoff}), \
+                    patch.object(runner.ConsoleUI, "open", return_value=ui), \
+                    patch.object(runner, "Worker", return_value=worker), \
+                    patch.object(runner, "progress", return_value=0), \
+                    patch.object(runner, "print_terminal") as output:
+                self.assertEqual(runner.main(["--script", "/clone/Utilities/FastSetup.sh"]), 0)
+            self.assertEqual(Path(handoff + ".log-path").read_text(), "/tmp/retained log.log\n")
+            worker.result.assert_not_called()
+            output.assert_called_once_with(worker.completion_notices.return_value)
+
+    def test_wrapper_footer_on_narrow_screen(self):
+        ui, screen = self.ui([10])
+        screen.getmaxyx.side_effect = None
+        screen.getmaxyx.return_value = (8, 28)
+        worker = Mock(started=time.monotonic(), finished=time.monotonic(), returncode=0, lines=[])
+        worker.result.return_value = "[OK] Setup complete\n" + "/long/check/out/" * 8
+        with patch.dict(os.environ, {"FASTSETUP_RESULT_FILE": "/tmp/result"}), \
+                patch.object(runner.time, "sleep"), patch.object(runner, "unicode_enabled", return_value=False):
+            self.assertEqual(runner.progress(ui, screen, worker), 0)
+        lines = [call.args[3] for call in ui._line.call_args_list]
+        self.assertIn("L View log | Enter Activate", lines)
+        self.assertIn("[OK] Setup complete", lines)
+
+
 @unittest.skipUnless(sys.platform.startswith("linux"), "POSIX process groups/pipes require Linux")
 class WorkerProcessTests(unittest.TestCase):
     def finish(self, worker):

@@ -3,6 +3,7 @@
 No Framework imports or workflow decisions belong here. Curses is loaded only
 when open() is called. Each screen restores the terminal before returning.
 """
+import os
 import sys
 import textwrap
 
@@ -50,6 +51,10 @@ class ConsoleUI:
     # =========================================================================
     # ================================ DRAWING ================================
 
+    def colors_enabled(self):
+        return (sys.stdout.isatty() and os.environ.get("TERM", "dumb") != "dumb"
+                and not os.environ.get("NO_COLOR"))
+
     def _setup(self, screen):
         screen.keypad(True)
         try:
@@ -74,7 +79,7 @@ class ConsoleUI:
             lines = ("TauFW " + VERSION,)
         color = 0
         try:
-            if self.curses.has_colors():
+            if self.colors_enabled() and self.curses.has_colors():
                 self.curses.start_color()
                 background = self.curses.COLOR_BLACK
                 try:
@@ -161,7 +166,7 @@ class ConsoleUI:
             self._setup(screen)
             colors = {True: 0, False: 0}
             try:
-                if self.curses.has_colors():
+                if self.colors_enabled() and self.curses.has_colors():
                     self.curses.start_color()
                     background = self.curses.COLOR_BLACK
                     try:

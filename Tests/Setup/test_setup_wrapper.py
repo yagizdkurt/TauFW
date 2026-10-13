@@ -54,6 +54,9 @@ if [[ ${TEST_BAD_RESULT:-false} == true ]]; then
   printf 'broken' > "$FASTSETUP_RESULT_FILE"
 else
   publish_setup_record
+  if [[ ${TEST_LOG:-false} == true ]]; then
+    printf '%s\n' "$TEST_ROOT/retained installation.log" > "$FASTSETUP_RESULT_FILE.log-path"
+  fi
 fi
 ''', newline="\n")
         (self.root / "cms.sh").write_text(r'''
@@ -108,6 +111,22 @@ source ./setup.sh --skip-htt || exit
         self.assertEqual((self.root / "arguments").read_text().splitlines(),
                          ["", "--jobs", "7", "--cmssw-dir",
                           self.shell('printf "%s" "$TEST_RELEASE"').stdout, "--skip-htt"])
+
+    def test_activation_summary_log_handoff_and_cleanup(self):
+        result = self.shell(r'''
+export LC_ALL=C NO_COLOR=1 TEST_LOG=true
+export TMPDIR="$TEST_ROOT"
+source "$TEST_ORIGINAL/setup.sh" || exit
+[[ -z $(find "$TEST_ROOT" -maxdepth 1 -name 'TauFW-setup-result.*' -print) ]]
+unset TEST_LOG
+source ./setup.sh || exit
+''')
+        self.assertEqual(result.stdout.count("[OK] TauFW environment active"), 2)
+        self.assertEqual(result.stdout.count("Installation log:"), 1)
+        self.assertIn("source setup.sh --install", result.stdout)
+        self.assertIn("Next session:", result.stdout)
+        self.assertNotIn("\x1b[", result.stdout)
+        self.assertNotIn("?", result.stdout)
 
     def test_help_and_execution_do_not_install(self):
         self.shell(r'''

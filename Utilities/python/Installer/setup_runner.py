@@ -5,6 +5,7 @@ before launching it, since the worker may relocate the checkout underneath us.
 """
 from argparse import ArgumentParser, REMAINDER
 import codecs
+import locale
 import os
 from pathlib import Path
 import re
@@ -33,6 +34,79 @@ DIAGNOSTIC = re.compile(r"\b(?:warning|error|fatal)\b|Traceback \(most recent ca
 def clean(value):
     """Keep terminal control sequences out of curses and restored-terminal output."""
     return "".join(char for char in ANSI.sub("", value) if char.isprintable() or char == "\t")
+
+
+def unicode_enabled():
+    language = os.environ.get("LC_ALL") or os.environ.get("LC_CTYPE") or os.environ.get("LANG", "")
+    if language.upper() in ("C", "POSIX"):
+        return False
+    try:
+        "????".encode(sys.stdout.encoding or locale.getpreferredencoding(False))
+        return True
+    except (UnicodeEncodeError, LookupError):
+        return False
+
+
+def colors_enabled():
+    return (sys.stdout.isatty() and os.environ.get("TERM", "dumb") != "dumb"
+            and not os.environ.get("NO_COLOR"))
+
+
+def presentation(line):
+    """Return display text and a semantic style; events and logs stay untouched."""
+    role = "normal"
+    if line.startswith("[OK]"):
+        role = "success"
+    elif line.startswith("[FAIL]"):
+        role = "failure"
+    elif line.startswith("[!]"):
+        role = "warning"
+    elif "Not selected" in line or line.strip() == "None selected":
+        role = "skipped"
+    elif line in ("Optional components", "Warnings and diagnostics:", "Activate in your terminal:"):
+        role = "heading"
+    if unicode_enabled():
+        for plain, symbol in (("[OK]", "?"), ("[FAIL]", "?"), ("[!]", "?")):
+            if line.startswith(plain):
+                line = symbol + line[len(plain):]
+                break
+    return line, role
+
+
+def print_terminal(value):
+    palette = {"success": "32", "failure": "31", "warning": "33", "heading": "36", "skipped": "2"}
+    for line in value.splitlines():
+        line, role = presentation(line)
+        if colors_enabled() and role in palette:
+            line = "\x1b[" + palette[role] + "m" + line + "\x1b[0m"
+        print(line)
+
+
+def screen_palette(ui):
+    """Use the menu's existing curses drawing API and default background."""
+    palette = {}
+    if not colors_enabled():
+        return palette
+    try:
+        if ui.curses.has_colors():
+            ui.curses.start_color()
+            background = ui.curses.COLOR_BLACK
+            try:
+                ui.curses.use_default_colors()
+                background = -1
+            except ui.curses.error:
+                pass
+            for number, role, foreground in (
+                    (1, "success", ui.curses.COLOR_GREEN),
+                    (2, "failure", ui.curses.COLOR_RED),
+                    (3, "heading", ui.curses.COLOR_CYAN),
+                    (4, "warning", ui.curses.COLOR_YELLOW)):
+                ui.curses.init_pair(number, foreground, background)
+                palette[role] = ui.curses.color_pair(number)
+            palette["skipped"] = ui.curses.A_DIM
+    except ui.curses.error:
+        pass
+    return palette
 
 
 def worker_arguments(arguments, selected):
@@ -211,18 +285,33 @@ class Worker:
         self.output.close()
         self.log.close()
 
+    def completion_notices(self):
+        """Keep warnings and retained originals visible after leaving curses."""
+        details = []
+        if self.diagnostics:
+            details = ["Warnings and diagnostics:"] + ["[!] " + item for item in self.diagnostics]
+        retained = [line for line in self.summary.splitlines()
+                    if line.startswith("Original checkout retained at:")]
+        if retained:
+            details += ([""] if details else []) + retained
+        return "\n".join(details)
+
     def result(self):
-        title = ("Setup cancelled" if self.cancelled else
-                 "Setup complete" if self.returncode == 0 else "Setup failed")
-        details = [title, "Log: " + self.log_path]
+        if self.returncode == 0 and self.summary:
+            details = self.summary.splitlines()
+        else:
+            title = ("[!] Setup cancelled" if self.cancelled else
+                     "[OK] Setup complete" if self.returncode == 0 else "[FAIL] Setup failed")
+            details = [title]
         if self.returncode != 0 and self.stage:
             details.append("Stage: " + self.stage)
         if self.diagnostics:
-            details += ["", "Warnings and diagnostics:"] + self.diagnostics
+            details += ["", "Warnings and diagnostics:"] + ["[!] " + item for item in self.diagnostics]
         if self.returncode != 0:
             details += ["", "Last output:"] + self.lines[-20:]
-        if self.summary or self.retry:
-            details += ["", self.summary or self.retry]
+            if self.retry:
+                details += ["", self.retry]
+        details += ["", "Installation log: " + self.log_path]
         return "\n".join(details)
 
 
@@ -233,6 +322,7 @@ def progress(ui, screen, worker):
     frame = 0
     next_frame = time.monotonic()
     was_finished = False
+    palette = screen_palette(ui)
     while True:
         try:
             time.sleep(max(0, next_frame - time.monotonic()))
@@ -270,20 +360,27 @@ def progress(ui, screen, worker):
                     content += ["Warnings / diagnostics (%d)" % len(worker.diagnostics)]
                     content += worker.diagnostics
             # Wrap result/diagnostics so long activation commands remain readable.
-            rows = content if log_view else []
+            rows = [(line, "normal") for line in content] if log_view else []
             if not log_view:
                 for line in content:
+                    line, role = presentation(line)
                     if line.startswith("Last output:") or worker.returncode is None and height - start < 16:
-                        rows.append(line)
+                        rows.append((line, role))
                     else:
-                        rows.extend(textwrap.wrap(line, max(1, width - 2), replace_whitespace=False) or [""])
+                        rows.extend((part, role) for part in
+                                    (textwrap.wrap(line, max(1, width - 2), replace_whitespace=False) or [""]))
             visible = max(1, height - start - 2)
             maximum = max(0, len(rows) - visible)
             first = maximum if offset is None and log_view else min(offset or 0, maximum)
-            for row, line in enumerate(rows[first:first + visible], start):
-                ui._line(screen, row, 0, line)
-            action = "Enter Close" if worker.returncode is not None else "Ctrl+C Cancel"
-            footer = "L Log | " + action if width < 65 else "L Log/result | Up/Down/PgUp/PgDn Scroll | " + action
+            for row, (line, role) in enumerate(rows[first:first + visible], start):
+                ui._line(screen, row, 0, line, color=palette.get(role, 0))
+            action = "Ctrl+C Cancel"
+            if worker.returncode is not None:
+                action = "Enter Activate" if worker.returncode == 0 and os.environ.get("FASTSETUP_RESULT_FILE") else "Enter Close"
+            separator = " ? " if unicode_enabled() else " | "
+            footer = separator.join(["L View log", action])
+            if width >= 65:
+                footer = separator.join(["L Log/result", "Up/Down/PgUp/PgDn Scroll", action])
             ui._line(screen, height - 2, 0, footer)
             screen.refresh()
             frame += 1
@@ -334,7 +431,18 @@ def main(argv=None):
         if worker is not None:
             worker.close()
     if worker is not None:
-        print(worker.result())
+        handoff = os.environ.get("FASTSETUP_RESULT_FILE")
+        if handoff:
+            try:
+                Path(handoff + ".log-path").write_text(worker.log_path + "\n", encoding="utf-8")
+            except OSError as error:
+                print("Cannot pass installation log path: %s" % error, file=sys.stderr)
+        if status == 0 and handoff:
+            notices = worker.completion_notices()
+            if notices:
+                print_terminal(notices)
+        else:
+            print_terminal(worker.result())
     elif status == 130:
         print("Setup cancelled; no installation changes were made.")
     if failure:

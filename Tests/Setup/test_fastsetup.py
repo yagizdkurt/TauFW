@@ -74,6 +74,50 @@ main "$@"
 """
         return self.run_script(body, *args)[0]
 
+    def test_compact_summary_component_status_and_direct_activation(self):
+        output, _ = self.run_script(r'''
+export LC_ALL=C
+repo_dir=/installed/TauFW
+SCRAM_ARCH=el9_amd64_gcc12
+tauidsfs=true
+htt=false
+combine=false
+run2_jme=false
+print_summary
+''')
+        self.assertEqual(output.count("Setup complete"), 1)
+        self.assertIn("[OK]   TauIDSFs: Verified this run", output)
+        self.assertIn("HTT efficiencies: Not selected", output)
+        self.assertIn("NanoAODTools: using the CMSSW version", output)
+        self.assertIn("source /installed/TauFW/setup.sh", output)
+        self.assertNotIn("Manual activation", output)
+        self.assertNotIn("checkout was moved", output)
+        self.assertNotIn("\x1b[", output)
+
+    def test_event_summary_is_plain_and_wrapper_has_activation_prompt(self):
+        output, directory = self.run_script(r'''
+export LC_ALL=C
+repo_dir=/installed/TauFW
+SCRAM_ARCH=el9_amd64_gcc12
+tauidsfs=false
+htt=false
+combine=false
+run2_jme=false
+copied_from=/original
+warnings=('one warning')
+export FASTSETUP_RESULT_FILE=/tmp/result
+exec 9>events.bin
+export FASTSETUP_EVENT_FD=9
+print_summary
+exec 9>&-
+''')
+        self.assertIn("None selected", output)
+        self.assertIn("Press Enter to close and activate", output)
+        self.assertIn("Original checkout retained at: /original", output)
+        self.assertNotIn("one warning", output)
+        self.assertNotIn("\x1b[", output)
+        self.assertNotIn(b"\x1b", (directory / "events.bin").read_bytes())
+
     def test_default_nonterminal_selection_preserves_installations(self):
         output = self.run_setup()
         self.assertIn("install:tauidsfs", output)

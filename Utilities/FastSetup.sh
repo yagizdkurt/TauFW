@@ -143,6 +143,8 @@ main() {
     summary=$(print_summary)
     printf '%s\n' "$summary"
     setup_event summary "$summary"
+  elif [[ -n ${FASTSETUP_RESULT_FILE:-} ]]; then
+    print_completion_notices
   else
     print_summary
   fi
@@ -757,30 +759,70 @@ publish_setup_record() {
   fi
 }
 
-selection_label() {
-  if "$1"; then printf 'selected'; else printf 'skipped'; fi
+summary_line() { # ROLE TEXT
+  local role=$1 text=$2 prefix='' color=''
+  local locale=${LC_ALL:-${LC_CTYPE:-${LANG:-C}}}
+  case $role in
+    success) prefix='[OK] '; color=32 ;;
+    warning) prefix='[!] '; color=33 ;;
+    heading) color=36 ;;
+    skipped) color=2 ;;
+  esac
+  # Event summaries stay plain ASCII; the curses renderer applies its styling.
+  if [[ -z ${FASTSETUP_EVENT_FD:-} && (${locale,,} == *utf-8* || ${locale,,} == *utf8*) ]]; then
+    case $role in success) prefix='? ' ;; warning) prefix='? ' ;; esac
+  fi
+  if [[ -z ${FASTSETUP_EVENT_FD:-} && -t 1 && ${TERM:-dumb} != dumb && -z ${NO_COLOR:-} && -n $color ]]; then
+    printf '\e[%sm%s%s\e[0m\n' "$color" "$prefix" "$text"
+  else
+    printf '%s%s\n' "$prefix" "$text"
+  fi
+}
+
+selection_label() { # SELECTED LABEL
+  if "$1"; then
+    summary_line success "  $2: Verified this run"
+  else
+    summary_line skipped "  $2: Not selected"
+  fi
+}
+
+print_completion_notices() {
+  if ((${#warnings[@]})); then
+    summary_line heading 'Warnings:'
+    local warning
+    for warning in "${warnings[@]}"; do summary_line warning "$warning"; done
+  fi
+  if [[ -n $copied_from ]]; then
+    printf '\nOriginal checkout retained at: %s\n' "$copied_from"
+  fi
 }
 
 print_summary() {
-  banner 'Setup complete'
-  printf 'TauFW: %s\n' "$repo_dir"
-  printf '\nComponent selection (unselected components were left unchanged):\n'
-  printf '  TauIDSFs: %s\n  HTT efficiencies: %s\n  Combine + CombineHarvester: %s\n  Standalone NanoAODTools: %s\n' \
-    "$(selection_label "$tauidsfs")" "$(selection_label "$htt")" \
-    "$(selection_label "$combine")" "$(selection_label "$run2_jme")"
-  if ((${#warnings[@]})); then
-    printf '\nWarnings from this run:\n'
-    printf '  - %s\n' "${warnings[@]}"
+  summary_line success 'Setup complete'
+  printf '\nCMSSW        %s\nArchitecture %s\nTauFW        %s\n' "${RELEASE#CMSSW_}" "$SCRAM_ARCH" "$repo_dir"
+  printf '\n'
+  summary_line heading 'Optional components'
+  if ! $tauidsfs && ! $htt && ! $combine && ! $run2_jme; then
+    summary_line skipped '  None selected'
+  else
+    selection_label "$tauidsfs" 'TauIDSFs'
+    selection_label "$htt" 'HTT efficiencies'
+    selection_label "$combine" 'Combine + CombineHarvester'
+    selection_label "$run2_jme" 'Standalone NanoAODTools'
   fi
-  printf '\nActivate this environment in each session:\n  source %q\n' "$repo_dir/setup.sh"
-  printf '\nManual activation fallback:\n'
-  printf '  source %q\n  export SCRAM_ARCH=%q\n  cd %q\n  cmsenv\n  cd %q\n' "$cms_setup" "$SCRAM_ARCH" "$cmssw_dir/src" "$repo_dir"
-  if [[ -n $copied_from ]]; then
-    printf '\nOriginal checkout retained at: %s\nUse the activation commands above to work from the installed copy.\n' "$copied_from"
-  elif $moved; then
-    printf '\nThe checkout was moved. A terminal that was inside it still shows the old path; the cd above fixes that.\n'
+  if ! $run2_jme; then printf '  NanoAODTools: using the CMSSW version\n'; fi
+  # The supervisor collects diagnostics separately; do not repeat its warnings.
+  if [[ -z ${FASTSETUP_EVENT_FD:-} ]]; then
+    print_completion_notices
+  elif [[ -n $copied_from ]]; then
+    printf '\nOriginal checkout retained at: %s\n' "$copied_from"
   fi
-  printf '\nTauPOG correction production still requires your measured SFs and the manual instructions in README.md.\n'
+  if [[ -n ${FASTSETUP_RESULT_FILE:-} ]]; then
+    printf '\nPress Enter to close and activate the environment.\n'
+  else
+    printf '\nActivate in your terminal:\n  source %q\n' "$repo_dir/setup.sh"
+  fi
 }
 
 main "$@"
