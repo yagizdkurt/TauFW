@@ -134,6 +134,15 @@ The latest code used to create root files for SF can be taken from [here](https:
 
 ## Running a pipeline
 
+From the TauFW folder, after setting up the CMSSW environment, use the root launcher:
+```bash
+python3 taufw.py         # interactive menu
+python3 taufw.py --help  # available commands
+```
+The launcher delegates to `Framework/scripts/taufw.py`; relative recipe and run paths
+are resolved from your working directory. After `cmsenv` and `scram b`, `taufw.py`
+is also available on `PATH`.
+
 [`Framework`](Framework) is the single entry point for an analysis pipeline. A YAML recipe names the stages
 (today: `production` with PicoProducer; `histograms` and `fit` are declared placeholders), and `taufw.py` runs them
 step by step, keeping the state in `taufw_runs/<name>_<time>/run.json`:

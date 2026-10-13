@@ -47,6 +47,10 @@ The words below are used everywhere in the code and in this README.
 
 ## Quick start
 
+From the TauFW repository root, use `python3 taufw.py` (or `python3 taufw.py --help`).
+This root launcher delegates to `Framework/scripts/taufw.py` and uses the same
+CMSSW environment as the installed command.
+
 Run `taufw.py` without arguments in an interactive Linux terminal to open the
 optional console menu (Python's standard-library `curses`; no extra dependency).
 Use Up/Down to move, Enter to select, and Esc to go back or exit the main menu.
