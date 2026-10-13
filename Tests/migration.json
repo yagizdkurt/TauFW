@@ -2,12 +2,6 @@
   "description": "Content hashes captured before relocation; existing test bodies and assets are unchanged.",
   "files": [
     {
-      "original": "common/test/testTable.py",
-      "moved": "Tests/common/testTable.py",
-      "sha256": "95d1b225c667099f9b7017ea388b0eb5a002433ed830e6184545296aa79c9c7b",
-      "canonical_sha256": "a610d8dcfdb95ee98557895b7868c0a5d3ba049f990511aa11478d4868441b45"
-    },
-    {
       "original": "Plotter/test/DYJetsToLL_M-50_mumu.root",
       "moved": "Tests/Plotter/DYJetsToLL_M-50_mumu.root",
       "sha256": "d9b72ad735220a181fd6dbfdc24f4ccb461e4f260e503690510dc669939eeede",
@@ -102,7 +96,8 @@
       "original": "Plotter/test/testRDataFrame_Sample.py",
       "moved": "Tests/Plotter/testRDataFrame_Sample.py",
       "sha256": "9b2c1b2355c993ffbbe224cc864d5ed30412d26797c3ba47fd685772fa08cfbd",
-      "canonical_sha256": "1095d0d84d1f48774c7a62249a37c0b8ce7f8127da855d2b3f294cb2ba73f0a0"
+      "canonical_sha256": "1095d0d84d1f48774c7a62249a37c0b8ce7f8127da855d2b3f294cb2ba73f0a0",
+      "edited": "LOG.table(...) became CLI().table(...) with print_header/print_row after TauFW.common.tools.Table moved to TauFW.Utilities.CLI (2026-10-13)."
     },
     {
       "original": "Plotter/test/testSamples.py",
@@ -127,7 +122,8 @@
       "original": "Plotter/test/testStack.py",
       "moved": "Tests/Plotter/testStack.py",
       "sha256": "e58562eecb94d9a25da6f72f081787548395096d984c945226f7dcd99d713c23",
-      "canonical_sha256": "9e7eecb845b669a52086b384b0c71ff0bcd73fe2f2ab842324153f4ea3188329"
+      "canonical_sha256": "9e7eecb845b669a52086b384b0c71ff0bcd73fe2f2ab842324153f4ea3188329",
+      "edited": "LOG.table(...) became CLI().table(...) with print_header/print_row after TauFW.common.tools.Table moved to TauFW.Utilities.CLI (2026-10-13)."
     },
     {
       "original": "Plotter/test/testStitching.py",
@@ -197,7 +193,7 @@
       "moved": "Tests/PicoProducer/testSFs.py",
       "sha256": "c5dba27fa3a17740647b278a73b8796c318494476e2d2ddebd6fa3109ba32507",
       "canonical_sha256": "38465fc0c860765ea3a1ee281e25999c7b4d5ade29244d27a4f34c725b73158f",
-      "edited": "Updated after migration: without -t, the import block crashed on tools=None (TypeError). MuonSFs_ROOT import follows its move to PicoProducer/python/legacy/ (2026-10-12)."
+      "edited": "Updated after migration: without -t, the import block crashed on tools=None (TypeError). MuonSFs_ROOT import follows its move to PicoProducer/python/legacy/ (2026-10-12). LOG.table(...) became CLI().table(...) with print_header/print_row after TauFW.common.tools.Table moved to TauFW.Utilities.CLI (2026-10-13)."
     },
     {
       "original": "PicoProducer/test/testStorage.py",

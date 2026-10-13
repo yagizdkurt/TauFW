@@ -33,6 +33,7 @@ def _call_categories(name):
     categories = []
     if name in ("print", "sys.stdout.write", "sys.stderr.write", "sys.stdout.flush", "sys.stderr.flush") or leaf in (
         "info", "verbose", "verb", "warn", "warning", "error", "printheader", "printrow", "printtable",
+        "print_header", "print_row", "print_rows",
         "tableheader", "row", "header", "title",
     ):
         categories.append("terminal")

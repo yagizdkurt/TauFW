@@ -193,5 +193,144 @@ class LoadingBarTests(unittest.TestCase):
         self.assertEqual(output.getvalue(), written)
 
 
+# Outputs of the old TauFW.common.tools.Table, recorded before it moved to
+# CLI.table (2026-10-13): name -> (formats, options, steps, stdout, returned strings).
+# Steps: header, header_suffix (suffix=" 'hist'"), row (print_row), row_string (row()),
+# save_row / save_header (save=True), print_rows, str.
+TABLE_GOLDEN = {
+    'two_formats': (('%8s %10s %10s', '%8d %10.2f %10.2f'), {},
+        [('header', ('point', 'x', 'weight')), ('row', (1, 0.5, 1.25)), ('row', (2, 1.5, 0.75)), ('row', (3, 2.5, 1.0)), ('row_string', (4, 1.25)), ('row_string', (5, 2.0, 1.0, 'extra'))],
+        '>>> \x1b[4m   point          x     weight\x1b[0m\n>>>        1       0.50       1.25\n>>>        2       1.50       0.75\n>>>        3       2.50       1.00\n',
+        ['>>>        4       1.25 ', '>>>        5       2.00       1.00 extra']),
+    'row_format': (('%9d %10.2f %10.2f',), {},
+        [('header', ('ibin', 'content', 'error')), ('row', (0, 12.0, 3.4641)), ('row', (1, 1234.5678, 35.1))],
+        '>>> \x1b[4m     ibin    content      error\x1b[0m\n>>>         0      12.00       3.46\n>>>         1    1234.57      35.10\n',
+        []),
+    'error_columns': (('%9s %10s %9s %11s  ', '%9d %10.2f  +%7.2f  -%9.2f'), {},
+        [('header', ('ibin', 'content', 'error up', 'error down')), ('row', (3, 4.0, 0.5, 0.25))],
+        '>>> \x1b[4m     ibin    content  error up  error down  \x1b[0m\n>>>         3       4.00  +   0.50  -     0.25\n',
+        []),
+    'ncols': ((3,), {},
+        [('header', ('point', 'x', 'y')), ('row', (1, 1.0, 1.0)), ('row', (1, 4.0)), ('row', (1, 5.0, 25, -1))],
+        '>>> \x1b[4m       point           x           y\x1b[0m\n>>>            1         1.0         1.0\n>>>            1         4.0 \n>>>            1         5.0          25 -1\n',
+        []),
+    'ncols_colwidth': ((3, 7), {},
+        [('header', ('a', 'b', 'c')), ('row', ('x', 2, 3.5))],
+        '>>> \x1b[4m       a       b       c\x1b[0m\n>>>        x       2     3.5\n',
+        []),
+    'short_and_extra': (('%6d %8.2f %8.2f ',), {},
+        [('header', ('point', 'x', 'y')), ('row', (1, 3.0, 9.0)), ('row', (1, 4.0)), ('row', (1, 5.0, 25, -1))],
+        '>>> \x1b[4m point        x        y \x1b[0m\n>>>      1     3.00     9.00 \n>>>      1     4.00 \n>>>      1     5.00    25.00  -1\n',
+        []),
+    'short_and_extra_signs': (('%8s %8s %8s %6s  ', '%6d %8.2f +%5.2f -%5.2f'), {},
+        [('header', ('point', 'y', 'up', 'down')), ('row', (1, 1.0, 0.4, 0.3)), ('row', (1, 16.0, 2.8)), ('row', (1, 25.0)), ('row', (1, 36.0, 4.5, 3.5, -1))],
+        '>>> \x1b[4m   point        y       up   down  \x1b[0m\n>>>      1     1.00 + 0.40 - 0.30\n>>>      1    16.00 + 2.80 -\n>>>      1    25.00 +\n>>>      1    36.00 + 4.50 - 3.50 -1\n',
+        []),
+    'header_count_warning': (('%9d %10.2f %10.2f',), {},
+        [('header', ('point', 'x', 'y', 'z')), ('header', ('point', 'x'))],
+        '>>> \x1b[1m\x1b[33mWarning! \x1b[0m\x1b[33mTable.header: number of argument (4) != ncols_header (3)\x1b[0m\n>>> \x1b[4m    point          x          y\x1b[0m\n>>> \x1b[1m\x1b[33mWarning! \x1b[0m\x1b[33mTable.header: number of argument (2) != ncols_header (3)\x1b[0m\n',
+        ['EXC TypeError: not enough arguments for format string']),
+    'unrecognized_arguments': ((1.5,), {},
+        [('row', ())],
+        '>>> \x1b[1m\x1b[33mWarning! \x1b[0m\x1b[33mTable.__init__: unrecognized arguments for initialization: 1.5\x1b[0m\n>>> \n',
+        []),
+    'below_minimum_verbosity': (('%9d %10.2f %10.2f',), {'verbosity': 1, 'minimum_verbosity': 3},
+        [('header', ('a', 'b', 'c')), ('row', (1, 2.0, 3.0))],
+        '',
+        []),
+    'debug_lines': (('%9d %10.2f %10.2f',), {'verbosity': 3},
+        [('header', ('a', 'b', 'c')), ('row', (1, 2.0, 3.0))],
+        ">>> headerformat='>>> \\x1b[4m%9s %10s %10s\\x1b[0m', rowformat='>>> %9d %10.2f %10.2f'\n>>> columnformats=['>>> %9d ', '%10.2f ', '%10.2f'], ncols=3\n>>> \x1b[4m        a          b          c\x1b[0m\n>>>         1       2.00       3.00\n",
+        []),
+    'debug_lines_above_minimum': (('%5d %9.3f +- %7.3f',), {'verbosity': 6, 'minimum_verbosity': 3},
+        [('header', ('ibin', 'xval', 'error')), ('row', (1, 2.0, 0.1))],
+        ">>> headerformat='>>> \\x1b[4m%5s %9s +- %7s\\x1b[0m', rowformat='>>> %5d %9.3f +- %7.3f'\n>>> columnformats=['>>> %5d ', '%9.3f +- ', '%7.3f'], ncols=3\n>>> \x1b[4m ibin      xval +-   error\x1b[0m\n>>>     1     2.000 +-   0.100\n",
+        []),
+    'no_prefix_no_underline': (('%9d %10.2f',), {'prefix': '', 'underline': False},
+        [('header', ('a', 'b')), ('row', (1, 2.0))],
+        '        a          b\n        1       2.00\n',
+        []),
+    'suffix_save_and_print_rows': (('%9d %10.2f',), {'prefix': '--> '},
+        [('header_suffix', ('a', 'b')), ('save_row', (1, 2.0)), ('save_header', ('a', 'b')), ('print_rows', ()), ('str', ())],
+        "--> \x1b[4m        a          b\x1b[0m 'hist'\n-->         1       2.00\n--> \x1b[4m        a          b\x1b[0m\n",
+        ['-->         1       2.00', '--> \x1b[4m        a          b\x1b[0m', '-->         1       2.00\n--> \x1b[4m        a          b\x1b[0m']),
+    'datacard': (('%11.1f %10d  %-20s  %s',), {},
+        [('header', ('Events', 'Entries', 'Observable', 'Process     ')), ('row', (1234.56, 789, 'm_vis', 'ZTT'))],
+        '>>> \x1b[4m     Events    Entries  Observable            Process     \x1b[0m\n>>>      1234.6        789  m_vis                 ZTT\n',
+        []),
+    'brackets': (('%5s [%5s, %5s]      %-14s   %-20s', '%5d [%5s, %5s] %8.1f +- %5.1f %8d +%5.1f -%5.1f'), {},
+        [('header', ('bin', 'xlow', 'xup', 'exp', 'data')), ('row', (1, 0, 10, 12.3, 1.2, 14, 3.1, 2.9))],
+        '>>> \x1b[4m  bin [ xlow,   xup]      exp              data                \x1b[0m\n>>>     1 [    0,    10]     12.3 +-   1.2       14 +  3.1 -  2.9\n',
+        []),
+    'repr_columns': (('%15.4f  %-10r %-10s   %r',), {},
+        [('header', ('Mean', 'Variable', 'Sample', 'Selection     ')), ('row', (1.23456, 'pt_1', 'DY', 'q_1*q_2<0'))],
+        ">>> \x1b[4m           Mean  Variable   Sample       Selection     \x1b[0m\n>>>          1.2346  'pt_1'     DY           'q_1*q_2<0'\n",
+        []),
+    'plot_ratio': (('%4s %9s %11s  %4s %9s %11s  %4s %8s %-14s', '%4d %9.5g %11.2f  %4d %9.5g %11.2f  %4d %8.2f +%5.2f  -%5.2f'), {},
+        [('header', ('inum', 'xval', 'yval', 'ibin', 'xval', 'yden', 'irat', 'ratio', 'error')), ('row', (1, 0.5, 10.0, 2, 0.5, 9.0, 3, 1.11, 0.1, 0.2))],
+        '>>> \x1b[4minum      xval        yval  ibin      xval        yden  irat    ratio error         \x1b[0m\n>>>    1       0.5       10.00     2       0.5        9.00     3     1.11 + 0.10  - 0.20\n',
+        []),
+    'zero_pad_and_percent': (('%05d %6.1f%%',), {},
+        [('header', ('n', 'pct')), ('row', (7, 12.5))],
+        '>>> \x1b[4m    n    pct%\x1b[0m\n>>> 00007   12.5%\n',
+        []),
+    'histset': (('%13.2f %13d %13.3f   %r',), {},
+        [('header', ('Integral', 'Entries', 'Ave. weight', 'Hist name    ')), ('row', (10.0, 5, 2.0, 'h1')), ('row', (0, 0, -1, 'total exp.'))],
+        ">>> \x1b[4m     Integral       Entries   Ave. weight   Hist name    \x1b[0m\n>>>         10.00             5         2.000   'h1'\n>>>          0.00             0        -1.000   'total exp.'\n",
+        []),
+    'printhist': (('%6s %9.6g %9.6g %11.2f %9.2f',), {'verbosity': 0},
+        [('header_suffix', ('ibin', 'xmin', 'xmax', 'content', 'error')), ('row', (1, -2.0, -1.714, 3.0, 1.732))],
+        ">>> \x1b[4m  ibin      xmin      xmax     content     error\x1b[0m 'hist'\n>>>      1        -2    -1.714        3.00      1.73\n",
+        []),
+}
+
+
+class TableTests(unittest.TestCase):
+    def run_steps(self, table, steps):
+        returned = []
+        for kind, values in steps:
+            try:
+                if kind == "header":
+                    table.print_header(*values)
+                elif kind == "header_suffix":
+                    table.print_header(*values, suffix=" 'hist'")
+                elif kind == "row":
+                    table.print_row(*values)
+                elif kind == "row_string":
+                    returned.append(table.row(*values))
+                elif kind == "save_row":
+                    returned.append(table.row(*values, save=True))
+                elif kind == "save_header":
+                    returned.append(table.header(*values, save=True))
+                elif kind == "print_rows":
+                    table.print_rows()
+                elif kind == "str":
+                    returned.append(str(table))
+            except TypeError as error:   # too few header titles, as before
+                returned.append("EXC TypeError: %s" % (error))
+                break
+        return returned
+
+    def test_output_matches_the_old_table(self):
+        for name, (formats, options, steps, stdout, returned) in TABLE_GOLDEN.items():
+            with self.subTest(name):
+                options = dict(options)
+                output = io.StringIO()
+                cli = CLI(output_stream=output, verbosity=options.pop("verbosity", 0),
+                          prefix=options.pop("prefix", ">>> "))
+                table = cli.table(*formats, **options)
+                self.assertEqual(self.run_steps(table, steps), returned)
+                self.assertEqual(output.getvalue(), stdout)
+
+    def test_header_is_underlined_even_when_redirected(self):
+        output = io.StringIO()
+        CLI(output_stream=output, use_color=False).table("%3d").print_header("n")
+        self.assertEqual(output.getvalue(), ">>> \033[4m  n\033[0m\n")
+
+    def test_construction_is_silent(self):
+        output = io.StringIO()
+        CLI(output_stream=output, verbosity=2).table("%5d %9.3f", minimum_verbosity=0)
+        self.assertEqual(output.getvalue(), "")
+
 if __name__ == "__main__":
     unittest.main()

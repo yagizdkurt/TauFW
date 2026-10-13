@@ -1,6 +1,6 @@
 # Report: legacy and broken cases excluded from normal tests
 
-These three cases are excluded because their existing scripts cannot complete in
+These two cases are excluded because their existing scripts cannot complete in
 the Python 3.9 test environment. The migration preserved their contents; it did
 not introduce the defects described below. This report documents the problems
 without fixing them.
@@ -9,35 +9,11 @@ without fixing them.
 
 | Case | Classification | First failure in a suitable dependency environment |
 | --- | --- | --- |
-| `common.table` | `legacy` | Python 3 cannot parse the Python 2 `print` statement at line 20. |
 | `pico.sample` | `broken` | The `print(` call at line 88 has no closing parenthesis outside its comment. |
 | `plotter.rdataframe` | `broken` | With PyROOT available, module execution reaches an undefined `kBlue` at line 17. |
 
 The classifications describe these demonstration/test scripts. They do not
 establish that the corresponding production classes are broken.
-
-## `common.table`: an incomplete Python 3 conversion
-
-Source: [testTable.py](common/testTable.py).
-
-Line 20 contains:
-
-```python
-print ">>> Table from hist"
-```
-
-This is a Python 2 print statement, which is invalid Python 3 syntax. The parser
-rejects the whole file before imports, argument parsing, or any table code runs.
-The same syntax appears at lines 28, 39, 51, 62, and 75. Other statements already
-use `print(...)`, so the conversion is incomplete rather than absent.
-
-There is also a later Python 2 compatibility problem: `printhist()` calls
-`xrange(nevts)` at line 16 without defining or importing `xrange`. If the print
-syntax were corrected, this would raise `NameError` when that function runs
-under Python 3. The script also requires PyROOT for its histogram example.
-
-The immediate exclusion is caused by the script's syntax, not by a demonstrated
-failure of the production `Table` implementation.
 
 ## `pico.sample`: a parenthesis hidden inside a comment
 
@@ -98,13 +74,13 @@ still classified as local; this exclusion concerns `plotter.rdataframe` only.
 
 ## Why these are pre-existing, and how the runner handles them
 
-For all four files, the current SHA-256 hash after LF/CRLF normalization matches
+For both files, the current SHA-256 hash after LF/CRLF normalization matches
 the corresponding `canonical_sha256` in [migration.json](migration.json).
 Their contents also match the original paths in the parent of migration commit
 `046367c` (`git show 046367c^:<original-path>`), using the same normalization.
 This directly confirms that the listed script defects existed before relocation.
 
-[inventory.json](inventory.json) retains all four case IDs and their reasons.
+[inventory.json](inventory.json) retains both case IDs and their reasons.
 In [run.py](run.py), `select_cases()` maps `normal` to the `local` group and
 selects only that group. Explicitly requesting one of these cases through
 `normal --case ...` rejects the selection with its classification and reason;
@@ -112,10 +88,14 @@ it does not run the script or report a successful test.
 
 ## Validation scope
 
-Validation used source inspection, the four migration/historical hash
+Validation used source inspection, the migration/historical hash
 comparisons, and in-memory parsing with Python 3.13.8's
-`ast.parse(..., feature_version=(3, 9))`. Parsing reproduced the two Python 2
-print failures and the unclosed parenthesis, and confirmed that the RDataFrame
+`ast.parse(..., feature_version=(3, 9))`. Parsing reproduced the unclosed parenthesis
+(and, before those cases were removed, the two Python 2 print failures), and confirmed that the RDataFrame
 file passes syntax parsing. This grammar check is not execution under Python
 3.9 or a PyROOT runtime test. No full test suite, ROOT event processing, or
 remote dataset access was performed. Only this Markdown report was added.
+
+The Python 2 cases `common.loadingbar` and `common.table` were removed when
+`LoadingBar` and `Table` moved to `TauFW.Utilities.CLI` (changelog §15, §17);
+unit tests in `Tests/Utilities/test_cli.py` replace them.

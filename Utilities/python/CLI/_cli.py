@@ -6,6 +6,7 @@ from typing import Iterable, Optional, Sequence, TextIO
 
 from ._internal.formatting import BOLD, RED, YELLOW, colorize, format_progress, format_table, is_terminal
 from ._internal.loading_bar import LoadingBar
+from ._internal.table import Table
 
 _YES_NO_ANSWERS = {"y": True, "yes": True, "n": False, "no": False}
 
@@ -97,6 +98,14 @@ class CLI:
         """Print a rectangular table; rows may be supplied as an iterator."""
         table = format_table(headers, rows)
         self._write_lines(*table.splitlines(), stream=self._output_stream)
+
+    def table(self, *formats, minimum_verbosity: int = 0, underline: bool = True) -> Table:
+        """A %-format table on stdout, printed row by row: table(row_format) or
+        table(header_format, row_format). Its lines start with the CLI prefix,
+        and print_header/print_row print only when the CLI verbosity reaches
+        minimum_verbosity (see Table)."""
+        return Table(self._output_stream, *formats, verbosity=self._verbosity,
+                     minimum_verbosity=minimum_verbosity, prefix=self._prefix, underline=underline)
 
     # =========================================================================
     # =============================== PROGRESS ================================

@@ -10,6 +10,7 @@ from TauFW.Plotter.sample.ResultDict import ResultDict, RDF # for containing RDa
 from TauFW.Plotter.sample.SampleSet import SampleSet
 from TauFW.Plotter.sample.utils import join
 from TauFW.Plotter.plot.utils import LOG
+from TauFW.Utilities.CLI import CLI
 from TauFW.Plotter.plot.Plot import Plot, Var
 from TauFW.Plotter.plot.Plot2D import Plot2D
 from TauFW.Plotter.plot.Stack import Stack
@@ -178,16 +179,16 @@ def test_getsumw(sample,selections,split=False,rungraphs=True,verb=0):
   res_dict = sample.getsumw(selections,split=split,verb=verb)
   #print(res_dict)
   if split:
-    TAB = LOG.table("%15.2f  %-10s   %r")
-    TAB.printheader("Sum-of-weights","Sample","Selection"+' '*50)
+    TAB = CLI().table("%15.2f  %-10s   %r")
+    TAB.print_header("Sum-of-weights","Sample","Selection"+' '*50)
     for selection in res_dict:
       for sample in res_dict[selection]:
-        TAB.printrow(res_dict[selection][sample],sample.name,selection.selection)
+        TAB.print_row(res_dict[selection][sample],sample.name,selection.selection)
   else:
-    TAB = LOG.table("%15.2f   %r")
-    TAB.printheader("Sum-of-weights","Selection"+' '*50)
+    TAB = CLI().table("%15.2f   %r")
+    TAB.print_header("Sum-of-weights","Selection"+' '*50)
     for selection in res_dict:
-      TAB.printrow(res_dict[selection],selection.selection)
+      TAB.print_row(res_dict[selection],selection.selection)
     
 
 def test_getmean(sample,variables,selections,split=False,sumw=False,rungraphs=True,verb=0):
@@ -196,20 +197,20 @@ def test_getmean(sample,variables,selections,split=False,sumw=False,rungraphs=Tr
   res_dict = sample.getmean(variables,selections,split=split,sumw=sumw,verb=verb)
   #print(res_dict)
   if split:
-    TAB = LOG.table("%15.4f  %-10r %-10s   %r")
-    TAB.printheader("Mean","Variable","Sample","Selection"+' '*50)
+    TAB = CLI().table("%15.4f  %-10r %-10s   %r")
+    TAB.print_header("Mean","Variable","Sample","Selection"+' '*50)
     for selection in res_dict:
       for variable in res_dict[selection]:
         vstr = variable if isinstance(variable,str) else variable.name
         for sample in res_dict[selection][variable]:
-          TAB.printrow(res_dict[selection][variable][sample],vstr,sample.name,selection.selection)
+          TAB.print_row(res_dict[selection][variable][sample],vstr,sample.name,selection.selection)
   else:
-    TAB = LOG.table("%15.4f  %-10s   %r")
-    TAB.printheader("Mean","Variable","Selection"+' '*50)
+    TAB = CLI().table("%15.4f  %-10s   %r")
+    TAB.print_header("Mean","Variable","Selection"+' '*50)
     for selection in res_dict:
       for variable in res_dict[selection]:
         vstr = variable if isinstance(variable,str) else variable.name
-        TAB.printrow(res_dict[selection][variable],vstr,selection.selection)
+        TAB.print_row(res_dict[selection][variable],vstr,selection.selection)
   
 
 def test_gethist(sample,variables,selections,outdir="plots/test",split=False,tag="",verb=0):

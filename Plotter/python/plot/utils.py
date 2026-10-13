@@ -8,6 +8,7 @@ from TauFW.common.tools.file import ensuredir
 from TauFW.common.tools.root import ensureTFile
 from TauFW.common.tools.utils import isnumber, islist, ensurelist, unpacklistargs, quotestrs
 from TauFW.common.tools.log import Logger
+from TauFW.Utilities.CLI import CLI
 from TauFW.Plotter.plot import moddir
 import TauFW.Plotter.plot.CMSStyle as CMSStyle
 import ROOT; ROOT.PyConfig.IgnoreCommandLineOptions = True
@@ -147,11 +148,12 @@ def printhist(hist,min_=0,max_=None,**kwargs):
   nbins  = hist.GetNbinsX()
   minbin = kwargs.get('min',min_)
   maxbin = kwargs.get('max',max_) or nbins+1
-  TAB = LOG.table("%6s %9.6g %9.6g %11.2f %9.2f",**kwargs)
-  TAB.printheader("ibin","xmin","xmax","content","error",post=' '+repr(hist.GetName()))
+  TAB = CLI(verbosity=kwargs.get('verb',0),prefix=kwargs.get('pre',">>> ")).table("%6s %9.6g %9.6g %11.2f %9.2f",
+                minimum_verbosity=kwargs.get('level',0),underline=kwargs.get('ul',True))
+  TAB.print_header("ibin","xmin","xmax","content","error",suffix=' '+repr(hist.GetName()))
   for ibin in range(minbin,maxbin+1):
     xmin, xmax = hist.GetXaxis().GetBinLowEdge(ibin), hist.GetXaxis().GetBinUpEdge(ibin)
-    TAB.printrow(ibin,xmin,xmax,hist.GetBinContent(ibin),hist.GetBinError(ibin))
+    TAB.print_row(ibin,xmin,xmax,hist.GetBinContent(ibin),hist.GetBinError(ibin))
   
 
 def sumhists(hists,name=None,title=None,**kwargs):
@@ -380,8 +382,8 @@ def gethistratio(histnum,histden,**kwargs):
   LOG.verb("gethistratio: Making ratio of num=%r w.r.t. den=%r in ncells=%s"%(histnum,histden,ncells),verbosity,2)
   if havesamebins(histden,histnum,errorX=errorX): # sanity check binning is the same; works for TH1 and TH2
     #rhist.Divide(histden)
-    TAB = LOG.table("%5d %9.3f %9.3f %9.3f %9.3f +- %7.3f",verb=verbosity,level=3)
-    TAB.printheader("ibin","xval","yden","ynum","ratio","error")
+    TAB = CLI(verbosity=verbosity).table("%5d %9.3f %9.3f %9.3f %9.3f +- %7.3f",minimum_verbosity=3)
+    TAB.print_header("ibin","xval","yden","ynum","ratio","error")
     for ibin in range(0,ncells+1):
       yden    = histden.GetBinContent(ibin)
       ynum    = histnum.GetBinContent(ibin)
@@ -393,7 +395,7 @@ def gethistratio(histnum,histden,**kwargs):
         erat  = enum/yden
       elif zero:
         ratio = 1. if ynum==0 else yinf if ynum>0 else -yinf
-      TAB.printrow(ibin,rhist.GetXaxis().GetBinCenter(ibin),yden,ynum,ratio,erat)
+      TAB.print_row(ibin,rhist.GetXaxis().GetBinCenter(ibin),yden,ynum,ratio,erat)
       #print histden.GetXaxis().GetBinLowEdge(ibin), histden.GetXaxis().GetBinUpEdge(ibin)
       rhist.SetBinContent(ibin,ratio)
       rhist.SetBinError(ibin,erat)
@@ -402,8 +404,8 @@ def gethistratio(histnum,histden,**kwargs):
       histnum.GetName(),histden.GetName(),
       histnum.GetXaxis().GetNbins(),histnum.GetXaxis().GetXmin(),histnum.GetXaxis().GetXmax(),
       histden.GetXaxis().GetNbins(),histden.GetXaxis().GetXmin(),histden.GetXaxis().GetXmax()))
-    TAB = LOG.table("%5d %9.3f %9.3f %5d %9.3f %9.3f %5d %8.3f +- %7.3f",verb=verbosity,level=3)
-    TAB.printheader("iden","xval","yden","inum","xval","ynum","ratio","error")
+    TAB = CLI(verbosity=verbosity).table("%5d %9.3f %9.3f %5d %9.3f %9.3f %5d %8.3f +- %7.3f",minimum_verbosity=3)
+    TAB.print_header("iden","xval","yden","inum","xval","ynum","ratio","error")
     for iden in range(0,ncells+1):
       xval    = histden.GetXaxis().GetBinCenter(iden)
       yden    = histden.GetBinContent(iden)
@@ -417,7 +419,7 @@ def gethistratio(histnum,histden,**kwargs):
         erat  = enum/yden
       elif zero:
         ratio = 1.0 if ynum==0 else yinf if ynum>0 else -yinf
-      TAB.printheader(iden,xval,yden,inum,histnum.GetXaxis().GetBinCenter(inum),ynum,ratio,erat)
+      TAB.print_header(iden,xval,yden,inum,histnum.GetXaxis().GetBinCenter(inum),ynum,ratio,erat)
       rhist.SetBinContent(iden,ratio)
       rhist.SetBinError(iden,erat)
   return rhist
@@ -443,10 +445,10 @@ def getgraphratio(graphnum,histden,**kwargs):
   copystyle(rgraph,graphnum)
   irat      = 0 # index ratio graph
   LOG.verb("getgraphratio: Making ratio of num=%s w.r.t. den=%s, errorX=%r"%(graphnum,histden,errorX),verbosity,2)
-  TAB = LOG.table("%4s %9s %11s  %4s %9s %11s  %4s %8s %-14s",
-                  "%4d %9.5g %11.2f  %4d %9.5g %11.2f  %4d %8.2f +%5.2f  -%5.2f",verb=verbosity,level=3)
+  TAB = CLI(verbosity=verbosity).table("%4s %9s %11s  %4s %9s %11s  %4s %8s %-14s",
+                  "%4d %9.5g %11.2f  %4d %9.5g %11.2f  %4d %8.2f +%5.2f  -%5.2f",minimum_verbosity=3)
   if isinstance(histden,TH1): # ratio = TGraph graphnum / TH1 histden
-    TAB.printheader("inum","xval","yval","ibin","xval","yden","irat","ratio","error")
+    TAB.print_header("inum","xval","yval","ibin","xval","yden","irat","ratio","error")
     nbins = histden.GetXaxis().GetNbins()
     for ibin in range(0,nbins+2):
       xval = histden.GetXaxis().GetBinCenter(ibin)
@@ -476,10 +478,10 @@ def getgraphratio(graphnum,histden,**kwargs):
         rgraph.SetPointError(irat,xerr,max(rupp,rlow))
       elif isinstance(rgraph,TGraphAsymmErrors):
         rgraph.SetPointError(irat,xerr,xerr,rlow,rupp)
-      TAB.printrow(inum,xval,ynum,ibin,xval,yden,irat,ratio,rupp,rlow)
+      TAB.print_row(inum,xval,ynum,ibin,xval,yden,irat,ratio,rupp,rlow)
       irat += 1
   else: # ratio = TGraph graphnum / TGraph graphden
-    TAB.printheader("inum","xval","yval","iden","xval","yden","irat","ratio","error")
+    TAB.print_header("inum","xval","yval","iden","xval","yden","irat","ratio","error")
     graphden = histden # rename for readability
     nbins = graphden.GetN()
     xdens = list(graphden.GetX())
@@ -517,7 +519,7 @@ def getgraphratio(graphnum,histden,**kwargs):
         rgraph.SetPointError(irat,xupp,max(rupp,rlow))
       elif isinstance(rgraph,TGraphAsymmErrors):
         rgraph.SetPointError(irat,xlow,xupp,rlow,rupp)
-      TAB.printrow(inum,xval,ynum,iden,xval,yden,irat,ratio,rupp,rlow)
+      TAB.print_row(inum,xval,ynum,iden,xval,yden,irat,ratio,rupp,rlow)
       irat += 1
   return rgraph
   
@@ -550,9 +552,9 @@ def geterrorband(*hists,**kwargs):
       eband.SetPoint(ip,x,y)
       eband.SetPointError(ip,xlow,xupp,ylow,yupp)
   else:
-    TAB = LOG.table("%5s %7s %6s %10s %11s   %-20s   %-20s   %-20s",
-                    "%5d %7.6g %6.6g %10.2f %11.2f   +%8.2f  -%8.2f   +%8.2f  -%8.2f   +%8.2f  -%8.2f",verb=verbosity,level=3)
-    TAB.printheader("ibin","xval","xerr","nevts","sqrt(nevts)","statistical unc.","systematical unc.","total unc.")
+    TAB = CLI(verbosity=verbosity).table("%5s %7s %6s %10s %11s   %-20s   %-20s   %-20s",
+                    "%5d %7.6g %6.6g %10.2f %11.2f   +%8.2f  -%8.2f   +%8.2f  -%8.2f   +%8.2f  -%8.2f",minimum_verbosity=3)
+    TAB.print_header("ibin","xval","xerr","nevts","sqrt(nevts)","statistical unc.","systematical unc.","total unc.")
     ip = 0
     nbins = hist0.GetNbinsX()
     for ibin in range(1,nbins+1):
@@ -580,7 +582,7 @@ def geterrorband(*hists,**kwargs):
       ylow2, yupp2 = statlow2+syslow2, statupp2+sysupp2,
       eband.SetPoint(ip,xval,yval)
       eband.SetPointError(ip,xerr,xerr,sqrt(ylow2),sqrt(yupp2))
-      TAB.printrow(ibin,xval,xerr,yval,sqrt(abs(yval)),sqrt(statupp2),sqrt(statlow2),sqrt(sysupp2),sqrt(syslow2),sqrt(yupp2),sqrt(ylow2))
+      TAB.print_row(ibin,xval,xerr,yval,sqrt(abs(yval)),sqrt(statupp2),sqrt(statlow2),sqrt(sysupp2),sqrt(syslow2),sqrt(yupp2),sqrt(ylow2))
       ip += 1
   seterrorbandstyle(eband,color=color,style=style)
   #eband.SetLineColor(hist0.GetLineColor())
@@ -601,8 +603,8 @@ def dividebybinsize(hist,**kwargs):
   poisson  = kwargs.get('poisson',  True  ) # treat poisson errors differently: convert TH1 -> TGraph
   dograph  = kwargs.get('graph',    False ) # force conversion of TH1 -> TGraph
   nbins    = hist.GetXaxis().GetNbins()
-  TAB = LOG.table("%5s %8.6g %8.6g %10.3f %9.4f %8.4f %8.4f %10.4f",verb=verbosity,level=3)
-  TAB.printheader("ibin","xval","width","yval","yerr","yupp","ylow","yerr/width")
+  TAB = CLI(verbosity=verbosity).table("%5s %8.6g %8.6g %10.3f %9.4f %8.4f %8.4f %10.4f",minimum_verbosity=3)
+  TAB.print_header("ibin","xval","width","yval","yerr","yupp","ylow","yerr/width")
   if isinstance(hist,TGraph):
     for ip in range(1,hist.GetN()+1):
       xval  = hist.GetPointX(ip)
@@ -612,7 +614,7 @@ def dividebybinsize(hist,**kwargs):
       yupp  = hist.GetErrorYhigh(ip)
       ylow  = hist.GetErrorYlow(ip)
       width = xupp+xlow
-      TAB.printrow(ip,xval,width,yval,yerr,yupp,ylow,yval/width if width>0 else 0.0)
+      TAB.print_row(ip,xval,width,yval,yerr,yupp,ylow,yval/width if width>0 else 0.0)
       if width<=0: continue # ignore this point
       if yval!=0 or zero:
         hist.SetPoint(ip,xval,yval/width)
@@ -632,7 +634,7 @@ def dividebybinsize(hist,**kwargs):
       yerr  = hist.GetBinError(ibin)
       yupp  = hist.GetBinErrorUp(ibin)
       ylow  = hist.GetBinErrorLow(ibin)
-      TAB.printrow(ibin,xval,width,yval,yerr,yupp,ylow,yval/width)
+      TAB.print_row(ibin,xval,width,yval,yerr,yupp,ylow,yval/width)
       hist.SetBinContent(ibin,yval/width) # change histogram anyway !
       hist.SetBinError(ibin,yerr/width)
       if yval!=0 or zero:
@@ -651,7 +653,7 @@ def dividebybinsize(hist,**kwargs):
       yerr  = hist.GetBinError(ibin)
       hist.SetBinContent(ibin,yval/width)
       hist.SetBinError(ibin,yerr/width)
-      TAB.printrow(ibin,xval,width,yval,yerr,hist.GetBinErrorUp(ibin),hist.GetBinErrorLow(ibin),yval/width)
+      TAB.print_row(ibin,xval,width,yval,yerr,hist.GetBinErrorUp(ibin),hist.GetBinErrorLow(ibin),yval/width)
   return hist
   
 

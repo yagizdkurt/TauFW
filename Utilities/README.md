@@ -55,12 +55,13 @@ terminal.print_warning("A sample was skipped")
 | `update_progress(completed, total, message="")` | Maintain one stderr progress task. Require `total > 0` and `0 <= completed <= total`. Completion ends the line. |
 | `finish_progress()` | Finish once; redirected output receives the last progress line without cursor controls. |
 | `loading_bar(steps, width=steps, counter=False, remove=False, symbol="=", prefix=<CLI prefix>, append="", message="")` | Draw an in-place stdout bar and return it; call `bar.count(message="", steps=1)` once per step. The last step ends the line, writes `append`, or erases the bar (`remove`). Writes exactly what `TauFW.common.tools.LoadingBar` wrote (backspace redraws), which logs and BBB baselines rely on. |
+| `table(row_format)`, `table(header_format, row_format, minimum_verbosity=0, underline=True)` | Return a `%`-format table for stdout, printed one row at a time: `print_header(*titles, suffix="")`, `print_row(*values)`; `header()`/`row()` return the lines (`save=True` keeps them for `print_rows()`). Without a header format, each column's title gets that column's width. Lines start with the CLI prefix and print only when the CLI verbosity reaches `minimum_verbosity`. A row with fewer values uses only the first columns; extra values are appended. Writes exactly what `TauFW.common.tools.Table` (and `LOG.table`) wrote, including the always-underlined header, which logs and BBB baselines rely on. |
 | `read_input(prompt)` | Prompt on stderr and return input without its newline; EOF raises `EOFError`. |
 | `confirm(prompt, default=False)` | Accept yes/no case-insensitively, retry invalid answers, and use the default for empty input. |
 
 Interactive progress updates flush immediately and overwrite their line. Redirected intermediate progress is suppressed until completion or an explicit finish. Finish a partial task in `finally` if the surrounding operation can fail. Reporting and failure control are separate: application code raises its own exceptions. CLI does not parse arguments, launch general processes or persist messages to files.
 
-Code moved here from `common/python/tools` keeps its old output byte for byte (and `Math` its old results). Those old output formats sit in a separate `# ===== BACKWARD COMPATIBILITY, CLEANUP =====` section of the module (`CLI/_internal/loading_bar.py`, `Process/_parallel.py`), so they can be modernized later in their own commit, with a BBB re-lock where baselines record them.
+Code moved here from `common/python/tools` keeps its old output byte for byte (and `Math` its old results). Those old output formats sit in a separate `# ===== BACKWARD COMPATIBILITY, CLEANUP =====` section of the module (`CLI/_internal/loading_bar.py`, `Process/_parallel.py`), or `# ===== LEGACY, CLEAN UP LATER =====` (`CLI/_internal/table.py`), so they can be modernized later in their own commit, with a BBB re-lock where baselines record them.
 
 ## Menu presentation
 

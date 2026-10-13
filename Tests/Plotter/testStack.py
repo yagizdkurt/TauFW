@@ -4,6 +4,7 @@
 #   test/testStack.py -v2 && eog plots/testStacks*.png
 from array import array
 from TauFW.Plotter.plot.utils import LOG, ensuredir
+from TauFW.Utilities.CLI import CLI
 from TauFW.Plotter.plot.Stack import Stack, CMSStyle
 from ROOT import TH1D, gRandom, TColor, kBlack, kWhite, kBlue, kOrange, kMagenta
 from TauFW.Plotter.plot.Variable import Variable
@@ -85,9 +86,9 @@ def createhists(procs,binning,nevts):
   datahist.SetBinErrorOption(TH1D.kPoisson)
   if LOG.verbosity>=1:
     print(">>> createhists: Creating pseudo data:")
-    TAB = LOG.table("%5s [%5s, %5s]      %-14s   %-20s",
+    TAB = CLI().table("%5s [%5s, %5s]      %-14s   %-20s",
                     "%5d [%5s, %5s] %8.1f +- %5.1f %8d +%5.1f -%5.1f")
-    TAB.printheader('bin','xlow','xup','exp','data')
+    TAB.print_header('bin','xlow','xup','exp','data')
   for ibin in range(0,nbins+2):
     exp    = tothist.GetBinContent(ibin)
     xlow   = hist.GetXaxis().GetBinLowEdge(ibin)
@@ -100,7 +101,7 @@ def createhists(procs,binning,nevts):
     data   = int(gRandom.Poisson(exp))
     datahist.SetBinContent(ibin,data)
     if LOG.verbosity>=1:
-      TAB.printrow(ibin,xlow,xup,exp,experr,data,datahist.GetBinErrorUp(ibin),datahist.GetBinErrorLow(ibin))
+      TAB.print_row(ibin,xlow,xup,exp,experr,data,datahist.GetBinErrorUp(ibin),datahist.GetBinErrorLow(ibin))
   
   return datahist, exphists
   

@@ -64,7 +64,6 @@ class Logger(object):
     self.name      = name
     self.verbosity = verb # verbosity level
     self.pre       = kwargs.get('pre',">>> ")
-    self._table    = None
     if  kwargs.get('showname',False):
       self.pre += self.name + ": "
   
@@ -172,18 +171,4 @@ class Logger(object):
     """Assert condition throwing an exception."""
     return self.throw(error,string,trigger=(not condition),**kwargs)
   
-  def table(self,*args,**kwargs):
-    """Initiate new table."""
-    self._table = Table(*args,**kwargs)
-    return self._table
-  
-  def tableheader(self,*args):
-    """Print header of table."""
-    self._table.printheader(*args)
-  
-  def row(self,*args):
-    """Print row of table."""
-    self._table.printrow(*args)
-  
 LOG = Logger('Global')
-from TauFW.common.tools.Table import Table

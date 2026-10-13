@@ -8,6 +8,7 @@ from TauFW.common.tools.file import ensuredir
 from TauFW.common.tools.root import ensureTDirectory, ensureTFile, gethist
 from TauFW.common.tools.log import color
 from TauFW.Plotter.plot.utils import LOG, deletehist, grouphists
+from TauFW.Utilities.CLI import CLI
 from TauFW.Plotter.plot.Stack import Stack
 from TauFW.Plotter.plot.Plot import Plot
 from TauFW.Plotter.plot.string import joincuts
@@ -117,8 +118,8 @@ def createinputs(fname,sampleset,obsset,bins,syst="",**kwargs):
     # SAVE HIST
     wobs  = max([10]+[len(o.printbins(filename=True)) for o in hists]) # extra space
     wproc = 4+max(11,len(htag)) # extra space
-    TAB   = LOG.table(f"%11.1f %10d  %-{wobs}s  %s")
-    TAB.printheader('Events','Entries','Observable','Process'.ljust(wproc))
+    TAB   = CLI().table(f"%11.1f %10d  %-{wobs}s  %s")
+    TAB.print_header('Events','Entries','Observable','Process'.ljust(wproc))
     for obs, histset in hists.items():
       for hist in histset:
         hname = hist.GetName() # = $VAR_$BIN_$NAME (created by makehistname in Sample.getrdframe)
@@ -146,7 +147,7 @@ def createinputs(fname,sampleset,obsset,bins,syst="",**kwargs):
               hist.SetBinContent(i,0)
         if files[obs].cd(bin): # $FILE:$BIN/$PROCESS_$SYSTEMATC
           hist.Write(hname,TH1.kOverwrite)
-        TAB.printrow(hist.GetSumOfWeights(),hist.GetEntries(),obs.printbins(filename=True),hname)
+        TAB.print_row(hist.GetSumOfWeights(),hist.GetEntries(),obs.printbins(filename=True),hname)
         #if not parallel: # avoid segmentation faults for parallel
         #  deletehist(hist) # clean histogram from memory
   

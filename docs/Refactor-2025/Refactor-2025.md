@@ -6,6 +6,7 @@
 
 This document records the changes made on the `Refactor-2025` branch: what changed and why.
 Sections are in the order the work was done. Each lists the relevant commits.
+What is still open is listed in [TODO.md](TODO.md).
 
 | # | Change | Date |
 | --- | --- | --- |
@@ -26,6 +27,7 @@ Sections are in the order the work was done. Each lists the relevant commits.
 | 14 | [Framework: analysis bundles and Python steps (Part H)](#14-framework-analysis-bundles-and-python-steps-part-h) | 2026-10-13 |
 | 15 | [common tools moved to Utilities: parallel processes and the loading bar](#15-common-tools-moved-to-utilities-parallel-processes-and-the-loading-bar) | 2026-10-13 |
 | 16 | [common tools moved to Utilities: numeric helpers](#16-common-tools-moved-to-utilities-numeric-helpers) | 2026-10-13 |
+| 17 | [common tools moved to Utilities: the printf-style table](#17-common-tools-moved-to-utilities-the-printf-style-table) | 2026-10-13 |
 
 The reference environment for all of this is `CMSSW_14_1_0_pre4` (Python 3.9, ROOT 6.30).
 
@@ -1246,3 +1248,60 @@ same inputs.
   compared with the old ones on 4000 random rounds (all identical).
 - BBB: `common.chunking` was run locally against its baseline (identical output). No baseline changes are expected;
   check on lxplus with `python3 Tests/run.py bbb check`; no re-lock.
+
+## 17. common tools moved to Utilities: the printf-style table
+
+**Date:** 2026-10-13
+**Details:** [Utilities/README.md](../../Utilities/README.md#terminal-io) (`CLI.table`); open items in [TODO.md](TODO.md)
+
+`common/python/tools/Table.py` was re-implemented as `CLI.table(...)`, returning a `Table`
+(`Utilities/python/CLI/_internal/table.py`), in the same way as the loading bar in §15. No logic changed: every line is
+byte for byte what the old class wrote, and the callers' tables print in the same cases as before. The old quirks are
+kept in a section with a new banner, `# ===== LEGACY, CLEAN UP LATER =====`: the four constructor forms told apart by
+argument types, the header always underlined with raw ANSI codes (even into a file), the old `LOG.warning` text for
+the two warnings, and the two debug lines at high verbosity. They are listed in [TODO.md](TODO.md) for a later commit
+with a BBB re-lock.
+
+### What moved
+
+| Old | New | Notes |
+|---|---|---|
+| `LOG.table(*formats, verb=0, level=0, pre=">>> ", ul=True)` | `CLI(verbosity=verb, prefix=pre).table(*formats, minimum_verbosity=level, underline=ul)` | `CLI()` is created where the table is made, so a redirected stdout is honored. Formats as before: `(row_format)`, `(header_format, row_format)`, `(ncols)`, `(ncols, colwidth)`. |
+| `Table.printheader(*titles, post="")` | `print_header(*titles, suffix="")` | |
+| `Table.printrow(*values)` | `print_row(*values)` | Fewer values: only the first columns; extra values: appended with spaces. |
+| `Table.printtable()` | `print_rows()` | Prints the lines kept with `save=True`. |
+| `Table.header(...)`, `Table.row(...)`, `str(table)` | unchanged | `save=True` kept. |
+| `LOG.tableheader()`, `LOG.row()` | removed | No callers. |
+
+`Table.py` and `log.py` imported each other (`log.py` imported `Table` at its end, `Table.py` imported `LOG` at its
+end). The table no longer needs `LOG`: its two warnings write the old `LOG.warning` bytes themselves.
+
+### Callers updated
+
+- `Plotter/python/plot/utils.py`: six tables (`printhist`, the ratio and error tables), most at `minimum_verbosity=3`.
+  `printhist(**kwargs)` maps its `verb`, `pre`, `level` and `ul` keywords as `LOG.table` did. The table in the
+  `TGraph`/`TGraph` ratio branch prints its rows with `print_header` (it did with `printheader` before); kept as is and
+  listed in [TODO.md](TODO.md).
+- `Plotter/python/sample/HistSet.py` (four tables), `Fitter/python/plot/datacard.py` (`createinputs` event table).
+- `common/python/tools/log.py`: `Logger.table`, `tableheader`, `row` and the `Table` import removed.
+- `Tests/BBB/cases.py` (`common.formatting`), `Tests/Plotter/testRDataFrame_Sample.py`, `Tests/Plotter/testStack.py`,
+  `Tests/PicoProducer/testSFs.py` (`edited` notes in `Tests/migration.json`).
+- `Utilities/_audit_io.py` counts `print_header`/`print_row`/`print_rows` as terminal output, like the old names.
+  `Utilities/IOInventory.md`: the rows of the changed files and the totals, edited by hand (not regenerated).
+
+### Dropped
+
+- **`Tests/common/testTable.py`** (case `common.table`, Python 2 `print` statements, listed as `legacy` and never run):
+  replaced by unit tests. Its records are removed from `Tests/inventory.json`, `Tests/migration.json` (37 → 36 files,
+  `check_harness.py` updated), `Tests/LEGACY_BROKEN_CASES.md` and `Tests/README.md`. It was the only caller of
+  `printhist(verb=...)`.
+
+### Tests
+
+- `Tests/Utilities/test_cli.py` (`TableTests`): 21 cases recorded from the old class before it was deleted (both format
+  forms, the integer forms, short and extra rows, `%r`, `%%` and `%05d` columns, both warnings and the exception for too
+  few titles, verbosity gating and the debug lines, no prefix/underline, `suffix`, `save`, `print_rows`, `str`); the
+  underline when redirected; silent construction. Before the deletion the new table was also compared with the old one
+  on 3000 random tables (formats, row lengths, verbosities, prefixes; all identical).
+- BBB: `common.formatting` and `common.chunking` were run locally against their baselines (identical output). No baseline
+  changes are expected; check on lxplus with `python3 Tests/run.py bbb check`; no re-lock.

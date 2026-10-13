@@ -6,6 +6,7 @@ import time
 start0 = time.time()
 print(">>> Importing modules...")
 from TauFW.common.tools.log import Logger, color, underline
+from TauFW.Utilities.CLI import CLI
 LOG = Logger("testSF")
 
 # PATHS
@@ -29,13 +30,13 @@ def printtable(name,method,ptvals=None,etavals=None,etamax=3.0):
   if etamax!=None:
     etavals = [eta for eta in etavals if abs(eta)<etamax]
   print(">>>   %s:"%name)
-  #TAB = LOG.table("%9.2f"+" %9.2f"*len(etavals)+"  ")
-  #TAB.printheader("pt\eta",*[str(eta) for eta in etavals])
+  #TAB = CLI().table("%9.2f"+" %9.2f"*len(etavals)+"  ")
+  #TAB.print_header("pt\eta",*[str(eta) for eta in etavals])
   print(">>>   "+underline("%10s "%('pt\eta')+' '.join('%9.2f'%eta for eta in etavals)))
   errors = [ ]
   for pt in ptvals:
     #print(">>>    %10.2f"%(pt)+' '.join('%10.3f'%method(pt,eta) for eta in etavals))
-    #TAB.printrow(pt,*[method(pt,eta) for eta in etavals])
+    #TAB.print_row(pt,*[method(pt,eta) for eta in etavals])
     row = ">>>   %10.2f"%(pt)
     for eta in etavals:
       try:
@@ -205,11 +206,11 @@ def pileupSFs(era='UL2018'):
   
   ## GET SFs
   start2 = time.time()
-  TAB = LOG.table("%9.1f %15.3f")
-  TAB.printheader("npu","pileup weight")
+  TAB = CLI().table("%9.1f %15.3f")
+  TAB.print_header("npu","pileup weight")
   npus = [0,1,2,5,10,15,18,20,24,25,26,28,30,35,40,50,60,70,80,100]
   for npu in npus:
-    TAB.printrow(npu,puTool.getWeight(npu))
+    TAB.print_row(npu,puTool.getWeight(npu))
   print(">>>   Got %d SFs in %.3f seconds"%(len(npus),time.time()-start2))
   
 

@@ -2,6 +2,7 @@
 # Author: Izaak Neutelings (July 2020)
 # Description: Container class for histgrams lists to separate those of observed data from MC.
 from TauFW.Plotter.plot.Stack import Stack, THStack, TH1
+from TauFW.Utilities.CLI import CLI
 
 def integratehist(hist):
   if hist.InheritsFrom('TH2'):
@@ -44,23 +45,23 @@ class HistSet(object):
   
   def display(self):
     """Print tables of histogram yields (for debugging)."""
-    TAB = LOG.table("%13.2f %13d %13.3f   %r")
-    TAB.printheader("Integral","Entries","Ave. weight","Hist name    ")
+    TAB = CLI().table("%13.2f %13d %13.3f   %r")
+    TAB.print_header("Integral","Entries","Ave. weight","Hist name    ")
     totent = 0
     totint = 0
     def row(hist):
       hint, hent = integratehist(hist), hist.GetEntries()
       return (hint, hent, hint/hent if hent!=0 else -1, hist.GetName())
     if self.data:
-      TAB.printrow(*row(self.data))
+      TAB.print_row(*row(self.data))
     for hist in self.exp:
       hint, hent, wgt, name = row(hist)
-      TAB.printrow(hint,hent,wgt,name)
+      TAB.print_row(hint,hent,wgt,name)
       totent += hint
       totint += hent
-    TAB.printrow(totint,totent,totint/totent if totent!=0 else -1,"total exp.")
+    TAB.print_row(totint,totent,totint/totent if totent!=0 else -1,"total exp.")
     for hist in self.sig:
-      TAB.printrow(*row(hist))
+      TAB.print_row(*row(hist))
     return totent, totint
     
   def getstack(self, var=None, context=None, **kwargs):
@@ -132,24 +133,24 @@ class HistDict(object):
           hist = histset
           if i==0: # only print first time
             print(">>> Histogram yields for selection %r, variable %s:"%(sel.selection,vstr))
-            TAB = LOG.table("%13.2f %13d %13.3f   %r")
-            TAB.printheader("Integral","Entries","Ave. weight","Hist name    ")
+            TAB = CLI().table("%13.2f %13d %13.3f   %r")
+            TAB.print_header("Integral","Entries","Ave. weight","Hist name    ")
           hint, hent = integratehist(hist), hist.GetEntries()
-          TAB.printrow(hint, hent, hint/hent if hent!=0 else -1, hist.GetName())
+          TAB.print_row(hint, hent, hint/hent if hent!=0 else -1, hist.GetName())
         elif isinstance(histset,dict): # assume { sample: number value }
           for sample, value in histset.items():
             if i==0: # only print first time
               print(">>> Number value:")
-              TAB = LOG.table("%15.4f  %-15s %-15s %r")
-              TAB.printheader("Number","Sample","Variable","Selection"+' '*20)
-            TAB.printrow(value,sample.name,vstr,sel.selection)
+              TAB = CLI().table("%15.4f  %-15s %-15s %r")
+              TAB.print_header("Number","Sample","Variable","Selection"+' '*20)
+            TAB.print_row(value,sample.name,vstr,sel.selection)
         else: # assume { sample: number value }
           value = histset
           if i==0: # only print first time
             print(">>> Number value:")
-            TAB = LOG.table("%15.4f  %-15s %r")
-            TAB.printheader("Number","Variable","Selection"+' '*20)
-          TAB.printrow(value,vstr,sel.selection)
+            TAB = CLI().table("%15.4f  %-15s %r")
+            TAB.print_header("Number","Variable","Selection"+' '*20)
+          TAB.print_row(value,vstr,sel.selection)
   
   def insert(self,hist_dict,idx=-1,verb=0):
     """Insert histograms per selection/variable."""

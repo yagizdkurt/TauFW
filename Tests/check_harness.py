@@ -85,7 +85,7 @@ class HarnessChecks(unittest.TestCase):
 
     def test_relocated_contents(self):
         migration = json.loads((TESTS / "migration.json").read_text(encoding="utf-8"))
-        self.assertEqual(len(migration["files"]), 37)
+        self.assertEqual(len(migration["files"]), 36)
         for record in migration["files"]:
             moved = TESTS.parent / record["moved"]
             self.assertFalse((TESTS.parent / record["original"]).exists())
@@ -135,7 +135,7 @@ class HarnessChecks(unittest.TestCase):
             self.assertEqual(execute.call_args[0][0][0]["id"], "plotter.variables")
 
     def test_explicit_legacy_broken_and_integration_selection(self):
-        for name in ("common.table", "pico.sample", "plotter.rdataframe", "pico.batch"):
+        for name in ("pico.sample", "plotter.rdataframe", "pico.batch"):
             with self.assertRaises(ValueError):
                 run.select_cases(run.inventory(), "normal", [name])
         with self.assertRaises(ValueError):

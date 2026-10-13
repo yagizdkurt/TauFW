@@ -10,14 +10,13 @@ from types import SimpleNamespace
 
 
 def common_formatting(workspace):
-    from TauFW.common.tools.Table import Table
     from TauFW.Utilities.CLI import CLI
-    table = Table("%8s %10s %10s", "%8d %10.2f %10.2f")
     output = io.StringIO()
-    with contextlib.redirect_stdout(output):
-        table.printheader("point", "x", "weight")
+    with contextlib.redirect_stdout(output):  # CLI() takes the redirected stdout
+        table = CLI().table("%8s %10s %10s", "%8d %10.2f %10.2f")
+        table.print_header("point", "x", "weight")
         for values in ((1, 0.0, 1.0), (2, -1.25, 0.0), (3, 2.5, -0.5)):
-            table.printrow(*values)
+            table.print_row(*values)
         bar = CLI().loading_bar(3, width=6, counter=True)
         for _ in range(3):
             bar.count()
