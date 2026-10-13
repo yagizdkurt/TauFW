@@ -157,5 +157,5 @@ See [Analyses/README.md](Analyses/README.md) for analysis bundles (recipe, confi
 and Python steps in one directory), stage options, examples, and planning,
 starting, or continuing a pipeline.
 See [Framework/README.md](Framework/README.md) for the run model and
-[PicoProducer/docs/API.md](PicoProducer/docs/API.md) for the PicoProducer API it uses.
+[docs/PicoProducer/API.md](docs/PicoProducer/API.md) for the PicoProducer API it uses.
 

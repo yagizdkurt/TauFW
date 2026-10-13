@@ -4,7 +4,7 @@ Defects found while connecting the TES + tau ID fit to the TauFW Framework (Part
 `Refactor-2025`). They were found by reading the source of the wrapped workflow: `run_inputs.sh`,
 `run_workflow_zmm.sh` and the scripts they call. A bug is fixed when the **Fix** column names the part that fixed it.
 
-Policy (same as [PicoProducer/docs/BUGS.md](../../PicoProducer/docs/BUGS.md)): bugs on the path the Framework runs
+Policy (same as [docs/PicoProducer/BUGS.md](../PicoProducer/BUGS.md)): bugs on the path the Framework runs
 are fixed and recorded here, with `# BUGS <ID>` comments at the changed lines. Bugs off that path are registered
 only. The Fitter has no BBB case, so **Output impact** describes the change for a user of the scripts.
 

@@ -69,7 +69,7 @@ Paths in this table are relative to `Fitter/python/legacy/`.
 
 ## PicoProducer/python/legacy — 16 files
 
-Paths in this table are relative to `PicoProducer/python/legacy/`. Specific bug identifiers refer to [PicoProducer/docs/BUGS.md](../../PicoProducer/docs/BUGS.md).
+Paths in this table are relative to `PicoProducer/python/legacy/`. Specific bug identifiers refer to [docs/PicoProducer/BUGS.md](../PicoProducer/BUGS.md).
 
 | File | What it does | Why it is in legacy / current alternative |
 | --- | --- | --- |

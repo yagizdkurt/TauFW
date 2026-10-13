@@ -32,7 +32,7 @@ fit = FitRequest(points=[('2025', 'VTight', 'Tight')], config='TauES_ID/config/c
 fitter.fit(fit, logdir='logs')  # the run_workflow_zmm.sh steps; artifacts carry the fitted tes and tid_SF values
 ```
 
-Bugs found and fixed on this path: [docs/BUGS.md](docs/BUGS.md).
+Bugs found and fixed on this path: [docs/Fitter/BUGS.md](../docs/Fitter/BUGS.md).
 
 ## Legacy
 

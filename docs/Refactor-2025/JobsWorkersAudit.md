@@ -39,7 +39,7 @@ intended change:
 - **Workers:** the worker code is unchanged apart from import paths and comments. The only behavior change is
   that a worker no longer writes `config/config.json` (BUGS P18, documented).
 - **Submit / resubmit / run:** same line by line, apart from the bug fixes P01-P12 and P20-P22 in
-  [BUGS.md](../../PicoProducer/docs/BUGS.md). Four consequences of those fixes are not spelled out there
+  [BUGS.md](../PicoProducer/BUGS.md). Four consequences of those fixes are not spelled out there
   (D1-D3, and D6 which is cosmetic).
 - **Status / hadd / haddclean / clean:** same line by line, apart from P04, P07, P19, P21, P22 and P23. One
   consequence of P19 is not spelled out (D4).
@@ -73,7 +73,7 @@ Method:
    (`git show 2580f35:<path> | diff --strip-trailing-cr -w - <new path>`); line endings and whitespace were ignored.
 2. The job code was split into many modules, so it was compared function by function: each statement of the
    old `preparejobs`, `main_submit`, `checkchunks`, `main_status` and `main_run` was traced to its new location.
-3. Each difference was checked against [BUGS.md](../../PicoProducer/docs/BUGS.md) and the
+3. Each difference was checked against [BUGS.md](../PicoProducer/BUGS.md) and the
    [change log](Refactor-2025.md). Differences listed there are only summarized in
    [section 4](#4-documented-changes-for-reference); the others are explained in [section 5](#5-undocumented-differences).
 
@@ -153,7 +153,7 @@ as the old `pico/common.py` did at import time, so relative paths (templates, wo
 
 ## 4. Documented changes (for reference)
 
-These are intended and explained in [BUGS.md](../../PicoProducer/docs/BUGS.md) or the
+These are intended and explained in [BUGS.md](../PicoProducer/BUGS.md) or the
 [change log](Refactor-2025.md). Listed only so this audit is complete.
 
 | Path | Change | Reference |
@@ -405,7 +405,7 @@ appears before the `AssertionError`.
 
 None of these is needed for correctness; they make the behavior explicit.
 
-1. Add D1-D4 to the "Output impact" column of P09, P06, P22 and P19 in [BUGS.md](../../PicoProducer/docs/BUGS.md).
+1. Add D1-D4 to the "Output impact" column of P09, P06, P22 and P19 in [BUGS.md](../PicoProducer/BUGS.md).
 2. D1: decide whether resubmit should warn when the current channel options differ from the job config's.
 3. D4: consider a clearer message when `-f` was given, e.g. "merged with -f: the job output includes unfinished
    chunks; use `pico.py clean -f` to remove it".

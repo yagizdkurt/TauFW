@@ -215,7 +215,7 @@ copied.
 channels, storage paths, and batch defaults; recipes select and override job
 settings rather than defining those catalogs themselves. See the
 [PicoProducer documentation](../PicoProducer/README.md) and
-[public API](../PicoProducer/docs/API.md). A bundle may carry its own copy:
+[public API](../docs/PicoProducer/API.md). A bundle may carry its own copy:
 
 ```yaml
 pico:

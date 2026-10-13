@@ -234,7 +234,7 @@ The reference environment for all of this is `CMSSW_14_1_0_pre4` (Python 3.9, RO
 
 **Date:** 2026-10-12
 **Details:** [Tests/README.md](../Tests/README.md#picoproducer-command-cases-black-box),
-[PicoProducer/docs/BUGS.md](../PicoProducer/docs/BUGS.md)
+[docs/PicoProducer/BUGS.md](../PicoProducer/BUGS.md)
 
 This is the first step of a multi-part PicoProducer cleanup. The planned order is:
 
@@ -274,7 +274,7 @@ Ground rules for the cleanup:
   - `Tests/BBB/pico_harness.py`: the workspace, fixtures, fake scheduler and normalization.
   - `Tests/BBB/pico_entry.py`: the child-process entry.
   - `Tests/support/bootstrap.py`: gains `attach()`, so a child process can reuse a prepared mirror without copying it.
-- **`PicoProducer/docs/BUGS.md`** lists 60+ defects with location, severity, BBB coverage and the part in which
+- **`docs/PicoProducer/BUGS.md`** lists 60+ defects with location, severity, BBB coverage and the part in which
   each will be fixed. Examples:
   - Run 2 `ModuleMuTau`/`ETau`/`TauTau`/`EMu` crash at `getlepvetoes` (missing `era`);
   - `SGE`/`T2_PSI`/`T3_PSI` cannot be constructed;
@@ -305,7 +305,7 @@ Ground rules for the cleanup:
 
 **Date:** 2026-10-12
 **Details:** [PicoProducer/python/legacy/README.md](../PicoProducer/python/legacy/README.md),
-[PicoProducer/docs/BUGS.md](../PicoProducer/docs/BUGS.md)
+[docs/PicoProducer/BUGS.md](../PicoProducer/BUGS.md)
 
 **None of these changes alters behavior.** Every changed file was checked statically: it parses as Python 3.9,
 and `pyflakes` shows that no name lost its definition.
@@ -372,7 +372,7 @@ Run `python3 Tests/run.py bbb check` on lxplus. All 18 cases must pass unchanged
 ## 7. PicoProducer cleanup, Part 3: settings, datasets, storage, batch and jobs packages
 
 **Date:** 2026-10-12
-**Details:** [PicoProducer/docs/BUGS.md](../PicoProducer/docs/BUGS.md)
+**Details:** [docs/PicoProducer/BUGS.md](../PicoProducer/BUGS.md)
 
 ### A. Restructuring (no behavior change)
 
@@ -425,7 +425,7 @@ docs that link to the templates.
 
 ### B. Bug fixes
 
-All defects registered for Part 3 in [BUGS.md](../PicoProducer/docs/BUGS.md) are fixed together in one commit,
+All defects registered for Part 3 in [BUGS.md](../PicoProducer/BUGS.md) are fixed together in one commit,
 after the restructuring in A. Each changed line carries a `# BUGS <ID>` comment, and each BUGS.md row now
 gives the fix and its output impact.
 
@@ -469,7 +469,7 @@ sites, other batch systems, error paths) or do not change any value.
 | ID | Before | After | Who notices |
 |---|---|---|---|
 | P16 | `Config.__setattr__` looked up `key in self._dict[key]`, so setting a private attribute such as `CONFIG._path` raised `KeyError`. | `key in self._dict`. | Nobody in the repository. |
-| P17 | A fresh installation's default eras pointed to `samples_2016.py`, `samples_2017.py` and `samples_2018.py`, which do not exist. `config/config_example.json` pointed to the missing `samples_UL2016.py` and `tutorial/samples_2022_postEE.py`. | Defaults are the top-level catalogs that exist: `UL2016_preVFP`, `UL2016_postVFP`, `UL2017`, `UL2018`, `2022_preEE`, `2022_postEE`, `2023C`, `2023D`, `2024`, `2025`. The example config is corrected. | Fresh installations only; an existing `config/config.json` keeps its own eras. **BBB `pico.config` changes (`fresh.values.eras`).** Origin (catalogs deleted in `c663833`, 2024), symptom and the exact baseline difference: [BUGS.md details](../PicoProducer/docs/BUGS.md#p17-default-eras-pointed-to-deleted-catalogs). |
+| P17 | A fresh installation's default eras pointed to `samples_2016.py`, `samples_2017.py` and `samples_2018.py`, which do not exist. `config/config_example.json` pointed to the missing `samples_UL2016.py` and `tutorial/samples_2022_postEE.py`. | Defaults are the top-level catalogs that exist: `UL2016_preVFP`, `UL2016_postVFP`, `UL2017`, `UL2018`, `2022_preEE`, `2022_postEE`, `2023C`, `2023D`, `2024`, `2025`. The example config is corrected. | Fresh installations only; an existing `config/config.json` keeps its own eras. **BBB `pico.config` changes (`fresh.values.eras`).** Origin (catalogs deleted in `c663833`, 2024), symptom and the exact baseline difference: [BUGS.md details](../PicoProducer/BUGS.md#p17-default-eras-pointed-to-deleted-catalogs). |
 | P18 | Every `getconfig()` call could create or rewrite `config/config.json`: from `pico.py`, but also from a batch worker (`picojob.py -c`), from Plotter resolving `$PICODIR`, or from a script. | `getconfig(write=False)` by default: missing keys are repaired in memory, and a missing file gives a warning plus the defaults. Only the CLI (`pico/common.py`) passes `write=True`, so `pico.py` creates and repairs the file exactly as before. | Workers, Plotter and scripts no longer write files in `PicoProducer/config/`. |
 
 #### File-name case correction for A
@@ -606,7 +606,7 @@ before committing.
 ## 9. PicoProducer cleanup, Part 4: jobs package
 
 **Date:** 2026-10-13
-**Details:** [PicoProducer/docs/BUGS.md](../PicoProducer/docs/BUGS.md)
+**Details:** [docs/PicoProducer/BUGS.md](../PicoProducer/BUGS.md)
 
 Part 4 splits `pico/job.py` and `pico/run.py` into the `jobs/` package: one worker command builder, pure
 planning and status functions, and a merge step with a validated cleanup gate. These are the pieces the public
@@ -783,7 +783,7 @@ merged tuple with the wrong number of events (job output kept).
 Verbose output (`-v`) shows `chopts` and `useropts` instead of `extrachopts`.
 
 **Baselines:** `pico.run` and `pico.jobs` change on purpose and are re-locked on lxplus
-(`python3 Tests/run.py bbb lock --replace`); see [BUGS.md](../PicoProducer/docs/BUGS.md#p08-p09-p10-module-options-and-run--m)
+(`python3 Tests/run.py bbb lock --replace`); see [BUGS.md](../PicoProducer/BUGS.md#p08-p09-p10-module-options-and-run--m)
 for the exact differences. All other cases are unchanged. In the comparison harness the only differences against
 the B2 commit are the option order, the missing `-m -1` and the verbose labels.
 
@@ -792,8 +792,8 @@ the B2 commit are the option order, the missing `-m -1` and the verbose labels.
 ## 10. PicoProducer cleanup, Part 5: public API, command line, workers
 
 **Date:** 2026-10-13
-**Details:** [PicoProducer/docs/API.md](../PicoProducer/docs/API.md), [PicoProducer/docs/IO.md](../PicoProducer/docs/IO.md),
-[PicoProducer/docs/BUGS.md](../PicoProducer/docs/BUGS.md)
+**Details:** [docs/PicoProducer/API.md](../PicoProducer/API.md), [docs/PicoProducer/IO.md](../PicoProducer/IO.md),
+[docs/PicoProducer/BUGS.md](../PicoProducer/BUGS.md)
 
 Part 5 gives PicoProducer a public Python API, makes `pico.py` a client of it, and renames `processors/` to
 `workers/`. The `Framework` orchestrator (section 11) uses only this API. The restructuring steps (A1-A3) do not
@@ -810,7 +810,7 @@ change behavior; the bug fixes of the command line follow in B.
 - `plan()` writes nothing: it runs the submission pipeline with `materialize=False`; a sample whose job config
   already exists is planned with `conflict=True`.
 - Methods that touch files run inside the PicoProducer directory (the configured paths are relative to it) and
-  restore the working directory afterwards. This is not thread-safe; [API.md](../PicoProducer/docs/API.md)
+  restore the working directory afterwards. This is not thread-safe; [API.md](../PicoProducer/API.md)
   documents it.
 - Messages go to the reporter given at construction: silent by default, `ConsoleReporter` for terminal output.
 
@@ -854,10 +854,10 @@ unchanged (296 scenarios), and `Tests/check_harness.py` passes.
 
 ### A4. Documentation
 
-- [PicoProducer/docs/API.md](../PicoProducer/docs/API.md): usage, the pipeline, each method with its side effects
+- [docs/PicoProducer/API.md](../PicoProducer/API.md): usage, the pipeline, each method with its side effects
   and `pico.py` equivalent, construction, the records, known limitations (working directory and thread safety,
   messages of lower-level code, workers reading the global configuration).
-- [PicoProducer/docs/IO.md](../PicoProducer/docs/IO.md): the files each step reads and writes, the job config keys,
+- [docs/PicoProducer/IO.md](../PicoProducer/IO.md): the files each step reads and writes, the job config keys,
   the merged tuple.
 - `Utilities/IOInventory.md` regenerated.
 
@@ -963,8 +963,8 @@ production state lived only in PicoProducer's job configs. The new top-level pac
 ## 12. Framework: plots, histograms and fit stages (Part G)
 
 **Date:** 2026-10-13
-**Details:** [Framework/README.md](../../Framework/README.md), [Fitter/docs/BUGS.md](../../Fitter/docs/BUGS.md),
-[Plotter/docs/BUGS.md](../../Plotter/docs/BUGS.md)
+**Details:** [Framework/README.md](../../Framework/README.md), [docs/Fitter/BUGS.md](../Fitter/BUGS.md),
+[docs/Plotter/BUGS.md](../Plotter/BUGS.md)
 
 After Part F only the production stage ran; `histograms` and `fit` were placeholders. To have a working framework
 to test now, the Framework is connected to the Plotter and Fitter **as they are**: their existing scripts are run
@@ -1003,7 +1003,7 @@ and `Fitter/run_workflow_zmm.sh`, option 3), plus control plots with `Plotter/pl
 
 ### Bugs fixed on the wrapped path
 
-New registers `Fitter/docs/BUGS.md` and `Plotter/docs/BUGS.md` (same policy as PicoProducer; `# BUGS <ID>` at the
+New registers `docs/Fitter/BUGS.md` and `docs/Plotter/BUGS.md` (same policy as PicoProducer; `# BUGS <ID>` at the
 changed lines).
 
 | ID | Fix |

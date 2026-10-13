@@ -9,7 +9,7 @@
     pico.resubmit(request)                               # failed and missing chunks
     report  = pico.merge(request,clean=True)             # MergeReport: report.artifacts (TupleArtifact)
 
-See PicoProducer/docs/API.md for the records, side effects and limitations.
+See docs/PicoProducer/API.md for the records, side effects and limitations.
 
 Public API:
   PicoProducer                                  the facade (api/producer.py)

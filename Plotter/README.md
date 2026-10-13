@@ -21,4 +21,4 @@ plotter.preflight(request)  # problems (no cmsenv, no ROOT, missing setup); empt
 plotter.make(request, logdir='logs')   # RunReport: ok, one log per command, plots per channel and era
 ```
 
-Bugs found and fixed on this path: [docs/BUGS.md](docs/BUGS.md).
+Bugs found and fixed on this path: [docs/Plotter/BUGS.md](../docs/Plotter/BUGS.md).
