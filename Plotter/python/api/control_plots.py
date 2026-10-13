@@ -8,8 +8,9 @@ The plots are still made by Plotter/plot.py. This API runs it as a separate proc
                     CommandPlan  RunReport (one plots artifact per config and era)
     preflight(): what is missing in the environment (empty: ready)
 
-Inputs:  pico tuples, found by plot.py through $PICODIR of PicoProducer/config/config.json; the channel setups
-         Plotter/config/setup_<channel>.yml (or any .yml relative to Plotter/).
+Inputs:  pico tuples, found by plot.py through $PICODIR of the request's PicoProducer config (passed to plot.py
+         as $TAUFW_PICO_CONFIG; default PicoProducer/config/config.json); the channel setups
+         Plotter/config/setup_<channel>.yml (or any .yml, relative to Plotter/ or absolute).
 Outputs: Plotter/plots/<era>/<variable>_<channel>-<selection>-<era><tag>.png (shared by all runs; pdf on request)
          and one log file per command in the caller's log directory.
 
@@ -17,15 +18,16 @@ Public API:
   ControlPlots(basedir, runner, read_yaml, python, find_module)
   plan, make, preflight         pipelines
   request(**fields)             a PlotsRequest
-  pico_config_source            where $PICODIR is read from
+  config_file(config)           the setup file of a channel name or .yml config
+  pico_config_source(request)   where $PICODIR is read from
 """
 import glob
 import importlib.util
 import os
 import sys
 
-from TauFW.Utilities.Process import Command, ProcessRunner
-from TauFW.Plotter.api.types import PlotsRequest, CommandPlan, RunReport
+from TauFW.Utilities.Process import Command, CommandPlan, ProcessRunner, RunReport
+from TauFW.Plotter.api.types import PlotsRequest
 
 __all__ = ['ControlPlots']
 
@@ -76,9 +78,9 @@ class ControlPlots:
             problems.append("CMSSW_BASE is not set (run cmsenv first)")
         if not self.find_module('ROOT'):
             problems.append("python cannot import ROOT")
-        if not os.path.isfile(self.pico_config_source):
-            problems.append("no PicoProducer configuration %s: plot.py reads $PICODIR from it"
-                            % (self.pico_config_source))
+        source = self.pico_config_source(request)
+        if not os.path.isfile(source):
+            problems.append("no PicoProducer configuration %s: plot.py reads $PICODIR from it" % (source))
         problems.extend("channel setup %s not found in %s" % (_setup_file(config), self.basedir)
                         for config in request.configs if not os.path.isfile(self._path(_setup_file(config))))
         return tuple(problems)
@@ -87,9 +89,14 @@ class ControlPlots:
         """A PlotsRequest (unknown fields are an error), so callers need not import the records."""
         return PlotsRequest(**fields)
 
-    @property
-    def pico_config_source(self):
-        """The PicoProducer configuration that plot.py reads $PICODIR from."""
+    def config_file(self, config):
+        """The channel setup file of a config (a channel name or a .yml file), as an absolute path."""
+        return self._path(_setup_file(config))
+
+    def pico_config_source(self, request=None):
+        """The PicoProducer configuration that plot.py reads $PICODIR from: the request's, else the default."""
+        if request is not None and request.pico_config:
+            return request.pico_config
         return os.path.join(os.path.dirname(self.basedir), 'PicoProducer', 'config', 'config.json')
 
     # =========================================================================
@@ -109,7 +116,7 @@ class ControlPlots:
             argv += ['-T', request.text]
         return Command("plots %s %s" % (channel, era), tuple(argv), self.basedir,
                        expects=("plots/%s/%s" % (era, _plot_glob(channel, era, request.tag)),),
-                       timeout=request.timeout)
+                       timeout=request.timeout, env=_pico_env(request))
 
     def _setup(self, setup_file, notes):
         path = self._path(setup_file)
@@ -153,6 +160,11 @@ class ControlPlots:
 def _setup_file(config):
     """plot.py's rule: a name without .yml is a channel, config/setup_<channel>.yml."""
     return config if config.endswith('.yml') else "config/setup_%s.yml" % (config)
+
+
+def _pico_env(request):
+    """$TAUFW_PICO_CONFIG for plot.py, if the request names a PicoProducer config (read by getconfig())."""
+    return (('TAUFW_PICO_CONFIG', request.pico_config),) if request.pico_config else ()
 
 
 def _plot_glob(channel, era, tag):

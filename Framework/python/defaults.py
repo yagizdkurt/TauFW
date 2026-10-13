@@ -1,12 +1,13 @@
 # Author: Yagizhan Dinckurt (October 2026)
-"""Shared defaults of the Framework: file names, the run directory, timing and the time format.
+"""Shared defaults of the Framework: file names, the run and bundle directories, timing and the time format.
 
 Every other module takes these values from here, so a default is changed in one place only.
 """
+import os
 from datetime import datetime
 
 __all__ = ['DEFAULT_RUN_ROOT', 'RUN_RECORD_NAME', 'RUN_LOG_NAME', 'DEFAULT_POLL_SECONDS', 'TIME_FORMAT',
-           'timestamp', 'default_file_io']
+           'RECIPE_NAME', 'BUNDLE_DIR_NAME', 'ANALYSES_DIR', 'timestamp', 'default_file_io']
 
 
 # =============================================================================
@@ -18,6 +19,10 @@ RUN_RECORD_NAME      = "run.json"           # the saved state of a run, inside i
 RUN_LOG_NAME         = "run.log"            # plain-text copy of the messages, inside its run directory
 DEFAULT_POLL_SECONDS = 600                  # seconds between two checks with --wait
 TIME_FORMAT          = "%Y-%m-%d %H:%M:%S"  # times written to run.json
+RECIPE_NAME          = "recipe.yml"         # the recipe inside an analysis bundle directory
+BUNDLE_DIR_NAME      = "bundle"             # copy of the bundle files a run uses, inside its run directory
+ANALYSES_DIR         = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
+                       os.path.realpath(__file__)))), "Analyses")  # the analysis bundles of this checkout
 
 
 # =============================================================================

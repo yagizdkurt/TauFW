@@ -1,9 +1,9 @@
 # Author: Yagizhan Dinckurt (October 2026)
 """Local stages: stages that run their module's scripts on this machine and finish in one advance() call.
 
-The plots, histograms and fit stages all work the same way. Their module API (Plotter, Fitter) turns a request
-into a list of commands, runs them one after the other and reports what they made. This base class does the
-part that is the same for all three:
+The plots, histograms, fit and python stages all work the same way. Their module API (Plotter, Fitter; the step
+runner for python) turns a request into a list of commands, runs them one after the other and reports what they
+made. This base class does the part that is the same for all of them:
 
     advance():  NEW ─▶ preflight ─┬─ problems ─▶ PreflightError (the stage stays NEW; fix it, advance again)
                                   └─ ready ────▶ run the commands ─┬─ all ok ─▶ DONE   (artifacts)
@@ -11,20 +11,23 @@ part that is the same for all three:
     plan():     the module's CommandPlan, with the preflight problems added to its notes
 
 A subclass sets `name` and `Spec`, and implements:
-    request(spec, context)          -> the module request (raise ValueError if the stage cannot run)
+    request(spec, context)          -> the module request (raise ValueError if the stage cannot run); `spec` has
+                                       its path options resolved against the bundle already (bundle.py), and
+                                       context.pico_config is the run's PicoProducer config for the scripts
     plan_commands(request)          -> CommandPlan
     preflight(request, context)     -> tuple of problems (empty: ready)
     execute(request, logdir, progress) -> RunReport
-`reads_tuples = True` makes the stage warn when the run's PicoProducer config is not the one the scripts read
-$PICODIR from, and record the production tuples as its inputs.
+    summary(report)                 -> the stage's message when it is DONE (default: counts)
+    config_file(value)              -> the module file of a path option (for taufw.py init; default: None)
+`reads_tuples = True` records the production tuples as the stage's inputs.
 
 Public API:
   LocalStage, LOG_TAIL
 """
-import os
 from collections import deque
 from dataclasses import replace
 
+from TauFW.Framework.bundle import resolve_spec
 from TauFW.Framework.stages.base import Stage, StageState, StageOutcome, StageContext, PreflightError
 
 __all__ = ['LocalStage', 'LOG_TAIL']
@@ -52,28 +55,28 @@ class LocalStage(Stage):
         if state is not StageState.NEW:
             return StageOutcome(state, "nothing to do (%s)" % (state.value))
         try:
-            request = self.request(spec, context)
+            request = self.request(resolve_spec(spec, context.bundle_dir), context)
         except ValueError as error:
             return StageOutcome(StageState.FAILED, str(error), 'failed')
         problems = self.preflight(request, context)
         if problems:
             raise PreflightError("; ".join(problems))
-        self._check_pico_config(context, reporter)
-        report = self.execute(request, context.stage_dir(self.name), self._progress(reporter))
+        stage_id = context.stage_id or self.name
+        report = self.execute(request, context.stage_dir(stage_id), self._progress(reporter, stage_id))
         status = {'commands': [result.to_dict() for result in report.results]}
         if self.reads_tuples and context.artifacts('production'):
             status['inputs'] = [artifact.get('path') for artifact in context.artifacts('production')]
         if not report.ok:
             return self._failed(report, status, reporter)
-        message = "%d command(s), %d artifact(s)" % (len(report.results), len(report.artifacts))
-        return StageOutcome(StageState.DONE, message, 'done', status=status, artifacts=tuple(report.artifacts))
+        return StageOutcome(StageState.DONE, self.summary(report), 'done', status=status,
+                            artifacts=tuple(report.artifacts))
 
     def plan(self, spec, context=None):
         """The commands that advance() would run (nothing runs). Preflight problems are added to the notes.
         Raises PreflightError if the stage cannot be planned (e.g. no working points)."""
         context = context or StageContext()
         try:
-            request = self.request(spec, context)
+            request = self.request(resolve_spec(spec, context.bundle_dir), context)
         except ValueError as error:
             raise PreflightError(str(error))
         plan = self.plan_commands(request)
@@ -94,9 +97,11 @@ class LocalStage(Stage):
     def execute(self, request, logdir, progress):
         raise NotImplementedError
 
-    def pico_config_source(self):
-        """The PicoProducer config the module's scripts read $PICODIR from (None: unknown)."""
-        return getattr(self.api, 'pico_config_source', None)
+    def summary(self, report):
+        return "%d command(s), %d artifact(s)" % (len(report.results), len(report.artifacts))
+
+    def config_file(self, value):
+        return None
 
     # =========================================================================
     # ================================ HELPERS ================================
@@ -117,29 +122,21 @@ class LocalStage(Stage):
                          % (failed.label, '; '.join(reasons), failed.log, _tail(failed.log)))
         return StageOutcome(StageState.FAILED, message, 'failed', status=status)
 
-    def _progress(self, reporter):
+    def _progress(self, reporter, stage_id):
         """progress(index, total, command, result) for the runner: one line per command start and end."""
         def progress(index, total, command, result):
             if result is None:
-                reporter.message("[%s] %d/%d %s ..." % (self.name, index, total, command.label))
+                reporter.message("[%s] %d/%d %s ..." % (stage_id, index, total, command.label))
             else:
-                reporter.message("[%s] %d/%d %s %s (%.0f s)" % (self.name, index, total, command.label,
+                reporter.message("[%s] %d/%d %s %s (%.0f s)" % (stage_id, index, total, command.label,
                                                                "ok" if result.ok else "FAILED", result.seconds))
         return progress
-
-    def _check_pico_config(self, context, reporter):
-        """Warn when the scripts read $PICODIR from another PicoProducer config than the run uses."""
-        source = self.pico_config_source()
-        if not (self.reads_tuples and context.pico_config and source):
-            return
-        if os.path.abspath(context.pico_config) != os.path.abspath(source):
-            reporter.warning("The %s scripts read $PICODIR from %s, not from the run's PicoProducer config %s"
-                             % (self.name, source, context.pico_config))
 
     # =========================================================================
     # ============================= CONSTRUCTION ==============================
 
     def __init__(self, api):
+        """api: the module API object (None for a stage without one, e.g. python)."""
         self.api = api
 
 

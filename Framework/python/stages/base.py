@@ -15,8 +15,9 @@ The states of one stage:
 
     local stage (plots, histograms, fit):  NEW ─▶ DONE or FAILED, in one advance() call
 
-A stage also gets a StageContext: the run directory (for its log files) and the artifacts of the stages before
-it, so the histograms stage knows which tuples production made and the fit stage which shapes exist.
+A stage also gets a StageContext: the run directory (for its log files), the artifacts of the stages before it
+(so the histograms stage knows which tuples production made and the fit stage which shapes exist), and the bundle
+directory that its path options are resolved against (see bundle.py).
 
 Public API:
   StageState           the states above
@@ -92,24 +93,28 @@ class StageOutcome:
 class StageContext:
     """What a stage may know about its run, besides its own options and record.
 
-    run_dir:     the run directory; a stage writes its log files to stage_dir(name)
-    upstream:    stage name -> artifacts (dicts) of the stages before this one. In advance() these are the
+    run_dir:     the run directory; a stage writes its log files to stage_dir(stage_id)
+    upstream:    stage id -> artifacts (dicts) of the stages before this one. In advance() these are the
                  recorded artifacts of DONE stages; in plan() the artifacts the earlier stages plan to make.
-    pico_config: the PicoProducer configuration recorded for the run (path), or None
+    pico_config: the PicoProducer configuration of the run (path), or None (PicoProducer's default)
+    bundle_dir:  the bundle directory the path options are resolved against (a run: its copy, <run_dir>/bundle)
+    stage_id:    the id of the stage this context is for (a built-in stage: its name)
     """
     run_dir:     str = ""
     upstream:    Mapping[str, Tuple[dict, ...]] = field(default_factory=dict)
     pico_config: Optional[str] = None
+    bundle_dir:  Optional[str] = None
+    stage_id:    str = ""
 
     def artifacts(self, stage=None, kind=None):
-        """The upstream artifacts of one stage (or of all stages), optionally only those of one kind."""
+        """The upstream artifacts of one stage id (or of all stages), optionally only those of one kind."""
         stages = [stage] if stage else list(self.upstream)
         return tuple(artifact for name in stages for artifact in self.upstream.get(name, ())
                      if kind is None or artifact.get('kind') == kind)
 
-    def stage_dir(self, name):
-        """The directory for the files (logs) of one stage: <run_dir>/<name>."""
-        return os.path.join(self.run_dir, name)
+    def stage_dir(self, name=None):
+        """The directory for the files (logs) of one stage: <run_dir>/<id> (default: this context's stage)."""
+        return os.path.join(self.run_dir, name or self.stage_id)
 
 
 # =============================================================================
@@ -131,8 +136,13 @@ class Stage:
     (None: an empty one). A plan object may have an `artifacts` attribute (dicts): the Framework passes them to
     the plans of the later stages as their upstream artifacts.
     """
-    name = None  # the stage's name, as written in recipes and run.json
+    name = None  # the stage's name, as written in recipes ('stage:')
     Spec = None  # frozen dataclass with the stage's recipe options; built by spec_from_dict()
+
+    @classmethod
+    def default_id(cls, spec):
+        """The stage's id in a run when the recipe gives none: its name (a python step: its file name)."""
+        return cls.name
 
     def plan(self, spec, context=None):
         raise StageNotImplemented(self.name)
@@ -179,6 +189,8 @@ def spec_from_dict(cls, data, where="stage"):
     - Lists become tuples, because a Spec is frozen and must be hashable.
     - A Spec can have nested option groups (for example `split:` and `merge:` in production). It lists them in a
       class attribute `_nested = {'option name': NestedSpecClass}`, and those dicts are built recursively.
+    - A Spec lists its path options (config files, a step's file) in a class attribute `_paths = ('name', ...)`.
+      They are kept as written; the stage resolves them against the bundle (bundle.resolve_spec).
     `where` says where the options come from, for the error messages (e.g. "recipe.yml: stages[0] (production)").
     """
     if not isinstance(data, dict):

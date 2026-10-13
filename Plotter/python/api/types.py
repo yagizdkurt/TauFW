@@ -2,8 +2,7 @@
 """Records of the public Plotter API: what a caller asks for and what each call returns.
 
   PlotsRequest   control plots: eras, channel setups, filters and plot.py options
-  CommandPlan    plan(): the commands that would run, the artifacts they would make, notes
-  RunReport      make(): one CommandResult per command that ran, and the artifacts
+  plan() and make() return a CommandPlan and a RunReport (TauFW.Utilities.Process).
 
 Plots artifact (a JSON-ready dict): {kind: 'plots', era, config, channel, directory, nfiles}.
 
@@ -12,7 +11,7 @@ Public API: the records above.
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
-__all__ = ['PlotsRequest', 'CommandPlan', 'RunReport']
+__all__ = ['PlotsRequest']
 
 
 # =============================================================================
@@ -22,8 +21,9 @@ __all__ = ['PlotsRequest', 'CommandPlan', 'RunReport']
 @dataclass(frozen=True)
 class PlotsRequest:
     """Control plots: one plot.py run per channel setup and era.
-    configs: channel names (config/setup_<channel>.yml) or .yml files relative to Plotter/.
-    variables, selections: plot.py -V and -S filters (glob patterns); empty: all."""
+    configs: channel names (config/setup_<channel>.yml) or .yml files (relative to Plotter/, or absolute).
+    variables, selections: plot.py -V and -S filters (glob patterns); empty: all.
+    pico_config: the PicoProducer configuration plot.py reads $PICODIR from (None: its default)."""
     eras:       Tuple[str, ...]
     configs:    Tuple[str, ...] = ('mutau',)
     variables:  Tuple[str, ...] = ()
@@ -35,6 +35,7 @@ class PlotsRequest:
     tag:        str = ""                 # -t: extra tag of the output files
     text:       str = ""                 # -T: extra text on the plots
     timeout:    Optional[float] = None   # seconds per command
+    pico_config: Optional[str] = None    # $TAUFW_PICO_CONFIG of the commands
 
     def __post_init__(self):
         for name in ('eras', 'configs', 'variables', 'selections'):
@@ -42,38 +43,6 @@ class PlotsRequest:
         for name in ('eras', 'configs'):
             if not getattr(self, name):
                 raise ValueError("PlotsRequest: %s must not be empty" % (name))
-
-
-# =============================================================================
-# ================================== RESULTS ==================================
-
-
-@dataclass(frozen=True)
-class CommandPlan:
-    """What would run: the commands (TauFW.Utilities.Process.Command), all with the same working directory,
-    the artifacts they would make, and notes (problems found while planning)."""
-    cwd:       str
-    commands:  Tuple[object, ...]
-    artifacts: Tuple[dict, ...] = ()
-    notes:     Tuple[str, ...] = ()
-
-
-@dataclass(frozen=True)
-class RunReport:
-    """What ran: one CommandResult per command that ran (the run stops at the first failure), out of `total`,
-    and the artifacts that were made."""
-    results:   Tuple[object, ...]
-    total:     int
-    artifacts: Tuple[dict, ...] = ()
-
-    @property
-    def ok(self):
-        return len(self.results) == self.total and all(result.ok for result in self.results)
-
-    @property
-    def failed(self):
-        """The CommandResult that stopped the run, or None."""
-        return next((result for result in self.results if not result.ok), None)
 
 
 # =============================================================================

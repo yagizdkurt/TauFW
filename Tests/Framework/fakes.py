@@ -198,7 +198,7 @@ class _FakeLocalAPI:
     fail: str = None
     calls: list = field(default_factory=list)
     logdirs: list = field(default_factory=list)
-    pico_config_source: str = "/repo/PicoProducer/config/config.json"
+    basedir: str = "/repo"  # the module directory that config_file() resolves against
 
     def _run(self, plan, logdir, progress):
         import os
@@ -220,6 +220,10 @@ class _FakeLocalAPI:
 
     def names(self):
         return [c[0] for c in self.calls]
+
+    def config_file(self, config):
+        import os
+        return os.path.join(self.basedir, config)
 
     def call(self, name):
         """The arguments (after the name) of the last call of `name`."""

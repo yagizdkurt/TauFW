@@ -1,13 +1,14 @@
 """TauFW Framework: run analysis pipelines (production -> plots -> histograms -> fit) from a recipe.
 
     from TauFW.Framework import Framework
-    fw     = Framework.from_recipe("Framework/recipes/example_mutau.yml")
+    fw     = Framework.from_recipe("Analyses/example_mutau")   # an analysis bundle (or a recipe file)
     plan   = fw.plan()                    # changes nothing: shows what would be done
     record = fw.start()                   # taufw_runs/<name>_<time>/run.json; submits the production jobs
     record = fw.advance(record)           # later: check, resubmit or merge; then the local stages (plots, ...)
     print(fw.status(record))
 
-Command line: Framework/scripts/taufw.py (plan, start, advance, status). New here? Read Framework/README.md first.
+Command line: Framework/scripts/taufw.py (plan, start, advance, status, init). New here? Read Framework/README.md
+first; analyses (recipe, configs, Python steps) live in Analyses/<name>/ (Analyses/README.md).
 
 Public API:
   Framework, load_run, RunPlan, RunSummary      the orchestrator (framework.py)

@@ -62,12 +62,15 @@ class MenuTests(unittest.TestCase):
         (self.recipes / "b.yml").touch()
         (self.recipes / "a.json").touch()
         (self.recipes / "ignore.txt").touch()
-        ui = FakeUI([2, 0], ["custom.yml"])
+        (self.recipes / "c_bundle").mkdir()
+        (self.recipes / "c_bundle" / "recipe.yml").touch()
+        (self.recipes / "d_not_a_bundle").mkdir()
+        ui = FakeUI([3, 0], ["custom.yml"])
         order = []
         for name in ("plan", "start"):
             self.commands[name].side_effect = lambda args, name=name: order.append(name) or 0
         self.menu(ui).start()
-        self.assertEqual(ui.screens[0][1][:2], ["a.json", "b.yml"])
+        self.assertEqual(ui.screens[0][1][:3], ["a.json", "b.yml", "c_bundle"])
         self.assertEqual(order, ["plan", "start"])
         args = self.commands["start"].call_args.args[0]
         self.assertEqual(args.recipe, str(self.root / "custom.yml"))
@@ -142,12 +145,13 @@ class MenuTests(unittest.TestCase):
         self.assertEqual(ui.screens[3][0], "Select an existing run")
         self.commands["advance"].assert_not_called()
 
-    def test_default_recipes_still_come_from_framework(self):
+    def test_default_recipes_are_the_analysis_bundles(self):
         ui = FakeUI([0, 0])
         menu = Menu(self.commands, ui, launch_dir=self.root)
-        self.assertEqual(menu.operations.recipes_dir, checkout.REPO / "Framework" / "recipes")
+        self.assertEqual(menu.operations.recipes_dir, checkout.REPO / "Analyses")
         expected = sorted(path.name for path in menu.operations.recipes_dir.iterdir()
-                          if path.is_file() and path.suffix in (".yml", ".yaml", ".json"))
+                          if (path / "recipe.yml").is_file())
+        self.assertIn("tes_id_2025", expected)
         self.assertTrue(expected)
         menu.start()
         self.assertEqual(ui.screens[0][1][:-2], expected)

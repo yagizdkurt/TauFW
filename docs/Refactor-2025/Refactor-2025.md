@@ -925,7 +925,7 @@ production state lived only in PicoProducer's job configs. The new top-level pac
   PicoProducer API (`request`, `plan`, `submit`, `resubmit`, `status`, `merge`, `run_local`); its policy is the pure
   function `decide_next` (wait / resubmit / merge / fail, with `max_tries`). `histograms` and `fit` are
   placeholders with declared contracts (`HistogramSpec`/`ShapeArtifact`, `FitSpec`/`FitResult`).
-- **Recipes** (`recipe.py`): see the [recipe guide](../../Framework/recipes/README.md).
+- **Recipes** (`recipe.py`): see the [analysis guide](../../Analyses/README.md) (moved from `Framework/recipes/` in section 14).
 - **Run record** (`run_record.py`): `taufw_runs/<name>_<time>/run.json` (schema 1) with the recipe, the
   PicoProducer configuration snapshot, and per stage: state, attempt, request, submissions, last status, artifacts
   and history. Saved after every stage step, atomically (temporary file + `os.replace`).
@@ -992,8 +992,8 @@ and `Fitter/run_workflow_zmm.sh`, option 3), plus control plots with `Plotter/pl
   shapes of the histograms stage. Stage order: `production, plots, histograms, fit`; any subset is allowed.
 - **`taufw.py`:** `plan` shows the commands of the local stages as a table, with preflight problems as warnings;
   `status` shows the fitted values; every unfinished run gets the "Continue with" hint.
-- **Recipes:** see the [bundled recipes](../../Framework/recipes/README.md#bundled-recipes)
-  for the current examples.
+- **Recipes:** see the [bundled analyses](../../Analyses/README.md#bundled-analyses)
+  for the current examples (moved to `Analyses/` in section 14).
 - **Repository:** `.gitignore` keeps `Fitter/python/api/__init__.py` and `Plotter/python/api/__init__.py`; the menu
   help (`Utilities/python/Menu/faq.py`) describes the stages; "Public API" sections in the Fitter and Plotter
   READMEs.
@@ -1019,7 +1019,7 @@ the Plotter sample builders).
 
 ### Known limitations
 
-See the recipe guide's [current limitations](../../Framework/recipes/README.md#current-limitations).
+See the analysis guide's [current limitations](../../Analyses/README.md#current-limitations).
 
 ### Tests
 
@@ -1035,7 +1035,8 @@ See the recipe guide's [current limitations](../../Framework/recipes/README.md#c
   are not part of BBB). Its snapshot changes on purpose (the plan has no histograms stage, the run ends `DONE`
   instead of `BLOCKED`): re-locked on lxplus with `python3 Tests/run.py bbb lock --replace` (the lock always captures the whole suite; the
   other 18 cases were unchanged).
-- On lxplus (to do): `taufw.py plan Framework/recipes/tes_id_2025.yml`, then a VTight/Tight run compared with the
+- On lxplus (to do): `taufw.py plan Analyses/tes_id_2025` (was `Framework/recipes/tes_id_2025.yml`), then a
+  VTight/Tight run compared with the
   shell scripts in a clean copy (`FitparameterValues__mutau_*`, `tau_sf/*VSjetVTight_VSeleTight*`).
 
 ## 13. Test runner: quiet defaults and BBB lock logs
@@ -1066,3 +1067,68 @@ git diff --exit-code -- Tests/BBB/baselines/
 ```
 
 Both checks must pass; replacement must leave the baseline status empty and the diff exit zero.
+
+## 14. Framework: analysis bundles and Python steps (Part H)
+
+**Date:** 2026-10-13
+**Details:** [Analyses/README.md](../../Analyses/README.md), [Framework/README.md](../../Framework/README.md)
+
+Two needs: the configs of an analysis were spread over `Fitter/`, `Plotter/` and `PicoProducer/config/`, and custom
+logic needed a new stage class. Now one directory holds a whole analysis, and a recipe step can be a Python file.
+
+### What changed
+
+- **Analysis bundles** (`Analyses/<name>/`: `recipe.yml`, the configs next to it, `steps/`; every path is relative
+  to the directory of `recipe.yml`). The commands take the directory
+  (`taufw.py plan Analyses/tes_id_2025`). `Framework/recipes/` moved to `Analyses/` (`example_mutau/`,
+  `tes_id_2025/`, `README.md`); no copy is left behind. Both bundles carry copies of the Plotter and Fitter configs
+  they use.
+- **Path rule** (`Framework/python/bundle.py`): a stage's path option (`plots.configs`, `histograms.configs`,
+  `fit.config`, `fit.config_mumu`, a python step's `file`; listed in each Spec's `_paths`) that names a file of the
+  bundle uses that file **instead of** the module's config (whole file, no merging). Any other relative path is
+  resolved by the module as before, so existing recipes keep working. `taufw.py plan` lists every file each stage
+  reads and where it comes from (`bundle`, `module`, `absolute`). A relative path above the bundle (`../`) is never a
+  bundle file. The relative `pico.config` is a bundle file (one above the bundle is made absolute, as before); the
+  recipe keeps it as written (it was made absolute before).
+- **Run copy of the bundle:** `start` copies the bundle (whole directory without hidden files, `__pycache__` and
+  `taufw_runs/`; at most 50 MB) to `<run dir>/bundle/`, and every stage of the run reads the copy. A loose recipe
+  file copies only the files its options name. `run.json` has a new `bundle` key (`{source, files}`; `{}` when
+  reading older records, so the schema stays 1).
+- **Python steps** (`stage: python`, `stages/python_step.py`, `step_runner.py`): `file`, `function` (`run`),
+  `options`, `timeout`, optional `id`. The step runs in its own Python process (standard library only), in the run's
+  bundle copy; it gets a `ctx` (options, upstream artifacts, its directory, bundle files, log) and returns a message
+  and artifacts, which later stages see. Preflight checks the file, the function (with `ast`, nothing imported) and
+  the options. A failure leaves the log tail as for the other local stages.
+- **Stage ids:** python steps may be anywhere and any number of times, so stages are keyed by an id (built-in
+  stages: their name; python steps: `id:` or the file name). `run.json` stage records, log directories and
+  upstream artifacts use the id. The built-in stages keep their order and stay unique.
+- **The run's PicoProducer config reaches the scripts:** `getconfig()` reads `$TAUFW_PICO_CONFIG` when it is set
+  (read-only; a missing file is an error); unset, nothing changes. `Command` (Utilities.Process) has an `env` field.
+  `PlotsRequest`, `ShapesRequest` and `FitRequest` have `pico_config`; the APIs set the variable on their commands,
+  and preflight checks that file. The old warning that the scripts read the default config is removed.
+- **`CommandPlan`, `RunReport`** moved from the identical copies in `Fitter/python/api/types.py` and
+  `Plotter/python/api/types.py` to `TauFW.Utilities.Process` (callers updated; the APIs still export them).
+  `config_file(config)` added to `ControlPlots` and `TauESID`.
+- **`taufw.py init NAME [--from RECIPE] [--root DIR]`:** a new bundle; `--from` copies the module configs the recipe
+  uses next to the new `recipe.yml` (a taken name becomes `<plotter|fitter>_<name>`) and points the recipe at the
+  copies. The console menu lists the
+  bundles in `Analyses/`.
+
+### Known limitations
+
+The sample lists are not part of a bundle yet: `plot.py` and `createinputsTES.py` import
+`Plotter/config/samples_v15.py`, and the PicoProducer configuration names its own sample catalogs.
+
+### Tests
+
+- `Tests/Framework/test_bundle.py` (13): the path rule (paths above the bundle stay outside it; any layout inside it), `plan` paths,
+  stage ids and their errors, the run's bundle copy (later edits do not reach a started run; caches and runs are
+  skipped; a large bundle is refused before anything is written), old `run.json` without `bundle`, `make_bundle`,
+  `taufw.py init` (copied names never clash).
+- `Tests/Framework/test_python_step.py` (6): real step files run by `step_runner.py`: two steps passing artifacts
+  (sibling import, bundle file, `$TAUFW_PICO_CONFIG`), an exception, a result that is not JSON, preflight, plan.
+- Updated: `test_framework.py`, `test_stages.py`, `test_interactive.py`; `Tests/Utilities/test_process.py`
+  (command environment), `Tests/Fitter/api`, `Tests/Plotter/api` (`pico_config`, `config_file`).
+- BBB `framework.production` changes on purpose: `run.json` has the `bundle` key and `plan` prints the bundle and
+  PicoProducer config lines. Re-lock on lxplus with `python3 Tests/run.py bbb lock --replace` once the other cases
+  pass unchanged; `$TAUFW_PICO_CONFIG` is unset there, so the PicoProducer cases must not change.

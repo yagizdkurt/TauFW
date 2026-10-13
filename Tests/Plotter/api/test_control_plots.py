@@ -65,6 +65,22 @@ class ControlPlotsTests(unittest.TestCase):
         problems = self.plotter.preflight(request)
         self.assertIn("channel setup config/setup_etau.yml not found in %s" % (self.plotter_dir), problems)
 
+    def test_pico_config_and_absolute_setup(self):
+        setup = os.path.join(self.base, "bundle", "setup_mutau.yml")  # a setup outside Plotter/ (a bundle file)
+        os.makedirs(os.path.dirname(setup))
+        shutil.copy(os.path.join(self.plotter_dir, "config", "setup_mutau.yml"), setup)
+        request = PlotsRequest(eras=["2025"], configs=[setup], pico_config="/run/bundle/pico.json")
+        plan = self.plotter.plan(request)
+        self.assertEqual(plan.notes, ())
+        self.assertEqual(plan.commands[0].env, (("TAUFW_PICO_CONFIG", "/run/bundle/pico.json"),))
+        self.assertEqual(plan.artifacts[0]["channel"], "mutau")
+        self.assertEqual(self.plotter.pico_config_source(request), "/run/bundle/pico.json")
+        self.assertIn("no PicoProducer configuration /run/bundle/pico.json", " ".join(self.plotter.preflight(request)))
+        self.assertEqual(self.plotter.plan(PlotsRequest(eras=["2025"])).commands[0].env, ())
+        self.assertEqual(self.plotter.config_file("mutau"),
+                         os.path.join(self.plotter_dir, "config", "setup_mutau.yml"))
+        self.assertEqual(self.plotter.config_file(setup), setup)
+
     def test_request_checks(self):
         with self.assertRaises(ValueError):
             PlotsRequest(eras=[])

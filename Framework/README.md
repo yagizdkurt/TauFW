@@ -1,19 +1,21 @@
 # Framework
 
-The single entry point of TauFW: run an analysis pipeline from a recipe file. The Framework coordinates; each
-stage's work stays in its package and is reached through that package's public API.
+The single entry point of TauFW: run an analysis pipeline from an analysis bundle (`Analyses/<name>/`: a recipe,
+the config files it uses and its own Python steps). The Framework coordinates; each stage's work stays in its package
+and is reached through that package's public API.
 
 ```
-recipe ─▶ plan() ─▶ start() ─▶ advance() ─▶ … ─▶ advance() ─▶ DONE
+bundle ─▶ plan() ─▶ start() ─▶ advance() ─▶ … ─▶ advance() ─▶ DONE
              │          │            │
           RunPlan   RunRecord     RunRecord (run.json, saved after every stage step)
 
 stages:   production ──────▶ plots ─────────▶ histograms ──────▶ fit
           PicoProducer API   Plotter API       Fitter API         Fitter API
           batch, stepwise    plot.py, local    createinputsTES    run_workflow_zmm.sh steps, local
+          python steps (a Python file of the bundle, step_runner.py, local) may be anywhere in between
 ```
 
-For recipe structure and stage selection, see the [recipe guide](recipes/README.md).
+For bundles, recipe structure, path rules and Python steps, see the [analysis guide](../Analyses/README.md).
 
 After `cmsenv` and `scram b`, the package is importable as `TauFW.Framework` and `taufw.py` is on the `PATH`.
 
@@ -23,10 +25,12 @@ The words below are used everywhere in the code and in this README.
 
 | Term | Meaning | In the code |
 |---|---|---|
+| **analysis bundle** | A directory `Analyses/<name>/` with `recipe.yml`, the config files the recipe uses and its Python steps; every path is relative to the directory of `recipe.yml`. A stage's path option that names a bundle file uses it instead of the module's config. A run copies the bundle to `<run dir>/bundle/` and reads only that copy. | `bundle.py` |
 | **recipe** | A YAML file that says what to run: a name, the PicoProducer configuration and a list of stages with their options. You write it; the Framework checks it before anything runs. | `Recipe` (`recipe.py`) |
-| **stage** | One step of the analysis: `production` (NanoAOD → pico tuples), `plots` (control plots), `histograms` (fit input shapes), `fit` (TES + tau ID fit). Each stage calls the API of its own package. | `Stage` subclasses (`stages/`) |
-| **local stage** | A stage that runs its package's existing scripts on this machine, one command after the other, and finishes in one `advance` (`plots`, `histograms`, `fit`). | `LocalStage` (`stages/local.py`) |
-| **stage context** | What a stage may know about its run: the run directory (for its logs) and the artifacts of the `DONE` stages before it. | `StageContext` (`stages/base.py`) |
+| **stage** | One step of the analysis: `production` (NanoAOD → pico tuples), `plots` (control plots), `histograms` (fit input shapes), `fit` (TES + tau ID fit), `python` (a Python file of the bundle). Each stage calls the API of its own package. | `Stage` subclasses (`stages/`) |
+| **stage id** | The name of a stage in a run: `run.json` records, log directories and upstream artifacts are keyed by it. A built-in stage's id is its name; a python step's id is its `id:` or its file name. | `StageSpec.id` |
+| **local stage** | A stage that runs commands on this machine, one after the other, and finishes in one `advance` (`plots`, `histograms`, `fit`: the package's scripts; `python`: the step runner). | `LocalStage` (`stages/local.py`) |
+| **stage context** | What a stage may know about its run: the run directory (for its logs), the artifacts of the `DONE` stages before it, the run's PicoProducer config and its bundle copy. | `StageContext` (`stages/base.py`) |
 | **preflight** | The check, before a local stage runs, that its environment is ready (`cmsenv`, ROOT, `combine`, configs). A problem leaves the stage `NEW`. | `PreflightError` |
 | **spec** | The options of one stage after checking, as a typed, read-only object. For example, `ProductionSpec` holds `eras`, `channels`, `max_tries`, ... | `ProductionSpec`, ... |
 | **stage spec** | One entry of the recipe's `stages:` list: the stage name plus its spec. | `StageSpec` (`recipe.py`) |
@@ -44,14 +48,16 @@ The words below are used everywhere in the code and in this README.
 
 ### Where to start reading the code
 
-1. [recipes/README.md](recipes/README.md) and its bundled examples: what a user writes.
+1. [Analyses/README.md](../Analyses/README.md) and the bundled analyses: what a user writes.
 2. `python/stages/base.py`: the stage contract, the stage states and the stage context (short).
 3. `python/framework.py`: `start` → `advance` → `_advance_stages`, the loop that drives the stages.
 4. `python/stages/production.py`: the batch stage; `decide_next` holds its policy.
 5. `python/stages/local.py`: the local stages (preflight, run the commands, DONE or FAILED); `plots.py`,
-   `histograms.py` and `fit.py` only map their options to the Plotter and Fitter APIs.
-6. `python/run_record.py`: what is written to `run.json`, and how the run state is computed.
-7. `scripts/taufw.py`: the command line, which only calls the `Framework`.
+   `histograms.py` and `fit.py` only map their options to the Plotter and Fitter APIs; `python_step.py` runs a
+   bundle's Python file through `step_runner.py`.
+6. `python/bundle.py`: the path rule (bundle file or module config) and the run's bundle copy.
+7. `python/run_record.py`: what is written to `run.json`, and how the run state is computed.
+8. `scripts/taufw.py`: the command line, which only calls the `Framework`.
 
 ## Quick start
 
@@ -63,7 +69,7 @@ Run `taufw.py` without arguments in an interactive Linux terminal to open the
 optional console menu (Python's standard-library `curses`; no extra dependency).
 Use Up/Down to move, Enter to select, and Esc to go back or exit the main menu.
 
-- **Start a new run** lists bundled recipes or accepts another path, displays
+- **Start a new run** lists the analysis bundles in `Analyses/` or accepts another path, displays
   the plan, then offers to start the run.
 - **Continue an existing run** lists saved runs in `taufw_runs/` (newest first)
   or accepts another run directory. Choose one advance or repeated checking;
@@ -90,20 +96,21 @@ and navigation changes stay in Utilities. Source section banners document both s
 boundary.
 
 ```bash
-taufw.py plan    Framework/recipes/example_mutau.yml           # each stage's plan; nothing is written
-taufw.py plan    Framework/recipes/example_mutau.yml --local   # quick local test: 100 events of one file per sample
-taufw.py start   Framework/recipes/example_mutau.yml           # creates taufw_runs/<name>_<time>/, submits the jobs
+taufw.py plan    Analyses/example_mutau                        # each stage's plan and files; nothing is written
+taufw.py plan    Analyses/example_mutau --local                # quick local test: 100 events of one file per sample
+taufw.py start   Analyses/example_mutau                        # creates taufw_runs/<name>_<time>/, submits the jobs
 taufw.py advance taufw_runs/mutau_2022_postEE_20261013-120000  # check; resubmit failed chunks; merge when complete
 taufw.py status  taufw_runs/mutau_2022_postEE_20261013-120000  # recorded and live state (read-only)
 taufw.py advance taufw_runs/... --wait --poll 900              # keep advancing every 15 minutes until done
-taufw.py plan    Framework/recipes/tes_id_2025.yml             # the commands of the plots, histograms and fit stages
+taufw.py plan    Analyses/tes_id_2025                          # the commands of the plots, histograms, fit and python steps
+taufw.py init    my_tes --from Analyses/tes_id_2025            # new bundle Analyses/my_tes/ with copies of its configs
 ```
 
 The same from Python:
 ```python
 from TauFW.Framework import Framework, load_run
 
-fw     = Framework.from_recipe("Framework/recipes/example_mutau.yml")
+fw     = Framework.from_recipe("Analyses/example_mutau")   # a bundle directory or a recipe file
 record = fw.start()                         # RunRecord; record.state == 'WAITING'
 # ... later, maybe in another session:
 record = load_run(record.run_dir)
@@ -133,15 +140,15 @@ The production stage:
 | | chunks failed or missing, attempt = `max_tries` | `FAILED` |
 | `MERGING` | merge (`hadd`) each sample into one tuple; with `merge.clean`, remove the job files after the merged tuple is validated | `DONE`, with one artifact per sample |
 
-The local stages (`plots`, `histograms`, `fit`) take one step, `NEW` → `DONE` or `FAILED`:
+The local stages (`plots`, `histograms`, `fit`, `python`) take one step, `NEW` → `DONE` or `FAILED`:
 
 | Situation | Result |
 |---|---|
-| preflight finds a problem (no `cmsenv`, ROOT or `combine` missing, a config file missing, no shapes for the fit) | the stage stays `NEW`; the problem is its message and in its history; fix it and run `advance` again |
+| preflight finds a problem (no `cmsenv`, ROOT or `combine` missing, a config file missing, no shapes for the fit; a python step's file or function missing) | the stage stays `NEW`; the problem is its message and in its history; fix it and run `advance` again |
 | every command exits with 0 **and** writes its expected outputs | `DONE`, with the artifacts |
 | a command exits with another code, or does not write an expected output | `FAILED`; the message names the command, the exit code or the missing output, and the log; the last 20 log lines are printed |
 
-Each command's output goes to `<run dir>/<stage>/NN_<label>.log`, and `run.json` lists every command with its exit
+Each command's output goes to `<run dir>/<stage id>/NN_<label>.log`, and `run.json` lists every command with its exit
 code and duration (`last_status.commands`). The expected outputs must be written by the command itself (modified
 after it started): the Fitter scripts run `combine` through `os.system` and exit with 0 even when it fails, and the
 output folders are shared by all runs, so neither the exit code nor an old file is trusted.
@@ -156,11 +163,15 @@ Run states (`RunState`): `NEW`, `RUNNING` (e.g. a local stage is not ready yet),
 If a stage raises an error (for example, the batch system cannot be reached), the error is recorded in the stage's
 history, the state is unchanged, and the command fails; run `advance` again when the problem is solved.
 
+The local stages pass the run's PicoProducer configuration to every command as `$TAUFW_PICO_CONFIG`; PicoProducer's
+`getconfig()` reads that file instead of `PicoProducer/config/config.json`, so the scripts find the tuples through the
+run's `$PICODIR`.
+
 ## Recipe reference
 
-See [recipes/README.md](recipes/README.md) for recipe authoring, all stage options
-and defaults, path rules, examples, commands, troubleshooting, and current
-workflow limitations.
+See [Analyses/README.md](../Analyses/README.md) for bundles, recipe authoring, all
+stage options and defaults, path rules, Python steps, examples, commands,
+troubleshooting, and current workflow limitations.
 
 ## Run directory
 
@@ -168,9 +179,11 @@ workflow limitations.
 taufw_runs/<name>_<YYYYmmdd-HHMMSS>/
   run.json    the run record (below)
   run.log     plain-text copy of the messages of every start/advance
-  plots/, histograms/, fit/
+  bundle/     the run's copy of the bundle: the stages read their bundle files from here, never from the source
+  plots/, histograms/, fit/, <python step id>/
               one log per command of the local stages: NN_<label>.log (header with cwd and command line,
-              the command's output, footer with exit code, duration and missing outputs)
+              the command's output, footer with exit code, duration and missing outputs); a python step also
+              has context.json (its input), result.json (its output) and its own files
 ```
 
 `run.json` (schema 1):
@@ -178,11 +191,13 @@ taufw_runs/<name>_<YYYYmmdd-HHMMSS>/
 {"schema": 1, "run_id": "...", "created": "...", "updated": "...",
  "recipe": {"name": "...", "pico": {"config": null}, "stages": [...]},
  "pico_config": {"path": ".../config/config.json", "snapshot": {...}},
+ "bundle": {"source": ".../Analyses/tes_id_2025", "files": ["recipe.yml", "config_coarse_TT.yml", ...]},
  "stages": [{"name": "production", "state": "WAITING", "attempt": 2, "message": "...",
              "request": {...}, "submissions": [...], "last_status": {...}, "artifacts": [...],
              "history": [{"time": "...", "event": "resubmitted", "state": "SUBMITTED", "detail": "..."}]}]}
 ```
-- A run always continues with the recipe stored in `run.json`, not with the current recipe file.
+- A run always continues with the recipe stored in `run.json` and its `bundle/` copy, not with the current files.
+- A stage record's `name` is the stage id. `bundle` is `{}` in run records written before bundles existed.
 - `run.json` is written to a temporary file and renamed, so it is never half written.
 - The production stage's source of truth stays with PicoProducer (its job configs under `PicoProducer/output/`);
   `run.json` holds the requests, summaries and artifacts.
@@ -193,20 +208,24 @@ taufw_runs/<name>_<YYYYmmdd-HHMMSS>/
 
 | File | Contents |
 |---|---|
-| `python/framework.py` | `Framework`: `plan`, `start`, `advance`, `run`, `status`; stage dispatch; construction (`from_recipe`, `from_record`) |
-| `python/recipe.py` | `Recipe`, `StageSpec`, `RecipeError`: load and validate recipes |
+| `python/framework.py` | `Framework`: `plan`, `start`, `advance`, `run`, `status`, `make_bundle`; stage dispatch; construction (`from_recipe`, `from_record`) |
+| `python/recipe.py` | `Recipe`, `StageSpec`, `RecipeError`: load and validate recipes (a bundle directory or a file); stage ids |
+| `python/bundle.py` | the path rule (bundle file, module config, absolute), the run's bundle copy, new bundles (`taufw.py init`) |
+| `python/step_runner.py` | runs a python step in its own process (standard library only): `context.json` → `run(ctx)` → `result.json` |
 | `python/run_record.py` | `RunRecord`, `RunState`, `StageRecord`: `run.json`, crash-safe save |
 | `python/reporting.py` | `Reporter` (interface), `FrameworkReporter` (terminal + `run.log`), `SilentReporter`; adapter for PicoProducer's messages |
-| `python/defaults.py` | shared defaults: `taufw_runs`, `run.json`, `run.log`, the polling interval (600 s), the time format |
+| `python/defaults.py` | shared defaults: `taufw_runs`, `run.json`, `run.log`, `recipe.yml`, `bundle/`, `Analyses/`, the polling interval (600 s), the time format |
 | `python/interactive.py` | the Framework side of the console menu (recipe/run discovery, dispatch to the commands) |
 | `python/stages/base.py` | the stage contract: `Stage`, `StageState`, `StageOutcome`, `StageContext`, `StageNotImplemented`, `PreflightError` |
 | `python/stages/production.py` | `ProductionStage` and the pure `decide_next` policy |
 | `python/stages/local.py` | `LocalStage`: preflight, run the commands, `DONE` or `FAILED` (log tail) |
 | `python/stages/plots.py`, `histograms.py`, `fit.py` | the local stages and their specs (`fit.py` also picks the working points) |
+| `python/stages/python_step.py` | `PythonStage`, `PythonSpec`: a bundle's Python file as a recipe step |
 | `scripts/taufw.py` | the command line (no logic: argparse → `Framework`) |
-| `recipes/README.md` | recipe authoring and usage reference |
-| `recipes/example_mutau.yml` | documented example recipe: production, then control plots |
-| `recipes/tes_id_2025.yml` | the TES + tau ID fit on existing tuples: plots, histograms, fit |
+
+The analyses live outside this package, in `Analyses/` at the repository root: `Analyses/README.md` (authoring and
+usage reference), `Analyses/example_mutau/` (production, then control plots) and `Analyses/tes_id_2025/` (the TES +
+tau ID fit on existing tuples: plots, histograms, fit, and a Python summary step).
 
 Dependencies point one way: `Framework → PicoProducer.api, Plotter.api, Fitter.api`. No other package imports the
 Framework. The Framework imports each API only when its stage is built, and the Plotter and Fitter APIs never import
@@ -221,7 +240,9 @@ BBB check/lock also default to quiet output; see the [test runner instructions](
 - `python -m unittest discover -s Tests/Framework` (any Python 3.9+, no ROOT): the state machine with a fake
   PicoProducer (submit, wait, resubmit until `max_tries`, merge, not-implemented stages, errors), `decide_next`,
   `run.json` round trip and crash-safe save, recipe validation, and `taufw.py`; the local stages with fake Plotter
-  and Fitter APIs (`test_stages.py`: the whole pipeline, preflight, failures, fit points, planned artifacts).
+  and Fitter APIs (`test_stages.py`: the whole pipeline, preflight, failures, fit points, planned artifacts); bundles
+  (`test_bundle.py`: the path rule, stage ids, the run's bundle copy, `taufw.py init`); python steps
+  (`test_python_step.py`: real step files run by `step_runner.py`).
 - `Tests/Fitter/api`, `Tests/Plotter/api`: the commands of the APIs equal those of `run_inputs.sh`,
   `run_workflow_zmm.sh` and `plot.py`, and outputs are checked (fake process runner, no ROOT).
 - BBB case `framework.production` (lxplus): `taufw.py plan/start/advance/status` against the fake HTCondor of the

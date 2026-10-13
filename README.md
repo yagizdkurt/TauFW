@@ -143,8 +143,9 @@ The launcher delegates to `Framework/scripts/taufw.py`; relative recipe and run 
 are resolved from your working directory. After `cmsenv` and `scram b`, `taufw.py`
 is also available on `PATH`.
 
-See [Framework/recipes/README.md](Framework/recipes/README.md) for recipe authoring,
-stage options, examples, and planning, starting, or continuing a pipeline.
+See [Analyses/README.md](Analyses/README.md) for analysis bundles (recipe, configs
+and Python steps in one directory), stage options, examples, and planning,
+starting, or continuing a pipeline.
 See [Framework/README.md](Framework/README.md) for the run model and
 [PicoProducer/docs/API.md](PicoProducer/docs/API.md) for the PicoProducer API it uses.
 

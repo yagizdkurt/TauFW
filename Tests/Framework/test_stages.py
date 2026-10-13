@@ -209,14 +209,21 @@ class CommandLineTests(LocalStageTestCase):
         finally:
             self.cli.Framework.from_recipe = real
         tables = [text for kind, text in self.reporter.messages if kind == "table"]
-        self.assertIn("['#', 'step', 'command']", tables[0])
-        self.assertIn("shapes 2025 VTight Tight", tables[0])
+        self.assertIn("['option', 'file', 'from']", tables[0])  # the files the stage reads come first
+        self.assertIn("['configs', 'TauES_ID/config/config_coarse_TT.yml', 'module']", tables[0])
+        commands = [text for text in tables if "['#', 'step', 'command']" in text]
+        self.assertIn("shapes 2025 VTight Tight", commands[0])
         self.assertIn("Working directory: /repo/Fitter", [t for k, t in self.reporter.messages])
         self.assertIn("combine is not on PATH", self.warnings())
 
-    def test_command_line_shows_python3(self):
+    def test_command_line_shows_python3_and_environment(self):
         import sys
-        self.assertEqual(self.cli._command_line((sys.executable, "plot.py", "-S", "a b")), "python3 plot.py -S 'a b'")
+        from TauFW.Utilities.Process import Command
+        command = Command("plots", (sys.executable, "plot.py", "-S", "a b"), "/repo/Plotter")
+        self.assertEqual(self.cli._command_line(command), "python3 plot.py -S 'a b'")
+        command = Command("plots", (sys.executable, "plot.py"), "/repo/Plotter",
+                          env=(("TAUFW_PICO_CONFIG", "/b/pico.json"),))
+        self.assertEqual(self.cli._command_line(command), "TAUFW_PICO_CONFIG=/b/pico.json python3 plot.py")
 
 
 if __name__ == "__main__":

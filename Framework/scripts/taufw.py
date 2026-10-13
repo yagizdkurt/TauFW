@@ -3,21 +3,28 @@
 """taufw.py: run TauFW analysis pipelines from a recipe. A thin client of TauFW.Framework (no logic here).
 
   taufw.py                                              interactive Linux console menu
-  taufw.py plan    RECIPE [--local [-m N]]                show each stage's plan; nothing is written
+  taufw.py plan    RECIPE [--local [-m N]]                show each stage's plan and the files it reads;
+                                                          nothing is written
                                                           (--local: quick local test of the production stage)
   taufw.py start   RECIPE [--run-root DIR] [--wait [--poll S]]   new run: run directory, run.json, first steps
   taufw.py advance RUN_DIR [--wait [--poll S]]            continue a run: check, resubmit, merge, next stages
-                                                          (plots, histograms, fit: run locally, may take hours)
+                                                          (plots, histograms, fit, python: run locally)
   taufw.py status  RUN_DIR                                saved and live state of a run (read-only)
+  taufw.py init    NAME [--from RECIPE] [--root DIR]      new analysis bundle Analyses/NAME/ (with copies of the
+                                                          module configs RECIPE uses, next to its recipe.yml)
+
+RECIPE is an analysis bundle directory (Analyses/<name>, with recipe.yml) or a recipe file.
 
 Exit code: 1 if the run failed, otherwise 0. See Framework/README.md.
 """
+import os
 import shlex
 import sys
 from argparse import ArgumentParser
 try:
-    from TauFW.Framework import Framework, load_run, FrameworkReporter, RunState
-    from TauFW.Framework.defaults import DEFAULT_RUN_ROOT, DEFAULT_POLL_SECONDS
+    from TauFW.Framework import Framework, Recipe, RecipeError, load_run, FrameworkReporter, RunState
+    from TauFW.Framework.bundle import BundleError, make_bundle
+    from TauFW.Framework.defaults import DEFAULT_RUN_ROOT, DEFAULT_POLL_SECONDS, ANALYSES_DIR, default_file_io
 except ImportError as err:
     print("\033[1m\033[31mImportError for TauFW.Framework: please check if you compiled with `scram b`.\033[0m")
     raise err
@@ -39,8 +46,14 @@ def cmd_plan(args):
         results = framework.stages['production'].run_local(stage_spec.spec, maxevts=args.maxevts)
         return 1 if any(r.exitcode for r in results) else 0
     plan = framework.plan()
+    if plan.bundle_dir:
+        reporter.message("Bundle: %s" % (plan.bundle_dir))
+    reporter.message("PicoProducer config: %s" % (plan.pico_config or "PicoProducer/config/config.json (default)"))
     for stage_plan in plan.stages:
         reporter.header("Stage %s" % (stage_plan.stage))
+        if stage_plan.paths:  # the files the stage reads: from the bundle, from its module, or absolute
+            reporter.table(["option", "file", "from"],
+                           [(option, resolved, where) for option, _, resolved, where in stage_plan.paths])
         if stage_plan.plan is None:  # placeholder stage
             reporter.message(stage_plan.note)
         elif hasattr(stage_plan.plan, 'samples'):  # production: a PicoProducer JobPlan
@@ -48,7 +61,7 @@ def cmd_plan(args):
                            [(s.era, s.channel, s.name, s.nfiles, s.nchunks, s.subtry, "yes" if s.conflict else "")
                             for s in stage_plan.plan.samples])
             reporter.message("%d sample(s), %d job(s)" % (len(stage_plan.plan.samples), stage_plan.plan.nchunks))
-        elif hasattr(stage_plan.plan, 'commands'):  # plots, histograms, fit: the module's scripts, run locally
+        elif hasattr(stage_plan.plan, 'commands'):  # plots, histograms, fit, python: commands run locally
             _show_commands(reporter, stage_plan.plan)
         else:
             reporter.message(repr(stage_plan.plan))
@@ -94,20 +107,44 @@ def cmd_status(args):
     return 1 if summary.state == RunState.FAILED else 0
 
 
+def cmd_init(args):
+    """Make a new analysis bundle: from a recipe (with copies of the module configs it uses), or a minimal one
+    with an example Python step."""
+    reporter = FrameworkReporter(verbosity=args.verbose)
+    target = os.path.join(args.root or ANALYSES_DIR, args.name)
+    try:
+        minimal = Recipe.from_dict({'name': args.name, 'pico': {'config': None},  # also checks the name
+                                    'stages': [{'stage': 'python', 'file': 'steps/example.py'}]})
+        if args.source:
+            copied = Framework.from_recipe(args.source, reporter=reporter).make_bundle(target, name=args.name)
+        else:
+            copied = make_bundle(minimal.to_dict(), {}, target, default_file_io())
+    except (BundleError, RecipeError) as error:
+        reporter.warning(str(error))
+        return 1
+    reporter.message("New analysis bundle: %s" % (target))
+    for path in copied:
+        reporter.message("  %s" % (path))
+    reporter.message("Edit %s, then: taufw.py plan %s" % (os.path.join(target, 'recipe.yml'), target))
+    return 0
+
+
 def _show_commands(reporter, plan):
     """The commands of a local stage, as they would be typed in its working directory."""
     reporter.message("Working directory: %s" % (plan.cwd))
     reporter.table(["#", "step", "command"],
-                   [(index, command.label, _command_line(command.argv))
+                   [(index, command.label, _command_line(command))
                     for index, command in enumerate(plan.commands, 1)])
     reporter.message("%d command(s)" % (len(plan.commands)))
     for note in plan.notes:
         reporter.warning(note)
 
 
-def _command_line(argv):
-    """A command line, with this Python shown as python3."""
-    return " ".join(shlex.quote("python3" if i == 0 and a == sys.executable else a) for i, a in enumerate(argv))
+def _command_line(command):
+    """A command line with its extra environment variables, with this Python shown as python3."""
+    env = ["%s=%s" % (key, shlex.quote(value)) for key, value in getattr(command, 'env', ())]
+    argv = [shlex.quote("python3" if i == 0 and a == sys.executable else a) for i, a in enumerate(command.argv)]
+    return " ".join(env + argv)
 
 
 def _interval(value):
@@ -124,7 +161,7 @@ def _finish(reporter, record):
     return 1 if record.state == RunState.FAILED else 0
 
 
-COMMANDS = {'plan': cmd_plan, 'start': cmd_start, 'advance': cmd_advance, 'status': cmd_status}
+COMMANDS = {'plan': cmd_plan, 'start': cmd_start, 'advance': cmd_advance, 'status': cmd_status, 'init': cmd_init}
 
 
 # =============================================================================
@@ -143,18 +180,24 @@ def build_parser():
     subparsers = parser.add_subparsers(dest='command', metavar='COMMAND')
     subparsers.required = True
     plan = subparsers.add_parser('plan', parents=[common], help="show each stage's plan (nothing is written)")
-    plan.add_argument('recipe', help="recipe file (.yml or .json)")
+    plan.add_argument('recipe', help="analysis bundle directory, or recipe file (.yml or .json)")
     plan.add_argument('--local', action='store_true', help="run the production stage locally on one file per sample")
     plan.add_argument('-m', '--maxevts', type=int, default=100, metavar='N',
                       help="events per local run, default=%(default)d")
     start = subparsers.add_parser('start', parents=[common, waiter], help="start a new run")
-    start.add_argument('recipe', help="recipe file (.yml or .json)")
+    start.add_argument('recipe', help="analysis bundle directory, or recipe file (.yml or .json)")
     start.add_argument('--run-root', dest='run_root', default=None, metavar='DIR',
                        help="parent of the run directory, default=%s" % (DEFAULT_RUN_ROOT))
     advance = subparsers.add_parser('advance', parents=[common, waiter], help="continue a run")
     advance.add_argument('run_dir', help="run directory (with run.json)")
     status = subparsers.add_parser('status', parents=[common], help="state of a run (read-only)")
     status.add_argument('run_dir', help="run directory (with run.json)")
+    init = subparsers.add_parser('init', parents=[common], help="new analysis bundle")
+    init.add_argument('name', help="name of the bundle directory and of its recipe")
+    init.add_argument('--from', dest='source', default=None, metavar='RECIPE',
+                      help="start from this bundle or recipe file, with copies of the module configs it uses "
+                           "next to the new recipe.yml")
+    init.add_argument('--root', default=None, metavar='DIR', help="parent directory, default=%s" % (ANALYSES_DIR))
     return parser
 
 

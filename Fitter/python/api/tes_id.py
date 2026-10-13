@@ -14,7 +14,8 @@ Each command must exit with 0 AND write its expected outputs (see TauFW.Utilitie
 through os.system and ignore its exit code, so a zero exit code alone proves nothing. A run stops at the first
 command that fails.
 
-Inputs:  pico tuples, found by the scripts through $PICODIR of PicoProducer/config/config.json; the YAML configs.
+Inputs:  pico tuples, found by the scripts through $PICODIR of the request's PicoProducer config (passed as
+         $TAUFW_PICO_CONFIG; default PicoProducer/config/config.json); the YAML configs.
 Outputs: written by the scripts inside Fitter/ (shared by all runs):
            input_pt_less_region/againstjet_<J>/againstelectron_<E>/      shapes
            output_pt_less_region/..., postfit_pt_less_region/...         datacards, fits, post-fit shapes
@@ -26,7 +27,8 @@ Public API:
   TauESID(basedir, runner, read_yaml, python, which, find_module)
   plan_shapes, make_shapes, preflight_shapes, plan_fit, fit, preflight_fit     pipelines
   shapes_request(**fields), fit_request(**fields)                            requests
-  pico_config_source                                                         where $PICODIR is read from
+  config_file(config)                                                        a config as an absolute path
+  pico_config_source(request)                                                where $PICODIR is read from
 """
 import glob
 import importlib.util
@@ -35,8 +37,8 @@ import posixpath
 import shutil
 import sys
 
-from TauFW.Utilities.Process import Command, ProcessRunner
-from TauFW.Fitter.api.types import ShapesRequest, FitRequest, CommandPlan, RunReport
+from TauFW.Utilities.Process import Command, CommandPlan, ProcessRunner, RunReport
+from TauFW.Fitter.api.types import ShapesRequest, FitRequest
 from TauFW.Fitter.api.results import read_fit_values
 
 __all__ = ['TauESID']
@@ -95,9 +97,9 @@ class TauESID:
     def preflight_shapes(self, request):
         """What is missing to make the shapes: CMSSW, ROOT, the PicoProducer config, the config files."""
         problems = self._environment(root=True)
-        if not os.path.isfile(self.pico_config_source):
-            problems.append("no PicoProducer configuration %s: the scripts read $PICODIR from it"
-                            % (self.pico_config_source))
+        source = self.pico_config_source(request)
+        if not os.path.isfile(source):
+            problems.append("no PicoProducer configuration %s: the scripts read $PICODIR from it" % (source))
         problems.extend(self._missing_configs(request.configs))
         return tuple(problems)
 
@@ -159,9 +161,15 @@ class TauESID:
         """A FitRequest (unknown fields are an error), so callers need not import the records."""
         return FitRequest(**fields)
 
-    @property
-    def pico_config_source(self):
-        """The PicoProducer configuration that the scripts read $PICODIR from (through the Plotter samples)."""
+    def config_file(self, config):
+        """A config file (relative to Fitter/, or absolute), as an absolute path."""
+        return self._path(config)
+
+    def pico_config_source(self, request=None):
+        """The PicoProducer configuration that the scripts read $PICODIR from (through the Plotter samples): the
+        request's, else the default."""
+        if request is not None and request.pico_config:
+            return request.pico_config
         return os.path.join(os.path.dirname(self.basedir), 'PicoProducer', 'config', 'config.json')
 
     # =========================================================================
@@ -177,7 +185,8 @@ class TauESID:
         shapes = [{'kind': 'shapes', 'path': self._path(path), 'era': era, 'channel': channel, 'config': config,
                    'jet_wp': jet_wp, 'ele_wp': ele_wp, 'observable': observable} for observable, path in files]
         command = Command("shapes %s %s %s %s" % (era, jet_wp, ele_wp, channel), tuple(argv), self.basedir,
-                          expects=tuple(path for _, path in files), timeout=request.timeout)
+                          expects=tuple(path for _, path in files), timeout=request.timeout,
+                          env=_pico_env(request))
         return command, shapes
 
     def _point_commands(self, request, era, jet_wp, ele_wp, setup, setup_mumu):
@@ -195,7 +204,8 @@ class TauESID:
         def add(step, label, argv, expects=()):
             if step in request.steps:
                 commands.append(Command("%s %s %s" % (step, label, point), tuple([self.python] + argv),
-                                        self.basedir, expects=tuple(expects), timeout=request.timeout))
+                                        self.basedir, expects=tuple(expects), timeout=request.timeout,
+                                        env=_pico_env(request)))
 
         add('fit', 'datacards mumu',
             ['TauES_ID/harvestDatacards_zmm.py', '-y', era, '-c', request.config_mumu, '-i', indir + '/',
@@ -236,7 +246,8 @@ class TauESID:
                  ('nll profiles', ['plot1D_NLL_profiles.py', '--year', era], ()),
                  ('tes and id', ['make_tid_2025.py', '-y', era], ())]
         return [Command("summary %s %s" % (label, era), tuple([self.python] + argv), self.basedir,
-                        expects=tuple(expects), timeout=request.timeout) for label, argv, expects in steps]
+                        expects=tuple(expects), timeout=request.timeout, env=_pico_env(request))
+                for label, argv, expects in steps]
 
     # =========================================================================
     # ================================ RESULTS ================================
@@ -315,6 +326,11 @@ class TauESID:
 
 # =============================================================================
 # ================================ FILE NAMES =================================
+
+
+def _pico_env(request):
+    """$TAUFW_PICO_CONFIG for the scripts, if the request names a PicoProducer config (read by getconfig())."""
+    return (('TAUFW_PICO_CONFIG', request.pico_config),) if request.pico_config else ()
 
 
 def _wp_dir(tree, jet_wp, ele_wp):

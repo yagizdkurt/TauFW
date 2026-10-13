@@ -5,6 +5,8 @@ Inputs:  config/config.json and its backup config/config.json.bkp (both optional
 Outputs: a cached Config; missing keys are restored from the backup or the defaults.
          Only getconfig(write=True) -- used by pico.py -- creates or rewrites the file; library callers
          (workers, Plotter, scripts) get the repaired values in memory and leave the file untouched.
+         If $TAUFW_PICO_CONFIG is set (the TauFW Framework sets it for the scripts of a run), getconfig()
+         reads that file instead, never writes it, and raises IOError if it does not exist.
 
 Public API:
   getconfig(verb, refresh, write)   load the configuration once (cached); write=True creates/repairs the file
@@ -27,6 +29,7 @@ __all__ = ['getconfig', 'loadconfig', 'setdefaultconfig']
 # ===== Constants =====
 LOG    = Logger('GLOB')
 CONFIG = None # cache of the loaded configuration
+ENVVAR = 'TAUFW_PICO_CONFIG' # path of a configuration file that replaces config/config.json (read-only)
 
 
 # ===== Public API =====
@@ -37,6 +40,9 @@ def getconfig(verb=0,refresh=False,write=False):
   global CONFIG
   cfgdefaults = getdefaultconfig(verb=verb)
   if CONFIG and not refresh:
+    return CONFIG
+  if os.environ.get(ENVVAR): # configuration chosen by the caller (e.g. a TauFW Framework run): read-only
+    CONFIG = loadconfig(os.environ[ENVVAR],verb=verb)
     return CONFIG
   
   # SETTING

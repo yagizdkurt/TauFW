@@ -164,6 +164,19 @@ class ShapesTests(TauESIDTestCase):
         self.assertIn("PicoProducer configuration", problems)  # no PicoProducer next to the temporary Fitter
 
 
+    def test_pico_config_reaches_every_command(self):
+        request = self.shapes(pico_config="/run/bundle/pico.json")
+        self.assertTrue(all(c.env == (("TAUFW_PICO_CONFIG", "/run/bundle/pico.json"),)
+                            for c in self.fitter.plan_shapes(request).commands))
+        self.assertIn("no PicoProducer configuration /run/bundle/pico.json",
+                      " ".join(self.fitter.preflight_shapes(request)))
+        fit = self.fitter.fit_request(points=[("2025", "VTight", "Tight")], config=TT, config_mumu=MM,
+                                      pico_config="/run/bundle/pico.json")
+        self.assertTrue(all(c.env for c in self.fitter.plan_fit(fit).commands))
+        self.assertEqual(self.fitter.plan_shapes(self.shapes()).commands[0].env, ())
+        self.assertEqual(self.fitter.config_file(TT), os.path.join(self.fitter_dir, os.path.normpath(TT)))
+
+
 class FitTests(TauESIDTestCase):
     def test_commands_equal_run_workflow(self):
         plan = self.fitter.plan_fit(self.fit_request())

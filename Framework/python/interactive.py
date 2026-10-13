@@ -7,7 +7,8 @@ import os
 from argparse import Namespace
 from pathlib import Path
 
-from TauFW.Framework.defaults import DEFAULT_POLL_SECONDS, DEFAULT_RUN_ROOT, RUN_RECORD_NAME
+from TauFW.Framework.defaults import (ANALYSES_DIR, DEFAULT_POLL_SECONDS, DEFAULT_RUN_ROOT, RECIPE_NAME,
+                                      RUN_RECORD_NAME)
 from TauFW.Framework.run_record import RunRecord, RunState
 from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation
 
@@ -21,7 +22,7 @@ class _Operations:
     def __init__(self, commands, launch_dir=None, recipes_dir=None):
         self.commands = commands
         self.launch_dir = Path(launch_dir or os.getcwd()).resolve()
-        self.recipes_dir = Path(recipes_dir or Path(__file__).resolve().parents[1] / "recipes")
+        self.recipes_dir = Path(recipes_dir or ANALYSES_DIR)
 
     def resolve_path(self, value):
         path = Path(value).expanduser()
@@ -31,8 +32,10 @@ class _Operations:
     # =============================== DISCOVERY ===============================
 
     def recipes(self):
+        """The analysis bundles (directories with a recipe.yml) and loose recipe files in the recipes directory."""
         return sorted((p for p in self.recipes_dir.iterdir()
-                       if p.is_file() and p.suffix in (".yml", ".yaml", ".json")),
+                       if (p.is_dir() and (p / RECIPE_NAME).is_file())
+                       or (p.is_file() and p.suffix in (".yml", ".yaml", ".json"))),
                       key=lambda p: p.name) if self.recipes_dir.is_dir() else []
 
     def runs(self):

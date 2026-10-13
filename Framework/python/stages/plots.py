@@ -1,9 +1,11 @@
 # Author: Yagizhan Dinckurt (October 2026)
 """Plots stage: data/MC control plots of the pico tuples, through the Plotter API (Plotter/plot.py).
 
-    inputs:   pico tuples, read by plot.py through $PICODIR of PicoProducer/config/config.json (the production
-              stage's tuples, if the recipe has one, are recorded as the stage's inputs)
-    options:  PlotSpec (eras, channel setups, variable and selection filters, plot.py options)
+    inputs:   pico tuples, read by plot.py through $PICODIR of the run's PicoProducer config (passed as
+              $TAUFW_PICO_CONFIG; the production stage's tuples, if the recipe has one, are recorded as the
+              stage's inputs)
+    options:  PlotSpec (eras, channel setups (bundle files or Plotter's), variable and selection filters, plot.py
+              options)
     outputs:  one plots artifact per channel setup and era: {kind: 'plots', era, config, channel, directory,
               nfiles}; the plots are in Plotter/plots/<era>/
 
@@ -31,10 +33,11 @@ class PlotStage(LocalStage):
     plotter: a TauFW.Plotter.api.ControlPlots, or any object with the same methods (tests pass a fake one)."""
     name = 'plots'
     reads_tuples = True
+    group = 'plotter'  # taufw.py init names a copied config <group>_<name> if its name is taken
     # Spec = PlotSpec: set at the bottom of this file.
 
     def request(self, spec, context):
-        return self.api.request(**spec.request_dict())
+        return self.api.request(pico_config=context.pico_config, **spec.request_dict())
 
     def plan_commands(self, request):
         return self.api.plan(request)
@@ -45,6 +48,9 @@ class PlotStage(LocalStage):
     def execute(self, request, logdir, progress):
         return self.api.make(request, logdir, progress)
 
+    def config_file(self, value):
+        return self.api.config_file(value)
+
 
 # =============================================================================
 # ================================= CONTRACT ==================================
@@ -52,7 +58,8 @@ class PlotStage(LocalStage):
 
 @dataclass(frozen=True)
 class PlotSpec:
-    """Recipe options: eras, channel setups (a channel name means Plotter/config/setup_<channel>.yml), the
+    """Recipe options: eras, channel setups (bundle files, .yml files relative to Plotter/, or a channel name for
+    Plotter/config/setup_<channel>.yml), the
     plot.py filters -V (variables) and -S (selections), and its flags."""
     eras:       Tuple[str, ...]
     configs:    Tuple[str, ...] = ('mutau',)
@@ -79,4 +86,5 @@ class PlotSpec:
         return spec_to_dict(self)
 
 
+PlotSpec._paths = ('configs',)  # resolved against the bundle (bundle.py)
 PlotStage.Spec = PlotSpec

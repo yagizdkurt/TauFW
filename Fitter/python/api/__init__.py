@@ -13,10 +13,11 @@
 Public API:
   TauESID                                    the facade (api/tes_id.py)
   ShapesRequest, FitRequest, FIT_STEPS       requests (api/types.py)
-  CommandPlan, RunReport                     results (api/types.py)
+  CommandPlan, RunReport                     results (TauFW.Utilities.Process)
   read_fit_values                            FitparameterValues reader (api/results.py)
 """
-from TauFW.Fitter.api.types import FIT_STEPS, ShapesRequest, FitRequest, CommandPlan, RunReport
+from TauFW.Utilities.Process import CommandPlan, RunReport
+from TauFW.Fitter.api.types import FIT_STEPS, ShapesRequest, FitRequest
 from TauFW.Fitter.api.results import read_fit_values
 from TauFW.Fitter.api.tes_id import TauESID
 

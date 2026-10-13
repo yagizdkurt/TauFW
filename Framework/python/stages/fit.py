@@ -46,6 +46,7 @@ class FitStage(LocalStage):
     """The TES + tau ID fit with the Fitter API.
     fitter: a TauFW.Fitter.api.TauESID, or any object with the same methods (tests pass a fake one)."""
     name = 'fit'
+    group = 'fitter'  # taufw.py init names a copied config <group>_<name> if its name is taken
     # Spec = FitSpec: set at the bottom of this file.
 
     def request(self, spec, context):
@@ -55,7 +56,8 @@ class FitStage(LocalStage):
         if not points:
             raise ValueError("no working points to fit: set eras, jet_wps and ele_wps, or add a histograms stage")
         return self.api.fit_request(points=points, config=spec.config, config_mumu=spec.config_mumu,
-                                    steps=spec.steps, impacts=spec.impacts, timeout=spec.timeout)
+                                    steps=spec.steps, impacts=spec.impacts, timeout=spec.timeout,
+                                    pico_config=context.pico_config)
 
     def plan_commands(self, request):
         return self.api.plan_fit(request)
@@ -66,6 +68,9 @@ class FitStage(LocalStage):
 
     def execute(self, request, logdir, progress):
         return self.api.fit(request, logdir, progress)
+
+    def config_file(self, value):
+        return self.api.config_file(value)
 
     def status(self, spec, stage_record):
         """The fitted values of the finished fit (read from run.json; nothing is opened)."""
@@ -93,7 +98,8 @@ class FitStage(LocalStage):
 
 @dataclass(frozen=True)
 class FitSpec:
-    """Recipe options: the mutau fit config and the mumu control-region config (relative to Fitter/), the points
+    """Recipe options: the mutau fit config and the mumu control-region config (bundle files, or relative to
+    Fitter/), the points
     (empty jet_wps and ele_wps: those of the histograms stage), the steps to run, and whether to run impacts."""
     config:      str = DEFAULT_CONFIGS[0]
     config_mumu: str = DEFAULT_CONFIGS[1]
@@ -118,4 +124,5 @@ class FitSpec:
         return spec_to_dict(self)
 
 
+FitSpec._paths = ('config', 'config_mumu')  # resolved against the bundle (bundle.py)
 FitStage.Spec = FitSpec

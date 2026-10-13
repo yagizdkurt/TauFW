@@ -21,7 +21,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Callable, Iterable, Mapping, Optional, Tuple
 
-__all__ = ["Command", "CommandResult", "ProcessRunner"]
+__all__ = ["Command", "CommandResult", "CommandPlan", "RunReport", "ProcessRunner"]
 
 
 # =============================================================================
@@ -40,12 +40,14 @@ NOT_FOUND_EXIT = 127   # returncode of a command whose program does not exist
 @dataclass(frozen=True)
 class Command:
     """One command: label (short name), argv, working directory, expected
-    outputs (glob patterns, relative to cwd) and an optional timeout."""
+    outputs (glob patterns, relative to cwd), an optional timeout and extra
+    environment variables (on top of the runner's)."""
     label: str
     argv: Tuple[str, ...]
     cwd: str
     expects: Tuple[str, ...] = ()
     timeout: Optional[float] = None
+    env: Tuple[Tuple[str, str], ...] = ()
 
     def shell(self) -> str:
         """The command as one line that a shell would accept."""
@@ -75,6 +77,34 @@ class CommandResult:
         data["missing"] = list(self.missing)
         data["ok"] = self.ok
         return data
+
+
+@dataclass(frozen=True)
+class CommandPlan:
+    """What would run: the commands, all with the same working directory,
+    the artifacts they would make, and notes (problems found while planning)."""
+    cwd: str
+    commands: Tuple[Command, ...]
+    artifacts: Tuple[dict, ...] = ()
+    notes: Tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class RunReport:
+    """What ran: one CommandResult per command that ran (the run stops at
+    the first failure), out of `total`, and the artifacts that were made."""
+    results: Tuple[CommandResult, ...]
+    total: int
+    artifacts: Tuple[dict, ...] = ()
+
+    @property
+    def ok(self) -> bool:
+        return len(self.results) == self.total and all(result.ok for result in self.results)
+
+    @property
+    def failed(self) -> Optional[CommandResult]:
+        """The CommandResult that stopped the run, or None."""
+        return next((result for result in self.results if not result.ok), None)
 
 
 # =============================================================================
@@ -123,7 +153,8 @@ class ProcessRunner:
             stream.write("# %s\n# cwd:     %s\n# command: %s\n# started: %s\n\n"
                          % (command.label, command.cwd, command.shell(), _time(started)))
             stream.flush()
-            returncode = self.execute(command.argv, command.cwd, stream, command.timeout, self._environment())
+            returncode = self.execute(command.argv, command.cwd, stream, command.timeout,
+                                      self._environment(command))
         seconds = self.clock() - started
         missing = self._missing(command, started) if returncode == 0 else ()
         with open(log, "a", encoding="utf-8") as stream:
@@ -146,9 +177,10 @@ class ProcessRunner:
                 missing.append(pattern)
         return tuple(missing)
 
-    def _environment(self) -> dict:
+    def _environment(self, command: Command) -> dict:
         environment = dict(os.environ)
         environment.update(self.env)
+        environment.update(dict(command.env))
         environment["PYTHONUNBUFFERED"] = "1"   # keep the log in order
         return environment
 

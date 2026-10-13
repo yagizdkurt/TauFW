@@ -9,9 +9,11 @@
 
 Public API:
   ControlPlots                           the facade (api/control_plots.py)
-  PlotsRequest, CommandPlan, RunReport   records (api/types.py)
+  PlotsRequest                           request (api/types.py)
+  CommandPlan, RunReport                 results (TauFW.Utilities.Process)
 """
-from TauFW.Plotter.api.types import PlotsRequest, CommandPlan, RunReport
+from TauFW.Utilities.Process import CommandPlan, RunReport
+from TauFW.Plotter.api.types import PlotsRequest
 from TauFW.Plotter.api.control_plots import ControlPlots
 
 __all__ = ['ControlPlots', 'PlotsRequest', 'CommandPlan', 'RunReport']

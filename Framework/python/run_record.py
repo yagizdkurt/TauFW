@@ -3,9 +3,14 @@
 
     {"schema": 1, "run_id": "...", "created": "...", "updated": "...",
      "recipe": {...}, "pico_config": {"path": "...", "snapshot": {...}},
+     "bundle": {"source": "/.../Analyses/tes_id_2025", "files": ["recipe.yml", "config_coarse_TT.yml", ...]},
      "stages": [{"name": "production", "state": "WAITING", "attempt": 2, "message": "...",
                  "request": {...}, "submissions": [...], "last_status": {...}, "artifacts": [...],
                  "history": [{"time": "...", "event": "submitted", "state": "SUBMITTED", "detail": "..."}]}]}
+
+A stage record's "name" is the stage's id (a built-in stage: its name; a python step: its id). "bundle" lists the
+bundle files copied to <run_dir>/bundle/ when the run started (empty for a run without bundle files, and for runs
+saved before bundles existed).
 
 The record holds references and summaries only. The real state of the jobs stays with each stage's package (for
 production: PicoProducer's job configs), so a lost record can be rebuilt from them.
@@ -69,7 +74,8 @@ class RunState(str, Enum):
 
 @dataclass
 class StageRecord:
-    """The saved state of one stage. `state` is a StageState value (a plain string, as in run.json)."""
+    """The saved state of one stage. `name` is the stage's id; `state` is a StageState value (a plain string, as
+    in run.json)."""
     name:        str
     state:       str = 'NEW'
     attempt:     int = 0
@@ -96,6 +102,7 @@ class RunRecord:
     stages:      List[StageRecord]
     schema:      int = SCHEMA
     run_dir:     str = ""
+    bundle:      dict = field(default_factory=dict)
 
     # =========================================================================
     # ================================= STATE =================================
@@ -119,7 +126,7 @@ class RunRecord:
         return RunState.RUNNING
 
     def stage(self, name):
-        """The StageRecord of a stage."""
+        """The StageRecord of a stage id."""
         for stage_record in self.stages:
             if stage_record.name == name:
                 return stage_record
@@ -168,7 +175,7 @@ class RunRecord:
         stamp = timestamp(now)
         return cls(run_id=run_id, created=stamp, updated=stamp, recipe=recipe.to_dict(),
                    pico_config=pico_config or {'path': recipe.pico_config, 'snapshot': None},
-                   stages=[StageRecord(name=s.stage) for s in recipe.stages],
+                   stages=[StageRecord(name=s.id) for s in recipe.stages],
                    run_dir=os.path.join(os.path.abspath(run_root), run_id))
 
     @classmethod
@@ -177,12 +184,14 @@ class RunRecord:
             raise ValueError("Unsupported run.json schema %r (expected %s)" % (data.get('schema'), SCHEMA))
         stages = [StageRecord(**s) for s in data['stages']]
         return cls(run_id=data['run_id'], created=data['created'], updated=data['updated'], recipe=data['recipe'],
-                   pico_config=data['pico_config'], stages=stages, schema=data['schema'])
+                   pico_config=data['pico_config'], stages=stages, schema=data['schema'],
+                   bundle=data.get('bundle') or {})
 
     def to_dict(self):
         data = asdict(self)
         data.pop('run_dir')
-        return {key: data[key] for key in ('schema', 'run_id', 'created', 'updated', 'recipe', 'pico_config', 'stages')}
+        return {key: data[key] for key in ('schema', 'run_id', 'created', 'updated', 'recipe', 'pico_config',
+                                           'bundle', 'stages')}
 
     def __repr__(self):
         return "<RunRecord %s: %s>" % (self.run_id, self.state)

@@ -13,10 +13,12 @@ FAQ = (
      "operation, press Enter to return. Ctrl+C returns to the menu."),
 
     ("Recipes",
-     "Recipes are YAML or JSON files describing stages and their "
-     "options. Select a bundled recipe or enter another path. Relative paths "
-     "are resolved from the directory where you launched taufw.py. Recipes "
-     "use the existing PicoProducer configuration; they do not replace it."),
+     "An analysis is a directory in Analyses/ with recipe.yml (the stages "
+     "and their options), the config files it uses, and its Python steps. "
+     "Select a listed analysis or enter another path (a bundle directory or "
+     "a YAML or JSON recipe file). Relative paths are resolved from the "
+     "directory where you launched taufw.py. A run reads its own copy of "
+     "the bundle, made when it starts."),
 
     ("Starting a run", 
      "Select a recipe, review its plan, then select Start run. "

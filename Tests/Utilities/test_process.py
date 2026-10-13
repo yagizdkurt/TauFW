@@ -107,6 +107,17 @@ class ProcessRunnerTests(unittest.TestCase):
         self.assertEqual(result.to_dict()["argv"], ["prog", "a b"])
         self.assertIs(result.to_dict()["ok"], True)
 
+    def test_command_environment_on_top_of_the_runner(self):
+        seen = {}
+
+        def execute(argv, cwd, stream, timeout, env):
+            seen.update(runner=env.get("TAUFW_TEST"), command=env.get("TAUFW_PICO_CONFIG"))
+            return 0
+
+        runner = ProcessRunner(execute=execute, env={"TAUFW_TEST": "1", "TAUFW_PICO_CONFIG": "/runner.json"})
+        runner.run(Command("fake", ("prog",), "/work", env=(("TAUFW_PICO_CONFIG", "/run/pico.json"),)), self.log())
+        self.assertEqual(seen, {"runner": "1", "command": "/run/pico.json"})
+
     def test_shell_line_quotes_arguments(self):
         self.assertEqual(Command("x", ("python3", "plot.py", "-S", "a && b"), ".").shell(),
                          "python3 plot.py -S 'a && b'")

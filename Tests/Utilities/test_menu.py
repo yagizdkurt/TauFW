@@ -263,7 +263,7 @@ ConsoleUI(None)
         curses, screen = self.curses([1002, 1004, 1005, 27])
         ConsoleUI(curses).help()
         drawn = [call.args[2] for call in screen.addnstr.call_args_list]
-        self.assertTrue(any("Recipes are YAML" in line for line in drawn))
+        self.assertTrue(any("An analysis is a" in line for line in drawn))
 
 
 if __name__ == "__main__":

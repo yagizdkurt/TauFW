@@ -207,7 +207,8 @@ class RunRecordTests(FrameworkTestCase):
         self.assertEqual(loaded.run_dir, record.run_dir)
         self.assertEqual(Recipe.from_dict(loaded.recipe).to_dict(), Recipe.from_dict(RECIPE).to_dict())
         data = json.load(open(record.path))
-        self.assertEqual(list(data), ["schema", "run_id", "created", "updated", "recipe", "pico_config", "stages"])
+        self.assertEqual(list(data), ["schema", "run_id", "created", "updated", "recipe", "pico_config", "bundle",
+                                      "stages"])
 
     def test_save_is_crash_safe(self):
         pico = fakes.FakePicoProducer(statuses=[fakes.pending("DY")])
@@ -269,15 +270,19 @@ class RecipeTests(FrameworkTestCase):
                                                          "ele_wps": ["Tight"]}]}))
         self.assertIn("more than once", self.error({"name": "x", "stages": [{"stage": "fit"}, {"stage": "fit"}]}))
 
-    def test_load_yaml_example_and_relative_config(self):
-        example = os.path.join(checkout.REPO, "Framework", "recipes", "example_mutau.yml")
-        recipe = Recipe.load(example)
+    def test_load_bundle_example_and_relative_config(self):
+        example = os.path.join(checkout.REPO, "Analyses", "example_mutau")
+        recipe = Recipe.load(example)  # a bundle directory: its recipe.yml
         self.assertEqual([s.stage for s in recipe.stages], ["production", "plots"])
         self.assertIsNone(recipe.pico_config)
+        self.assertEqual(recipe.bundle_dir, example)
+        self.assertEqual(recipe.source, "example_mutau/recipe.yml")
         path = os.path.join(self.root, "r.json")
         with open(path, "w") as stream:
             json.dump(dict(RECIPE, pico={"config": "cfg/config.json"}), stream)
-        self.assertEqual(Recipe.load(path).pico_config, os.path.join(self.root, "cfg", "config.json"))
+        loaded = Recipe.load(path)
+        self.assertEqual(loaded.pico_config, "cfg/config.json")  # as written (saved in run.json)
+        self.assertEqual(loaded.pico_config_path, os.path.join(self.root, "cfg", "config.json"))
         with self.assertRaises(RecipeError):
             Recipe.load(os.path.join(self.root, "recipe.txt"))
 
