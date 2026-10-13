@@ -48,7 +48,10 @@ Interactive progress updates flush immediately and overwrite their line. Redirec
 `TauFW.Utilities.Menu` exports `ConsoleUI` and `MenuNavigation`. Change terminal appearance, screen
 wording, option labels, keyboard handling, and menu messages in
 `python/Menu/_menu.py`. Edit the ordered help topics and explanations in
-`python/Menu/faq.py`. Change screen transitions, back behavior, refresh loops,
+`python/Menu/faq.py`. The pre-install FastSetup checklist launches through
+`python/Menu/setup_menu.py` and uses `ConsoleUI.setup_checklist()`; installation
+remains in Bash. Space/Enter toggles components and activates Start install.
+Change screen transitions, back behavior, refresh loops,
 and operation recovery in `python/Menu/_navigation.py`. Source section banners
 group the related responsibilities.
 

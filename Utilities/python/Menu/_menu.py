@@ -56,12 +56,12 @@ class ConsoleUI:
         except self.curses.error:
             pass
 
-    def _line(self, screen, y, x, value, selected=False):
+    def _line(self, screen, y, x, value, selected=False, color=0):
         height, width = screen.getmaxyx()
         if 0 <= y < height - 1 and 0 <= x < width - 1:
             try:
                 screen.addnstr(y, x, str(value), width - x - 1,
-                               self.curses.A_REVERSE if selected else 0)
+                               color | (self.curses.A_REVERSE if selected else 0))
             except self.curses.error:
                 pass  # A resize may have happened between size and draw.
 
@@ -119,6 +119,67 @@ class ConsoleUI:
 
     # =========================================================================
     # ========================== APPLICATION SCREENS ==========================
+
+    # =========================================================================
+    # =========================== SETUP CHECKLIST =============================
+
+    def setup_checklist(self, components, selected):
+        """Return selected component IDs only after Start install; None cancels."""
+        enabled = set(selected)
+
+        def draw(screen):
+            self._setup(screen)
+            colors = {True: 0, False: 0}
+            try:
+                if self.curses.has_colors():
+                    self.curses.start_color()
+                    background = self.curses.COLOR_BLACK
+                    try:
+                        self.curses.use_default_colors()
+                        background = -1
+                    except self.curses.error:
+                        pass
+                    self.curses.init_pair(1, self.curses.COLOR_GREEN, background)
+                    self.curses.init_pair(2, self.curses.COLOR_RED, background)
+                    colors = {True: self.curses.color_pair(1), False: self.curses.color_pair(2)}
+            except self.curses.error:
+                pass  # Checkboxes remain usable on terminals without color.
+            focus = 0
+            while True:
+                screen.erase()
+                height, _ = screen.getmaxyx()
+                self._line(screen, 0, 0, "Please choose which of these to install")
+                self._line(screen, 1, 0, "CMSSW setup and the TauFW build are always included.")
+                rows = max(1, height - 5)
+                first = max(0, focus - rows + 1)
+                for index in range(first, min(len(components) + 1, first + rows)):
+                    if index == len(components):
+                        label, color = "[ Start install ]", 0
+                    else:
+                        component, label = components[index]
+                        checked = component in enabled
+                        label = ("[x] " if checked else "[ ] ") + label
+                        color = colors[checked]
+                    self._line(screen, index - first + 3, 0, label, index == focus, color)
+                self._line(screen, height - 2, 0,
+                           "Up/Down Move | Space/Enter Select | Esc Cancel")
+                screen.refresh()
+                key = screen.getch()
+                if key == self.curses.KEY_UP:
+                    focus = (focus - 1) % (len(components) + 1)
+                elif key == self.curses.KEY_DOWN:
+                    focus = (focus + 1) % (len(components) + 1)
+                elif key in (32, 10, 13, self.curses.KEY_ENTER):
+                    if focus == len(components):
+                        return [name for name, _ in components if name in enabled]
+                    component = components[focus][0]
+                    if component in enabled:
+                        enabled.remove(component)
+                    else:
+                        enabled.add(component)
+                elif key == 27:
+                    return None
+        return self.curses.wrapper(draw)
 
     def _action(self, title, choices, actions, back="back"):
         selected = self.choose(title, choices)

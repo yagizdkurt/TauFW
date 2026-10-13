@@ -4,6 +4,7 @@ import io
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import unittest
 from unittest import mock
 
@@ -19,11 +20,56 @@ class ScreenTests(unittest.TestCase):
         screen.getch.side_effect = keys
         curses = mock.Mock()
         curses.error = RuntimeError
+        curses.A_REVERSE = 256
+        curses.COLOR_BLACK, curses.COLOR_GREEN, curses.COLOR_RED = 0, 2, 1
+        curses.color_pair.side_effect = lambda pair: pair * 512
         for name, value in (("KEY_UP", 1001), ("KEY_DOWN", 1002), ("KEY_ENTER", 1003),
                             ("KEY_NPAGE", 1004), ("KEY_PPAGE", 1005), ("KEY_BACKSPACE", 1006)):
             setattr(curses, name, value)
         curses.wrapper.side_effect = lambda action: action(screen)
         return curses, screen
+
+    def test_checklist_toggles_only_and_starts_from_button(self):
+        curses, screen = self.curses([32, 10, 1002, 13, 1002, 10])
+        ui = ConsoleUI(curses)
+        self.assertEqual(ui.setup_checklist([("first", "First"), ("second", "Second")], ["first"]),
+                         ["first", "second"])
+        curses.wrapper.assert_called_once()
+        drawn = screen.addnstr.call_args_list
+        self.assertTrue(any(call.args[2] == "[ Start install ]" for call in drawn))
+        self.assertTrue(any(call.args[2] == "[x] First" and call.args[4] & 512 for call in drawn))
+        self.assertTrue(any(call.args[2] == "[ ] Second" and call.args[4] & 1024 for call in drawn))
+
+    def test_checklist_cancel_empty_selection_and_no_color(self):
+        curses, screen = self.curses([27])
+        curses.has_colors.return_value = False
+        ui = ConsoleUI(curses)
+        self.assertIsNone(ui.setup_checklist([("first", "First")], ["first"]))
+        curses.start_color.assert_not_called()
+        screen.getch.side_effect = [32, 1002, 32]
+        self.assertEqual(ui.setup_checklist([("first", "First")], ["first"]), [])
+        # A color-capable terminal can still reject initialization.
+        curses.has_colors.return_value = True
+        curses.start_color.side_effect = RuntimeError("no colors")
+        screen.getch.side_effect = [1002, 10]
+        self.assertEqual(ui.setup_checklist([("first", "First")], ["first"]), ["first"])
+
+    def test_setup_launcher_writes_selection_only_after_start(self):
+        from TauFW.Utilities.Menu import setup_menu
+        ui = mock.Mock()
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "selection"
+            with mock.patch.object(ConsoleUI, "open", return_value=ui):
+                ui.setup_checklist.return_value = None
+                self.assertEqual(setup_menu.main(["--output", str(output)]), 130)
+                self.assertFalse(output.exists())
+                ui.setup_checklist.return_value = ["combine", "run2-jme"]
+                self.assertEqual(setup_menu.main(["--output", str(output), "--selected", "combine"]), 0)
+                self.assertEqual(output.read_text(), "combine\nrun2-jme\n")
+                ui.setup_checklist.side_effect = KeyboardInterrupt
+                output.unlink()
+                self.assertEqual(setup_menu.main(["--output", str(output)]), 130)
+                self.assertFalse(output.exists())
 
     def test_navigation_uses_injected_operations(self):
         ui = mock.Mock()

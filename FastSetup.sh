@@ -54,6 +54,10 @@ export GIT_TERMINAL_PROMPT=0
 
 jobs=4           # --jobs
 run2_jme=false   # --run2-jme
+tauidsfs=true    # --skip-tauidsfs
+htt=true         # --skip-htt
+combine=true     # --skip-combine
+non_interactive=false # --non-interactive
 cmssw_dir=       # --cmssw-dir, or chosen by choose_release_area
 repo_dir=        # this checkout; updated once it has been moved
 target=          # final checkout location: $cmssw_dir/src/TauFW
@@ -78,15 +82,16 @@ main() {
   check_host               # Linux with Git
   locate_checkout          # this TauFW clone
   choose_release_area      # where CMSSW_14_1_0_pre4 lives
+  select_components       # checklist before any installation or checkout move
   choose_scram_arch        # el8/el9_amd64_gcc12
   load_cms_software        # source cmsset_default.sh
   create_release           # cmsrel, unless the release exists
   activate_release         # cmsenv
   move_checkout            # to $CMSSW_BASE/src/TauFW
   install_nanoaodtools     # only with --run2-jme
-  install_tauidsfs
-  install_htt_efficiencies
-  install_combine          # Combine and CombineHarvester
+  if $tauidsfs; then install_tauidsfs; fi
+  if $htt; then install_htt_efficiencies; fi
+  if $combine; then install_combine; fi # Combine and CombineHarvester
   build_release            # scram b
   verify_install
   print_summary
@@ -97,8 +102,11 @@ usage() {
 Usage: bash FastSetup.sh [options]
 
 Creates or reuses $RELEASE, moves this checkout to its src/TauFW,
-installs TauIDSFs, the HTT lepton efficiencies, Combine $COMBINE_TAG and
-CombineHarvester $HARVESTER_TAG, then builds everything with SCRAM.
+offers a component checklist on interactive terminals, then builds with SCRAM.
+TauIDSFs, HTT efficiencies, Combine $COMBINE_TAG and CombineHarvester
+$HARVESTER_TAG are selected by default; standalone NanoAODTools is optional.
+Space/Enter toggles a component. Select Start install to begin; Esc cancels.
+Without a terminal, the defaults and command-line options are used.
 
 Options:
   --cmssw-dir PATH  Release area to create or reuse; its name must be
@@ -108,11 +116,15 @@ Options:
   --jobs N          Build parallelism (default: 4).
   --run2-jme        Install standalone NanoAODTools for Run 2 JEC/JER.
                     Otherwise use the framework shipped with CMSSW.
+  --non-interactive Skip the checklist (for automation).
+  --skip-tauidsfs   Do not install or verify TauIDSFs.
+  --skip-htt        Do not install HTT lepton efficiencies.
+  --skip-combine    Do not install or verify Combine/CombineHarvester.
   -h, --help        Show this help.
 Values can also be given as --cmssw-dir=PATH and --jobs=N.
 
-Requires Linux with bash 4.4+, CMS software (normally via CVMFS), Git and
-network access. SCRAM_ARCH may be set to ${SUPPORTED_ARCHS[0]} or ${SUPPORTED_ARCHS[1]};
+Requires Linux with bash 4.4+, Python 3 (with curses for the checklist),
+CMS software (normally via CVMFS), Git and network access. SCRAM_ARCH may be set to ${SUPPORTED_ARCHS[0]} or ${SUPPORTED_ARCHS[1]};
 otherwise it is detected from /etc/os-release. CMS_SETUP may override
 /cvmfs/cms.cern.ch/cmsset_default.sh.
 
@@ -277,6 +289,10 @@ parse_args() {
         if [[ $1 == --cmssw-dir ]]; then cmssw_dir=$2; else jobs=$2; fi
         shift 2 ;;
       --run2-jme) run2_jme=true; shift ;;
+      --non-interactive) non_interactive=true; shift ;;
+      --skip-tauidsfs) tauidsfs=false; shift ;;
+      --skip-htt) htt=false; shift ;;
+      --skip-combine) combine=false; shift ;;
       -h | --help) usage; exit 0 ;;
       *) die "Unknown option or missing value: $1 (see --help)." ;;
     esac
@@ -287,6 +303,7 @@ parse_args() {
 check_host() {
   [[ $(uname -s) == Linux ]] || die 'CMSSW needs Linux; run this script on a CMS node or in a CMS container.'
   command -v git >/dev/null || die 'Git is required.'
+  command -v python3 >/dev/null || die 'Python 3 is required.'
 }
 
 locate_checkout() {
@@ -329,6 +346,45 @@ choose_release_area() {
   if [[ $repo_dir != "$target" && (-e $target || -L $target) ]]; then
     die "Destination already exists: $target. Run its FastSetup.sh or choose another --cmssw-dir."
   fi
+}
+
+# --- Component selection -----------------------------------------------------
+
+select_components() {
+  local selection_file status=0 component
+  local selected=()
+  if ! $non_interactive && [[ -t 0 && -t 1 ]]; then
+    if $tauidsfs; then selected+=(tauidsfs); fi
+    if $htt; then selected+=(htt); fi
+    if $combine; then selected+=(combine); fi
+    if $run2_jme; then selected+=(run2-jme); fi
+    selection_file=$(mktemp "${TMPDIR:-/tmp}/FastSetup-selection.XXXXXX")
+    cleanup_paths+=("$selection_file")
+    python3 "$repo_dir/Utilities/python/Menu/setup_menu.py" \
+      --output "$selection_file" --selected "${selected[@]}" || status=$?
+    if ((status == 130)); then
+      log 'Setup cancelled; no installation changes were made.'
+      exit 130
+    elif ((status != 0)); then
+      die 'Cannot open the checklist. Use --non-interactive to install with command-line options.'
+    fi
+    tauidsfs=false htt=false combine=false run2_jme=false
+    while IFS= read -r component; do
+      case $component in
+        tauidsfs) tauidsfs=true ;;
+        htt) htt=true ;;
+        combine) combine=true ;;
+        run2-jme) run2_jme=true ;;
+        *) die "Unknown checklist component: $component" ;;
+      esac
+    done < "$selection_file"
+  fi
+  # Preserve the exact selection in failure/resume hints, including menu edits.
+  args=(--non-interactive --cmssw-dir "$cmssw_dir" --jobs "$jobs")
+  if ! $tauidsfs; then args+=(--skip-tauidsfs); fi
+  if ! $htt; then args+=(--skip-htt); fi
+  if ! $combine; then args+=(--skip-combine); fi
+  if $run2_jme; then args+=(--run2-jme); fi
 }
 
 choose_scram_arch() {
@@ -442,13 +498,26 @@ build_release() {
 
 verify_install() {
   log 'Checking the installed tools'
-  python3 -c 'import PhysicsTools.NanoAODTools.postprocessing.framework.postprocessor as m; print("NanoAODTools:", m.__file__); import TauPOG.TauIDSFs; import correctionlib' ||
+  python3 -c 'import PhysicsTools.NanoAODTools.postprocessing.framework.postprocessor as m; print("NanoAODTools:", m.__file__); import correctionlib' ||
     die 'The build finished, but a Python import failed (see above).'
-  command -v combine >/dev/null || die 'The build finished, but combine is not on PATH.'
+  if $tauidsfs; then
+    python3 -c 'import TauPOG.TauIDSFs' || die 'The build finished, but TauIDSFs cannot be imported.'
+  fi
+  if $combine; then
+    command -v combine >/dev/null || die 'The build finished, but combine is not on PATH.'
+  fi
+}
+
+selection_label() {
+  if "$1"; then printf 'selected'; else printf 'skipped'; fi
 }
 
 print_summary() {
   log "Setup complete: $repo_dir"
+  printf '\nComponent selection (unselected components were left unchanged):\n'
+  printf '  TauIDSFs: %s\n  HTT efficiencies: %s\n  Combine + CombineHarvester: %s\n  Standalone NanoAODTools: %s\n' \
+    "$(selection_label "$tauidsfs")" "$(selection_label "$htt")" \
+    "$(selection_label "$combine")" "$(selection_label "$run2_jme")"
   if ((${#warnings[@]})); then
     printf '\nWarnings from this run:\n'
     printf '  - %s\n' "${warnings[@]}"
