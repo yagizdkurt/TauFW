@@ -846,3 +846,17 @@ them from a fresh `pico.py submit`, or keep a checkout of the old tree until tho
 **Check:** BBB normalizes worker paths to `<pico>/picojob.py`, so no baseline changes. The comparison harness is
 unchanged (296 scenarios), and `Tests/check_harness.py` passes.
 
+### A4. Documentation
+
+- [PicoProducer/docs/API.md](../PicoProducer/docs/API.md): usage, the pipeline, each method with its side effects
+  and `pico.py` equivalent, construction, the records, known limitations (working directory and thread safety,
+  messages of lower-level code, workers reading the global configuration).
+- [PicoProducer/docs/IO.md](../PicoProducer/docs/IO.md): the files each step reads and writes, the job config keys,
+  the merged tuple.
+- `Utilities/IOInventory.md` regenerated.
+
+**Check:** a smoke test drove `PicoProducer` directly with a silent reporter (fake catalog, storage and batch
+system): `plan` writes nothing and restores the working directory, `submit` → `status` → `merge(clean=True)` returns
+the expected artifacts and removes the job output, and every record survives a JSON round trip
+(`to_dict`/`from_dict`).
+
