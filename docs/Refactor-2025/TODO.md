@@ -14,31 +14,31 @@ Items marked **(verify)** may already be done; check before working on them.
 
 - [x] **Import-boundary detector on Windows without ROOT:** 10 synthetic self-tests and 28 offline harness checks
       pass; the targeted repository check fails as intended on 24 known import occurrences (22 file/module pairs,
-      20 files), with nine explicit parse exemptions and no new/stale entries. Roadmap step 1 is implemented. (CL §17)
+      20 files), with nine explicit parse exemptions and no new/stale entries. Roadmap step 1 is implemented. (CL §13)
 - [ ] **Confirm import-boundary reporting on lxplus:** `python3 Tests/run.py checks --case check_import_boundaries`.
       Nonzero status is expected while coupling remains; compare the debt report, do not rebaseline or fix production
-      code to make this validation pass. Detector-only command: `python3 Tests/check_import_boundaries.py DetectorTests -q`. (CL §17)
+      code to make this validation pass. Detector-only command: `python3 Tests/check_import_boundaries.py DetectorTests -q`. (CL §13)
 - [ ] **Fitter scripts after the import change:** with `cmsenv`, `python3 -c "import TauFW.Fitter.plot.rebinning,
       TauFW.Fitter.plot.postfit_TES"` and `python3 plotParabola_POI_region.py -h` (in `Fitter/TauES_ID/`) must import
-      without error. (CL §18)
+      without error. (CL §14)
 - [ ] **BBB check after the expression helpers move:** `python3 Tests/run.py bbb check`, the `plotter.*` cases must
-      pass unchanged (no re-lock); `python3 -c "import TauFW.Fitter.plot.datacard"` with `cmsenv`. (CL §19)
-- [x] Lock the new `drawing.canvas` case before the drawing code moves (locked 2026-10-14: 19 same, 1 added). (CL §16)
+      pass unchanged (no re-lock); `python3 -c "import TauFW.Fitter.plot.datacard"` with `cmsenv`. (CL §12)
+- [x] Lock the new `drawing.canvas` case before the drawing code moves (locked 2026-10-14: 19 same, 1 added). (CL §12)
 - [ ] **BBB check after the drawing move.** `python3 Tests/run.py bbb check`: every case, `drawing.canvas` included,
       must pass with no difference; no re-lock. Then `python3 Tests/run.py normal` (the `Tests/Plotter` scripts import
-      the new paths) and, by eye, one `Plotter/plot.py` run and one Fitter postfit plot. (CL §16)
-- [ ] **BBB check after §13–§15.** `python3 Tests/run.py bbb check`; nothing should change (ParallelProcessor/loading
-      bar, `Utilities.Math`, `CLI.table`). No re-lock. The `3d09ea6` lock may already include §13/§14 **(verify)**.
-      (CL §13, §14, §15)
+      the new paths) and, by eye, one `Plotter/plot.py` run and one Fitter postfit plot. (CL §12)
+- [ ] **BBB check after §12.** `python3 Tests/run.py bbb check`; nothing should change (ParallelProcessor/loading
+      bar, `Utilities.Math`, `CLI.table`). No re-lock. The `3d09ea6` lock may already include §12 **(verify)**.
+      (CL §12)
 - [ ] **ParallelProcessor parallel tests** in `Tests/Utilities/test_process.py` (start order, queue, `kwret` through the
-      pipe): they need the `fork` start method, so they only run on Linux. (CL §13)
+      pipe): they need the `fork` start method, so they only run on Linux. (CL §12)
 - [ ] **PicoProducer with `ncores>=2`**: one run through `iterevts`/`itervalid` (fork with nested functions).
 - [ ] **Framework, TES/ID bundle:** `taufw.py plan Analyses/tes_id_2025`, then a VTight/Tight `taufw.py start` run
       compared with `run_inputs.sh` + `run_workflow_zmm.sh` in a clean copy (`FitparameterValues__mutau_*`,
-      `tau_sf/*VSjetVTight_VSeleTight*`). (CL §10 "On lxplus (to do)", §12)
+      `tau_sf/*VSjetVTight_VSeleTight*`). (CL §10 "Tests", §11)
 - [ ] **Confirm F07:** the rebinned control plots appear in `plots/rebinning/`. ([Fitter BUGS](../Fitter/BUGS.md) F07)
-- [ ] **Runner validation from §11:** `bbb check`, `bbb check -v`, `bbb lock --replace`, then `git diff --exit-code`
-      on `Tests/BBB/baselines/` **(verify)**. (CL §11)
+- [ ] **Runner validation:** `bbb check`, `bbb check -v`, `bbb lock --replace`, then `git diff --exit-code`
+      on `Tests/BBB/baselines/` **(verify)**. (quiet-runner changelog section removed)
 - [ ] `python3 Tests/run.py normal` after the Plotter legacy move **(verify)**. (Plotter legacy cleanup; changelog section removed)
 - [ ] **Manual smoke runs:** `pico.py run -c mutau -y 2022_postEE -m 100`, `pico.py submit ... --dry`,
       `taufw.py plan` on `Analyses/example_mutau`, and one small real `taufw.py start` + `advance` until DONE on
@@ -47,7 +47,7 @@ Items marked **(verify)** may already be done; check before working on them.
 
 ## 2. Moving `common/python/tools/` into `TauFW.Utilities`
 
-Done: `parallel`, `LoadingBar` (§13), `math` (§14), `Table` (§15). Rules for the rest:
+Done: `parallel`, `LoadingBar` (§12), `math` (§12), `Table` (§12). Rules for the rest:
 
 - re-implement in Utilities style (no file move), same logic, update every caller, delete the old module, no shims;
 - terminal output byte for byte the same; old quirks go in a `LEGACY, CLEAN UP LATER` (or
@@ -73,7 +73,7 @@ Done: `parallel`, `LoadingBar` (§13), `math` (§14), `Table` (§15). Rules for 
 Each changes logs, so do each in its own commit, with a BBB re-lock where a baseline records it
 (`common.formatting` records the table and the loading bar).
 
-**`CLI.table`** — `Utilities/python/CLI/_internal/table.py`, section `LEGACY, CLEAN UP LATER` (CL §15):
+**`CLI.table`** — `Utilities/python/CLI/_internal/table.py`, section `LEGACY, CLEAN UP LATER` (CL §12):
 
 - [ ] The header is always underlined with raw ANSI codes, even when stdout is a file; use the CLI's
       terminal/color detection.
@@ -87,17 +87,17 @@ Each changes logs, so do each in its own commit, with a BBB re-lock where a base
 - [ ] Too few header titles raise `TypeError` from `%` after the warning.
 - [ ] Consider merging `CLI.table` with `CLI.print_table` once the old output may change.
 
-**Loading bar** — `Utilities/python/CLI/_internal/loading_bar.py`, `BACKWARD COMPATIBILITY, CLEANUP` (CL §13):
+**Loading bar** — `Utilities/python/CLI/_internal/loading_bar.py`, `BACKWARD COMPATIBILITY, CLEANUP` (CL §12):
 
 - [ ] Replace the `\b` backspace redraws (e.g. `CLI.update_progress` with `\r`).
 
-**ParallelProcessor** — `Utilities/python/Process/_parallel.py`, `BACKWARD COMPATIBILITY, CLEANUP` (CL §13):
+**ParallelProcessor** — `Utilities/python/Process/_parallel.py`, `BACKWARD COMPATIBILITY, CLEANUP` (CL §12):
 
 - [ ] Verbose messages still name the old classes (`MultiProcessor.start`, `ReturnProcess.join`, ...), and `close()`
       always prints; route through a CLI instance.
 - [ ] Nested target functions need the `fork` start method; Python 3.14 changes the Linux default. Nice to have.
 
-**Drawing library** — `Utilities/python/Drawing/`, moved as it was from the Plotter (CL §16). Each item changes the
+**Drawing library** — `Utilities/python/Drawing/`, moved as it was from the Plotter (CL §12). Each item changes the
 `drawing.canvas` baseline unless noted; re-lock after each:
 
 - [ ] Restyle to the Utilities style (4-space indent, banners, layout rule) and split `Plot.py` (1376 lines); no
@@ -190,7 +190,7 @@ Next-work proposals (not designed in detail yet):
 - [ ] E: a weights stage.
 - [ ] F: variation production (TES/LTF/JTF tuples need their own channels and production runs).
 
-Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limitations"; CL §10, §12):
+Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limitations"; CL §10, §11):
 
 - [ ] Sample lists are not part of a bundle (`plot.py`, `createinputsTES.py` import `samples_v15`); needs e.g. a
       `$TAUFW_SAMPLES` hook.
@@ -203,7 +203,7 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
 - Excluded broken cases `pico.sample` and `plotter.rdataframe`: defects and recorded evidence moved to
   [Legacy/Bugs.md](../../Legacy/Bugs.md#excluded-broken-test-and-demonstration-scripts).
 - [ ] `Tests/PicoProducer/testSFs.py` still imports the legacy `MuonSFs_ROOT`. Nice to have.
-- [ ] Utilities menu tests depend on the terminal and colors (CL §11); the later menu commits may have fixed this
+- [ ] Utilities menu tests depend on the terminal and colors (quiet-runner changelog section removed); the later menu commits may have fixed this
       **(verify)**.
 
 ## 8. Legacy code and architecture
@@ -239,6 +239,6 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
       (`runTESvar.py`, `runShapevar.py` deleted), `cd735b6` (`getTESvariations.py`, `nanoV10branch.txt`, TESvar shell
       scripts), `623a040`/`d801879` (`Legacy/OldAnalysis/` by year), `d5db827` (`LegacyCode.md`, `HowToCodeGood.md`),
       `749dfb3`/`b8309cb` (console menu).
-- [ ] Changelog §10 onwards have no `---` separators. Cosmetic.
+- [ ] Changelog §11 onwards have no `---` separators. Cosmetic.
 - [ ] The PicoProducer foundations cleanup moved the forks and generator studies to `PicoProducer/python/legacy/`; several are now in
       `Legacy/OldAnalysis/` (A11, W03). Add a note if wanted.
