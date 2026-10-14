@@ -46,7 +46,7 @@ starting, or continuing a pipeline.
 ## Contributing responsibly
 
 Before pushing changes or opening a pull request, read the
-[basic coding guidelines](docs/HowToCodeGood.md) and
+[mandatory merge request rules](docs/Rules.md) and
 [legacy code policy](docs/LegacyCode.md). Take responsibility for the code you
 introduce: document its purpose, check its dependencies, and archive completed
 one-off work in the appropriate data-year folder. Include the required legacy
