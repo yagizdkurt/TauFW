@@ -146,9 +146,7 @@ class ConsoleUI:
                 center = padding + " " * (card_width // 2)
                 lines += [center + "|", center + "v"]
             labels = self._wrap("%d. %s" % (index + 1, stage_id), card_width - 4)
-            labels.append("Python step" if stage_type == "python" else stage_type)
-            if description:
-                labels += self._wrap(description, card_width - 4)
+            labels += self._wrap(description or "", card_width - 4)
             lines += [edge]
             lines += [padding + "| " + label.center(card_width - 4) + " |" for label in labels]
             lines += [edge]

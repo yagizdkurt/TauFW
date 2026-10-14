@@ -403,7 +403,7 @@ ConsoleUI(None)
         other = dict(name="second", stages=(("plots", "plots", ""),))
         ui.select_recipe(["first", "second"], lambda index: (view, other)[index])
         text = "\n".join(line for frame in frames for line in frame)
-        self.assertIn("Python step", text)
+        self.assertNotIn("Python step", text)
         self.assertIn("3. fit", text)
         self.assertIn("Recipe: second", "\n".join(frames[-1]))
         wrapped = ui._pipeline_lines(view, 20)
@@ -468,10 +468,8 @@ ConsoleUI(None)
         self.assertIn("2 problem(s):", text)
         self.assertIn("- pico.config: file not found: x.json", text)
         self.assertLess(text.index("problem(s)"), text.index("1. prod"))  # the problems come first
-        cards = [line[2:-2].strip() for line in lines if line.startswith(" ") and "|" in line]
-        self.assertIn("production", " ".join(cards))  # the stage type under the id
-        self.assertIn("mutau tuples", " ".join(cards))
-        self.assertIn("Python step", " ".join(cards))
+        cards = [line.strip()[2:-2].strip() for line in lines if line.strip().startswith("| ")]
+        self.assertEqual(cards, ["1. prod", "mutau tuples", "2. summary", ""])
 
     def test_broken_recipes_are_red_in_the_list(self):
         ui = ConsoleUI(mock.Mock())
