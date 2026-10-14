@@ -39,12 +39,16 @@ class FakeUI(ConsoleUI):
     def help(self):
         pass
 
-    def select_recipe(self, names, preview=None):
+    def select_recipe(self, names, preview=None, broken=None):
+        self.broken = broken
         return super().select_recipe(names)
 
     def confirm_recipe(self, path, review=None, position=None):
         self.review = review
         return super().confirm_recipe(path)
+
+
+FIT = {"stage": "fit", "id": "fit", "inputs": {"shapes": None}}
 
 
 class MenuTests(unittest.TestCase):
@@ -115,12 +119,12 @@ class MenuTests(unittest.TestCase):
         return Menu(self.commands, ui, self.root, self.recipes)
 
     def recipe_file(self, path, name="test", stages=None):
-        path.write_text(json.dumps(dict(name=name, stages=stages or [{"stage": "fit"}])),
+        path.write_text(json.dumps(dict(name=name, stages=stages or [FIT])),
                         encoding="utf-8")
         return path
 
     def record(self, name="test", state="WAITING", day=1):
-        recipe = Recipe.from_dict({"name": name, "stages": [{"stage": "fit"}]})
+        recipe = Recipe.from_dict({"name": name, "stages": [FIT]})
         record = RunRecord.create(recipe, str(self.root / "taufw_runs"),
                                   now=datetime(2026, 10, day))
         Path(record.run_dir).mkdir(parents=True)
@@ -222,17 +226,16 @@ class MenuTests(unittest.TestCase):
         self.commands["advance"].assert_not_called()
 
     def test_default_recipes_are_the_analysis_bundles(self):
-        ui = FakeUI([0, 0])
-        menu = Menu(self.commands, ui, launch_dir=self.root)
-        self.assertEqual(menu.operations.recipes_dir, checkout.REPO / "Analyses")
-        expected = sorted(path.name for path in menu.operations.recipes_dir.iterdir()
-                          if (path / "recipe.yml").is_file())
+        recipes_dir = checkout.REPO / "Analyses"
+        expected = sorted(path.name for path in recipes_dir.iterdir() if (path / "recipe.yml").is_file())
         self.assertIn("tes_id_2025", expected)
-        self.assertTrue(expected)
+        ui = FakeUI([expected.index("tes_id_2025"), 0])
+        menu = Menu(self.commands, ui, launch_dir=self.root)
+        self.assertEqual(menu.operations.recipes_dir, recipes_dir)
         menu.start()
         self.assertEqual(ui.screens[0][1][:-2], expected)
-        self.assertEqual(self.commands["start"].call_args.args[0].recipe,
-                         str(menu.operations.recipes_dir / expected[0]))
+        self.assertEqual(ui.broken, [name == "example_broken" for name in expected])  # the validation demo
+        self.assertEqual(self.commands["start"].call_args.args[0].recipe, str(recipes_dir / "tes_id_2025"))
 
     def test_dispatch_uses_semantic_actions_without_screen_positions(self):
         ui = mock.Mock()
@@ -256,22 +259,47 @@ class MenuTests(unittest.TestCase):
         for bundle, stages in expected.items():
             with self.subTest(bundle=bundle):
                 view = operations.recipe_preview(checkout.REPO / "Analyses" / bundle)
-                self.assertEqual(view["stages"], stages)
+                self.assertEqual(tuple(stage[:2] for stage in view["stages"]), stages)
+                self.assertEqual(view["problems"], ())
+                self.assertTrue(all(stage[2] for stage in view["stages"]))  # the bundles describe every stage
         self.framework.assert_not_called()
         self.assertFalse((self.root / "taufw_runs").exists())
 
-    def test_multiple_python_steps_keep_custom_and_default_ids(self):
+    def test_multiple_python_steps_keep_their_ids_and_descriptions(self):
+        steps = self.recipes / "steps"
+        steps.mkdir()
+        for name in ("prep", "check", "report"):
+            (steps / (name + ".py")).write_text("def run(ctx):\n    pass\n")
         path = self.recipe_file(self.recipes / "custom.json", stages=[
-            {"stage": "python", "id": "prepare", "file": "steps/prep.py"},
-            {"stage": "plots", "eras": [2025]},
-            {"stage": "python", "file": "steps/check.py"},
-            {"stage": "fit"},
-            {"stage": "python", "id": "report", "file": "steps/report.py"},
+            {"stage": "python", "id": "prepare", "inputs": None, "file": "steps/prep.py"},
+            {"stage": "plots", "id": "plots", "inputs": {"tuples": None}, "eras": [2025]},
+            {"stage": "python", "id": "check", "description": "look at the plots", "inputs": {"plots": "plots"},
+             "file": "steps/check.py"},
+            FIT,
+            {"stage": "python", "id": "report", "inputs": {"fit": "fit"}, "file": "steps/report.py"},
         ])
         view = self.menu(FakeUI()).operations.recipe_preview(path)
-        self.assertEqual(view["stages"], (("prepare", "python"), ("plots", "plots"),
-                                          ("check", "python"), ("fit", "fit"), ("report", "python")))
+        self.assertEqual(view["stages"], (("prepare", "python", ""), ("plots", "plots", ""),
+                                          ("check", "python", "look at the plots"), ("fit", "fit", ""),
+                                          ("report", "python", "")))
+        self.assertEqual(view["problems"], ())
         self.framework.assert_not_called()
+
+    def test_broken_recipes_are_marked_and_list_every_problem(self):
+        self.recipe_file(self.recipes / "a_good.json")
+        self.recipe_file(self.recipes / "b_bad.json", stages=[
+            {"stage": "histograms", "inputs": {"tuples": None}, "eras": [2025], "jet_wps": ["Tight"],
+             "ele_wps": ["Tight"]},
+            {"stage": "fit", "id": "fit", "inputs": {"shapes": "histo"}},
+        ])
+        ui = FakeUI([3])  # Back
+        self.menu(ui).start()
+        self.assertEqual(ui.broken, [False, True])
+        view = self.menu(FakeUI()).operations.recipe_preview(self.recipes / "b_bad.json")
+        self.assertEqual(view["problems"], ("stages[0] (histograms): missing 'id' (every stage needs a unique id, "
+                                            "e.g. id: histograms)",
+                                            "stages[1] (fit).inputs.shapes: no stage 'histo' in the recipe"))
+        self.assertEqual(view["stages"], (("fit", "fit", ""),))  # the stages that could be read
 
     def test_review_reloads_recipe_and_preserves_nonfatal_notes_silently(self):
         path = self.recipe_file(self.recipes / "test.json", name="before")

@@ -29,12 +29,15 @@ The words below are used everywhere in the code and in this README.
 | **analysis bundle** | A directory `Analyses/<name>/` with `recipe.yml`, the config files the recipe uses and its Python steps; every path is relative to the directory of `recipe.yml`. A stage's path option that names a bundle file uses it instead of the module's config. A run copies the bundle to `<run dir>/bundle/` and reads only that copy. | `bundle.py` |
 | **recipe** | A YAML file that says what to run: a name, the PicoProducer configuration and a list of stages with their options. You write it; the Framework checks it before anything runs. | `Recipe` (`recipe.py`) |
 | **stage** | One step of the analysis: `production` (NanoAOD → pico tuples), `plots` (control plots), `histograms` (fit input shapes), `fit` (TES + tau ID fit), `python` (a Python file of the bundle). Each stage calls the API of its own package. | `Stage` subclasses (`stages/`) |
-| **stage id** | The name of a stage in a run: `run.json` records, log directories and upstream artifacts are keyed by it. A built-in stage's id is its name; a python step's id is its `id:` or its file name. | `StageSpec.id` |
+| **stage id** | The name of a stage in a run, required for every stage (`id:`): `run.json` records, log directories and upstream artifacts are keyed by it, and `inputs:` refer to it. Unique; letters, digits, `_`, `.`, `-`; not `bundle`, `logs`, `run.json` or `run.log`. Any stage may have any id. | `StageSpec.id` |
+| **inputs** | Required for every stage: which earlier stage's output each input slot reads (`inputs: {shapes: histograms}`), or `null` for a stage without slots. A slot is connected to the id of an earlier stage that makes that kind of data, or to `null` (not from this run: the tuples in `$PICODIR`, the shapes already in `Fitter/`). Nothing is connected implicitly. | `Stage.inputs`, `Stage.outputs`, `StageSpec.inputs` |
+| **description** | Optional free text of a stage, shown by `plan` and in the menu; nothing depends on it. | `StageSpec.description` |
+| **validation** | Every problem of a recipe at once (structure, ids, inputs, order, the files it names), before anything runs: `taufw.py check`, the menu's recipe list (red) and preview. `Recipe.load` raises one `RecipeError` that lists all of them. | `check_recipe` (`validation.py`), `Recipe.parse` |
 | **local stage** | A stage that runs commands on this machine, one after the other, and finishes in one `advance` (`plots`, `histograms`, `fit`: the package's scripts; `python`: the step runner). | `LocalStage` (`stages/local.py`) |
-| **stage context** | What a stage may know about its run: the run directory (for its logs), the artifacts of the `DONE` stages before it, the run's PicoProducer config and its bundle copy. | `StageContext` (`stages/base.py`) |
+| **stage context** | What a stage may know about its run: the run directory (for its logs), its inputs and the artifacts of those input stages that are `DONE`, the run's PicoProducer config and its bundle copy. | `StageContext` (`stages/base.py`) |
 | **preflight** | The check, before a local stage runs, that its environment is ready (`cmsenv`, ROOT, `combine`, configs). A problem leaves the stage `NEW`. | `PreflightError` |
 | **spec** | The options of one stage after checking, as a typed, read-only object. For example, `ProductionSpec` holds `eras`, `channels`, `max_tries`, ... | `ProductionSpec`, ... |
-| **stage spec** | One entry of the recipe's `stages:` list: the stage name plus its spec. | `StageSpec` (`recipe.py`) |
+| **stage spec** | One entry of the recipe's `stages:` list: the stage type, id, inputs, description and spec. | `StageSpec` (`recipe.py`) |
 | **run** | One execution of a recipe. Each run gets its own directory, `taufw_runs/<name>_<time>/`. | `RunRecord.create` |
 | **run record** | The saved state of a run, `run.json`. It is updated after every step, so a run can be continued later, even from another session. | `RunRecord` (`run_record.py`) |
 | **stage record** | The part of `run.json` that belongs to one stage: its state, attempt, submissions, last status, artifacts and history. | `StageRecord` |
@@ -56,9 +59,10 @@ The words below are used everywhere in the code and in this README.
 5. `python/stages/local.py`: the local stages (preflight, run the commands, DONE or FAILED); `plots.py`,
    `histograms.py` and `fit.py` only map their options to the Plotter and Fitter APIs; `python_step.py` runs a
    bundle's Python file through `step_runner.py`.
-6. `python/bundle.py`: the path rule (bundle file or module config) and the run's bundle copy.
-7. `python/run_record.py`: what is written to `run.json`, and how the run state is computed.
-8. `scripts/taufw.py`: the command line, which only calls the `Framework`.
+6. `python/recipe.py` and `python/validation.py`: what a valid recipe is, and the checks of the files it names.
+7. `python/bundle.py`: the path rule (bundle file or module config) and the run's bundle copy.
+8. `python/run_record.py`: what is written to `run.json`, and how the run state is computed.
+9. `scripts/taufw.py`: the command line, which only calls the `Framework`.
 
 ## Quick start
 
@@ -76,6 +80,8 @@ Use Up/Down to move, Enter to select, and Esc to go back or exit the main menu.
   Up/Down changes the recipe; Page Up/Page Down scrolls its pipeline. At least 64 columns and 12 rows
   are required; smaller terminals show a resize message and Esc still returns to the main menu.
   The preview follows the recipe's actual stage order, including custom Python steps, without planning jobs.
+  Every recipe is checked when the list opens (`validation.py`): a recipe with problems is red in the list, and its
+  preview lists every problem above the stages it could read. Such a recipe cannot be started.
   Selecting a recipe reloads it and prepares its read-only plan silently before showing the review screen,
   including any nonfatal planning notes. **View detailed plan** displays the existing textual plan and
   returns to the same review after Enter. **Start run** launches the run; **Back** returns to the picker.
@@ -99,8 +105,8 @@ wording, screen choices, and terminal lifecycle; `_navigation.py` owns screen
 transitions, back behavior, refresh loops, and operation feedback; `faq.py` owns
 help content.
 `python/interactive.py` keeps recipe/run discovery, validation, record access,
-read-only recipe previews and plan preparation, and command dispatch. Recipe preview data is cached
-for each picker visit; Framework objects stay in the adapter. UI screens use ASCII frames, cyan accents,
+read-only recipe previews and plan preparation, and command dispatch. Recipe previews (with their problems)
+are made once per picker visit; Framework objects stay in the adapter. UI screens use ASCII frames, cyan accents,
 selection markers, and a shared keyboard-controls footer. Colors are optional and all status labels
 remain readable without them. Entry screens retain the adaptive TauFW artwork.
 UI screens return named actions so layout and label
@@ -108,6 +114,8 @@ and navigation changes stay in Utilities. Source section banners document both s
 boundary.
 
 ```bash
+taufw.py check   Analyses/example_mutau                        # every problem of the recipe; nothing is written
+taufw.py check   Analyses/example_broken                       # a deliberately broken recipe: 4 problems, exit 1
 taufw.py plan    Analyses/example_mutau                        # each stage's plan and files; nothing is written
 taufw.py plan    Analyses/example_mutau --local                # quick local test: 100 events of one file per sample
 taufw.py start   Analyses/example_mutau                        # creates taufw_runs/<name>_<time>/, submits the jobs
@@ -221,12 +229,13 @@ taufw_runs/<name>_<YYYYmmdd-HHMMSS>/
 | File | Contents |
 |---|---|
 | `python/framework.py` | `Framework`: `plan`, `start`, `advance`, `run`, `status`, `make_bundle`; stage dispatch; construction (`from_recipe`, `from_record`) |
-| `python/recipe.py` | `Recipe`, `StageSpec`, `RecipeError`: load and validate recipes (a bundle directory or a file); stage ids |
+| `python/recipe.py` | `Recipe`, `StageSpec`, `Issue`, `RecipeError`: load and validate recipes (a bundle directory or a file): structure, stage ids, inputs, order; every problem at once |
+| `python/validation.py` | `check_recipe`, `RecipeCheck`: everything `recipe.py` checks plus the files a recipe names, without raising (`taufw.py check`, the menu) |
 | `python/bundle.py` | the path rule (bundle file, module config, absolute), the run's bundle copy, new bundles (`taufw.py init`) |
 | `python/step_runner.py` | runs a python step in its own process (standard library only): `context.json` → `run(ctx)` → `result.json` |
 | `python/run_record.py` | `RunRecord`, `RunState`, `StageRecord`: `run.json`, crash-safe save |
 | `python/reporting.py` | `Reporter` (interface), `FrameworkReporter` (terminal + `run.log`), `SilentReporter`; adapter for PicoProducer's messages |
-| `python/defaults.py` | shared defaults: `taufw_runs`, `run.json`, `run.log`, `recipe.yml`, `bundle/`, `Analyses/`, the polling interval (600 s), the time format |
+| `python/defaults.py` | shared defaults: `taufw_runs`, `run.json`, `run.log`, `recipe.yml`, `bundle/`, `logs/`, the reserved stage ids, `Analyses/`, the polling interval (600 s), the time format |
 | `python/interactive.py` | the Framework side of the console menu (recipe/run discovery, dispatch to the commands) |
 | `python/stages/base.py` | the stage contract: `Stage`, `StageState`, `StageOutcome`, `StageContext`, `StageNotImplemented`, `PreflightError` |
 | `python/stages/production.py` | `ProductionStage` and the pure `decide_next` policy |

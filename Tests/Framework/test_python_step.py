@@ -9,7 +9,7 @@ import unittest
 
 import checkout  # noqa: F401  (must precede TauFW imports)
 from TauFW.Framework import Framework, Recipe, RunRecord, SilentReporter
-from TauFW.Framework.stages import PythonStage, StageContext
+from TauFW.Framework.stages import PythonStage, StageContext, PreflightError
 from TauFW.Framework.step_runner import _result
 from test_framework import Clock
 
@@ -30,7 +30,8 @@ import os
 from helper import double   # a file next to the step
 
 def run(ctx):
-    numbers = ctx.artifacts("make", kind="numbers")
+    numbers = ctx.input("numbers", kind="numbers")   # inputs: {numbers: make}
+    assert numbers == ctx.artifacts("make", kind="numbers")
     with open(numbers[0]["path"]) as stream:
         total = sum(int(n) for n in stream.read().split())
     with open(ctx.path("configs/scale.txt")) as stream:   # a bundle file
@@ -38,6 +39,11 @@ def run(ctx):
     return [{"kind": "sum", "value": double(total) * scale, "cwd": os.getcwd(),
              "pico": os.environ.get("TAUFW_PICO_CONFIG"), "ctx_pico": ctx.pico_config}]
 '''
+
+
+def step(name, **options):
+    """A python step of steps/<name>.py with the id <name> and no inputs (unless given)."""
+    return dict({"stage": "python", "id": name, "inputs": None, "file": "steps/%s.py" % (name)}, **options)
 
 
 class PythonStepTestCase(unittest.TestCase):
@@ -69,8 +75,8 @@ class PythonStepTestCase(unittest.TestCase):
 
 class PythonStepTests(PythonStepTestCase):
     def test_two_steps_pass_artifacts(self):
-        record = self.start({"stage": "python", "id": "make", "file": "steps/make.py", "options": {"n": 5}},
-                            {"stage": "python", "file": "steps/use.py"}, pico="configs/pico.json")
+        record = self.start(step("make", options={"n": 5}), step("use", inputs={"numbers": "make"}),
+                            pico="configs/pico.json")
         self.assertEqual(record.state, "DONE", record.stage("use").message)
         make, use = record.stage("make"), record.stage("use")
         self.assertEqual(make.message, "made 5 numbers")
@@ -92,12 +98,24 @@ class PythonStepTests(PythonStepTestCase):
             "steps/use.py")))
         loaded = RunRecord.load(record.run_dir)
         self.assertEqual([s.name for s in loaded.stages], ["make", "use"])  # stage records are named by id
-        self.assertNotIn("id", loaded.recipe["stages"][0])  # 'make' is the default id of steps/make.py
+        self.assertEqual(loaded.recipe["stages"][1]["inputs"], {"numbers": "make"})
+        with open(os.path.join(record.run_dir, "use", "context.json")) as stream:
+            context = json.load(stream)
+        self.assertEqual((context["inputs"], list(context["upstream"])), ({"numbers": "make"}, ["make"]))
+
+    def test_a_step_without_inputs_sees_no_artifacts(self):
+        self.write("steps/look.py", "def run(ctx):\n    return {'message': '%d' % len(ctx.artifacts())}\n")
+        record = self.start(step("make", options={"n": 2}), step("look"))
+        self.assertEqual(record.stage("look").message, "0")  # make ran before, but look does not name it
+        self.write("steps/ask.py", "def run(ctx):\n    ctx.input('numbers')\n")
+        record = self.start(step("ask"))
+        self.assertEqual(record.stage("ask").state, "FAILED")
+        with open(os.path.join(record.run_dir, "ask", "01_ask.log")) as stream:
+            self.assertIn("step 'ask' has no input 'numbers' (inputs: none)", stream.read())
 
     def test_exception_fails_the_step_with_the_log(self):
         self.write("steps/bad.py", "def run(ctx):\n    raise KeyError('no such thing')\n")
-        record = self.start({"stage": "python", "file": "steps/bad.py"},
-                            {"stage": "python", "file": "steps/make.py", "options": {"n": 1}})
+        record = self.start(step("bad"), step("make", options={"n": 1}))
         bad = record.stage("bad")
         self.assertEqual((record.state, bad.state, record.stage("make").state), ("FAILED", "FAILED", "NEW"))
         self.assertIn("exit code 1", bad.message)
@@ -106,26 +124,25 @@ class PythonStepTests(PythonStepTestCase):
 
     def test_result_that_is_not_json_fails(self):
         self.write("steps/odd.py", "def run(ctx):\n    return [{'kind': 'x', 'value': object()}]\n")
-        record = self.start({"stage": "python", "file": "steps/odd.py"})
+        record = self.start(step("odd"))
         self.assertEqual(record.stage("odd").state, "FAILED")
         with open(os.path.join(record.run_dir, "odd", "01_odd.log")) as stream:
             self.assertIn("cannot be written as JSON", stream.read())
 
     def test_preflight_keeps_the_step_new(self):
         self.write("steps/nofunc.py", "def main(ctx):\n    return None\n")
-        record = self.start({"stage": "python", "file": "steps/nofunc.py"})
+        record = self.start(step("nofunc"))
         self.assertEqual(record.stage("nofunc").state, "NEW")
         self.assertIn("has no top-level function 'run'", record.stage("nofunc").message)
         self.assertFalse(os.path.exists(os.path.join(record.run_dir, "nofunc", "context.json")))  # nothing ran
-        record = self.start({"stage": "python", "file": "steps/nofunc.py", "function": "main"})
+        record = self.start(step("nofunc", function="main"))
         self.assertEqual(record.state, "DONE")
-        record = self.start({"stage": "python", "file": "steps/missing.py"})
+        record = self.start(step("missing"))
         self.assertIn("step file", record.stage("missing").message)
         self.assertIn("not found", record.stage("missing").message)
 
     def test_plan_shows_the_runner_command(self):
-        recipe = Recipe.from_dict({"name": "x", "stages": [{"stage": "python", "file": "steps/make.py"}]},
-                                  bundle_dir=self.bundle)
+        recipe = Recipe.from_dict({"name": "x", "stages": [step("make")]}, bundle_dir=self.bundle)
         plan = PythonStage().plan(recipe.stages[0].spec, StageContext(bundle_dir=self.bundle, stage_id="make"))
         command = plan.commands[0]
         self.assertEqual(command.argv[0], sys.executable)
@@ -133,6 +150,8 @@ class PythonStepTests(PythonStepTestCase):
         self.assertEqual(command.argv[2], os.path.join("<run_dir>", "make", "context.json"))
         self.assertEqual(command.cwd, self.bundle)
         self.assertEqual(plan.notes, ())
+        with self.assertRaises(PreflightError):  # the id is the step's directory: it is required
+            PythonStage().plan(recipe.stages[0].spec, StageContext(bundle_dir=self.bundle))
 
 
 class ResultTests(unittest.TestCase):

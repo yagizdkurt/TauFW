@@ -4,50 +4,72 @@
     name: mutau_2022_postEE
     pico: {config: null}              # PicoProducer configuration; null -> PicoProducer/config/config.json
     stages:
-      - stage: production             # options: see ProductionSpec (stages/production.py)
+      - stage: production             # the stage type; options: see ProductionSpec (stages/production.py)
+        id: production                # required, unique; the stage's directory in the run
+        description: mutau tuples     # optional, free text (shown, never used for anything else)
+        inputs: null                  # required; production reads no other stage's output
         eras: [2022_postEE]
         channels: [mutau]
-        samples: ["DY*", "TT*"]
       - stage: plots                  # options: see PlotSpec (stages/plots.py); then histograms, fit
+        id: plots
+        inputs: {tuples: production}  # every input slot of the stage -> the id of an earlier stage, or null
         eras: [2022_postEE]
       - stage: python                 # a Python file of the bundle (stages/python_step.py); anywhere, any number
-        id: check_yields              # default: the file name without .py
+        id: check_yields
+        inputs: {plots: plots}        # any names; null: no inputs
         file: steps/check_yields.py
+
+Every stage has the keys `stage`, `id` and `inputs`, and may have `description`; the other keys are its options.
+
+    id:       letters, digits, '_', '.', '-'; unique; not a name the run directory uses (RESERVED_STAGE_IDS).
+    inputs:   which earlier stage's output the stage reads, per input slot (Stage.inputs):
+                production    no slots                     inputs: null
+                plots         tuples   <- tuples           null: the tuples in $PICODIR of the PicoProducer config
+                histograms    tuples   <- tuples           null: the same
+                fit           shapes   <- shapes           null: the shapes already in Fitter/ (made before)
+                python        any names <- any stage       null: no inputs; a mapping names stages, never null
+              A slot names a stage that comes earlier in the recipe and makes that kind of data
+              (Stage.outputs). Nothing is connected implicitly: a stage sees only the artifacts of its inputs.
+    order:    the built-in stages at most once each, in the order of ORDER (production, plots, histograms, fit);
+              python steps anywhere, any number of times.
 
 A recipe is usually the recipe.yml of an analysis bundle (Analyses/<name>/, see bundle.py): Recipe.load() takes
 the bundle directory or the file, and the path options of the stages are resolved against that directory.
 
-Each stage has an id: its name for the built-in stages (production, plots, histograms, fit; at most once each and
-in that order), and for a python step the `id:` option or the file name. Ids are unique; run.json and the run
-directory use them.
-
-An error names the file and the key, e.g. "recipe.yml: stages[0] (production): unknown option 'samplez'".
+Every problem of a recipe is collected, not only the first: Recipe.parse() returns them as Issues, and
+Recipe.from_dict() / Recipe.load() raise one RecipeError that lists them all, e.g.
+    recipe.yml: 2 problems
+      stages[0] (production): unknown option 'samplez' (known: ...)
+      stages[2] (fit).inputs.shapes: no stage 'histo' in the recipe
+validation.py adds the checks of the files a recipe names (for the menu and `taufw.py check`).
 
 Inputs:  a recipe file or bundle directory, or a dict (e.g. the copy of the recipe saved in run.json).
-Outputs: Recipe and StageSpec records (frozen). Nothing is written.
+Outputs: Recipe and StageSpec records (frozen), Issues. Nothing is written.
 
 Public API:
-  Recipe.load(path) / Recipe.from_dict(data, source, bundle_dir) / recipe.to_dict()
-  StageSpec            one stage of the recipe: its name, id, typed options (Spec) and the options as written
-  RecipeError          invalid recipe
+  Recipe.load(path) / Recipe.from_dict(data, source, bundle_dir) / Recipe.parse(...) / recipe.to_dict()
+  StageSpec            one stage of the recipe: its type, id, inputs, typed options (Spec), options as written
+  Issue                one problem of a recipe: where it is and what is wrong
+  RecipeError          invalid recipe (its .issues list every problem)
 """
 import os, re, copy
 from dataclasses import dataclass, field, replace
 from typing import Optional, Tuple
 from TauFW.Framework.bundle import leaves_bundle
-from TauFW.Framework.defaults import RECIPE_NAME, default_file_io
+from TauFW.Framework.defaults import RECIPE_NAME, RESERVED_STAGE_IDS, default_file_io
 from TauFW.Framework.stages import STAGES, ORDER, SpecError, spec_from_dict
 
-__all__ = ['Recipe', 'StageSpec', 'RecipeError']
+__all__ = ['Recipe', 'StageSpec', 'Issue', 'RecipeError']
 
 
 # =============================================================================
 # ================================= CONSTANTS =================================
 
 
-TOP_KEYS  = ('name', 'pico', 'stages')       # allowed keys at the top of a recipe
-PICO_KEYS = ('config',)                      # allowed keys under 'pico:'
-NAMEEXP   = re.compile(r"^[A-Za-z0-9_.-]+$")  # allowed run names and stage ids (they become directory names)
+TOP_KEYS   = ('name', 'pico', 'stages')                  # allowed keys at the top of a recipe
+PICO_KEYS  = ('config',)                                 # allowed keys under 'pico:'
+STAGE_KEYS = ('stage', 'id', 'description', 'inputs')    # keys of every stage that are not its options
+NAMEEXP    = re.compile(r"^[A-Za-z0-9_.-]+$")  # allowed run names, stage ids and input names (directory names)
 
 
 # =============================================================================
@@ -58,19 +80,34 @@ NAMEEXP   = re.compile(r"^[A-Za-z0-9_.-]+$")  # allowed run names and stage ids 
 class StageSpec:
     """One stage of a recipe.
 
-    stage:   the stage's name, e.g. 'production' or 'python'
-    spec:    the stage's typed options, a Spec dataclass (e.g. ProductionSpec); this is what the stage reads
-    options: the options exactly as written in the recipe (without 'stage' and 'id'); saved to run.json
-    id:      the stage's id in the run (default: the name; for a python step the file name without .py)
+    stage:       the stage's type, e.g. 'production' or 'python'
+    id:          the stage's id in the run (unique; run.json and the run directory use it)
+    spec:        the stage's typed options, a Spec dataclass (e.g. ProductionSpec); this is what the stage reads
+    options:     the options exactly as written in the recipe (without the keys of STAGE_KEYS); saved to run.json
+    inputs:      input slot -> stage id or None, as written; None: `inputs: null`
+    description: free text from the recipe ("" if none); shown, never used for anything else
     """
-    stage:   str
-    spec:    object
-    options: dict = field(default_factory=dict)
-    id:      str = ""
+    stage:       str
+    id:          str
+    spec:        object
+    options:     dict = field(default_factory=dict)
+    inputs:      Optional[dict] = None
+    description: str = ""
 
-    def __post_init__(self):
-        if not self.id:
-            object.__setattr__(self, 'id', self.stage)
+    @property
+    def connections(self):
+        """input slot -> stage id (None: not from this run); {} for `inputs: null`."""
+        return dict(self.inputs or {})
+
+
+@dataclass(frozen=True)
+class Issue:
+    """One problem of a recipe. where: the key, e.g. "stages[2] (fit).inputs.shapes" ("" for the whole file)."""
+    where:   str
+    message: str
+
+    def __str__(self):
+        return "%s: %s" % (self.where, self.message) if self.where else self.message
 
 
 @dataclass(frozen=True)
@@ -85,18 +122,23 @@ class Recipe:
     bundle_dir:  Optional[str] = None
 
     def stage(self, stage_id):
-        """The StageSpec with this id (for a built-in stage: its name), or None."""
+        """The StageSpec with this id, or None."""
         for stage_spec in self.stages:
             if stage_spec.id == stage_id:
+                return stage_spec
+        return None
+
+    def first(self, stage_type):
+        """The first StageSpec of a stage type (e.g. 'production'), or None."""
+        for stage_spec in self.stages:
+            if stage_spec.stage == stage_type:
                 return stage_spec
         return None
 
     @property
     def pico_config_path(self):
         """The path of the PicoProducer configuration (relative paths are in the bundle), or None."""
-        if not self.pico_config or os.path.isabs(self.pico_config) or not self.bundle_dir:
-            return self.pico_config
-        return os.path.normpath(os.path.join(self.bundle_dir, self.pico_config))
+        return _pico_config_path(self.pico_config, self.bundle_dir)
 
     # =========================================================================
     # ================================ LOADING ================================
@@ -104,20 +146,9 @@ class Recipe:
     @classmethod
     def load(cls, path, files=None):
         """Read and check a recipe: a bundle directory (its recipe.yml) or a .yml/.yaml/.json file. The file's
-        directory is the bundle directory. files: a TauFW.Utilities FileIO (default: new)."""
-        files = files or default_file_io()
-        if os.path.isdir(path):
-            path = os.path.join(path, RECIPE_NAME)
-        if path.endswith(('.yml', '.yaml')):
-            data = files.read_yaml(path)
-        elif path.endswith('.json'):
-            data = files.read_json(path)
-        else:
-            raise RecipeError("%s: recipe must be a bundle directory or a .yml, .yaml or .json file" % (path))
-        directory = os.path.dirname(os.path.abspath(path))
-        source = os.path.basename(path)
-        if source == RECIPE_NAME:  # name the bundle in the messages
-            source = "%s/%s" % (os.path.basename(directory), source)
+        directory is the bundle directory. files: a TauFW.Utilities FileIO (default: new).
+        Raises RecipeError listing every problem."""
+        data, source, directory = read_recipe(path, files)
         recipe = cls.from_dict(data, source=source, bundle_dir=directory)
         if recipe.pico_config and not os.path.isabs(recipe.pico_config) and leaves_bundle(recipe.pico_config):
             # above the bundle (e.g. ../../PicoProducer/config/config.json): not copied into a run, so made absolute
@@ -126,86 +157,240 @@ class Recipe:
 
     @classmethod
     def from_dict(cls, data, source="<recipe>", bundle_dir=None):
-        """Check a recipe dict and build the Recipe; raises RecipeError naming the wrong key."""
-        where = source
+        """Check a recipe dict and build the Recipe; raises RecipeError listing every problem."""
+        recipe, _, issues = cls.parse(data, source, bundle_dir)
+        if issues:
+            raise RecipeError(source, issues)
+        return recipe
+
+    @classmethod
+    def parse(cls, data, source="<recipe>", bundle_dir=None):
+        """Check a recipe dict without raising: (Recipe or None, [(index, StageSpec)], [Issue]).
+        The Recipe is None if there is any issue; the StageSpecs are those of the stages whose options are valid
+        (validation.py checks their files even when other stages are wrong)."""
+        issues = []
         if not isinstance(data, dict):
-            raise RecipeError("%s: a recipe is a mapping with keys %s" % (where, ', '.join(TOP_KEYS)))
-        _check_keys(data, TOP_KEYS, where)
+            return None, [], [Issue("", "a recipe is a mapping with keys %s" % (', '.join(TOP_KEYS)))]
+        _check_keys(data, TOP_KEYS, "", issues)
         name = data.get('name')
         if not isinstance(name, str) or not NAMEEXP.match(name):
-            raise RecipeError("%s: 'name' must be a word of letters, digits, '_', '.' or '-' (got %r)" % (where, name))
+            issues.append(Issue('name', "must be a word of letters, digits, '_', '.' or '-' (got %r)" % (name,)))
         pico = data.get('pico') or {}
         if not isinstance(pico, dict):
-            raise RecipeError("%s: 'pico' must be a mapping, e.g. {config: null}" % (where))
-        _check_keys(pico, PICO_KEYS, where + ": pico")
+            issues.append(Issue('pico', "must be a mapping, e.g. {config: null}"))
+            pico = {}
+        _check_keys(pico, PICO_KEYS, "pico", issues)
         stages = data.get('stages')
         if not isinstance(stages, list) or not stages:
-            raise RecipeError("%s: 'stages' must be a non-empty list" % (where))
-        stage_specs = tuple(_stage_spec(entry, i, where) for i, entry in enumerate(stages))
-        _check_order(stage_specs, where)
-        return cls(name=name, stages=stage_specs, pico_config=pico.get('config'), source=source,
-                   bundle_dir=bundle_dir)
+            issues.append(Issue('stages', "must be a non-empty list"))
+            stages = []
+        entries = [_stage_entry(entry, index, issues) for index, entry in enumerate(stages)]
+        _check_graph([e for e in entries if e is not None], issues)
+        stage_specs = [(e.index, e.stage_spec) for e in entries if e is not None and e.stage_spec is not None]
+        if issues:
+            return None, stage_specs, issues
+        recipe = cls(name=name, stages=tuple(s for _, s in stage_specs), pico_config=pico.get('config'),
+                     source=source, bundle_dir=bundle_dir)
+        return recipe, stage_specs, issues
 
     def to_dict(self):
-        """The recipe as a dict; from_dict(to_dict()) gives the same recipe. An id is written only if it is not
-        the stage's default id."""
+        """The recipe as a dict; from_dict(to_dict()) gives the same recipe."""
         stages = []
         for s in self.stages:
-            entry = [('stage', s.stage)]
-            if s.id != STAGES[s.stage].default_id(s.spec):
-                entry.append(('id', s.id))
+            entry = [('stage', s.stage), ('id', s.id)]
+            if s.description:
+                entry.append(('description', s.description))
+            entry.append(('inputs', copy.deepcopy(s.inputs)))
             stages.append(dict(entry + list(copy.deepcopy(s.options).items())))
         return {'name': self.name, 'pico': {'config': self.pico_config}, 'stages': stages}
+
+
+# =============================================================================
+# ============================== READING FILES ================================
+
+
+def read_recipe(path, files=None):
+    """(data, source, bundle directory) of a recipe file or bundle directory. source names the file in messages
+    (<bundle>/recipe.yml for a bundle). Raises RecipeError for a path that is not a recipe."""
+    files = files or default_file_io()
+    if os.path.isdir(path):
+        path = os.path.join(path, RECIPE_NAME)
+    if path.endswith(('.yml', '.yaml')):
+        data = files.read_yaml(path)
+    elif path.endswith('.json'):
+        data = files.read_json(path)
+    else:
+        raise RecipeError(path, [Issue("", "a recipe must be a bundle directory or a .yml, .yaml or .json file")])
+    directory = os.path.dirname(os.path.abspath(path))
+    source = os.path.basename(path)
+    if source == RECIPE_NAME:  # name the bundle in the messages
+        source = "%s/%s" % (os.path.basename(directory), source)
+    return data, source, directory
 
 
 # =============================================================================
 # ================================ VALIDATION =================================
 
 
-def _stage_spec(entry, index, where):
-    """The StageSpec of one entry of the recipe's 'stages' list."""
+@dataclass
+class _Entry:
+    """What is known of one entry of 'stages' after its own checks (stage_spec is None if its options are bad)."""
+    index:      int
+    stage:      str
+    id:         Optional[str]
+    inputs:     Optional[dict]
+    where:      str
+    stage_spec: Optional[StageSpec] = None
+
+
+def _stage_entry(entry, index, issues):
+    """Check one entry of the recipe's 'stages' list on its own; None if it is not even a stage."""
     if not isinstance(entry, dict) or 'stage' not in entry:
-        raise RecipeError("%s: stages[%d] must be a mapping with a 'stage' key" % (where, index))
+        issues.append(Issue("stages[%d]" % (index), "must be a mapping with a 'stage' key"))
+        return None
     name = entry['stage']
     if name not in STAGES:
         known = ORDER + tuple(n for n in STAGES if n not in ORDER)
-        raise RecipeError("%s: stages[%d]: unknown stage %r (known: %s)" % (where, index, name, ', '.join(known)))
-    where = "%s: stages[%d] (%s)" % (where, index, name)
-    options = {k: v for k, v in entry.items() if k not in ('stage', 'id')}
+        issues.append(Issue("stages[%d]" % (index), "unknown stage %r (known: %s)" % (name, ', '.join(known))))
+        return None
+    where = "stages[%d] (%s)" % (index, name)
+    stage_id = _check_id(entry, where, issues)
+    description = entry.get('description')
+    if description is not None and not isinstance(description, str):
+        issues.append(Issue(where + ".description", "must be text (got %r)" % (description,)))
+    inputs = _check_inputs(entry, name, where, issues)
+    options = {k: v for k, v in entry.items() if k not in STAGE_KEYS}
+    result = _Entry(index=index, stage=name, id=stage_id, inputs=inputs, where=where)
     try:
         spec = spec_from_dict(STAGES[name].Spec, options, where)
-    except SpecError as err:
-        raise RecipeError(str(err))
-    stage_id = entry.get('id') or STAGES[name].default_id(spec)
+    except SpecError as err:  # "<where>[.<group>]: <message>"
+        location, _, message = str(err).partition(": ")
+        issues.append(Issue(location, message) if message else Issue(where, str(err)))
+        return result
+    if stage_id is not None:
+        result.stage_spec = StageSpec(stage=name, id=stage_id, spec=spec, options=copy.deepcopy(options),
+                                      inputs=copy.deepcopy(inputs), description=description or "")
+    return result
+
+
+def _check_id(entry, where, issues):
+    """The stage's id, or None (with an issue) if it is missing or not allowed."""
+    if 'id' not in entry:
+        issues.append(Issue(where, "missing 'id' (every stage needs a unique id, e.g. id: %s)" % (entry['stage'])))
+        return None
+    stage_id = entry['id']
     if not isinstance(stage_id, str) or not NAMEEXP.match(stage_id):
-        raise RecipeError("%s: 'id' must be a word of letters, digits, '_', '.' or '-' (got %r)" % (where, stage_id))
-    if name in ORDER and stage_id != name:
-        raise RecipeError("%s: a %s stage cannot have another id (got %r)" % (where, name, stage_id))
-    if name not in ORDER and stage_id in STAGES:
-        raise RecipeError("%s: id %r is the name of a stage; give the step its own 'id'" % (where, stage_id))
-    return StageSpec(stage=name, spec=spec, options=copy.deepcopy(options), id=stage_id)
+        issues.append(Issue(where + ".id", "must be a word of letters, digits, '_', '.' or '-' (got %r)"
+                            % (stage_id,)))
+        return None
+    if stage_id in RESERVED_STAGE_IDS:
+        issues.append(Issue(where + ".id", "%r is a name the run directory uses (not allowed: %s)"
+                            % (stage_id, ', '.join(RESERVED_STAGE_IDS))))
+        return None
+    return stage_id
 
 
-def _check_order(stage_specs, where):
-    """Each id at most once; the built-in stages in the order of ORDER (production before histograms before fit).
-    Python steps may be anywhere."""
-    ids = [s.id for s in stage_specs]
-    for stage_id in dict.fromkeys(ids):
-        if ids.count(stage_id) > 1:
-            raise RecipeError("%s: stage id %r appears more than once (give each python step its own 'id')"
-                              % (where, stage_id))
-    names = [s.stage for s in stage_specs if s.stage in ORDER]
-    ranks = [ORDER.index(n) for n in names]
-    if ranks != sorted(ranks):
-        raise RecipeError("%s: stages must be in the order %s (got %s)" % (
-            where, ' -> '.join(ORDER), ' -> '.join(names)))
+def _check_inputs(entry, name, where, issues):
+    """The stage's inputs as written (None for `inputs: null`), checked against the slots of its type.
+    Which stages they name is checked by _check_graph."""
+    slots = STAGES[name].inputs
+    where = where + ".inputs"
+    if 'inputs' not in entry:
+        issues.append(Issue(where, "missing (%s)" % (_inputs_hint(name, slots))))
+        return None
+    inputs = entry['inputs']
+    if inputs is None:
+        if slots:  # a built-in stage with slots lists all of them
+            issues.append(Issue(where, "%s reads %s: %s" % (name, ', '.join(slots), _inputs_hint(name, slots))))
+        return None
+    if not isinstance(inputs, dict):
+        issues.append(Issue(where, "must be a mapping or null (%s)" % (_inputs_hint(name, slots))))
+        return None
+    if not inputs:
+        issues.append(Issue(where, "is empty: write inputs: null if the stage reads no other stage's output"))
+        return None
+    if slots is not None and not slots:
+        issues.append(Issue(where, "%s reads no other stage's output: write inputs: null" % (name)))
+        return None
+    for slot, value in inputs.items():
+        if slots is not None and slot not in slots:
+            issues.append(Issue("%s.%s" % (where, slot), "unknown input (%s has: %s)" % (name, ', '.join(slots))))
+        elif slots is None and not (isinstance(slot, str) and NAMEEXP.match(slot)):
+            issues.append(Issue("%s.%s" % (where, slot), "an input name is a word of letters, digits, '_', '.' "
+                                                         "or '-'"))
+        elif value is None and slots is None:
+            issues.append(Issue("%s.%s" % (where, slot), "must name an earlier stage (leave the input out if "
+                                                         "it has none)"))
+        elif value is not None and not isinstance(value, str):
+            issues.append(Issue("%s.%s" % (where, slot), "must be a stage id or null (got %r)" % (value,)))
+    for slot in (slots or {}):
+        if slot not in inputs:
+            issues.append(Issue("%s.%s" % (where, slot), "missing (the id of an earlier stage, or null)"))
+    return dict(inputs)
 
 
-def _check_keys(data, known, where):
-    """Reject keys that are not in `known`."""
+def _inputs_hint(name, slots):
+    if slots is None:
+        return "write inputs: null, or a mapping of names to the ids of earlier stages"
+    if not slots:
+        return "write inputs: null"
+    return "write inputs: {%s}" % (', '.join("%s: <stage id or null>" % (slot) for slot in slots))
+
+
+def _check_graph(entries, issues):
+    """The checks between stages: unique ids, the built-in stages once each and in order, and inputs that name
+    an earlier stage that makes the right kind of data."""
+    seen = {}
+    for entry in entries:
+        if entry.id is None:
+            continue
+        if entry.id in seen:
+            issues.append(Issue(entry.where + ".id", "%r is already the id of stages[%d]"
+                                % (entry.id, seen[entry.id].index)))
+        else:
+            seen[entry.id] = entry
+    for name in ORDER:
+        same = [e for e in entries if e.stage == name]
+        for extra in same[1:]:
+            issues.append(Issue(extra.where, "a recipe has at most one %s stage" % (name)))
+    names = [e.stage for e in entries if e.stage in ORDER]
+    if [ORDER.index(n) for n in names] != sorted(ORDER.index(n) for n in names):
+        issues.append(Issue('stages', "the built-in stages must be in the order %s (got %s)"
+                            % (' -> '.join(ORDER), ' -> '.join(names))))
+    for position, entry in enumerate(entries):
+        earlier = {e.id: e for e in entries[:position] if e.id is not None}
+        slots = STAGES[entry.stage].inputs
+        for slot, value in (entry.inputs or {}).items():
+            if not isinstance(value, str):
+                continue
+            where = "%s.inputs.%s" % (entry.where, slot)
+            if value not in earlier:
+                if value == entry.id:
+                    message = "a stage cannot read its own output"
+                elif value in seen:
+                    message = "stage %r comes after this one; an input names an earlier stage" % (value)
+                else:
+                    message = "no stage %r in the recipe" % (value)
+                issues.append(Issue(where, message))
+                continue
+            kind = slots.get(slot) if slots else None
+            makes = STAGES[earlier[value].stage].outputs
+            if kind is not None and makes is not None and kind not in makes:
+                issues.append(Issue(where, "stage %r (%s) makes %s, not %s"
+                                    % (value, earlier[value].stage, ', '.join(makes) or 'nothing', kind)))
+
+
+def _check_keys(data, known, where, issues):
+    """An issue for every key that is not in `known`."""
     for key in data:
         if key not in known:
-            raise RecipeError("%s: unknown key %r (known: %s)" % (where, key, ', '.join(known)))
+            issues.append(Issue(where, "unknown key %r (known: %s)" % (key, ', '.join(known))))
+
+
+def _pico_config_path(value, bundle_dir):
+    if not value or os.path.isabs(value) or not bundle_dir:
+        return value
+    return os.path.normpath(os.path.join(bundle_dir, value))
 
 
 # =============================================================================
@@ -213,4 +398,14 @@ def _check_keys(data, known, where):
 
 
 class RecipeError(ValueError):
-    """An invalid recipe; the message names the file and the key."""
+    """An invalid recipe. The message names the file and lists every problem; .issues holds them (Issue)."""
+
+    def __init__(self, source, issues):
+        self.source = source
+        self.issues = tuple(issues)
+        if len(self.issues) == 1:
+            message = "%s: %s" % (source, self.issues[0])
+        else:
+            message = "%s: %d problems\n%s" % (source, len(self.issues),
+                                               "\n".join("  %s" % (issue) for issue in self.issues))
+        super().__init__(message)

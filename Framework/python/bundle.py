@@ -158,7 +158,7 @@ def make_bundle(recipe_dict, sources, target, files):
         if source not in copies:
             copies[source] = _free_name(copies.values(), group, source)
     for entry in recipe_dict['stages']:
-        stage_id = entry.get('id', entry['stage'])
+        stage_id = entry['id']
         for option, value in list(entry.items()):
             if isinstance(value, list):
                 entry[option] = [_copied(sources, copies, stage_id, option, item) for item in value]
@@ -228,6 +228,8 @@ class BundleError(ValueError):
 STEP_TEMPLATE = '''"""Example Python step of this analysis. Add it to recipe.yml to run it:
 
     - stage: python
+      id: example
+      inputs: null              # or {name: <id of an earlier stage>, ...}
       file: steps/example.py
       options: {greeting: hello}
 
@@ -237,7 +239,9 @@ It runs in its own Python process, in the bundle directory, after the stages lis
 
 def run(ctx):
     """ctx.options:            the step's options from the recipe
-    ctx.artifacts(stage, kind): the artifacts of earlier stages (e.g. ctx.artifacts('fit', kind='fit'))
+    ctx.input(name, kind):  the artifacts of the stage connected to an input (e.g. ctx.input('fit', kind='fit')
+                            for inputs: {fit: fit})
+    ctx.artifacts(stage, kind): the artifacts of the input stages, by stage id
     ctx.stage_dir:          a directory for this step's files (inside the run directory)
     ctx.path(relative):     a file of the bundle
     ctx.log(message):       a line in the step's log

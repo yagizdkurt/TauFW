@@ -3,11 +3,13 @@
 Recipe (recipe.yml):
 
     - stage: python
+      id: fit_summary
+      inputs: {fit: fit}
       file: steps/fit_summary.py
       options: {pois: [tes, tid_SF]}
 
-Inputs:  the fit artifacts of the fit stage: {kind: 'fit', era, jet_wp, ele_wp, values: [{region, poi, value,
-         low, high}]}.
+Inputs:  fit: the fit artifacts of the stage connected to the `fit` input: {kind: 'fit', era, jet_wp, ele_wp,
+         values: [{region, poi, value, low, high}]}.
 Outputs: <run_dir>/fit_summary/summary.txt (a table) and summary.json (the rows), and one 'table' artifact.
 """
 import json
@@ -18,7 +20,7 @@ def run(ctx):
     """Collect the fitted values of the chosen parameters (options.pois) and write them as a table."""
     pois = ctx.options.get('pois') or ['tes', 'tid_SF']
     rows = [dict(value, era=fit['era'], jet_wp=fit['jet_wp'], ele_wp=fit['ele_wp'])
-            for fit in ctx.artifacts('fit', kind='fit') for value in fit.get('values', [])
+            for fit in ctx.input('fit', kind='fit') for value in fit.get('values', [])
             if value['poi'] in pois]
     if not rows:
         ctx.log("no fitted values found (did the fit stage run its fit step?)")

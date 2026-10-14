@@ -1,9 +1,9 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Plots stage: data/MC control plots of the pico tuples, through the Plotter API (Plotter/plot.py).
 
-    inputs:   pico tuples, read by plot.py through $PICODIR of the run's PicoProducer config (passed as
-              $TAUFW_PICO_CONFIG; the production stage's tuples, if the recipe has one, are recorded as the
-              stage's inputs)
+    inputs:   tuples: pico tuples, read by plot.py through $PICODIR of the run's PicoProducer config (passed
+              as $TAUFW_PICO_CONFIG); if the slot names a production stage, its tuples are recorded as the
+              stage's inputs
     options:  PlotSpec (eras, channel setups (bundle files or Plotter's), variable and selection filters, plot.py
               options)
     outputs:  one plots artifact per channel setup and era: {kind: 'plots', era, config, channel, directory,
@@ -32,7 +32,8 @@ class PlotStage(LocalStage):
     """Control plots with the Plotter API.
     plotter: a TauFW.Plotter.api.ControlPlots, or any object with the same methods (tests pass a fake one)."""
     name = 'plots'
-    reads_tuples = True
+    inputs = {'tuples': 'tuples'}   # null: the tuples in $PICODIR of the run's PicoProducer config
+    outputs = ('plots',)
     group = 'plotter'  # taufw.py init names a copied config <group>_<name> if its name is taken
     # Spec = PlotSpec: set at the bottom of this file.
 

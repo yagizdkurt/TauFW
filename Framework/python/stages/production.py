@@ -91,6 +91,8 @@ class ProductionStage(Stage):
     run_local); the tests pass a fake one.
     """
     name = 'production'
+    inputs = {}              # reads NanoAOD (the samples of the PicoProducer config), no stage's output
+    outputs = ('tuples',)
     # Spec = ProductionSpec: set at the bottom of this file, because ProductionSpec is defined below this class.
 
     # =========================================================================

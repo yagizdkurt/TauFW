@@ -19,6 +19,9 @@ pico:
 
 stages:
   - stage: plots            # data/MC control plots (Plotter/plot.py, run in Plotter/)
+    id: plots
+    description: data/MC control plots of the mutau and mumu selections
+    inputs: {tuples: null}  # null: the existing tuples in $PICODIR of pico.config (no production stage here)
     eras: [2025]
     configs: [setup_mutau.yml, setup_mumu.yml]   # channel setups (copies of Plotter/config/)
     variables: [m_vis, pt_1, pt_2, eta_2, dm_2]   # plot.py -V; []: every variable
@@ -26,6 +29,9 @@ stages:
     pdf: false
 
   - stage: histograms       # input shapes (Fitter/TauES/createinputsTES.py, run in Fitter/)
+    id: histograms
+    description: TES and tau ID shapes, mutau and the mumu control region
+    inputs: {tuples: null}  # null: the existing tuples, as for the plots
     eras: [2025]
     jet_wps: [VTight]       # DeepTau VSjet working points (run_inputs.sh: J_VALUES)
     ele_wps: [Tight]        # DeepTau VSe working points (run_inputs.sh: E_VALUES)
@@ -33,9 +39,12 @@ stages:
     serial: false           # createinputsTES.py -s
 
   - stage: fit              # Fitter/run_workflow_zmm.sh steps, run in Fitter/
+    id: fit
+    description: 2D scan of tes and tid_SF per decay mode and pt region
+    inputs: {shapes: histograms}   # the shapes of the histograms stage above
     config: config_coarse_TT.yml
     config_mumu: FitSetup_mumu.yml
-    eras: []                # []: the eras and working points of the histograms stage
+    eras: []                # []: the eras and working points of the input shapes
     jet_wps: []
     ele_wps: []
     steps: [fit, postfit, plots, corrections, summary]
@@ -43,6 +52,9 @@ stages:
     timeout: null           # seconds per command; null: no limit
 
   - stage: python           # steps/fit_summary.py, in its own Python process (no ROOT needed)
+    id: fit_summary
+    description: table of the fitted values
+    inputs: {fit: fit}      # ctx.input('fit') in the step: the artifacts of the fit stage
     file: steps/fit_summary.py
     options:
       pois: [tes, tid_SF]   # the parameters to put in the table

@@ -2,7 +2,7 @@
 
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 **Branch:** `Refactor-2025`
-**Last updated:** 2026-10-13
+**Last updated:** 2026-10-14
 
 This document records the changes made on the `Refactor-2025` branch: what changed and why.
 What is still open is listed in [TODO.md](TODO.md).
@@ -23,6 +23,7 @@ What is still open is listed in [TODO.md](TODO.md).
 | 12 | [Shared code moved to Utilities](#12-shared-code-moved-to-utilities) |
 | 13 | [Import-boundary test and coupling inventory](#13-import-boundary-test-and-coupling-inventory) |
 | 14 | [Fitter imports drawing helpers from their own home](#14-fitter-imports-drawing-helpers-from-their-own-home) |
+| 15 | [Framework: explicit stage ids, inputs and recipe validation](#15-framework-explicit-stage-ids-inputs-and-recipe-validation) |
 
 The reference environment for all of this is `CMSSW_14_1_0_pre4` (Python 3.9, ROOT 6.30).
 
@@ -729,3 +730,45 @@ Only imports changed.
 Parsing and helper attributes checked; four decoupled files removed from the boundary inventory (22 → 18 pairs).
 Fitter → Plotter is now 16 occurrences / 15 pairs / 13 files, with no new/stale entries.
 lxplus validation remains pending in TODO §1.
+
+---
+
+## 15. Framework: explicit stage ids, inputs and recipe validation
+
+**Date:** 2026-10-14
+**Details:** [Analyses](../../Analyses/README.md) "File format and validation", [Framework](../../Framework/README.md)
+
+First step of the recipe IO work: the recipe, not the Framework, says which stage reads which stage's output, and every
+problem of a recipe is shown at once. Run behaviour is unchanged otherwise (outputs still go to the module directories;
+per-run output directories are the next step, TODO §6 C).
+
+### What changed
+
+- **Every stage has `stage`, `id` and `inputs`, and may have `description`.** `id` is required for every stage and any
+  stage may have any id (the old rules "a built-in stage's id is its name" and "a python step's id defaults to its file
+  name" are gone). Ids that the run directory uses are reserved (`bundle`, `logs`, `run.json`, `run.log`;
+  `defaults.RESERVED_STAGE_IDS`). `description` is free text, shown by `plan` and the menu, used for nothing else.
+- **Inputs:** each stage type declares its input slots and the kinds of data it makes (`Stage.inputs`, `Stage.outputs`:
+  plots/histograms `tuples`, fit `shapes`, python any names). `inputs` connects every slot to the id of an earlier stage
+  that makes that kind, or to `null` (not from this run: the tuples in `$PICODIR`, the shapes already in `Fitter/`); a
+  stage without slots writes `inputs: null`; `{}` is an error. A stage's context now holds only the artifacts of the
+  stages its inputs name (`StageContext.inputs`, `input_artifacts(slot)`); before, every earlier `DONE` stage was
+  visible. The fit finds its points through `inputs.shapes`, plots/histograms record the tuples of `inputs.tuples`.
+  Python steps get `ctx.inputs` and `ctx.input(name, kind)`.
+- **Validation collects every problem.** `Recipe.parse()` returns `Issue`s (location + message); `Recipe.load()` /
+  `from_dict()` raise one `RecipeError` that lists them all (its `.issues`). `validation.check_recipe()` adds the files a
+  recipe names (`pico.config`, absolute paths, python step files) and never raises. `taufw.py check RECIPE` prints the
+  problems (exit 1); `taufw.py` prints a `RecipeError` without a traceback. The menu checks every recipe when the list
+  opens: a recipe with problems is red, and its preview lists the problems above the stage cards (which now show the
+  stage type and description). Unknown options of one stage are reported together.
+- **Bundles:** `example_mutau`, `tes_id_2025` (and `steps/fit_summary.py`, which uses `ctx.input('fit')`) follow the new
+  format. `Analyses/example_broken/` is a deliberately invalid recipe that demonstrates the four kinds of problems.
+
+### Tests
+
+Framework unit tests (now 90, with `Tests/Framework/test_validation.py`) and the menu tests (27) pass on Windows. New
+cases: every input error, reserved and duplicate ids, a stage that does not see an unnamed earlier stage, a python step
+without inputs, `taufw.py check`, broken recipes red in the menu, the bundled analyses valid. The recipe of the BBB case
+`framework.production` (`Tests/BBB/cases.py`) gets `id: production` and `inputs: null`; its `plan` output changes on
+purpose (`=== Stage production (production) ===` and a new `Inputs: none` line): re-lock on lxplus once every other
+case passes unchanged.

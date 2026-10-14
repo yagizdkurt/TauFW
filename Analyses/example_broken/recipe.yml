@@ -1,0 +1,56 @@
+# Intentionally BROKEN recipe: an example of the validation diagnostics.
+# Keep the YAML syntax valid so the checker can report several problems at once.
+# This is a validation demo, not a pipeline intended to submit jobs or make plots.
+#
+# Inspect without running anything (after setting up the TauFW environment):
+#   python3 taufw.py check Analyses/example_broken
+# Expected: four problems, with exit code 1 because this recipe is invalid.
+#
+# Menu: python3 taufw.py -> select example_broken in the recipe list.
+# The menu discovers Analyses/*/recipe.yml automatically, even invalid recipes;
+# its preview shows the problems below. No menu registration is needed.
+# Stage indexes in diagnostics are zero-based: stages[0] is production, etc.
+#
+# Each numbered comment explains one deliberate mistake and how to repair it.
+# Fixing these validation errors alone does not supply the physics inputs or
+# environment needed for a real run. Leave this example broken for demonstration.
+name: example_broken
+
+pico:
+  # ERROR 1: pico.config names a file that deliberately does not exist here.
+  # Expected: pico.config: file not found: .../example_broken/missing_pico.json
+  # Fix: use config: null for PicoProducer's default, or supply a real config.
+  config: missing_pico.json
+
+stages:
+  - stage: production
+    id: production
+    description: "BROKEN: misspelled production option"
+    inputs: null                   # Correct: production has no upstream inputs.
+    eras: [2022_postEE]
+    channels: [mutau]
+    # ERROR 2: unknown option at stages[0] (production): 'samplez'.
+    # Fix: rename samplez to samples; the list of sample globs is otherwise valid.
+    samplez: ["DY*", "TT*"]
+
+  - stage: plots
+    id: plots
+    description: "BROKEN: input refers to an unknown stage id"
+    # ERROR 3: stages[1] (plots).inputs.tuples: no stage 'prodution' in the recipe.
+    # Inputs refer to stage ids, not descriptions or stage types.
+    # Fix: inputs: {tuples: production}, referring to the earlier stage above.
+    inputs: {tuples: prodution}
+    eras: [2022_postEE]
+    configs: [mutau]               # A supported Plotter channel shortcut.
+    variables: [m_vis]
+
+  - stage: python
+    id: inspect_plots
+    description: "BROKEN: Python step file is missing from the bundle"
+    inputs: {plots: plots}         # Correct: this id belongs to an earlier stage.
+    # ERROR 4: stages[2] (python).file: steps/missing_check.py is not a file
+    # of this bundle. Relative Python step files must exist inside this directory.
+    # Fix: add steps/missing_check.py defining def run(ctx), or point file at an
+    # existing bundled Python step. No placeholder is supplied intentionally.
+    file: steps/missing_check.py
+    function: run

@@ -2,14 +2,15 @@
 """Python stage: a Python file of the analysis bundle as a recipe step.
 
     - stage: python
-      id: fit_summary             # default: the file name without .py; ids must be unique
+      id: fit_summary             # unique in the recipe
+      inputs: {fit: fit}          # input name -> id of an earlier stage (any names); null: no inputs
       file: steps/fit_summary.py  # a bundle file (or an absolute path)
       function: run               # default: run
       options: {min_points: 1}    # any mapping; the step gets it as ctx.options
       timeout: null               # seconds; null: no limit
 
     def run(ctx):                 # in steps/fit_summary.py
-        fits = ctx.artifacts('fit', kind='fit')
+        fits = ctx.input('fit', kind='fit')
         return {'message': "%d points" % len(fits), 'artifacts': [{'kind': 'table', 'path': ...}]}
 
 A python step may appear anywhere in a recipe and any number of times (each with its own id). It runs after the
@@ -19,7 +20,8 @@ stages before it, in its own Python process (step_runner.py), in the bundle dire
                                                                    │  log: <run_dir>/<id>/01_<id>.log
                                    DONE (message, artifacts) ◀─ ok ┴─ fails ─▶ FAILED (log tail)
 
-    inputs:   the artifacts of the earlier stages (ctx.artifacts), the step's options, the bundle files
+    inputs:   the artifacts of the stages its inputs name (ctx.input, ctx.artifacts), the step's options, the
+              bundle files
     outputs:  what the function returns: a message and artifacts (dicts), saved in run.json; the step's own
               files belong in ctx.stage_dir
     preflight: the file exists, it defines the function (checked with ast: nothing is imported), the options
@@ -60,16 +62,15 @@ class PythonStage(LocalStage):
     runner: a TauFW.Utilities.Process.ProcessRunner (default: new); python: the Python of the step (default:
     this one)."""
     name = 'python'
+    inputs = None    # any input names, connected to any earlier stages
+    outputs = None   # whatever the step returns
     # Spec = PythonSpec: set at the bottom of this file.
-
-    @classmethod
-    def default_id(cls, spec):
-        """The file name without .py, e.g. fit_summary for steps/fit_summary.py."""
-        return os.path.splitext(os.path.basename(spec.file))[0]
 
     def request(self, spec, context):
         """The StepRequest: the resolved step file and everything context.json needs."""
-        stage_id = context.stage_id or self.default_id(spec)
+        stage_id = context.stage_id
+        if not stage_id:
+            raise ValueError("a python step needs its stage id (the recipe's 'id')")
         if context.run_dir:
             stage_dir = os.path.abspath(context.stage_dir(stage_id))
         else:  # plan() before the run exists
@@ -79,7 +80,7 @@ class PythonStage(LocalStage):
                            stage_dir=stage_dir, bundle_dir=context.bundle_dir or os.path.dirname(
                                os.path.abspath(spec.file)),
                            upstream={key: list(value) for key, value in context.upstream.items()},
-                           pico_config=context.pico_config)
+                           inputs=dict(context.inputs), pico_config=context.pico_config)
 
     def plan_commands(self, request):
         """One command: the step runner on the step's context.json, in the bundle directory."""
@@ -177,6 +178,7 @@ class StepRequest:
     stage_dir:   str
     bundle_dir:  str
     upstream:    dict
+    inputs:      dict = field(default_factory=dict)
     pico_config: Optional[str] = None
 
     @property
@@ -191,7 +193,8 @@ class StepRequest:
         """The content of context.json (see step_runner.py)."""
         return {'stage_id': self.stage_id, 'file': self.file, 'function': self.function, 'options': self.options,
                 'run_dir': self.run_dir, 'stage_dir': self.stage_dir, 'bundle_dir': self.bundle_dir,
-                'upstream': self.upstream, 'pico_config': self.pico_config, 'result': self.result_file}
+                'upstream': self.upstream, 'inputs': self.inputs, 'pico_config': self.pico_config,
+                'result': self.result_file}
 
 
 @dataclass(frozen=True)

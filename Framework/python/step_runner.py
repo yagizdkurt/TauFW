@@ -11,7 +11,8 @@ where the TauFW packages cannot be imported; a step that needs them imports them
                                               │ raises: traceback in the log, exit 1
                                               └ bad result (not JSON, not artifacts): message in the log, exit 1
 
-context.json: {stage_id, file, function, options, run_dir, stage_dir, bundle_dir, upstream, pico_config, result}
+context.json: {stage_id, file, function, options, run_dir, stage_dir, bundle_dir, upstream, inputs, pico_config,
+               result}
 result.json:  {message: str, artifacts: [dict, ...]}
 
 What the step function gets (StepContext) and may return is described in StepContext and in _result below.
@@ -72,11 +73,19 @@ class StepContext:
     run_dir:     the run directory
     bundle_dir:  the bundle directory of the run (its copy of the bundle files); also the working directory
     pico_config: the run's PicoProducer configuration, or None (also in $TAUFW_PICO_CONFIG)
-    upstream:    stage id -> artifacts (dicts) of the DONE stages before this step
+    inputs:      input name -> stage id, as connected in the recipe's `inputs:`
+    upstream:    stage id -> artifacts (dicts) of the stages the inputs name
+    input(name, kind=None):           artifacts of the stage connected to an input, optionally of one kind
     artifacts(stage=None, kind=None): upstream artifacts of one stage id (or all), optionally of one kind
     path(relative):  a path in the bundle directory
     log(message):    print one line to the step's log
     """
+
+    def input(self, name, kind=None):
+        if name not in self.inputs:
+            raise KeyError("step %r has no input %r (inputs: %s)" % (self.stage_id, name,
+                                                                    ', '.join(self.inputs) or 'none'))
+        return self.artifacts(self.inputs[name], kind)
 
     def artifacts(self, stage=None, kind=None):
         stages = [stage] if stage else list(self.upstream)
@@ -100,6 +109,7 @@ class StepContext:
         self.bundle_dir = data.get('bundle_dir') or os.getcwd()
         self.pico_config = data.get('pico_config')
         self.upstream = dict(data.get('upstream') or {})
+        self.inputs = dict(data.get('inputs') or {})
         os.makedirs(self.stage_dir, exist_ok=True)
 
     def __repr__(self):

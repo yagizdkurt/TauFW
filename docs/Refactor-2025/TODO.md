@@ -12,6 +12,11 @@ Items marked **(verify)** may already be done; check before working on them.
 
 ## 1. Checks to run on lxplus
 
+- [ ] **BBB after the recipe ids/inputs (CL §15):** `python3 Tests/run.py bbb check`: only `framework.production` may
+      differ, and only in its `plan` lines (`=== Stage production (production) ===`, `Inputs: none`); then
+      `bbb lock --replace`. Also `taufw.py check` on the three bundles (`example_broken`: 4 problems, exit 1) and the
+      menu once by eye (`example_broken` red, its problems in the preview).
+
 - [x] **Import-boundary detector on Windows without ROOT:** 10 synthetic self-tests and 28 offline harness checks
       pass; the targeted repository check fails as intended on 24 known import occurrences (22 file/module pairs,
       20 files), with nine explicit parse exemptions and no new/stale entries. Roadmap step 1 is implemented. (CL §13)
@@ -184,7 +189,12 @@ Next-work proposals (not designed in detail yet):
 - [ ] A: tuple-manifest preflight.
 - [ ] B: replace `os.system` with checked calls in the Fitter scripts.
 - [ ] C: one output base per run. Plotter and Fitter outputs are shared between runs and overwritten; `--run-root`
-      does not isolate them, and the summary scripts pick up working points of other runs.
+      does not isolate them, and the summary scripts pick up working points of other runs. Agreed design (2026-10-14):
+      a stage's output is `<run_dir>/<stage_id>/` (logs move to `<run_dir>/logs/<stage_id>/`, a `manifest.json` per
+      stage), the scripts run with that directory as working directory, and the Framework links each input slot
+      (CL §15) to the output of the stage it names. Next: R2 (run directory layout), then R3 (read inventory of the
+      scripts' cwd-relative paths, API `outdir`/`inputs`, lxplus comparison with the shell scripts). Later: an input
+      may also be a path (another run's stage directory), and a built-in stage may repeat.
 - [ ] D: condor for the local stages, and resume. Local stages cannot resume partway; Ctrl+C leaves a stage `NEW`
       with partial output.
 - [ ] E: a weights stage.

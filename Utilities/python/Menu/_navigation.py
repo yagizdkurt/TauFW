@@ -4,7 +4,8 @@
 The injected operations object supplies launch_dir, recipes(), runs(),
 resolve_path(value), load_run(path), can_advance(record), validate_poll(value),
 recipe_preview(path), prepare_review(path), and execute(command, **values).
-Recipe views contain name, path, ordered (stage id, type) pairs, and notes.
+Recipe views contain name, path, ordered (stage id, type, description) triples, notes, and problems (a recipe with
+problems is shown in red and cannot start).
 Records expose run_id, run_dir, and state;
 run rows are (created, path, (run_id, state, updated)). Only operations reads
 files, validates values, or invokes commands. This class owns screen transitions.
@@ -44,17 +45,10 @@ class MenuNavigation:
     def start(self):
         while True:
             recipes = self.operations.recipes()
-            previews = {}
-
-            def preview(index):
-                if index not in previews:
-                    try:
-                        previews[index] = self.operations.recipe_preview(str(recipes[index]))
-                    except Exception as error:
-                        previews[index] = dict(name=recipes[index].name, error=str(error))
-                return previews[index]
-
-            action, index = self.ui.select_recipe([p.name for p in recipes], preview=preview)
+            previews = [self._preview(path) for path in recipes]  # all at once: the list marks broken recipes
+            broken = [bool(view.get("error") or view.get("problems")) for view in previews]
+            action, index = self.ui.select_recipe([p.name for p in recipes], preview=lambda i: previews[i],
+                                                  broken=broken)
             if action == "back":
                 return
             if action == "manual":
@@ -83,6 +77,12 @@ class MenuNavigation:
                     if self._execute("start", recipe=path):
                         return
                     break
+
+    def _preview(self, path):
+        try:
+            return self.operations.recipe_preview(str(path))
+        except Exception as error:
+            return dict(name=path.name, error=str(error))
 
     # =========================================================================
     # ============================= RUN NAVIGATION ============================

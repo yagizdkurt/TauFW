@@ -16,6 +16,7 @@ from TauFW.Framework.defaults import (ANALYSES_DIR, DEFAULT_POLL_SECONDS, DEFAUL
                                       RUN_RECORD_NAME)
 from TauFW.Framework.run_record import RunRecord, RunState
 from TauFW.Framework.recipe import Recipe
+from TauFW.Framework.validation import check_recipe
 from TauFW.Framework.framework import Framework
 from TauFW.Framework.reporting import SilentReporter
 from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation
@@ -50,11 +51,14 @@ class _Operations:
     def _recipe_view(recipe, path):
         """Plain presentation data; Utilities never needs Framework objects."""
         return dict(name=recipe.name, path=str(path),
-                    stages=tuple((stage.id, stage.stage) for stage in recipe.stages), notes=())
+                    stages=tuple((stage.id, stage.stage, stage.description) for stage in recipe.stages),
+                    notes=(), problems=())
 
     def recipe_preview(self, path):
-        """Read recipe metadata only, without constructing stage APIs."""
-        return self._recipe_view(Recipe.load(str(path)), path)
+        """Check the recipe (validation.py) without constructing stage APIs: its stages and every problem."""
+        check = check_recipe(str(path))
+        return dict(name=check.name, path=str(path), stages=check.stages, notes=(),
+                    problems=tuple(str(issue) for issue in check.issues))
 
     def prepare_review(self, path):
         """Reload and dry-plan the selected recipe without terminal output or writes."""

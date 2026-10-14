@@ -15,14 +15,18 @@ The states of one stage:
 
     local stage (plots, histograms, fit):  NEW ─▶ DONE or FAILED, in one advance() call
 
-A stage also gets a StageContext: the run directory (for its log files), the artifacts of the stages before it
-(so the histograms stage knows which tuples production made and the fit stage which shapes exist), and the bundle
-directory that its path options are resolved against (see bundle.py).
+A stage declares what it reads and makes: `inputs` maps each of its input slots to the kind of data the slot
+takes (the fit: {'shapes': 'shapes'}), `outputs` lists the kinds it makes (histograms: ('shapes',)). A recipe
+connects every slot to an earlier stage that makes that kind, or to null (see recipe.py).
+
+A stage also gets a StageContext: the run directory (for its log files), the artifacts of the stages its inputs
+name (so the fit stage knows which shapes exist), and the bundle directory that its path options are resolved
+against (see bundle.py).
 
 Public API:
   StageState           the states above
   StageOutcome         the result of one advance() call
-  StageContext         what a stage may know about its run: run directory, artifacts of earlier stages
+  StageContext         what a stage may know about its run: run directory, artifacts of its input stages
   Stage                base class: plan(spec, context), advance(spec, stage_record, reporter, context),
                        status(spec, stage_record)
   StageNotImplemented  raised by placeholder stages
@@ -94,14 +98,16 @@ class StageContext:
     """What a stage may know about its run, besides its own options and record.
 
     run_dir:     the run directory; a stage writes its log files to stage_dir(stage_id)
-    upstream:    stage id -> artifacts (dicts) of the stages before this one. In advance() these are the
+    upstream:    stage id -> artifacts (dicts) of the stages this one's inputs name. In advance() these are the
                  recorded artifacts of DONE stages; in plan() the artifacts the earlier stages plan to make.
+    inputs:      input slot -> the stage id the recipe connects it to (None: not from this run)
     pico_config: the PicoProducer configuration of the run (path), or None (PicoProducer's default)
     bundle_dir:  the bundle directory the path options are resolved against (a run: its copy, <run_dir>/bundle)
-    stage_id:    the id of the stage this context is for (a built-in stage: its name)
+    stage_id:    the id of the stage this context is for
     """
     run_dir:     str = ""
     upstream:    Mapping[str, Tuple[dict, ...]] = field(default_factory=dict)
+    inputs:      Mapping[str, Optional[str]] = field(default_factory=dict)
     pico_config: Optional[str] = None
     bundle_dir:  Optional[str] = None
     stage_id:    str = ""
@@ -111,6 +117,11 @@ class StageContext:
         stages = [stage] if stage else list(self.upstream)
         return tuple(artifact for name in stages for artifact in self.upstream.get(name, ())
                      if kind is None or artifact.get('kind') == kind)
+
+    def input_artifacts(self, slot, kind=None):
+        """The upstream artifacts of the stage connected to an input slot (none if the slot is null)."""
+        stage_id = self.inputs.get(slot)
+        return self.artifacts(stage_id, kind) if stage_id else ()
 
     def stage_dir(self, name=None):
         """The directory for the files (logs) of one stage: <run_dir>/<id> (default: this context's stage)."""
@@ -136,13 +147,10 @@ class Stage:
     (None: an empty one). A plan object may have an `artifacts` attribute (dicts): the Framework passes them to
     the plans of the later stages as their upstream artifacts.
     """
-    name = None  # the stage's name, as written in recipes ('stage:')
-    Spec = None  # frozen dataclass with the stage's recipe options; built by spec_from_dict()
-
-    @classmethod
-    def default_id(cls, spec):
-        """The stage's id in a run when the recipe gives none: its name (a python step: its file name)."""
-        return cls.name
+    name = None     # the stage's name, as written in recipes ('stage:')
+    Spec = None     # frozen dataclass with the stage's recipe options; built by spec_from_dict()
+    inputs = {}     # input slot -> kind of data it takes; None: any slot names, any kind (python steps)
+    outputs = ()    # kinds of data the stage makes; None: any kind (python steps)
 
     def plan(self, spec, context=None):
         raise StageNotImplemented(self.name)
@@ -198,7 +206,9 @@ def spec_from_dict(cls, data, where="stage"):
     known = {f.name: f for f in fields(cls)}
     unknown = [k for k in data if k not in known]
     if unknown:
-        raise SpecError("%s: unknown option %r (known: %s)" % (where, unknown[0], ', '.join(sorted(known))))
+        raise SpecError("%s: unknown option%s %s (known: %s)" % (where, 's' if len(unknown) > 1 else '',
+                                                                ', '.join(repr(k) for k in unknown),
+                                                                ', '.join(sorted(known))))
     values = {}
     for name, value in data.items():
         if isinstance(value, list):

@@ -43,6 +43,7 @@ machine, Python API, and run-record internals, see the
 | Bundle | Pipeline | Inputs and purpose |
 | --- | --- | --- |
 | [example_mutau](example_mutau/recipe.yml) | `production` → `plots` | Produce `2022_postEE` mutau tuples for sample names matching `DY*` or `TT*`, then make control plots. |
+| [example_broken](example_broken/recipe.yml) | (invalid on purpose) | A demonstration of the validation: `taufw.py check Analyses/example_broken` lists its four problems; the menu shows it in red. Do not fix it. |
 | [tes_id_2025](tes_id_2025/recipe.yml) | `plots` → `histograms` → `fit` → `fit_summary` (python) | Use existing 2025 tuples for the combined tau energy scale (TES) and tau ID scale factor fit, with the Z→μμ control region; DeepTau VSjet `VTight`, VSe `Tight`; then a table of the fitted values. |
 
 Each bundle carries copies of the Plotter and Fitter configs it uses, next to
@@ -79,6 +80,9 @@ pico:
   config: null
 stages:
   - stage: production
+    id: production
+    description: mutau tuples of the DY and ttbar samples   # optional
+    inputs: null              # production reads no other stage's output
     eras: [2022_postEE]
     channels: [mutau]
     samples: ["DY*", "TT*"]
@@ -98,6 +102,8 @@ To make control plots after production, append this entry under the same
 
 ```yaml
   - stage: plots
+    id: plots
+    inputs: {tuples: production}   # the tuples of the stage with id production
     eras: [2022_postEE]
     configs: [mutau]
     variables: [m_vis, pt_1, pt_2]
@@ -108,7 +114,8 @@ Each stage has its own options. Setting `eras` on production does not set the
 eras for plots or histograms. Likewise, production `channels: [mutau]` and plot
 `configs: [mutau]` belong to different packages and serve different purposes.
 
-For plots of tuples you already have, omit the production entry entirely. For
+For plots of tuples you already have, omit the production entry and write
+`inputs: {tuples: null}` (null: the tuples already in `$PICODIR`). For
 shape creation and a fit on existing tuples, use
 [tes_id_2025](tes_id_2025/recipe.yml). For a fit on existing shapes, use the
 explicit working-point example [below](#choosing-fit-working-points-and-steps).
@@ -130,7 +137,7 @@ Only these top-level keys are supported:
 | `name` | Required | Non-empty string containing only ASCII letters, digits, `_`, `.`, and `-`. Used as the run-directory prefix, independently of the recipe filename. |
 | `pico` | Optional | Mapping with only `config`; omitting it uses PicoProducer's default configuration. |
 | `pico.config` | `null` | PicoProducer configuration file path. See the path rules below. |
-| `stages` | Required | Non-empty list of stage mappings. Each entry needs a `stage` name and that stage's options. |
+| `stages` | Required | Non-empty list of stage mappings. Each entry needs `stage`, `id` and `inputs`, may have `description`, and has that stage's options. |
 
 The built-in stages must appear in this order:
 
@@ -145,18 +152,38 @@ eras, channels, configs, or working points in a single stage's lists. Use
 separate recipes when you need independent production settings.
 
 [Python steps](#python-steps) (`stage: python`) are not part of this order: they
-may appear anywhere, any number of times. Each stage has an **id**, the name of
-its record in `run.json` and of its log directory: a built-in stage's id is its
-name, and a python step's id is its `id:` option or, by default, its file name
-without `.py`. Ids must be unique, so two steps with the same file need their own
-`id:`.
+may appear anywhere, any number of times.
 
-Stage options sit directly beside `stage`; there is no `options:` wrapper.
+Every stage has these keys besides its options:
+
+| Key | Required | Meaning |
+| --- | --- | --- |
+| `stage` | Yes | The stage type: `production`, `plots`, `histograms`, `fit`, `python`. |
+| `id` | Yes | The stage's name in the run: its record in `run.json`, its directory `taufw_runs/<run>/<id>/`, and what `inputs:` refer to. Unique; letters, digits, `_`, `.`, `-`; not `bundle`, `logs`, `run.json`, `run.log`. Any stage may have any id (`id: shapes_tight`). |
+| `inputs` | Yes | Which earlier stage's output the stage reads (see the table below). Never left out and never `{}`: a stage without inputs says `inputs: null`. |
+| `description` | No | Free text, shown by `plan` and in the menu. Nothing depends on it. |
+
+`inputs` connects each **input slot** of the stage to the id of an earlier stage
+that makes that kind of data, or to `null` when the data does not come from this
+run. Nothing is connected implicitly: a stage sees only the artifacts of the
+stages its inputs name.
+
+| Stage | `inputs` | `null` means | Makes |
+| --- | --- | --- | --- |
+| `production` | `null` (no slots) | - | `tuples` |
+| `plots` | `{tuples: <id or null>}` | the tuples already in `$PICODIR` of `pico.config` | `plots` |
+| `histograms` | `{tuples: <id or null>}` | the same | `shapes` |
+| `fit` | `{shapes: <id or null>}` | the shapes already in `Fitter/input_pt_less_region/` (made before) | `fit`, `corrections` |
+| `python` | `null`, or `{<any name>: <id>, ...}` | no inputs (a named input must name a stage) | anything |
+
+Stage options sit directly beside these keys; there is no `options:` wrapper.
 `split` and `merge` are nested mappings inside `production`.
 
 ```yaml
 stages:
   - stage: production
+    id: production
+    inputs: null
     eras: ["2025"]
     channels: [mutau]
     split:
@@ -164,15 +191,25 @@ stages:
       maxevts: null
 ```
 
-Unknown keys, missing required stage options, duplicate or out-of-order stages,
-duplicate ids, and the stage-specific value checks are reported before execution. Errors name
-the recipe and offending location, for example:
+Unknown keys, missing required stage options, missing or duplicate ids,
+missing or wrong inputs, duplicate or out-of-order stages, and the
+stage-specific value checks are reported before execution, **all of them at
+once**. Each problem names its location:
 
 ```text
-my_mutau.yml: stages[0] (production): unknown option 'samplez' ...
+my_mutau.yml: 2 problems
+  stages[0] (production): unknown option 'samplez' ...
+  stages[1] (plots).inputs.tuples: no stage 'prodution' in the recipe
 ```
 
-Schema validation does not establish that every input exists, that a physics
+`taufw.py check <bundle>` lists every problem without running anything, and
+also checks the files the recipe names: `pico.config`, absolute paths and python
+step files (configs a module resolves, such as `TauES_ID/config/...`, are checked
+by `plan`). It exits with 1 if there is a problem. The menu runs the same check:
+a recipe with problems is red in the list and its preview lists them; it cannot
+be started. [example_broken](example_broken/recipe.yml) shows what this looks like.
+
+Validation does not establish that every input exists, that a physics
 setup is suitable, or that batch submission will work. `plan` also checks local
 stage prerequisites and displays problems as warnings where a command plan can
 still be built. Review both the commands and warnings before starting.
@@ -355,7 +392,6 @@ Runs a Python file of the bundle as a step; see [Python steps](#python-steps).
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `id` | file name without `.py` | The step's id: its record in `run.json`, its directory `taufw_runs/<run>/<id>/`. |
 | `file` | Required | The step file: a bundle file such as `steps/fit_summary.py` (or an absolute path). |
 | `function` | `run` | The function to call, defined at the top level of the file. |
 | `options` | `{}` | Any mapping; the step gets it as `ctx.options`. Must be writable as JSON. |
@@ -364,11 +400,14 @@ Runs a Python file of the bundle as a step; see [Python steps](#python-steps).
 ## Python steps
 
 A python step runs a function of a Python file in the bundle, in its own Python
-process, after the stages before it. It can read the artifacts of the earlier
-stages, write its own files, and return artifacts for the stages after it.
+process, after the stages before it. It can read the artifacts of the stages
+its inputs name, write its own files, and return artifacts for the stages after
+it.
 
 ```yaml
   - stage: python
+    id: fit_summary
+    inputs: {fit: fit}        # the input 'fit' is the stage with id fit
     file: steps/fit_summary.py
     options: {pois: [tes, tid_SF]}
 ```
@@ -376,7 +415,7 @@ stages, write its own files, and return artifacts for the stages after it.
 ```python
 # steps/fit_summary.py
 def run(ctx):
-    fits = ctx.artifacts('fit', kind='fit')          # the fit stage's artifacts
+    fits = ctx.input('fit', kind='fit')              # the artifacts of the stage connected to 'fit'
     path = os.path.join(ctx.stage_dir, 'summary.txt')
     ...                                              # write the table
     ctx.log("wrote %s" % path)
@@ -388,11 +427,13 @@ The function gets one argument, `ctx`:
 | Attribute | Meaning |
 | --- | --- |
 | `ctx.options` | The step's `options:` (a dict). |
-| `ctx.artifacts(stage=None, kind=None)` | Artifacts of the `DONE` stages before the step: of one stage id (or all), optionally of one `kind`. |
+| `ctx.input(name, kind=None)` | Artifacts of the stage connected to the input `name`, optionally of one `kind`. An input the recipe does not give is an error. |
+| `ctx.artifacts(stage=None, kind=None)` | Artifacts of the input stages by stage id (or all of them), optionally of one `kind`. |
+| `ctx.inputs` | The step's inputs: name → stage id. |
 | `ctx.stage_dir` | `taufw_runs/<run>/<id>/`, for the step's own files (exists). |
 | `ctx.path(relative)` | A file of the run's bundle copy, e.g. `ctx.path('config_coarse_TT.yml')`. |
 | `ctx.log(message)` | One line in the step's log. |
-| `ctx.run_dir`, `ctx.bundle_dir`, `ctx.stage_id`, `ctx.pico_config`, `ctx.upstream` | The run directory, the bundle copy, the step's id, the run's PicoProducer config (also `$TAUFW_PICO_CONFIG`), all upstream artifacts. |
+| `ctx.run_dir`, `ctx.bundle_dir`, `ctx.stage_id`, `ctx.pico_config`, `ctx.upstream` | The run directory, the bundle copy, the step's id, the run's PicoProducer config (also `$TAUFW_PICO_CONFIG`), the artifacts of the input stages. |
 
 The return value is `None`, a list of artifacts (dicts), or
 `{'message': ..., 'artifacts': [...]}`. The message becomes the stage's message;
@@ -418,8 +459,8 @@ How a step runs:
 
 There are two ways to select fit points:
 
-1. **Infer them from this run's histograms.** Leave `jet_wps` and `ele_wps`
-   empty. A point is selected only if upstream shape artifacts contain both
+1. **Infer them from this run's histograms.** Connect `inputs: {shapes: <histograms id>}`
+   and leave `jet_wps` and `ele_wps` empty. A point is selected only if the input shape artifacts contain both
    `config` and `config_mumu` for that era and WP pair. `eras: []` accepts all
    upstream eras; a non-empty `eras` filters them. Config values must match the
    histogram artifact config values, so update both stages if you change configs.
@@ -428,7 +469,7 @@ There are two ways to select fit points:
    histogram artifacts. For a fit-only recipe, supply eras explicitly because
    there are no upstream artifacts to infer them from.
 
-Inference uses artifacts of the `histograms` stage in the same run, not a search
+Inference uses artifacts of the stage `inputs.shapes` names in the same run, not a search
 of arbitrary shape files already on disk or another run's `run.json`. If no
 points can be selected, planning reports the problem and starting the fit fails.
 
@@ -438,6 +479,8 @@ A complete fit-only recipe for existing shapes is:
 name: tes_id_2025_existing_shapes
 stages:
   - stage: fit
+    id: fit
+    inputs: {shapes: null}    # the shapes already in Fitter/
     eras: ["2025"]
     jet_wps: [VTight]
     ele_wps: [Tight]
@@ -573,8 +616,11 @@ prints the last 20 lines of its log.
 
 | Symptom | What to check or do |
 | --- | --- |
+| A recipe is red in the menu, or `RecipeError` | Run `taufw.py check <bundle>`: it lists every problem with its location. |
 | Unknown key or missing required option | Check indentation and the option tables. Put options beside `stage`; use `split`/`merge` mappings only under production. |
-| Invalid stage order or duplicate stage | Keep the supported order and combine selections into the stage's lists, or use separate recipes. Give python steps with the same file their own `id:`. |
+| Missing `id` or `inputs` | Every stage needs both. A stage without inputs says `inputs: null`; a slot whose data was made before this run says `null` (`inputs: {tuples: null}`). |
+| `no stage 'x' in the recipe` / `comes after this one` / `makes ..., not ...` | An input names a stage **id** (not a type or description) of an **earlier** stage that makes that kind of data (fit `shapes` ← a histograms stage). |
+| Invalid stage order or duplicate stage | Keep the supported order and combine selections into the stage's lists, or use separate recipes. Every stage needs its own unique `id`. |
 | A config change has no effect | Run `plan` and check the `from` column: `module` means the file is not in the bundle (typo in the path), so the module's own config is used. |
 | Python step `NEW` with "no top-level function" | Define `def run(ctx):` at the top level of the file, or set `function:`. |
 | Python step `FAILED` | Read `taufw_runs/<run>/<id>/01_<id>.log` for the traceback; `context.json` shows what the step was given. |
@@ -582,7 +628,7 @@ prints the last 20 lines of its log.
 | Production stays `WAITING` | Inspect live job status; pending/running chunks delay resubmission of failed chunks. Continue with `advance`, or use `--wait`. |
 | Production fails after the allowed tries | Inspect PicoProducer job logs and fix the cause. The failed run cannot be restarted by editing its recipe; start a new run with the corrected setup. |
 | Local stage stays `NEW` with a preflight message | Fix the named missing environment/tool/config/input, then call `advance` on the same run. |
-| No working points to fit | Add a histograms stage with both matching configs, or explicitly set eras and both WP lists for existing shapes. |
+| No working points to fit | Connect `inputs: {shapes: <histograms id>}` to a histograms stage with both matching configs, or explicitly set eras and both WP lists for existing shapes (`shapes: null`). |
 | Plots/histograms read unexpected or missing tuples | Check `$PICODIR` in the run's PicoProducer configuration (`pico.config`, shown by `plan`), channel/setup naming, tags, and required variation tuples. |
 | Exit code zero but the local stage fails | Read the command log for missing/stale expected outputs and nested ROOT/Combine failures. |
 | Editing YAML or a bundle file does not affect `advance` | The run uses the recipe stored in `run.json` and its bundle copy; start a new run to use edited settings. |

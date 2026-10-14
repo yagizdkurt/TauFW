@@ -25,8 +25,10 @@ Pipeline map:
                  batch system, fails, is not ready or is not implemented), save run.json and return.
                  advance(wait=True) repeats this every `poll` seconds until the run no longer waits.
     stage data:  every stage gets a StageContext: the run directory (its logs go to <run_dir>/<stage id>/),
-                 the artifacts of the DONE stages before it (production's tuples, the histograms' shapes), the
-                 run's PicoProducer config and the bundle directory its path options are resolved against.
+                 its inputs (slot -> stage id, from the recipe) and the artifacts of those stages once they are
+                 DONE (production's tuples, the histograms' shapes), the run's PicoProducer config and the
+                 bundle directory its path options are resolved against. A stage never sees the artifacts of a
+                 stage its inputs do not name.
     bundle:      start() copies the bundle files the recipe uses to <run_dir>/bundle/; the run reads them from
                  there, so later edits of the bundle never change a run (see bundle.py).
 
@@ -84,13 +86,14 @@ class Framework:
 
     def plan(self, recipe=None):
         """What each stage would do, without changing anything. Placeholder stages are listed as not implemented.
-        Each stage sees the artifacts that the stages before it plan to make (e.g. the fit sees the planned
-        shapes), so the plan of a whole recipe is complete before anything runs."""
+        Each stage sees the artifacts that its input stages plan to make (e.g. the fit sees the planned shapes),
+        so the plan of a whole recipe is complete before anything runs."""
         recipe = recipe or self.recipe
         plans, planned = [], {}
         for stage_spec in recipe.stages:
-            context = StageContext(upstream=dict(planned), pico_config=recipe.pico_config_path,
-                                   bundle_dir=recipe.bundle_dir, stage_id=stage_spec.id)
+            context = StageContext(upstream=_inputs_of(stage_spec, planned), inputs=stage_spec.connections,
+                                   pico_config=recipe.pico_config_path, bundle_dir=recipe.bundle_dir,
+                                   stage_id=stage_spec.id)
             paths = path_rows(stage_spec.spec, recipe.bundle_dir)
             try:
                 stage_plan = self._stage_for(stage_spec.id).plan(stage_spec.spec, context)
@@ -250,17 +253,18 @@ class Framework:
                                    " - " + outcome.message if outcome.message else ""))
 
     def _context(self, record, stage_spec):
-        """The StageContext of one stage: the run directory, the artifacts of the DONE stages before it, the run's
-        PicoProducer config and bundle copy."""
+        """The StageContext of one stage: the run directory, its inputs and the artifacts of those of its input
+        stages that are DONE, the run's PicoProducer config and bundle copy."""
         recipe = self._recipe_of(record)
-        upstream = {}
+        done = {}
         for earlier in recipe.stages:
             if earlier.id == stage_spec.id:
                 break
             earlier_record = record.stage(earlier.id)
             if StageState(earlier_record.state) is StageState.DONE:
-                upstream[earlier.id] = tuple(earlier_record.artifacts)
-        return StageContext(run_dir=record.run_dir, upstream=upstream,
+                done[earlier.id] = tuple(earlier_record.artifacts)
+        return StageContext(run_dir=record.run_dir, upstream=_inputs_of(stage_spec, done),
+                            inputs=stage_spec.connections,
                             pico_config=recipe.pico_config_path or (record.pico_config or {}).get('path'),
                             bundle_dir=recipe.bundle_dir, stage_id=stage_spec.id)
 
@@ -279,7 +283,8 @@ class Framework:
         """The path and a snapshot (copy) of the PicoProducer configuration of the production stage, for run.json.
         If there is no production stage, or its PicoProducer has no loaded configuration (e.g. a fake one in the
         tests), the path from the recipe is used and the snapshot is None."""
-        stage = self.stages.get('production')
+        production = recipe.first('production')
+        stage = self.stages.get(production.id) if production else None
         config = getattr(getattr(stage, 'pico', None), 'config', None)
         return {'path': getattr(config, '_path', recipe.pico_config_path),
                 'snapshot': dict(getattr(config, '_dict', {})) or None}
@@ -404,6 +409,12 @@ def _run_recipe(record):
     """The recipe saved in run.json, resolved against the run's bundle copy (<run_dir>/bundle)."""
     return Recipe.from_dict(record.recipe, source=record.run_id,
                             bundle_dir=os.path.join(record.run_dir, BUNDLE_DIR_NAME))
+
+
+def _inputs_of(stage_spec, artifacts):
+    """The artifacts (stage id -> artifacts) of the stages a stage's inputs name, among those given."""
+    return {stage_id: artifacts[stage_id] for stage_id in stage_spec.connections.values()
+            if stage_id is not None and stage_id in artifacts}
 
 
 def _jsonable(value):

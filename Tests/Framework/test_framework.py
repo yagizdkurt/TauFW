@@ -18,8 +18,8 @@ RECIPE = {
     "name": "test_mutau",
     "pico": {"config": None},
     "stages": [
-        {"stage": "production", "eras": ["2018"], "channels": ["mutau"], "samples": ["DY*", "TT*"],
-         "tag": "t1", "max_tries": 2, "split": {"nfilesperjob": 2}, "merge": {"clean": True}},
+        {"stage": "production", "id": "production", "inputs": None, "eras": ["2018"], "channels": ["mutau"],
+         "samples": ["DY*", "TT*"], "tag": "t1", "max_tries": 2, "split": {"nfilesperjob": 2}, "merge": {"clean": True}},
     ],
 }
 
@@ -128,7 +128,8 @@ class StateMachineTests(FrameworkTestCase):
 
     def test_placeholder_stage_does_not_break_production(self):
         pico = fakes.FakePicoProducer(statuses=[fakes.complete("DY", "TT")])
-        recipe = dict(RECIPE, stages=RECIPE["stages"] + [{"stage": "plots", "eras": ["2018"]}])
+        recipe = dict(RECIPE, stages=RECIPE["stages"] + [{"stage": "plots", "id": "plots",
+                                                          "inputs": {"tuples": "production"}, "eras": ["2018"]}])
         fw = framework(pico, recipe, stages={"plots": NotImplementedStage()})
         record = fw.advance(fw.start(run_root=self.root))
         self.assertEqual(record.stage("production").state, "DONE")
@@ -307,7 +308,7 @@ class RecipeTests(FrameworkTestCase):
 
     def test_errors_name_the_key(self):
         self.assertIn("unknown key 'stagez'", self.error({"name": "x", "stagez": []}))
-        self.assertIn("'stages' must be a non-empty list", self.error({"name": "x", "stages": []}))
+        self.assertIn("stages: must be a non-empty list", self.error({"name": "x", "stages": []}))
         self.assertIn("unknown stage 'trigger'", self.error({"name": "x", "stages": [{"stage": "trigger"}]}))
         self.assertIn("unknown option 'samplez'", self.error(
             {"name": "x", "stages": [{"stage": "production", "eras": ["2018"], "channels": ["mutau"], "samplez": []}]}))
@@ -318,14 +319,18 @@ class RecipeTests(FrameworkTestCase):
                                       "merge": {"cleanup": True}}]}))
         self.assertIn("'max_tries' must be at least 1", self.error(
             {"name": "x", "stages": [{"stage": "production", "eras": ["2018"], "channels": ["mutau"], "max_tries": 0}]}))
-        self.assertIn("'name' must be a word", self.error({"name": "a b", "stages": [{"stage": "fit"}]}))
+        self.assertIn("name: must be a word", self.error({"name": "a b", "stages": [{"stage": "fit"}]}))
         self.assertIn("unknown key 'cfg'", self.error({"name": "x", "pico": {"cfg": 1}, "stages": [{"stage": "fit"}]}))
 
     def test_stage_order_and_duplicates(self):
         self.assertIn("must be in the order", self.error(
             {"name": "x", "stages": [{"stage": "fit"}, {"stage": "histograms", "eras": [2025], "jet_wps": ["Tight"],
                                                          "ele_wps": ["Tight"]}]}))
-        self.assertIn("more than once", self.error({"name": "x", "stages": [{"stage": "fit"}, {"stage": "fit"}]}))
+        fit = {"stage": "fit", "id": "fit", "inputs": {"shapes": None}}
+        self.assertIn("stages[1] (fit): a recipe has at most one fit stage",
+                      self.error({"name": "x", "stages": [fit, dict(fit, id="fit2")]}))
+        self.assertIn("stages[1] (fit).id: 'fit' is already the id of stages[0]",
+                      self.error({"name": "x", "stages": [fit, fit]}))
 
     def test_load_bundle_example_and_relative_config(self):
         example = os.path.join(checkout.REPO, "Analyses", "example_mutau")

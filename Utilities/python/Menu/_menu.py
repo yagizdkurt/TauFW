@@ -129,19 +129,26 @@ class ConsoleUI:
             return self._wrap(view["hint"], width)
         if show_path:
             lines += self._wrap("Path: " + view.get("path", ""), width)
+        problems = view.get("problems", ())
+        if problems:
+            lines += ["", "%d problem(s):" % len(problems)]
+            for problem in problems:
+                lines += self._wrap("- " + problem, width)
+            lines += [""]
         stages = view.get("stages", ())
         if not compact:
             lines += ["%d stage(s)" % len(stages), ""]
         card_width = max(6, min(width, 32))
         padding = " " * max(0, (width - card_width) // 2)
         edge = padding + "+" + "-" * (card_width - 2) + "+"
-        for index, (stage_id, stage_type) in enumerate(stages):
+        for index, (stage_id, stage_type, description) in enumerate(stages):
             if index:
                 center = padding + " " * (card_width // 2)
                 lines += [center + "|", center + "v"]
             labels = self._wrap("%d. %s" % (index + 1, stage_id), card_width - 4)
-            if stage_type == "python":
-                labels.append("Python step")
+            labels.append("Python step" if stage_type == "python" else stage_type)
+            if description:
+                labels += self._wrap(description, card_width - 4)
             lines += [edge]
             lines += [padding + "| " + label.center(card_width - 4) + " |" for label in labels]
             lines += [edge]
@@ -164,8 +171,9 @@ class ConsoleUI:
                                             len(lines)))[:width], color=self.styles["accent"])
         return offset, visible
 
-    def _pipeline_choice(self, title, choices, preview, review=False, position=None):
-        """Two equal columns, with independent recipe/action and pipeline scrolling."""
+    def _pipeline_choice(self, title, choices, preview, review=False, position=None, row_colors=None):
+        """Two equal columns, with independent recipe/action and pipeline scrolling.
+        row_colors: a style name per choice (e.g. "error"), or None."""
         position = position if position is not None else {}
 
         def draw(screen):
@@ -191,13 +199,15 @@ class ConsoleUI:
                     first = max(0, selected - rows + 1)
                     for index in range(first, min(len(choices), first + rows)):
                         label = ("> " if index == selected else "  ") + choices[index]
+                        role = row_colors[index] if row_colors and index < len(row_colors) else None
                         self._line(screen, top + index - first, column, label[:columns],
-                                   index == selected)
+                                   index == selected, self.styles.get(role, 0) if role else 0)
                     view = preview(selected)
                     lines = self._pipeline_lines(view, right_rect[3], show_path=review,
                                                  compact=right_rect[2] <= 6)
+                    broken = view.get("error") or view.get("problems")
                     offset, page = self._viewport(screen, right_rect, lines, offset,
-                                                  self.styles["error"] if view.get("error") else 0)
+                                                  self.styles["error"] if broken else 0)
                 else:
                     self._line(screen, 3, 1, "Enlarge terminal (at least 64 x 12).")
                 self._footer(screen, "Up/Down Move | Enter Select | PgUp/Dn Pipeline | Esc Back")
@@ -511,8 +521,9 @@ class ConsoleUI:
             return "manual", None
         return "select", selected
 
-    def select_recipe(self, names, preview=None):
-        """Return (select, index), (manual, None), or (back, None)."""
+    def select_recipe(self, names, preview=None, broken=None):
+        """Return (select, index), (manual, None), or (back, None). broken: True for each recipe with problems
+        (shown in red)."""
         if preview is None:
             return self._pick("Select a recipe", names, "Enter another recipe path")
 
@@ -522,8 +533,10 @@ class ConsoleUI:
             return dict(hint="Enter a recipe file or bundle directory to review its pipeline."
                         if index == len(names) else "Return to the main menu.")
 
+        colors = ["error" if flag else None for flag in (broken or [False] * len(names))]
         selected = self._pipeline_choice("Start a new run / Select a recipe",
-                                         names + ["Enter another recipe path", "Back"], view)
+                                         names + ["Enter another recipe path", "Back"], view,
+                                         row_colors=colors + [None, None])
         if selected is None or selected == len(names) + 1:
             return "back", None
         return ("manual", None) if selected == len(names) else ("select", selected)

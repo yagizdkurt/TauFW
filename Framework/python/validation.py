@@ -1,0 +1,95 @@
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
+"""Recipe validation: every problem of a recipe, before anything runs (the menu, `taufw.py check`).
+
+    check_recipe(path) ─▶ read the file ─┬─ cannot read ─▶ one issue
+                                         └─▶ Recipe.parse() ─▶ structure, ids, inputs, order (recipe.py)
+                                                └─▶ files ─▶ pico.config, absolute path options, python step files
+                                                       ─▶ RecipeCheck(recipe or None, stages, issues)
+
+What is checked here and what is not:
+    checked:      everything Recipe.load() checks, plus the files the recipe names that do not depend on a module:
+                  pico.config, absolute path options, and the `file` of python steps (always a bundle file).
+    not checked:  path options a module resolves (e.g. Fitter/TauES_ID/config/...), and the environment (CMSSW,
+                  ROOT, combine, tuples on disk): they are the machine's state, not the recipe's. The stages' plan
+                  notes and preflight report them.
+
+Inputs:  a recipe file or bundle directory.
+Outputs: a RecipeCheck. Nothing is written.
+
+Public API:
+  check_recipe(path, files=None) -> RecipeCheck
+  RecipeCheck   name, path, recipe (None if invalid), stages ((stage id, type, description) of every stage whose
+                options are valid), issues (Issue), ok
+"""
+import os
+from dataclasses import dataclass
+from typing import Optional, Tuple
+
+from TauFW.Framework.bundle import path_rows
+from TauFW.Framework.recipe import Recipe, RecipeError, Issue, read_recipe
+
+__all__ = ['check_recipe', 'RecipeCheck']
+
+
+# =============================================================================
+# ================================= PIPELINE ==================================
+
+
+def check_recipe(path, files=None):
+    """Every problem of the recipe at `path` (a bundle directory or a recipe file). Never raises for a bad
+    recipe: the problems are the result."""
+    try:
+        data, source, bundle_dir = read_recipe(path, files)
+    except RecipeError as error:
+        return RecipeCheck(name=os.path.basename(path), path=path, issues=error.issues)
+    except Exception as error:  # unreadable file, YAML syntax error, ...
+        return RecipeCheck(name=os.path.basename(path), path=path,
+                           issues=(Issue("", "cannot read %s: %s" % (path, error)),))
+    recipe, stage_specs, issues = Recipe.parse(data, source, bundle_dir)
+    pico = data.get('pico') if isinstance(data, dict) else None
+    issues = list(issues) + _file_issues(pico.get('config') if isinstance(pico, dict) else None, stage_specs,
+                                         bundle_dir)
+    name = data.get('name') if isinstance(data, dict) and isinstance(data.get('name'), str) else source
+    return RecipeCheck(name=name, path=path, recipe=None if issues else recipe,
+                       stages=tuple((s.id, s.stage, s.description) for _, s in stage_specs),
+                       issues=tuple(issues))
+
+
+# =============================================================================
+# ================================== FILES ====================================
+
+
+def _file_issues(pico_config, stage_specs, bundle_dir):
+    """The files a recipe names that are missing (see the top of this file)."""
+    issues = []
+    if isinstance(pico_config, str) and pico_config:
+        found = pico_config if os.path.isabs(pico_config) else os.path.join(bundle_dir or "", pico_config)
+        if not os.path.isfile(found):
+            issues.append(Issue('pico.config', "file not found: %s" % (os.path.normpath(found))))
+    for index, stage_spec in stage_specs:
+        where = "stages[%d] (%s)" % (index, stage_spec.stage)
+        for option, value, resolved, kind in path_rows(stage_spec.spec, bundle_dir):
+            if kind == 'absolute' and not os.path.isfile(resolved):
+                issues.append(Issue("%s.%s" % (where, option), "file not found: %s" % (resolved)))
+            elif kind == 'module' and stage_spec.stage == 'python':
+                issues.append(Issue("%s.%s" % (where, option), "%s is not a file of the bundle (%s)"
+                                    % (value, bundle_dir)))
+    return issues
+
+
+# =============================================================================
+# ================================== RECORDS ==================================
+
+
+@dataclass(frozen=True)
+class RecipeCheck:
+    """The result of check_recipe(). recipe: the Recipe if there is no issue, else None."""
+    name:   str
+    path:   str
+    recipe: Optional[Recipe] = None
+    stages: Tuple[Tuple[str, str, str], ...] = ()
+    issues: Tuple[Issue, ...] = ()
+
+    @property
+    def ok(self):
+        return not self.issues

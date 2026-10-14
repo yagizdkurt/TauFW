@@ -9,10 +9,17 @@
 
 A recipe may leave stages out (e.g. only histograms and fit, on tuples made before), but keeps the built-in stages
 in the order of ORDER, each at most once. Python steps are not in ORDER: they may be anywhere, any number of times.
+Each stage declares its input slots and the kinds of data it makes (Stage.inputs, Stage.outputs):
 
-To add a stage: write a Stage subclass with a Spec (see stages/base.py; stages/local.py for a stage that runs
-scripts), add it to STAGES, put its name in ORDER at the place where it runs (or leave it out of ORDER for a
-stage that may be anywhere), and build it in Framework.from_recipe.
+  production   inputs: none                outputs: tuples
+  plots        inputs: tuples <- tuples    outputs: plots
+  histograms   inputs: tuples <- tuples    outputs: shapes
+  fit          inputs: shapes <- shapes    outputs: fit, corrections
+  python       inputs: any names           outputs: any
+
+To add a stage: write a Stage subclass with a Spec, its inputs and outputs (see stages/base.py; stages/local.py
+for a stage that runs scripts), add it to STAGES, put its name in ORDER at the place where it runs (or leave it out
+of ORDER for a stage that may be anywhere), and build it in Framework.from_recipe.
 
 Public API:
   STAGES, ORDER      name -> Stage class; the order in which the built-in stages may appear in a recipe

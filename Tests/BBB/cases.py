@@ -367,7 +367,8 @@ def framework_production(workspace):
     taufw = REPO / "Framework" / "scripts" / "taufw.py"
     recipe = ws.root / "recipe.json"
     recipe.write_text(json.dumps({"name": "bbb", "pico": {"config": None}, "stages": [
-        {"stage": "production", "eras": ["2018"], "channels": ["mutau"], "samples": ["DY", "TT"], "max_tries": 2,
+        {"stage": "production", "id": "production", "inputs": None, "eras": ["2018"], "channels": ["mutau"],
+         "samples": ["DY", "TT"], "max_tries": 2,
          "merge": {"clean": True}}]}), encoding="utf-8")  # Part G: the local stages run scripts; not in BBB
     runs = ws.root / "runs"
 

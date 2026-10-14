@@ -19,7 +19,7 @@ A subclass sets `name` and `Spec`, and implements:
     execute(request, logdir, progress) -> RunReport
     summary(report)                 -> the stage's message when it is DONE (default: counts)
     config_file(value)              -> the module file of a path option (for taufw.py init; default: None)
-`reads_tuples = True` records the production tuples as the stage's inputs.
+A stage with a `tuples` input slot records the tuples of the stage connected to it as its inputs.
 
 Public API:
   LocalStage, LOG_TAIL
@@ -43,7 +43,6 @@ LOG_TAIL = 20  # lines of the failed command's log shown in the terminal
 class LocalStage(Stage):
     """Base class of the stages that run scripts locally; see the module docstring.
     api: the module API object (a Fitter TauESID or a Plotter ControlPlots, or a fake one in the tests)."""
-    reads_tuples = False
 
     # =========================================================================
     # =============================== PIPELINES ===============================
@@ -64,8 +63,8 @@ class LocalStage(Stage):
         stage_id = context.stage_id or self.name
         report = self.execute(request, context.stage_dir(stage_id), self._progress(reporter, stage_id))
         status = {'commands': [result.to_dict() for result in report.results]}
-        if self.reads_tuples and context.artifacts('production'):
-            status['inputs'] = [artifact.get('path') for artifact in context.artifacts('production')]
+        if context.input_artifacts('tuples'):
+            status['inputs'] = [artifact.get('path') for artifact in context.input_artifacts('tuples')]
         if not report.ok:
             return self._failed(report, status, reporter)
         return StageOutcome(StageState.DONE, self.summary(report), 'done', status=status,

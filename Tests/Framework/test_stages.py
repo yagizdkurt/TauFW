@@ -13,15 +13,27 @@ from TauFW.Framework.stages import (ProductionStage, PlotStage, HistogramStage, 
                                     PreflightError)
 from test_framework import Clock
 
-PRODUCTION = {"stage": "production", "eras": ["2025"], "channels": ["mutau"], "samples": ["DY*"]}
-PLOTS = {"stage": "plots", "eras": [2025], "configs": ["mutau", "mumu"], "variables": ["m_vis"]}
-HISTOGRAMS = {"stage": "histograms", "eras": [2025], "jet_wps": ["VTight", "Tight"], "ele_wps": ["Tight"]}
-FIT = {"stage": "fit", "steps": ["fit", "corrections"]}
+PRODUCTION = {"stage": "production", "id": "production", "inputs": None, "eras": ["2025"], "channels": ["mutau"],
+              "samples": ["DY*"]}
+PLOTS = {"stage": "plots", "id": "plots", "inputs": {"tuples": None}, "eras": [2025], "configs": ["mutau", "mumu"],
+         "variables": ["m_vis"]}
+HISTOGRAMS = {"stage": "histograms", "id": "histograms", "inputs": {"tuples": None}, "eras": [2025],
+              "jet_wps": ["VTight", "Tight"], "ele_wps": ["Tight"]}
+FIT = {"stage": "fit", "id": "fit", "inputs": {"shapes": None}, "steps": ["fit", "corrections"]}
 TT, MM = "TauES_ID/config/config_coarse_TT.yml", "TauES/config/FitSetup_mumu.yml"
 
 
 def recipe(*stages):
     return Recipe.from_dict({"name": "tes", "pico": {"config": None}, "stages": list(stages)}, source="t.yml")
+
+
+def connected(stage, **inputs):
+    """The stage with its input slots connected to these stage ids."""
+    return dict(stage, inputs=inputs)
+
+
+PIPELINE = (PRODUCTION, connected(PLOTS, tuples="production"), connected(HISTOGRAMS, tuples="production"),
+            connected(FIT, shapes="histograms"))
 
 
 class LocalStageTestCase(unittest.TestCase):
@@ -44,7 +56,7 @@ class LocalStageTestCase(unittest.TestCase):
 
 class PipelineTests(LocalStageTestCase):
     def test_whole_pipeline_runs_after_production(self):
-        fw = self.framework(PRODUCTION, PLOTS, HISTOGRAMS, FIT)
+        fw = self.framework(*PIPELINE)
         record = fw.start(run_root=self.root)
         self.assertEqual(record.state, "WAITING")
         self.assertEqual(self.plotter.calls, [])  # nothing local runs before production is DONE
@@ -80,7 +92,7 @@ class PipelineTests(LocalStageTestCase):
 
     def test_failed_command_fails_the_stage(self):
         self.fitter.fail = "shapes 2025 Tight Tight %s" % (TT)
-        record = self.framework(HISTOGRAMS, FIT).start(run_root=self.root)
+        record = self.framework(HISTOGRAMS, connected(FIT, shapes="histograms")).start(run_root=self.root)
         stage = record.stage("histograms")
         self.assertEqual(stage.state, "FAILED")
         self.assertEqual(record.state, "FAILED")
@@ -117,13 +129,13 @@ class PipelineTests(LocalStageTestCase):
     def test_fit_points_from_the_recipe(self):
         fit = dict(FIT, eras=["2025"], jet_wps=["Medium", "Tight"], ele_wps=["VVLoose"])
         self.framework(fit).start(run_root=self.root)
-        self.assertIs(self.fitter.call("preflight_fit")[1], True)  # no histograms stage: check the shapes on disk
+        self.assertIs(self.fitter.call("preflight_fit")[1], True)  # shapes: null: check the shapes on disk
         self.assertEqual(self.fitter.call("fit")[0]["points"],
                          (("2025", "Medium", "VVLoose"), ("2025", "Tight", "VVLoose")))
 
     def test_fit_needs_shapes_of_both_configs(self):
         histograms = dict(HISTOGRAMS, configs=[TT])  # no mumu shapes
-        record = self.framework(histograms, FIT).start(run_root=self.root)
+        record = self.framework(histograms, connected(FIT, shapes="histograms")).start(run_root=self.root)
         self.assertEqual(record.stage("histograms").state, "DONE")
         self.assertEqual(record.stage("fit").state, "FAILED")
 
@@ -132,7 +144,7 @@ class RecoveryTests(LocalStageTestCase):
     def test_reload_keeps_completed_stages_and_passes_saved_artifacts_downstream(self):
         # Stop at histograms preflight after production and plots genuinely finish.
         self.fitter.problems = ("combine is not on PATH",)
-        fw = self.framework(PRODUCTION, PLOTS, HISTOGRAMS, FIT)
+        fw = self.framework(*PIPELINE)
         record = fw.advance(fw.start(run_root=self.root))
         loaded = RunRecord.load(record.run_dir)
         self.assertEqual([s.state for s in loaded.stages], ["DONE", "DONE", "NEW", "NEW"])
@@ -170,7 +182,7 @@ class RecoveryTests(LocalStageTestCase):
 class PlanTests(LocalStageTestCase):
     def test_plan_passes_planned_artifacts_forward(self):
         self.fitter.problems = ("combine is not on PATH",)
-        plan = self.framework(HISTOGRAMS, FIT).plan()
+        plan = self.framework(HISTOGRAMS, connected(FIT, shapes="histograms")).plan()
         shapes, fit = plan.stages
         self.assertEqual(len(shapes.plan.commands), 4)
         self.assertEqual([c.label for c in fit.plan.commands], ["fit 2025 VTight Tight", "fit 2025 Tight Tight"])
@@ -190,15 +202,25 @@ class PlanTests(LocalStageTestCase):
 
 class ContextTests(LocalStageTestCase):
     def test_only_done_upstream_stages_are_passed(self):
-        fw = self.framework(PRODUCTION, PLOTS)
+        plots = connected(PLOTS, tuples="production")
+        fw = self.framework(PRODUCTION, plots)
         record = fw.start(run_root=self.root)  # production SUBMITTED
-        context = fw._context(record, recipe(PRODUCTION, PLOTS).stage("plots"))
+        context = fw._context(record, recipe(PRODUCTION, plots).stage("plots"))
         self.assertEqual(context.upstream, {})
         self.assertEqual(context.run_dir, record.run_dir)
         record = fw.advance(record)
-        context = fw._context(record, recipe(PRODUCTION, PLOTS).stage("plots"))
+        context = fw._context(record, recipe(PRODUCTION, plots).stage("plots"))
         self.assertEqual([a["path"] for a in context.artifacts("production")], ["/pico/DY_mutau.root"])
+        self.assertEqual(context.input_artifacts("tuples"), context.artifacts("production"))
         self.assertEqual(context.artifacts(kind="shapes"), ())
+
+    def test_a_stage_sees_only_the_stages_its_inputs_name(self):
+        fw = self.framework(PRODUCTION, PLOTS)  # plots: tuples null, although the recipe has a production stage
+        record = fw.advance(fw.start(run_root=self.root))
+        self.assertEqual(record.stage("production").state, "DONE")
+        context = fw._context(record, fw.recipe.stage("plots"))
+        self.assertEqual((context.upstream, context.input_artifacts("tuples")), ({}, ()))
+        self.assertNotIn("inputs", record.stage("plots").last_status)  # no production tuples recorded
 
     def test_stage_dir(self):
         self.assertEqual(StageContext(run_dir="runs/x").stage_dir("fit"), os.path.join("runs/x", "fit"))
@@ -215,7 +237,7 @@ class SpecTests(unittest.TestCase):
         self.assertEqual(spec.eras, ("2025",))  # numbers from YAML become strings
         self.assertEqual(spec.configs, (TT, MM))  # default: the configs of run_inputs.sh
         self.assertEqual(recipe(dict(PLOTS, configs="mutau")).stage("plots").spec.configs, ("mutau",))
-        fit = recipe({"stage": "fit"}).stage("fit").spec
+        fit = recipe({"stage": "fit", "id": "fit", "inputs": {"shapes": None}}).stage("fit").spec
         self.assertEqual(fit.steps, ("fit", "postfit", "plots", "corrections", "summary"))
         self.assertTrue(fit.impacts)
 
@@ -238,7 +260,7 @@ class CommandLineTests(LocalStageTestCase):
     def test_plan_shows_commands_and_notes(self):
         path = os.path.join(self.root, "r.json")
         with open(path, "w") as stream:
-            json.dump({"name": "tes", "stages": [HISTOGRAMS, FIT]}, stream)
+            json.dump({"name": "tes", "stages": [HISTOGRAMS, connected(FIT, shapes="histograms")]}, stream)
         self.fitter.problems = ("combine is not on PATH",)
         real = Framework.from_recipe
         self.cli.Framework.from_recipe = lambda r, reporter=None, **kw: real(r, reporter=reporter,
@@ -254,6 +276,25 @@ class CommandLineTests(LocalStageTestCase):
         self.assertIn("shapes 2025 VTight Tight", commands[0])
         self.assertIn("Working directory: /repo/Fitter", [t for k, t in self.reporter.messages])
         self.assertIn("combine is not on PATH", self.warnings())
+        messages = [t for k, t in self.reporter.messages if k == "message"]
+        self.assertIn("Inputs: shapes <- histograms", messages)
+        self.assertIn("Inputs: tuples <- outside this run", messages)
+
+    def test_check_lists_every_problem(self):
+        path = os.path.join(self.root, "r.json")
+        with open(path, "w") as stream:
+            json.dump({"name": "tes", "stages": [dict(HISTOGRAMS, id="logs"), dict(FIT, inputs=None)]}, stream)
+        self.assertEqual(self.cli.main(["check", path]), 1)
+        self.assertEqual(self.warnings(), [
+            "Recipe tes: 2 problem(s)",
+            "  stages[0] (histograms).id: 'logs' is a name the run directory uses (not allowed: bundle, logs, "
+            "run.json, run.log)",
+            "  stages[1] (fit).inputs: fit reads shapes: write inputs: {shapes: <stage id or null>}"])
+        self.assertEqual(self.cli.main(["plan", path]), 1)  # an invalid recipe: the problems, no traceback
+        self.assertIn("r.json: 2 problems", self.warnings()[-1])
+        with open(path, "w") as stream:
+            json.dump({"name": "tes", "stages": [HISTOGRAMS]}, stream)
+        self.assertEqual(self.cli.main(["check", path]), 0)
 
     def test_command_line_shows_python3_and_environment(self):
         import sys

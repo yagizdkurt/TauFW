@@ -10,8 +10,11 @@ pico:
   config: null              # PicoProducer configuration; null: PicoProducer/config/config.json
                             # (a relative path is a file of this bundle, e.g. pico.json)
 
-stages:
+stages:                     # every stage: stage (type), id (unique), inputs (required), description (optional)
   - stage: production       # NanoAOD -> pico tuples (PicoProducer API)
+    id: production
+    description: mutau tuples of the DY and ttbar samples
+    inputs: null            # production reads no other stage's output
     eras: [2022_postEE]     # eras and channels as in the PicoProducer configuration
     channels: [mutau]
     samples: ["DY*", "TT*"] # glob patterns of sample names; also: vetoes, dtypes, dasfilters, dasvetoes
@@ -27,6 +30,9 @@ stages:
       force: false          # merge samples with failed or missing chunks too
 
   - stage: plots            # data/MC control plots of the merged tuples (Plotter/plot.py, run locally)
+    id: plots
+    description: control plots of the new tuples
+    inputs: {tuples: production}   # the tuples of the production stage above
     eras: [2022_postEE]     # plot.py -y; the tuples are found through $PICODIR of the PicoProducer configuration
     configs: [setup_mutau.yml]  # bundle files, channel names (Plotter/config/setup_<channel>.yml)
                             # or .yml files relative to Plotter/

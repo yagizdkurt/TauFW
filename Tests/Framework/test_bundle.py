@@ -15,11 +15,13 @@ from TauFW.Framework.bundle import resolve, where, bundle_files, BundleError
 from TauFW.Framework.stages import PlotStage, HistogramStage, FitStage
 from test_framework import Clock
 
-HISTOGRAMS = {"stage": "histograms", "eras": [2025], "jet_wps": ["VTight"], "ele_wps": ["Tight"],
-              "configs": ["tt.yml", "mm.yml"]}
-FIT = {"stage": "fit", "config": "tt.yml", "config_mumu": "mm.yml",
+HISTOGRAMS = {"stage": "histograms", "id": "histograms", "inputs": {"tuples": None}, "eras": [2025],
+              "jet_wps": ["VTight"], "ele_wps": ["Tight"], "configs": ["tt.yml", "mm.yml"]}
+FIT = {"stage": "fit", "id": "fit", "inputs": {"shapes": "histograms"}, "config": "tt.yml", "config_mumu": "mm.yml",
        "steps": ["fit"]}
-PLOTS = {"stage": "plots", "eras": [2025], "configs": ["mutau", "setup_mumu.yml"]}
+PLOTS = {"stage": "plots", "id": "plots", "inputs": {"tuples": None}, "eras": [2025],
+         "configs": ["mutau", "setup_mumu.yml"]}
+STEP = {"stage": "python", "id": "check", "inputs": None, "file": "steps/check.py"}
 
 
 class BundleTestCase(unittest.TestCase):
@@ -161,27 +163,63 @@ class StageIdTests(BundleTestCase):
         return str(context.exception)
 
     def test_python_steps_anywhere_with_ids(self):
-        step = {"stage": "python", "file": "steps/check.py"}
+        histograms = dict(HISTOGRAMS, id="shapes_tight", description="the Tight working points")
         recipe = Recipe.from_dict({"name": "x", "stages": [
-            step, HISTOGRAMS, dict(step, id="check_again"), FIT, dict(step, file="steps/summary.py")]})
-        self.assertEqual([s.id for s in recipe.stages], ["check", "histograms", "check_again", "fit", "summary"])
+            STEP, histograms, dict(STEP, id="check_again", inputs={"shapes": "shapes_tight"}),
+            dict(FIT, inputs={"shapes": "shapes_tight"}),
+            dict(STEP, id="summary", file="steps/summary.py", inputs={"fit": "fit", "shapes": "shapes_tight"})]})
+        self.assertEqual([s.id for s in recipe.stages], ["check", "shapes_tight", "check_again", "fit", "summary"])
         self.assertEqual(recipe.stage("check_again").stage, "python")
+        self.assertEqual(recipe.first("histograms").id, "shapes_tight")  # a built-in stage may have any id
+        self.assertEqual(recipe.stage("shapes_tight").description, "the Tight working points")
+        self.assertEqual(recipe.stage("summary").connections, {"fit": "fit", "shapes": "shapes_tight"})
+        self.assertEqual(recipe.stage("check").connections, {})
         data = recipe.to_dict()
-        self.assertNotIn("id", data["stages"][0])  # the default id is not written
-        self.assertEqual(data["stages"][2]["id"], "check_again")
+        self.assertEqual(list(data["stages"][1])[:4], ["stage", "id", "description", "inputs"])
+        self.assertNotIn("description", data["stages"][0])  # optional: written only if given
+        self.assertIsNone(data["stages"][0]["inputs"])
         self.assertEqual(Recipe.from_dict(data).to_dict(), data)
 
     def test_id_errors(self):
-        step = {"stage": "python", "file": "steps/check.py"}
-        self.assertIn("appears more than once", self.error(step, dict(step)))
-        self.assertIn("is the name of a stage", self.error(dict(step, id="fit")))
-        self.assertIn("cannot have another id", self.error(dict(HISTOGRAMS, id="shapes")))
-        self.assertIn("'id' must be a word", self.error(dict(step, id="a b")))
-        self.assertIn("must be in the order", self.error(FIT, step, HISTOGRAMS))
+        self.assertIn("stages[1] (python).id: 'check' is already the id of stages[0]", self.error(STEP, STEP))
+        self.assertIn("stages[0] (python): missing 'id'", self.error({"stage": "python", "inputs": None,
+                                                                     "file": "steps/check.py"}))
+        self.assertIn("stages[0] (python).id: must be a word", self.error(dict(STEP, id="a b")))
+        self.assertIn("'bundle' is a name the run directory uses", self.error(dict(STEP, id="bundle")))
+        self.assertIn("'run.json' is a name the run directory uses", self.error(dict(STEP, id="run.json")))
+        self.assertIn("must be in the order", self.error(dict(FIT, inputs={"shapes": None}), STEP, HISTOGRAMS))
         self.assertIn("unknown stage 'pyhton' (known: production, plots, histograms, fit, python)",
                       self.error({"stage": "pyhton"}))
-        self.assertIn("file must be a .py file", self.error({"stage": "python", "file": "steps/check.sh"}))
-        self.assertIn("missing required option 'file'", self.error({"stage": "python"}))
+        self.assertIn("file must be a .py file", self.error(dict(STEP, file="steps/check.sh")))
+        self.assertIn("missing required option 'file'", self.error({"stage": "python", "id": "x", "inputs": None}))
+        self.assertIn("description: must be text", self.error(dict(STEP, description=["a"])))
+
+    def test_input_errors(self):
+        production = {"stage": "production", "id": "production", "inputs": None, "eras": [2025],
+                      "channels": ["mutau"]}
+        message = self.error(
+            dict(production, inputs={"tuples": None}),                          # production reads nothing
+            dict(HISTOGRAMS, inputs={"tuples": "production", "shapes": None}),  # unknown slot
+            dict(FIT, inputs={"shapes": "production"}),                         # wrong kind of data
+            dict(STEP, inputs={}),                                              # empty: write null
+            dict(STEP, id="late", inputs={"x": "later", "y": None, "z": "late", "w": "nowhere"}),
+            dict(STEP, id="later"))
+        self.assertIn("r.yml: 8 problems", message)
+        for text in ("stages[0] (production).inputs: production reads no other stage's output: write inputs: null",
+                     "stages[1] (histograms).inputs.shapes: unknown input (histograms has: tuples)",
+                     "stages[2] (fit).inputs.shapes: stage 'production' (production) makes tuples, not shapes",
+                     "stages[3] (python).inputs: is empty: write inputs: null",
+                     "stages[4] (python).inputs.y: must name an earlier stage",
+                     "stages[4] (python).inputs.x: stage 'later' comes after this one",
+                     "stages[4] (python).inputs.z: a stage cannot read its own output",
+                     "stages[4] (python).inputs.w: no stage 'nowhere' in the recipe"):
+            self.assertIn(text, message)
+        self.assertIn("stages[0] (fit).inputs: missing (write inputs: {shapes: <stage id or null>})",
+                      self.error({"stage": "fit", "id": "fit"}))
+        self.assertIn("stages[0] (fit).inputs.shapes: missing (the id of an earlier stage, or null)",
+                      self.error({"stage": "fit", "id": "fit", "inputs": {"shape": None}}))
+        self.assertIn("stages[0] (plots).inputs: plots reads tuples: write inputs: {tuples: <stage id or null>}",
+                      self.error(dict(PLOTS, inputs=None)))
 
 
 class MakeBundleTests(BundleTestCase):
@@ -196,10 +234,10 @@ class MakeBundleTests(BundleTestCase):
 
     def test_make_bundle_copies_the_module_configs(self):
         source = self.write("old.json", json.dumps({"name": "old", "stages": [
-            {"stage": "plots", "eras": [2025], "configs": ["mutau"]},
-            {"stage": "histograms", "eras": [2025], "jet_wps": ["VTight"], "ele_wps": ["Tight"],
-             "configs": ["TauES_ID/config/config_coarse_TT.yml", "TauES/config/FitSetup_mumu.yml"]},
-            {"stage": "fit", "config": "TauES_ID/config/config_coarse_TT.yml",
+            dict(PLOTS, configs=["mutau"]),
+            dict(HISTOGRAMS, configs=["TauES_ID/config/config_coarse_TT.yml", "TauES/config/FitSetup_mumu.yml"]),
+            {"stage": "fit", "id": "fit", "inputs": {"shapes": "histograms"},
+             "config": "TauES_ID/config/config_coarse_TT.yml",
              "config_mumu": "TauES/config/FitSetup_mumu.yml"}]}), base=self.root)
         target = os.path.join(self.root, "Analyses", "new_one")
         copied = self.framework(Recipe.load(source)).make_bundle(target)

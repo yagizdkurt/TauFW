@@ -3,9 +3,9 @@
 
 It runs what Fitter/run_inputs.sh runs: TauES/createinputsTES.py for every era, working point pair and config.
 
-    inputs:   pico tuples, read by the scripts through $PICODIR of the run's PicoProducer config (passed as
-              $TAUFW_PICO_CONFIG; the production stage's tuples, if the recipe has one, are recorded as the
-              stage's inputs). The TES,
+    inputs:   tuples: pico tuples, read by the scripts through $PICODIR of the run's PicoProducer config
+              (passed as $TAUFW_PICO_CONFIG); if the slot names a production stage, its tuples are recorded as
+              the stage's inputs. The TES,
               LTF and JTF variations need their own tuples (e.g. <sample>_mutau_TES0p950.root).
     options:  HistogramSpec (eras, configs, jet and electron working points)
     outputs:  one shapes artifact per shape file: {kind: 'shapes', path, era, channel, config, jet_wp, ele_wp,
@@ -41,7 +41,8 @@ class HistogramStage(LocalStage):
     """Input histograms with the Fitter API.
     fitter: a TauFW.Fitter.api.TauESID, or any object with the same methods (tests pass a fake one)."""
     name = 'histograms'
-    reads_tuples = True
+    inputs = {'tuples': 'tuples'}   # null: the tuples in $PICODIR of the run's PicoProducer config
+    outputs = ('shapes',)
     group = 'fitter'  # taufw.py init names a copied config <group>_<name> if its name is taken
     # Spec = HistogramSpec: set at the bottom of this file.
 

@@ -368,8 +368,8 @@ ConsoleUI(None)
         for dimensions in ((12, 64), (24, 80), (36, 121)):
             with self.subTest(dimensions=dimensions):
                 ui, screen, frames = self.rendered_terminal([27], dimensions)
-                preview = dict(name="example", stages=(("production", "production"),
-                                                       ("plots", "plots")))
+                preview = dict(name="example", stages=(("production", "production", ""),
+                                                       ("plots", "plots", "")))
                 self.assertEqual(ui.select_recipe(["example"], lambda index: preview), ("back", None))
                 width = dimensions[1]
                 panel_width = (width - 1) // 2
@@ -387,7 +387,7 @@ ConsoleUI(None)
 
     def test_picker_updates_errors_and_special_row_hints(self):
         ui, screen, frames = self.rendered_terminal([1002, 1002, 1002, 27])
-        preview = mock.Mock(side_effect=[dict(name="good", stages=(("plots", "plots"),)),
+        preview = mock.Mock(side_effect=[dict(name="good", stages=(("plots", "plots", ""),)),
                                          dict(name="bad", error="invalid recipe")])
         self.assertEqual(ui.select_recipe(["good", "bad"], preview), ("back", None))
         self.assertEqual(preview.call_args_list, [mock.call(0), mock.call(1)])
@@ -398,9 +398,9 @@ ConsoleUI(None)
     def test_pipeline_scroll_wrap_and_reset_on_recipe_change(self):
         ui, screen, frames = self.rendered_terminal([1004] * 12 + [1002, 27], (18, 64))
         long_id = "very_long_custom_python_stage_identifier"
-        stages = (("production", "production"), (long_id, "python"), ("fit", "fit"))
+        stages = (("production", "production", ""), (long_id, "python", ""), ("fit", "fit", ""))
         view = dict(name="first", stages=stages)
-        other = dict(name="second", stages=(("plots", "plots"),))
+        other = dict(name="second", stages=(("plots", "plots", ""),))
         ui.select_recipe(["first", "second"], lambda index: (view, other)[index])
         text = "\n".join(line for frame in frames for line in frame)
         self.assertIn("Python step", text)
@@ -420,7 +420,7 @@ ConsoleUI(None)
             return value
 
         screen.getch.side_effect = key
-        preview = mock.Mock(return_value=dict(name="recipe", stages=(("fit", "fit"),)))
+        preview = mock.Mock(return_value=dict(name="recipe", stages=(("fit", "fit", ""),)))
         self.assertEqual(ui.select_recipe(["first", "second"], preview), ("select", 1))
         self.assertIn("Enlarge terminal", "\n".join(frames[1]))
         self.assertEqual(preview.call_args_list, [mock.call(0), mock.call(1)])
@@ -428,7 +428,7 @@ ConsoleUI(None)
 
     def test_review_preserves_position_after_detailed_plan(self):
         ui, screen, frames = self.rendered_terminal([1004, 1002, 10], (18, 80))
-        review = dict(name="analysis", path="Analyses/analysis", stages=(("fit", "fit"),),
+        review = dict(name="analysis", path="Analyses/analysis", stages=(("fit", "fit", ""),),
                       notes=("fit: environment is not ready",))
         position = {}
         self.assertEqual(ui.confirm_recipe("analysis", review, position), "plan")
@@ -442,20 +442,42 @@ ConsoleUI(None)
 
     def test_picker_preview_cache_and_exception_recovery(self):
         ui, operations = mock.Mock(), mock.Mock()
-        operations.recipes.return_value = [Path("good.yml"), Path("bad.yml")]
-        operations.recipe_preview.side_effect = [dict(name="good"), ValueError("bad recipe")]
+        operations.recipes.return_value = [Path("good.yml"), Path("bad.yml"), Path("wrong.yml")]
+        operations.recipe_preview.side_effect = [dict(name="good"), ValueError("bad recipe"),
+                                                 dict(name="wrong", problems=("stages[0] (fit): missing 'id'",))]
 
-        def select(names, preview):
+        def select(names, preview, broken):
             self.assertEqual(preview(0), preview(0))
             self.assertEqual(preview(1), preview(1))
             self.assertEqual(preview(1)["error"], "bad recipe")
+            self.assertEqual(broken, [False, True, True])  # every recipe is checked first, to mark it in the list
             return "back", None
 
         ui.select_recipe.side_effect = select
         MenuNavigation(ui, operations).start()
-        self.assertEqual(operations.recipe_preview.call_count, 2)
+        self.assertEqual(operations.recipe_preview.call_count, 3)
         operations.prepare_review.assert_not_called()
         operations.execute.assert_not_called()
+
+    def test_problems_and_descriptions_in_the_pipeline(self):
+        ui = ConsoleUI(mock.Mock())
+        view = dict(name="broken", stages=(("prod", "production", "mutau tuples"), ("summary", "python", "")),
+                    problems=("pico.config: file not found: x.json", "stages[2] (fit): missing 'id'"))
+        lines = ui._pipeline_lines(view, 40)
+        text = "\n".join(lines)
+        self.assertIn("2 problem(s):", text)
+        self.assertIn("- pico.config: file not found: x.json", text)
+        self.assertLess(text.index("problem(s)"), text.index("1. prod"))  # the problems come first
+        cards = [line[2:-2].strip() for line in lines if line.startswith(" ") and "|" in line]
+        self.assertIn("production", " ".join(cards))  # the stage type under the id
+        self.assertIn("mutau tuples", " ".join(cards))
+        self.assertIn("Python step", " ".join(cards))
+
+    def test_broken_recipes_are_red_in_the_list(self):
+        ui = ConsoleUI(mock.Mock())
+        with mock.patch.object(ui, "_pipeline_choice", return_value=None) as choice:
+            self.assertEqual(ui.select_recipe(["a", "b"], lambda i: {}, broken=[False, True]), ("back", None))
+        self.assertEqual(choice.call_args.kwargs["row_colors"], [None, "error", None, None])
 
     def test_framed_screens_without_color_and_with_color_failure(self):
         for fail in (False, True):

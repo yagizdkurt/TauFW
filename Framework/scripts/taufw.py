@@ -3,6 +3,8 @@
 """taufw.py: run TauFW analysis pipelines from a recipe. A thin client of TauFW.Framework (no logic here).
 
   taufw.py                                              interactive Linux console menu
+  taufw.py check   RECIPE                                every problem of a recipe (structure, ids, inputs,
+                                                          the files it names); nothing is written
   taufw.py plan    RECIPE [--local [-m N]]                show each stage's plan and the files it reads;
                                                           nothing is written
                                                           (--local: quick local test of the production stage)
@@ -15,14 +17,15 @@
 
 RECIPE is an analysis bundle directory (Analyses/<name>, with recipe.yml) or a recipe file.
 
-Exit code: 1 if the run failed, otherwise 0. See Framework/README.md.
+Exit code: 1 if the run failed or the recipe is invalid, otherwise 0. See Framework/README.md.
 """
 import os
 import shlex
 import sys
 from argparse import ArgumentParser
 try:
-    from TauFW.Framework import Framework, Recipe, RecipeError, load_run, FrameworkReporter, RunState
+    from TauFW.Framework import (Framework, Recipe, RecipeError, load_run, FrameworkReporter, RunState,
+                                 check_recipe)
     from TauFW.Framework.bundle import BundleError, make_bundle
     from TauFW.Framework.defaults import DEFAULT_RUN_ROOT, DEFAULT_POLL_SECONDS, ANALYSES_DIR, default_file_io
 except ImportError as err:
@@ -34,23 +37,41 @@ except ImportError as err:
 # ================================= COMMANDS ==================================
 
 
+def cmd_check(args):
+    """List every problem of a recipe."""
+    reporter = FrameworkReporter(verbosity=args.verbose)
+    check = check_recipe(args.recipe)
+    if check.ok:
+        reporter.message("Recipe %s: no problems (%d stage(s): %s)"
+                         % (check.name, len(check.stages), ', '.join(stage_id for stage_id, _, _ in check.stages)))
+        return 0
+    reporter.warning("Recipe %s: %d problem(s)" % (check.name, len(check.issues)))
+    for issue in check.issues:
+        reporter.warning("  %s" % (issue))
+    return 1
+
+
 def cmd_plan(args):
     """Show each stage's plan, or run a quick local test of the production stage."""
     reporter = FrameworkReporter(verbosity=args.verbose)
     framework = Framework.from_recipe(args.recipe, reporter=reporter)
     if args.local:
-        stage_spec = framework.recipe.stage('production')
+        stage_spec = framework.recipe.first('production')
         if stage_spec is None:
             reporter.warning("The recipe has no production stage to test locally.")
             return 1
-        results = framework.stages['production'].run_local(stage_spec.spec, maxevts=args.maxevts)
+        results = framework.stages[stage_spec.id].run_local(stage_spec.spec, maxevts=args.maxevts)
         return 1 if any(r.exitcode for r in results) else 0
     plan = framework.plan()
     if plan.bundle_dir:
         reporter.message("Bundle: %s" % (plan.bundle_dir))
     reporter.message("PicoProducer config: %s" % (plan.pico_config or "PicoProducer/config/config.json (default)"))
     for stage_plan in plan.stages:
-        reporter.header("Stage %s" % (stage_plan.stage))
+        stage_spec = framework.recipe.stage(stage_plan.stage)
+        reporter.header("Stage %s (%s)" % (stage_spec.id, stage_spec.stage))
+        if stage_spec.description:
+            reporter.message(stage_spec.description)
+        reporter.message("Inputs: %s" % (_inputs_line(stage_spec)))
         if stage_plan.paths:  # the files the stage reads: from the bundle, from its module, or absolute
             reporter.table(["option", "file", "from"],
                            [(option, resolved, where) for option, _, resolved, where in stage_plan.paths])
@@ -114,7 +135,8 @@ def cmd_init(args):
     target = os.path.join(args.root or ANALYSES_DIR, args.name)
     try:
         minimal = Recipe.from_dict({'name': args.name, 'pico': {'config': None},  # also checks the name
-                                    'stages': [{'stage': 'python', 'file': 'steps/example.py'}]})
+                                    'stages': [{'stage': 'python', 'id': 'example', 'inputs': None,
+                                                'file': 'steps/example.py'}]})
         if args.source:
             copied = Framework.from_recipe(args.source, reporter=reporter).make_bundle(target, name=args.name)
         else:
@@ -127,6 +149,14 @@ def cmd_init(args):
         reporter.message("  %s" % (path))
     reporter.message("Edit %s, then: taufw.py plan %s" % (os.path.join(target, 'recipe.yml'), target))
     return 0
+
+
+def _inputs_line(stage_spec):
+    """The stage's inputs as written: 'none', or 'slot <- stage id' (null: 'slot <- outside this run')."""
+    if stage_spec.inputs is None:
+        return "none"
+    return ", ".join("%s <- %s" % (slot, stage_id or "outside this run")
+                     for slot, stage_id in stage_spec.inputs.items())
 
 
 def _show_commands(reporter, plan):
@@ -161,7 +191,7 @@ def _finish(reporter, record):
     return 1 if record.state == RunState.FAILED else 0
 
 
-COMMANDS = {'plan': cmd_plan, 'start': cmd_start, 'advance': cmd_advance, 'status': cmd_status, 'init': cmd_init}
+COMMANDS = {'check': cmd_check, 'plan': cmd_plan, 'start': cmd_start, 'advance': cmd_advance, 'status': cmd_status, 'init': cmd_init}
 
 
 # =============================================================================
@@ -179,6 +209,8 @@ def build_parser():
                         help="seconds between checks with --wait, default=%(default)d")
     subparsers = parser.add_subparsers(dest='command', metavar='COMMAND')
     subparsers.required = True
+    check = subparsers.add_parser('check', parents=[common], help="list every problem of a recipe")
+    check.add_argument('recipe', help="analysis bundle directory, or recipe file (.yml or .json)")
     plan = subparsers.add_parser('plan', parents=[common], help="show each stage's plan (nothing is written)")
     plan.add_argument('recipe', help="analysis bundle directory, or recipe file (.yml or .json)")
     plan.add_argument('--local', action='store_true', help="run the production stage locally on one file per sample")
@@ -212,7 +244,11 @@ def main(argv=None):
         from TauFW.Framework.interactive import run_menu
         return run_menu(COMMANDS, build_parser())
     args = build_parser().parse_args(argv)
-    return COMMANDS[args.command](args)
+    try:
+        return COMMANDS[args.command](args)
+    except RecipeError as error:  # every problem of the recipe, without a traceback
+        FrameworkReporter().warning(str(error))
+        return 1
 
 
 if __name__ == "__main__":
