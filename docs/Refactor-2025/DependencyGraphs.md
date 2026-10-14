@@ -8,23 +8,23 @@ The target follows [07-module-isolation.md](../../LocalR/architecture/07-module-
 
 ## 1. Old repository: coupled stages and hidden handoffs
 
-Solid arrows mean a code dependency, call, state lookup or external tool use; labels specify which. Dotted arrows show artifact flow or implicit data conventions. These are different kinds of dependency, not interchangeable import counts. Red nodes expose mixed responsibilities and ambient state. Internal details illustrate the coupling; the full site inventory below has no top-N cutoff.
+The graphs show repository code modules, imports and calls. Data artifacts, physics objects, external runtimes and process-state objects are omitted. Labels retain the configuration lookups and side effects that make modules coupled. Red nodes expose mixed responsibilities. The full evidence inventory still records external imports and data conventions.
 
 ```mermaid
 flowchart LR
     subgraph P["PicoProducer: production plus plotting and workflow state"]
-        PC["tools.config<br/>cached CONFIG + persistent JSON"]
+        PC["tools.config<br/>configuration loader and persistence"]
         PJ["pico commands + workers<br/>jobs, scheduler, storage"]
         PS["storage.utils / Sample<br/>DAS, files, event caches"]
-        PA["channel modules + TreeProducer<br/>live module flags + branch buffers"]
+        PA["analysis modules + TreeProducer<br/>writer depends on live analysis module"]
         PD["diagnostics / pileup / comparisons<br/>draw plots inside production package"]
-        PX["corrections<br/>payload paths and external SF tools"]
+        PX["corrections package"]
     end
     subgraph L["Plotter: discovery, normalization, filling, rendering"]
         LC["config.samples* + plot.py<br/>executable sample lists / star imports"]
         LU["sample.utils<br/>re-exports, getconfig, setera"]
         LS["Sample / MergedSample / SampleSet<br/>normalization, IO, mutable composition"]
-        LH["RDF / ResultDict / HistSet<br/>Variable, Selection, MultiDraw"]
+        LH["ResultDict / HistSet / MultiDraw<br/>Variable / Selection / Context"]
         LD["Plot / Stack / Ratio / CMSStyle<br/>hist helpers + MultiThread"]
         LM["QCD / fake-rate / scale methods<br/>dynamic loading + class patches"]
     end
@@ -32,27 +32,13 @@ flowchart LR
         FW["run_inputs* / run_workflow*<br/>CWD-dependent shell pipelines"]
         FI["createinputs* / Zpt<br/>sample catalogs + selection policy"]
         FD["plot.datacard<br/>gethists + shape writing + drawing"]
-        FF["harvesters / fit scripts<br/>datacards, workspaces, fit commands"]
+        FF["harvesters / fit scripts<br/>command execution and orchestration"]
         FP["postfit / scans / rebinning<br/>rendering and style imports"]
     end
-    subgraph G["Shared code and ambient process state"]
+    subgraph G["Shared code"]
         CU["common.tools<br/>file, root, log, string, math, Table"]
-        CR["common.RDataFrame<br/>ROOT declarations + RDF patches"]
-        GS["global era / lumi / cme<br/>normalization tied to CMSStyle"]
-        GE["CWD / sys.path / user / hostname<br/>guessed storage and scheduler"]
-        GR["ROOT global settings<br/>batch mode, style, thread pool, patches"]
+        CR["common.tools.RDataFrame<br/>runtime adapter and class patches"]
     end
-    subgraph E["External runtime and tools"]
-        ER["ROOT / NumPy / scientific Python"]
-        EN["CMSSW / NanoAODTools / Run-2 JME"]
-        EC["TauIDSFs / HTT / correctionlib<br/>JSON, ROOT and CSV payloads"]
-        EF["Combine / CombineHarvester<br/>text2workspace, shape and fit tools"]
-        ES["DAS / batch / storage commands<br/>hadd, XRootD, GFAL, site tools"]
-    end
-    N["NanoAOD: Events and branch schema"]
-    T["pico ROOT files<br/>tree, branches, cutflow, naming pattern"]
-    H["shape ROOT files<br/>category / process / systematic names"]
-    O["fit results / SF ROOT and JSON"]
     TT["Tau_Trigger_SF toolkit<br/>turn-on creation, fitting, conversion"]
     TA["TauFW.TriggerSF.Common.*<br/>unresolved installed namespace mapping"]
 
@@ -72,8 +58,7 @@ flowchart LR
     LS -->|"stacks / style / execution helpers"| LD
     LS -->|"load estimator by method name"| LM
     LM -->|"patch SampleSet / Sample classes"| LS
-    LU -->|"setera changes physics + display state"| GS
-    GS -->|"CMSStyle lumi tables"| LD
+    LU -->|"setera reads and changes CMSStyle state"| LD
     FW -->|"run_inputs variants"| FI
     FW -->|"run_workflow variants"| FF
     FI -->|"10 implicit Plotter catalog imports"| LC
@@ -86,36 +71,13 @@ flowchart LR
     LS --> CU
     FD --> CU
     LH --> CR
-    PC --> GE
-    FW --> GE
-    LC --> GE
-    LD --> GR
-    LU --> GR
-    CR --> GR
-    PA --> EN
-    PX --> EC
-    LH --> ER
-    LD --> ER
-    FF -->|"shell-built commands"| EF
-    PS -->|"discovery, merge, copy, submit"| ES
-    N -.->|"worker input"| PA
-    PA -.->|"writer output"| T
-    T -.->|"PICODIR / SAMPLE / CHANNEL / TAG guesses"| LC
-    T -.->|"branch and cutflow contracts"| LH
-    FD -.->|"shape layout"| H
-    H -.->|"harvester input"| FF
-    FF -.-> O
-    T -.->|"tree / trigger / WP / DM branch contract"| TT
     TT --> TA
-    TT --> ER
-    TT --> EC
+    TT --> CU
 
     classDef debt fill:#fee2e2,stroke:#b91c1c,color:#450a0a
-    classDef artifact fill:#fff7ed,stroke:#c2410c,color:#431407
-    classDef external fill:#f1f5f9,stroke:#64748b,color:#0f172a
-    class PC,PS,PD,LU,LS,FI,FD,FW,GS,GE,GR,CR,TA debt
-    class N,T,H,O artifact
-    class CU,ER,EN,EC,EF,ES external
+    classDef shared fill:#f1f5f9,stroke:#64748b,color:#0f172a
+    class PC,PS,PD,LU,LS,FI,FD,FW,CR,TA debt
+    class CU shared
 ```
 
 **The stage-level import graph is `PicoProducer ↔ Plotter`, with `Fitter → Plotter`.** The dependency cycle exists at package level even though some imports are delayed or conditional. The old tree has no Framework package to own the handoffs.
@@ -133,40 +95,30 @@ There are also **149 non-test wildcard import records**. Exact/script-local file
 
 ## 2. Proposed architecture: the Framework owns wiring
 
-Solid arrows below are allowed code/API dependencies. Dotted arrows are explicit inputs, outputs, schema agreements or proposals. **There are no code-dependency arrows between stage packages.** Artifact flow still exists and must have a defined contract.
+Solid arrows below are allowed code/API dependencies. Dotted arrows mark declarative configuration or proposed adapters. **There are no code-dependency arrows between stage packages.** Data exchange is described in the supporting text rather than drawn as extra nodes.
 
 ```mermaid
 flowchart TB
-    A["Analysis bundle / recipe<br/>sample data, selections, stage options, paths"]
-    FW["Framework orchestrator<br/>resolve inputs and outputs, order stages<br/>track artifacts, status, logs, run.json"]
+    A["Analysis recipes / configuration"]
+    FW["Framework orchestrator<br/>stage dispatch, run records, reporting<br/>resolve inputs and outputs"]
 
     subgraph ST["Independent stage packages: no imports of another stage"]
-        P["PicoProducer.api<br/>NanoAOD to pico tuples<br/>owns production, workers, corrections"]
-        L["Plotter.api<br/>explicit tuples + sample metadata<br/>local RDF filling, estimators, control plots, shapes"]
-        F["Fitter.api<br/>explicit histograms + datacard config<br/>datacards, workspaces, fits, SF export"]
+        P["PicoProducer.api<br/>production, workers, corrections"]
+        L["Plotter.api<br/>histogram engine, estimators, control plots"]
+        F["Fitter.api<br/>fit orchestration, diagnostics, export"]
     end
     subgraph LIB["Shared libraries: reusable code, no stage imports"]
         U["Utilities<br/>CLI, FileIO, Process, Math, Expressions"]
         D["Utilities.Drawing<br/>Plot, Stack, Ratio, CMSStyle, labels<br/>duck-typed drawing inputs"]
         C["common<br/>remaining helpers during migration"]
     end
-    subgraph ART["Declared artifacts: physical IO at explicitly supplied paths"]
-        N["NanoAOD inputs"]
-        T["pico ROOT files + output description<br/>proposed tuple manifest; format undecided"]
-        H["shape ROOT files + output description<br/>category / process / variation layout"]
-        O["fit results / SF ROOT and JSON<br/>plus control-plot outputs from Plotter"]
-    end
-    CT["Documented data contracts<br/>tree / branch types / cutflow normalization<br/>histogram naming / binning / calibration schema<br/>schema-module ownership undecided"]
-    EP["CMSSW / NanoAODTools<br/>ROOT / correction tools / batch / storage"]
-    EL["ROOT / scientific Python"]
-    EF["ROOT / Combine / CombineHarvester<br/>checked command execution"]
     CL["Standalone stage CLIs<br/>proposed adapters to the same explicit-input APIs"]
     TR["Optional future trigger-SF stage/API<br/>registration and integration not yet implemented"]
 
-    A -->|"declarative pipeline and locations"| FW
+    A -.->|"declarative pipeline and locations"| FW
     FW -->|"only public API; config + input/output paths"| P
-    FW -->|"only public API; tuple inputs + output paths"| L
-    FW -->|"only public API; histogram inputs + output paths"| F
+    FW -->|"only public API; explicit inputs and outputs"| L
+    FW -->|"only public API; explicit inputs and outputs"| F
     FW --> U
     P --> U
     L --> U
@@ -177,42 +129,24 @@ flowchart TB
     P --> C
     L --> C
     F --> C
-    P --> EP
-    L --> EL
-    F --> EF
-    D --> EL
-    N -.->|"declared producer input"| P
-    P -.->|"declared output + artifact metadata"| T
-    T -.->|"register; resolve next stage inputs"| FW
-    L -.->|"declared histogram output"| H
-    H -.->|"register; resolve fit inputs"| FW
-    F -.->|"declared fit and calibration output"| O
-    L -.->|"declared control plots"| O
-    O -.->|"record provenance and results"| FW
-    CT -.->|"producer conformance"| P
-    CT -.->|"consumer and producer conformance"| L
-    CT -.->|"consumer conformance"| F
     CL -.->|"optional direct execution"| P
     CL -.->|"optional direct execution"| L
     CL -.->|"optional direct execution"| F
     FW -.->|"future public API adapter"| TR
-    CT -.-> TR
     TR -.->|"reuse shared libraries"| U
     TR -.->|"reuse drawing"| D
 
     classDef stage fill:#dcfce7,stroke:#15803d,color:#052e16
     classDef orchestrator fill:#dbeafe,stroke:#1d4ed8,color:#172554
     classDef library fill:#f3e8ff,stroke:#7e22ce,color:#3b0764
-    classDef artifact fill:#fff7ed,stroke:#c2410c,color:#431407
     classDef proposed fill:#f1f5f9,stroke:#64748b,color:#0f172a,stroke-dasharray:5 5
     class P,L,F stage
     class A,FW orchestrator
     class U,D,C library
-    class N,T,H,O artifact
-    class CT,CL,TR proposed
+    class CL,TR proposed
 ```
 
-The Framework chooses **where artifacts go and which stage receives them**. Stage implementations still perform their own low-level ROOT/file operations at the supplied paths, using shared IO helpers. Passing files or an agreed input description does not require importing the package that produced them. Registration/metadata arrows back to Framework describe API results, not stage imports of Framework.
+The Framework chooses **where artifacts go and which stage receives them**. Stage implementations still perform their own low-level ROOT/file operations at the supplied paths, using shared IO helpers. Passing files or an agreed input description does not require importing the package that produced them. Data artifacts and runtime objects are intentionally absent from these module diagrams.
 
 Histogram filling, including `createinputs*`, normalization, selections, background estimates and shape generation, belongs to **Plotter/histogramming**. Fitter starts from histogram inputs. Drawing belongs to **Utilities.Drawing**, so Fitter can draw postfit diagnostics without importing Plotter. A genuine producer diagnostic may use the drawing library directly; comparison workflows that are really plotting should leave PicoProducer. Generic multiprocessing belongs to Utilities.Process.
 
@@ -261,7 +195,7 @@ External requirements are not architectural failures by themselves. The old inve
 The readable old graph groups related nodes. The supporting files retain the detail that would make that diagram unreadable:
 
 - [Historical evidence, every import and every matched non-import site](dependencies/old-evidence.md): expandable Markdown tables, all 89 stage-crossing import sites, unresolved/ambiguous names, all cycle members and all parse limitations.
-- [Complete old file/module graph](dependencies/old-full-graph.mmd): every Python file and imported namespace, including tests, standard-library/external modules and unresolved imports; caller → module edges retain source line numbers. Dotted provider links mean inferred/ambiguous resolution. This large graph may exceed default Mermaid renderer limits; the two diagrams above stay compact.
+- [Complete old repository file/module graph](dependencies/old-full-graph.mmd): every Python file and its repository-module dependencies, including tests and unresolved `TauFW.*` imports; caller → module edges retain source line numbers. External-runtime and standard-library nodes are omitted; their imports remain in the evidence tables. Dotted provider links mean inferred/ambiguous resolution. This large graph may exceed default Mermaid renderer limits; the two diagrams above stay compact.
 - [The same complete old graph in Graphviz DOT](dependencies/old-full-graph.dot): for graph viewers that handle large graphs without Mermaid's default limits.
 - [All old Python import records](dependencies/old-imports.csv): **2,466** records across **405** Python files, preserving imported symbols, aliases, wildcards, function/conditional context and resolution status. **2,251** records are outside embedded tests.
 - [Other dependency evidence](dependencies/old-other-evidence.csv): **10,046 matching source lines**, with mechanism labels. These are review evidence, **not 10,046 proven dependencies**; textual matches can include non-executed strings or inline comments.

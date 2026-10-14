@@ -352,18 +352,20 @@ def main():
                 lines.append(f"| `{row['file']}:{row['line']}` | `{row['module']}` | `{md(row['symbols'] or row['alias'])}` | {row['context']} | {row['resolution']} |")
         lines += ["", "</details>"]
     (OUT / "old-evidence.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
-    # Full graph: file -> imported namespace; namespace -> candidate/provider file.
+    # Repository graph: file -> imported namespace -> candidate/provider file.
+    # External imports remain in the evidence tables, but not in this module view.
     # Named namespace nodes preserve unresolved imports without inventing providers.
     files = sorted(p for p in sources if p.endswith(".py"))
-    names = sorted({r["module"] for r in rows})
+    graph_rows = [r for r in rows if r["target_files"] or r["module"].startswith("TauFW.")]
+    names = sorted({r["module"] for r in graph_rows})
     ids = {("file", p): "f" + str(i) for i, p in enumerate(files)}
     ids.update({("module", m): "m" + str(i) for i, m in enumerate(names)})
-    graph = ["%% Generated full historical graph. Import arrows point from caller to dependency.", "flowchart LR"]
+    graph = ["%% Historical repository modules only; external imports remain in old-imports.csv.", "%% Import arrows point from caller to dependency.", "flowchart LR"]
     for kind, name in ids:
         graph.append(f'  {ids[(kind, name)]}["{name}"]')
     edges = defaultdict(list)
     providers = set()
-    for row in rows:
+    for row in graph_rows:
         edges[(row["file"], row["module"])].append(str(row["line"]))
         for target in row["target_files"].split("; "):
             if target:
