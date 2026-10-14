@@ -1495,6 +1495,50 @@ All five files parse; every `CMSStyle.*` attribute they use exists in `TauFW.Uti
 `Tests/import_boundary_allowlist.json` (22 -> 18 pairs). Fitter -> Plotter is now 16 occurrences / 15 pairs / 13
 files; no new or stale entries. Not run on lxplus yet (TODO §1).
 
+## 21. ROOT expression helpers move to `TauFW.Utilities.Expressions`
+
+**Date:** 2026-10-14
+
+`Plotter/python/plot/string.py` held three kinds of helpers: label helpers (moved to `Drawing/labels.py` in §18),
+helpers that know pico branch names (`shift`, `undoshift`, `shiftjme`, `invertcharge`, `filtervars`), and helpers for
+ROOT selection and weight expressions that know only the C++ syntax. The last group moves to a new package, so that
+the Fitter can build cuts without importing the Plotter (`Fitter/python/plot/datacard.py` imported `joincuts` from it).
+
+Not `Utilities/Root`: Utilities packages are named by their job, not by a dependency; ROOT file IO already belongs to
+FIO; and these helpers do not import ROOT. Not the future Utilities string module either (TODO §2): those helpers treat
+text as text, these know ROOT's syntax.
+
+| Old (`TauFW.Plotter.plot.string`) | New |
+|---|---|
+| `getselstr`, `joinweights`, `joincuts`, `replacepattern`, `doubleboolrexp`, `cleanbool` | `Utilities/python/Expressions/_expressions.py`, moved verbatim (2-space style kept) |
+| | `Utilities/python/Expressions/__init__.py` exports the five functions (`doubleboolrexp` stays private) |
+
+`plot/string.py` imports the five names back, as it does for the label helpers, so its star-importers (`Variable`,
+`Selection`, `Sample`, `MergedSample`, `config/samples*.py`) see the same objects. `doubleboolrexp` is no longer in its
+namespace; nothing in the repository used it (legacy code included). `LOG` is still the drawing logger
+(`TauFW.Utilities.Drawing.LOG`; its package `__init__` does not import ROOT), so warnings are unchanged.
+
+Callers updated: `Fitter/python/plot/datacard.py:15` (`from TauFW.Utilities.Expressions import joincuts`).
+`Utilities/IOInventory.md`: the `string.py` row (regenerated before and after in a scratch copy, the one changed row
+replaced in the hand-edited file). `Utilities/README.md`: new section "ROOT selection and weight expressions".
+
+Three latent bugs found while recording the old results are registered, not fixed: [Plotter BUGS](../Plotter/BUGS.md)
+L05 (`joinweights` with a weight `0` raises `TypeError`), L06 (`replacepattern` applies only the last of several
+patterns), L07 (`joincuts` does not bracket `(x)||y`).
+
+### Tests
+
+- Before the move: the old functions were run on 41 fixed inputs (results and warnings recorded). After the move the
+  new module gives the same 41 results; every moved definition has the same AST as before, and the remaining
+  `string.py` definitions are unchanged.
+- `Tests/Utilities/test_expressions.py` (new, 8 tests) pins those results, the latent bugs included; the Utilities unit
+  tests pass (99, 2 skipped). Imported on Windows with ROOT blocked: `TauFW.Utilities.Expressions` and
+  `TauFW.Plotter.plot.string` load, and `string.py` exposes the same function objects.
+- `check_harness.py` passes. `check_import_boundaries.py`: the `datacard.py` entry was reported stale and is removed
+  (18 -> 17 pairs); Fitter -> Plotter is 15 occurrences / 14 pairs / 12 files; no new or stale entries.
+- The `plotter.*` BBB cases reach these functions through `Selection` and `Sample`; no baseline change is expected.
+  Not run on lxplus yet (TODO §1).
+
 ## Root legacy archive consolidation
 
 **Date:** 2026-10-14

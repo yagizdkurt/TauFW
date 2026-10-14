@@ -61,12 +61,6 @@
       "roadmap_step": "4"
     },
     {
-      "file": "Fitter/python/plot/datacard.py",
-      "module": "TauFW.Plotter.plot.string",
-      "reason": "Datacard helper still uses Plotter selection-string helpers.",
-      "roadmap_step": "4"
-    },
-    {
       "file": "Fitter/python/plot/postfit.py",
       "module": "TauFW.Plotter.sample.utils",
       "reason": "Fitter script still imports Plotter sample/selection helpers; isolate histogram filling and shared helpers.",

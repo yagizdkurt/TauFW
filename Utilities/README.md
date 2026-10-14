@@ -8,6 +8,7 @@ for CMS-style ROOT plots. Like the other TauFW packages, the source lives under 
 from TauFW.Utilities.CLI import CLI
 from TauFW.Utilities.FIO import FileIO
 from TauFW.Utilities.Math import float_range, partition
+from TauFW.Utilities.Expressions import joincuts, joinweights
 from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation
 from TauFW.Utilities.Process import Command, ParallelProcessor, ProcessRunner
 from TauFW.Utilities.Drawing.Plot import Plot      # also Stack, Plot2D, CMSStyle, hist_tools, labels, SampleStyle
@@ -237,6 +238,33 @@ groups = partition_by_sum([2, 3, 4, 5, 1], 6)       # [[5, 1], [4, 2], [3]]
 | `relative_difference(x, y)` | `abs(x-y)/x`; for `x == 0`: 0 if `y == 0`, else -1. Was `reldiff`. |
 
 `ceil` and `log10` are no longer re-exported; callers import them from the standard `math` module.
+
+## ROOT selection and weight expressions
+
+```python
+from TauFW.Utilities.Expressions import joincuts, joinweights
+
+joincuts("pt_1>20", "q_1*q_2<0", weight="genweight")   # "(pt_1>20 && q_1*q_2<0)*genweight"
+joinweights("puweight", 1, "idweight")                 # "puweight*idweight"
+```
+
+String helpers for the C++ expressions that `TTree::Draw` and RDataFrame `Filter`/`Define` accept. They know the
+syntax (`&&`, `||`, `*` between weights), not TauFW branch names; the helpers that do (`shift`, `shiftjme`,
+`invertcharge`) stay in `TauFW.Plotter.plot.string`. Moved verbatim from there in October 2026 (changelog section 21);
+the Plotter imports these names from here. ROOT is not imported. Warnings go through the drawing logger
+(`TauFW.Utilities.Drawing.LOG`), the same object as before.
+
+| Function | Result |
+|---|---|
+| `joincuts(*cuts, weight=False)` | Non-empty string cuts joined with ` && `; a cut with `\|\|` and no parentheses is bracketed (with a warning). With `weight`: `(cuts)*weight`, the weight bracketed if it has comparison or `+`/`-`/`&`/`\|` outside parentheses. |
+| `joinweights(*weights)` | Strings and numbers joined with `*`; `1` and empty values are dropped, `*/` becomes `/`. |
+| `replacepattern(string, patterns)` | Replaces `(old, new)` or `(old, new, regexp)` in a product of weights, then removes doubled or outer `*`. |
+| `cleanbool(string)` | Collapses doubled `&&`/`\|\|` to `&&` and strips outer `&&`. |
+| `getselstr(selection)` | `selection.selection` for a Plotter `Selection`, else the argument itself. |
+
+Known latent bugs, kept as they were (Plotter [BUGS](../docs/Plotter/BUGS.md) L05-L07): `joinweights` with a weight
+`0` raises `TypeError` while formatting its warning; `replacepattern` with several patterns applies only the last;
+`joincuts` does not bracket a cut like `(x)||y`, so `&&` binds first.
 
 ## Drawing: CMS-style ROOT plots
 

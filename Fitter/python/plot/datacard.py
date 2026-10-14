@@ -12,7 +12,7 @@ from TauFW.Utilities.Drawing.hist_tools import deletehist, grouphists
 from TauFW.Utilities.CLI import CLI
 from TauFW.Utilities.Drawing.Stack import Stack
 from TauFW.Utilities.Drawing.Plot import Plot
-from TauFW.Plotter.plot.string import joincuts
+from TauFW.Utilities.Expressions import joincuts
 from ROOT import gStyle, TFile, TH1, TNamed, kBlack
 
 
