@@ -20,10 +20,6 @@ def normal(case_id, workspace, extra):
         configure_root(workspace)
     script = TESTS / case["path"]
     sys.path.insert(0, str(script.parent))
-    if case["package"] == "Plotter":
-        (cwd / "CMSStyle.py").symlink_to(cwd / "python" / "plot" / "CMSStyle.py")
-        # runpy does not put the cwd on sys.path; appended so it cannot shadow the stdlib.
-        sys.path.append(str(cwd))
     arguments = list(case.get("arguments", []))
     fixture = case.get("fixture")
     if fixture:

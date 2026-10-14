@@ -268,7 +268,8 @@ checked by the BBB case `drawing.canvas`. Modernizing it (style, splitting `Plot
 | package | `LOG`, the drawing logger (`Logger('Plot')`) | `TauFW.Plotter.plot.utils.LOG` |
 
 Unlike the other Utilities packages, Drawing needs ROOT, and it keeps the old behavior that callers rely on:
-importing it sets ROOT batch mode, adds `SetOption`/`GetOption` to ROOT's `TGraph`, and importing `Plot` applies the
+importing it sets ROOT batch mode, replaces `TNamed.__repr__` (`<TH1D('name','title') at 0x...>` in logs), adds
+`SetOption`/`GetOption` to ROOT's `TGraph`, and importing `Plot` applies the
 TDR style to `gStyle`. `CMSStyle` and `SampleStyle` hold module-level state (the lumi text, the color tables), so
 import them only from here, never from a copy. `LOG` and `SampleStyle.LOG` are the same objects the Plotter uses
 (`TauFW.Plotter.plot.*` and `TauFW.Plotter.sample.utils` import them), so `LOG.verbosity = 2` in a script sets the

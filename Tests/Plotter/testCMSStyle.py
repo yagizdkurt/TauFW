@@ -2,7 +2,7 @@
 # Author: Izaak Neutelings (July 2020)
 # Description: Test testCMSStyle.py
 #   test/testCMSStyle.py -v2
-import os, sys
+import os
 #from TauFW.Plotter.sample.utils import LOG, STYLE, CMSStyle, ensuredir, ensurelist # decouple script from TauFW
 #import TauFW.Utilities.Drawing.SampleStyle as STYLE
 import ROOT; ROOT.PyConfig.IgnoreCommandLineOptions = True
@@ -11,9 +11,7 @@ gROOT.SetBatch(True)      # don't open GUI windows
 gStyle.SetOptStat(False)  # don't make stat. box
 gStyle.SetOptTitle(False) # don't make title on top of histogram
 gStyle.SetErrorX(0)       # size of horizontal error bars
-if not os.path.exists("CMSStyle.py"):
-  sys.path.append(os.path.join(os.environ['CMSSW_BASE'],"src/TauFW/Plotter/python/plot"))
-import CMSStyle
+import TauFW.Utilities.Drawing.CMSStyle as CMSStyle
 CMSStyle.setTDRStyle() # set once
 
 

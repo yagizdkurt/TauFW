@@ -20,10 +20,13 @@ from ROOT import gDirectory, gROOT, gStyle, gPad, TH1, TH2, TH1D, TH2D, THStack,
 
 
 # ===== LEGACY, CLEAN UP LATER =====
-# Import side effects kept from the Plotter: batch mode for every importer, and two methods added to ROOT's TGraph
+# Import side effects kept from the Plotter: batch mode for every importer, the repr of named ROOT objects (which the
+# old module got by importing TauFW.common.tools.root; verbose logs print it), and two methods added to ROOT's TGraph
 # (a draw option per graph). Unused helpers kept as they were: sumhists (broken, Plotter BUGS L03), ensurepoisson,
 # getbinedges, havesamebins, reducehist2d.
 gROOT.SetBatch(True)
+from ROOT import TNamed
+TNamed.__repr__ = lambda o: "<%s(%r,%r) at %s>"%(o.__class__.__name__,o.GetName(),o.GetTitle(),hex(id(o))) # overwrite default representation (as TauFW.common.tools.root)
 
 
 def _is_variable(obj):

@@ -173,8 +173,11 @@ if bash "$TEST_ORIGINAL/setup.sh"; then exit 1; fi
                 self.shell(f'''
 export TEST_STATUS={status}
 before=$PWD
+before_cmssw_base_set=${{CMSSW_BASE+x}}
+before_cmssw_base=${{CMSSW_BASE-}}
 if source "$TEST_ORIGINAL/setup.sh"; then exit 1; else status=$?; fi
-[[ $status == {status} && $PWD == "$before" && -z ${{CMSSW_BASE:-}} ]]
+[[ $status == {status} && $PWD == "$before" ]]
+[[ ${{CMSSW_BASE+x}} == "$before_cmssw_base_set" && ${{CMSSW_BASE-}} == "$before_cmssw_base" ]]
 [[ ! -e "$TEST_ORIGINAL/.git/taufw-setup-state" ]]
 ''')
 
@@ -217,8 +220,10 @@ source ./setup.sh || exit
     def test_bad_result_and_activation_failure(self):
         self.shell(r'''
 export TEST_BAD_RESULT=true
+before_cmssw_base_set=${CMSSW_BASE+x}
+before_cmssw_base=${CMSSW_BASE-}
 if source "$TEST_ORIGINAL/setup.sh"; then exit 1; fi
-[[ -z ${CMSSW_BASE:-} ]]
+[[ ${CMSSW_BASE+x} == "$before_cmssw_base_set" && ${CMSSW_BASE-} == "$before_cmssw_base" ]]
 ''')
         self.shell(r'''
 export TEST_ORIGINAL=$TEST_INSTALLED

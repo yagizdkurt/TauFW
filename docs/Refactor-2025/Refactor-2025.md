@@ -1408,6 +1408,14 @@ compile failures among the touched files are the four Python 2 scripts already l
 (`Fitter/HighPT/createinputs.py`, `Fitter/Zpt/utils.py`, `PicoProducer/utils/compare{Nano,Pico}.py`).
 `check_harness.py` passes.
 
+### First `bbb check`: the repr of ROOT objects
+
+The first `bbb check` on lxplus failed `drawing.canvas` in 12 verbose stdout lines only: ROOT objects printed as
+`<cppyy.gbl.TH1D object at 0x...>` instead of `<TH1D('t_DY','t_DY') at 0x...>`. `TauFW.common.tools.root` replaces
+`TNamed.__repr__` when it is imported, and the old `plot/utils.py` imported it (for `ensureTFile`, unused there). The
+drawing library no longer imports `common`, so `hist_tools.py` now sets the same `TNamed.__repr__` itself, in its
+`LEGACY, CLEAN UP LATER` block. The canvases, styles and helper results were already identical.
+
 ### To do on lxplus
 
 `python3 Tests/run.py bbb check`: every case must pass unchanged, `drawing.canvas` included (no re-lock). Its case

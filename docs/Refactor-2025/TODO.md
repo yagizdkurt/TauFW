@@ -91,7 +91,7 @@ Each changes logs, so do each in its own commit, with a BBB re-lock where a base
 
 - [ ] Restyle to the Utilities style (4-space indent, banners, layout rule) and split `Plot.py` (1376 lines); no
       output change, so `bbb check` must still pass.
-- [ ] Import side effects: ROOT batch mode and the `TGraph.SetOption/GetOption` patch (`hist_tools.py`), the TDR style
+- [ ] Import side effects: ROOT batch mode, `TNamed.__repr__` and the `TGraph.SetOption/GetOption` patch (`hist_tools.py`), the TDR style
       applied when `Plot` is imported. Make them explicit calls.
 - [ ] `CMSStyle` holds the lumi/era/energy tables per era (analysis data in a style module); move them to
       configuration (a recipe or a data file).
