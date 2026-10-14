@@ -15,15 +15,21 @@ What is still open is listed in [TODO.md](TODO.md).
 | 4 | [Utilities package for future development](#4-utilities-package-for-future-development) |
 | 5 | [PicoProducer cleanup, Part 1: command-level BBB tests and bug register](#5-picoproducer-cleanup-part-1-command-level-bbb-tests-and-bug-register) |
 | 6 | [PicoProducer cleanup, Part 3: settings, datasets, storage, batch and jobs packages](#6-picoproducer-cleanup-part-3-settings-datasets-storage-batch-and-jobs-packages) |
-| 9 | [PicoProducer cleanup, Part 4: jobs package](#9-picoproducer-cleanup-part-4-jobs-package) |
-| 10 | [PicoProducer cleanup, Part 5: public API, command line, workers](#10-picoproducer-cleanup-part-5-public-api-command-line-workers) |
-| 11 | [Framework: the TauFW orchestrator (Part F)](#11-framework-the-taufw-orchestrator-part-f) |
-| 12 | [Framework: plots, histograms and fit stages (Part G)](#12-framework-plots-histograms-and-fit-stages-part-g) |
-| 13 | [Test runner: quiet defaults and BBB lock logs](#13-test-runner-quiet-defaults-and-bbb-lock-logs) |
-| 14 | [Framework: analysis bundles and Python steps (Part H)](#14-framework-analysis-bundles-and-python-steps-part-h) |
-| 15 | [common tools moved to Utilities: parallel processes and the loading bar](#15-common-tools-moved-to-utilities-parallel-processes-and-the-loading-bar) |
-| 16 | [common tools moved to Utilities: numeric helpers](#16-common-tools-moved-to-utilities-numeric-helpers) |
-| 17 | [common tools moved to Utilities: the printf-style table](#17-common-tools-moved-to-utilities-the-printf-style-table) |
+| 7 | [PicoProducer cleanup, Part 4: jobs package](#7-picoproducer-cleanup-part-4-jobs-package) |
+| 8 | [PicoProducer cleanup, Part 5: public API, command line, workers](#8-picoproducer-cleanup-part-5-public-api-command-line-workers) |
+| 9 | [Framework: the TauFW orchestrator (Part F)](#9-framework-the-taufw-orchestrator-part-f) |
+| 10 | [Framework: plots, histograms and fit stages (Part G)](#10-framework-plots-histograms-and-fit-stages-part-g) |
+| 11 | [Test runner: quiet defaults and BBB lock logs](#11-test-runner-quiet-defaults-and-bbb-lock-logs) |
+| 12 | [Framework: analysis bundles and Python steps (Part H)](#12-framework-analysis-bundles-and-python-steps-part-h) |
+| 13 | [common tools moved to Utilities: parallel processes and the loading bar](#13-common-tools-moved-to-utilities-parallel-processes-and-the-loading-bar) |
+| 14 | [common tools moved to Utilities: numeric helpers](#14-common-tools-moved-to-utilities-numeric-helpers) |
+| 15 | [common tools moved to Utilities: the printf-style table](#15-common-tools-moved-to-utilities-the-printf-style-table) |
+| 16 | [Drawing library moves to Utilities: BBB safety net first](#16-drawing-library-moves-to-utilities-bbb-safety-net-first) |
+| 17 | [Import-boundary test and coupling inventory](#17-import-boundary-test-and-coupling-inventory) |
+| 18 | [Fitter imports drawing helpers from their own home](#18-fitter-imports-drawing-helpers-from-their-own-home) |
+| 19 | [ROOT expression helpers move to `TauFW.Utilities.Expressions`](#19-root-expression-helpers-move-to-taufwutilitiesexpressions) |
+| 20 | [PicoProducer comparison scripts removed](#20-picoproducer-comparison-scripts-removed) |
+| 21 | [Root legacy archive consolidation](#21-root-legacy-archive-consolidation) |
 
 The reference environment for all of this is `CMSSW_14_1_0_pre4` (Python 3.9, ROOT 6.30).
 
@@ -196,7 +202,7 @@ into `storage/`, schedulers/templates into `batch/`, and chunking/job configs in
 Packages expose explicit public APIs; in-repo callers and 46 sample catalogs were updated.
 
 Config defaults no longer import storage, batch or ROOT; catalog path setup occurs only when loading samples.
-Producer validation no longer imports Plotter's parallel helper (moved to Utilities in §15).
+Producer validation no longer imports Plotter's parallel helper (moved to Utilities in §13).
 
 ### Migration for users
 
@@ -206,7 +212,7 @@ Producer validation no longer imports Plotter's parallel helper (moved to Utilit
 | `TauFW.PicoProducer.tools.config` | `TauFW.PicoProducer.settings` |
 | `storage.utils.getstorage / isvalid / getsamples` | `storage.getstorage / isvalid`; `datasets.getsamples` |
 | `batch.utils.getbatch` | `batch.getbatch` |
-| `TauFW.Plotter.plot.MultiThread.MultiProcessor(max=...)` | `TauFW.Utilities.Process.ParallelProcessor(max_parallel=...)` (§15) |
+| `TauFW.Plotter.plot.MultiThread.MultiProcessor(max=...)` | `TauFW.Utilities.Process.ParallelProcessor(max_parallel=...)` (§13) |
 | Custom `batch/<Name>.py` adapter | Register in `batch/factory.py`'s `SYSTEMS`; put templates in `batch/templates/` |
 
 The restructuring preserves config keys and values; `batch` still names the adapter class.
@@ -243,364 +249,182 @@ Re-lock `c2d8296` changed only `pico.config.json` and `manifest.json`.
 
 ---
 
-## 9. PicoProducer cleanup, Part 4: jobs package
+## 7. PicoProducer cleanup, Part 4: jobs package
 
 **Date:** 2026-10-13
 **Details:** [docs/PicoProducer/BUGS.md](../PicoProducer/BUGS.md)
 
-Part 4 splits `pico/job.py` and `pico/run.py` into the `jobs/` package: one worker command builder, pure
-planning and status functions, and a merge step with a validated cleanup gate. These are the pieces the public
-PicoProducer API (Part 5) and the `Framework` orchestrator build on. The restructuring steps (A1-A5) do not
-change behavior: all `pico.*` BBB cases must pass unchanged. Bug fixes follow in their own commits (B).
+Split `pico/job.py` and `pico/run.py` into job pipelines for the public PicoProducer API and Framework.
+Restructuring (A) preserves behavior; bug fixes follow separately (B).
 
-### A1. One worker command builder
+### A. Job pipelines
 
-The command line of a worker (`picojob.py`/`skimjob.py`) was built twice: once for batch jobs
-(`pico/job.py`, one line per chunk in the job list) and once for local runs (`pico/run.py`, the
-"Executing:" line). Both now come from `jobs/worker_command.py`:
-
-| Function | Replaces | Output |
-|---|---|---|
-| `resolve_worker(config, channel, extraopts)` | `pico.run.getmodule` (removed) | `WorkerSpec(module, processor, procopts, extrachopts)`; takes the configuration as an argument instead of the global `CONFIG` |
-| `job_command(WorkerOptions)` | the command block in `preparejobs` | one job-list line |
-| `run_command(WorkerOptions)` | the command block in `main_run` | the local run command |
-
-`WorkerOptions` is a single option record; each formatter keeps its own flag order, because both strings are
-part of the BBB baselines (`pico.jobs`, `pico.run`). The known differences between the two (BUGS P10:
-`run` passes `-m` whenever `maxevts` is set, including `-1`) are kept and fixed in B.
-
-**Check:** a comparison script ran the old and new builders over 8064 option combinations (skim/analysis,
-processor options, tmpdir, prefetch, preselection, event ranges, test runs, extra options, single/multiple input
-files): all strings are identical. `resolve_worker` gives the same result and errors as `getmodule`.
-
-### A2. Submission pipeline: planner, pipeline, reporter, request
-
-`preparejobs` (a 320-line generator in `pico/job.py`) and the submit loop of `main_submit` are split by
-responsibility:
-
-| Module | Contents |
+| Module | Responsibility |
 |---|---|
-| `jobs/request.py` | `JobRequest`: all settings of a (re)submission in one record, built by `pico.py` with `JobRequest.from_args(args)`. The job functions no longer read the argparse namespace |
-| `jobs/planner.py` | pure planning: `sample_layout` (try number, job name, option precedence, output/job/config/log directories, job config and job list names) and `assign_chunks` (chunk numbers and worker command lines). No file access, no output |
-| `jobs/pipeline.py` | `iter_plans` (sample selection, input files, chunking, directories, job list; yields one `SamplePlan` per sample), `submit_plan`, `record_submission` |
-| `jobs/reporting.py` | `Reporter` (silent) and `ConsoleReporter` (prints exactly what `pico.py` printed). The pipeline reports through it instead of printing |
-| `jobs/jobconfig.py` | `JOBCFG_KEYS` (the job config keys in file order), `make_jobcfg`, `write_jobcfg` |
-| `jobs/status.py` | `checkchunks`, moved unchanged except that it takes the configuration as an argument; A3 restructures it |
+| `jobs/worker_command.py` | `resolve_worker`, `job_command`, `run_command`: shared worker options with separate local/batch flag ordering |
+| `jobs/request.py` | `JobRequest`: submission/local-run settings, independent of argparse |
+| `jobs/planner.py` | Pure sample layout, chunk assignment and job-config glob planning |
+| `jobs/pipeline.py` | `iter_plans`, `submit_plan`, `record_submission`, `iter_submitted`: sample selection, materialization, submission and existing-job iteration |
+| `jobs/reporting.py` | Silent `Reporter` or `ConsoleReporter`, including progress |
+| `jobs/jobconfig.py` | Ordered config keys, config construction and writing |
+| `jobs/status.py` | `check_sample`: observes queue/storage/events; pure skim/tree classifiers produce `ChunkStatus` and resubmission inputs |
+| `jobs/merge.py` | `merge_sample`: target, status gate, merge and cleanup; returns `MergeResult` |
+| `jobs/local.py` | `iter_local_runs` and `execute_run` for local workers |
 
-- **Explicit configuration.** The pipeline, planner and status functions take the configuration as an argument
-  instead of importing the global `CONFIG`.
-- **No writes in planning mode.** `iter_plans(..., materialize=False)` creates no directories and writes no job
-  list. `pico.py submit` uses `materialize=True`: directories, the output directory and the job list are created at
-  the same points as before.
-- **Prompts are callables.** The `--prompt` questions (existing job config, confirm submission) moved to a small
-  `_Prompt` class in `pico/job.py`; the pipeline only receives the answers. Answering `all` still stops all
-  further questions.
-- `chunkify_by_evts` takes an optional `progress` factory, so a silent caller can suppress its progress bar.
-- `pico/job.py` keeps `main_submit` (about 15 lines) and `main_status`; `preparejobs` and `checkchunks` are gone.
+- Configuration is passed explicitly rather than read from global `CONFIG`.
+- `iter_plans(..., materialize=False)` creates no directories or job lists; CLI submission materializes them.
+- CLI functions retain argument handling, reporter selection and prompts; pipelines receive prompt answers.
+- Status classifiers work on a copy of `chunkdict`; expected events return in `status.nexpected` rather than
+  modifying the sample's job config. Tree validation still excludes pending chunks.
+- `ChunkStatus.mergeable` requires nothing pending or needing resubmission. Merge/cleanup uses this gate unless forced;
+  target and cleanup-command planning are separate from storage operations.
 
-**Known bugs kept as they are** (marked `# BUGS <ID>`, fixed in B): P01, P02 (the `--prompt` dialog for an
-existing job config still crashes, now with `NameError` instead of `TypeError`/`UnboundLocalError`), P03, P04, P05,
-P06. **New:** P20, the answers of that dialog are inverted (`y` skips, `n` submits), found while moving it.
+**Validation:** 8064 worker-option combinations matched the old command builders. A Windows comparison harness
+against `3c401cd` covered 280 submit/resubmit/status/merge/local-run scenarios at verbosity 0–3, with matching
+output, files and external calls (job-config timestamps excluded). The only restructuring difference was P02's
+existing prompt crash exception type. Newly found P20–P23 were preserved until the fixes below.
 
-**Check:** a comparison harness ran the old (`3c401cd`) and new `main_submit`/`main_status` side by side on
-Windows, with ROOT, the sample catalog, storage, the batch system and the queue replaced by fakes:
-152 scenarios (verbosity 0-3 each): file and event splitting, test runs, user/sample/config `nfilesperjob` and
-`maxevts`, option merging, skims with prefetch/preselection/tmpdir, dry runs, empty samples, existing job configs
-with and without `--force`, `--prompt` answers, resubmission with good/pending/corrupt/missing chunks and `--split`,
-and `status` (with log lookup, and for all eras/channels). The terminal output, the job lists, the job configs
-(without `time`) and the scheduler calls are identical. The only difference is the exception type of P02.
-
-### A3. Job status: observations and classifiers
-
-`checkchunks` (a 400-line function) is now `jobs/status.py`:
-
-| Part | Responsibility |
-|---|---|
-| `check_sample(sample, config, reporter, ...)` | the pipeline for one sample: expected events (job config or DAS), the batch queue, the storage listing and file validation, then the summary and the log files of failed chunks. Returns a `ChunkStatus` |
-| `_SkimClassifier`, `_TreeClassifier` | assign pending jobs and output files to chunks and decide which chunks are good, pending, failed or missing, and which input files to resubmit. They do not access files, storage or the batch queue; `check_sample` feeds them the observations in the original order (for trees, only outputs of non-pending chunks are validated, as before) |
-| `ChunkStatus` | chunk numbers per state, processed and expected events, the files to resubmit and the chunks to keep. `mergeable` is the condition for `hadd`/cleanup (nothing to resubmit, nothing pending) |
-| `format_summary(status)` | the `SUCCESS/PEND/FAIL/MISS` lines |
-
-- All output goes through the reporter, including the progress bar (`reporter.progress`).
-- `check_sample` no longer modifies the sample's job config: the classifiers work on a copy of its `chunkdict`,
-  and the expected number of events is returned (`status.nexpected`) instead of being written into
-  `sample.jobcfg['nevents']`. Resubmission and `main_status` use the returned values.
-- `pipeline.iter_plans` (resubmission) and `pico/job.py` `main_status` call `check_sample`.
-
-**New bugs found:** P21 (`status --checkexpevts` is ignored) and P22 (checking the status creates the output
-directory). Both are kept as they are and fixed in B.
-
-**Check:** the A2 comparison harness was extended with progress bars (15 or more outputs, skims and trees),
-`--checkexpevts`, `--skipevts`, log lookup with log files, and pending jobs for skims and trees: 184 scenarios
-(verbosity 0-3), compared with the code before Part 4A-2 (`3c401cd`). Output, job lists, job configs and
-scheduler calls are identical; the only difference is still the exception type of P02.
-
-### A4. Merge and cleanup
-
-The `hadd`/`haddclean`/`clean` branch of `main_status` is now `jobs/merge.py`:
-
-| Part | Responsibility |
-|---|---|
-| `merge_sample(sample, config, action, era, channel, tag, reporter, ...)` | the pipeline for one sample: merge target, `check_sample`, the gate, `storage.hadd`, then cleanup. Returns a `MergeResult` (`refused`, `merged`, the rm commands, `outpath`) |
-| `merge_target(sample, picodir, era, channel, tag)` | pure: the storage directory and file name of the merged tuple, and the glob patterns of the sample's job outputs, job configs and logs (`MergeTarget`) |
-| `merge_gate(status, force)` | pure: merge or clean only if no chunk needs to be resubmitted (`status.mergeable`), unless forced |
-| `cleanup_commands(target, count)` | pure: the rm commands; `count(pattern)` is the only observation (the number of files matching a glob) |
-
-- `main_status` calls `merge_sample` for `hadd`, `haddclean` and `clean`; a refused merge still skips the blank
-  line after the sample, as before.
-- The verbose output goes through the reporter.
-
-**New bug found:** P23. The "other jobs in the same job directory" test of the cleanup is always true, so cleaning
-one tag removes the job configs and logs of every other tag in that directory. Kept as it is and fixed in B.
-
-**Check:** the comparison harness got a fake `hadd` and `rm` (which really removes files) and 13 merge scenarios
-(verbosity 0-3 each): `hadd` with complete and incomplete samples, `--force`, `haddclean`, `clean`, `hadd -r`, dry
-runs, two tags in one job directory, foreign files in the output directory, skim channels, `--maxopenfiles` and
-`--skipevts`. Output, scheduler and hadd calls, rm commands and the remaining files are identical to `3c401cd`.
-
-### A5. `pico/` as thin command functions
-
-`pico/job.py` and `pico/run.py` keep only what belongs to the command line: building a `JobRequest` from the
-arguments, choosing the reporter, the `--prompt` dialog, and streaming the `jobs/` pipelines.
-
-| Command | Before | Now |
-|---|---|---|
-| `pico.py run` | `pico/run.py` `main_run` (150 lines) | `jobs/local.py`: `iter_local_runs` (sample selection, files, worker command; yields a `LocalRun`) and `execute_run`. `main_run` is 6 lines |
-| `pico.py status`, `hadd`, `haddclean`, `clean` | the era/channel/sample loop in `main_status` | `jobs/pipeline.py` `iter_submitted(config, request, reporter, action)` yields the samples of existing job configs; `main_status` calls `check_sample` or `merge_sample` for each |
-
-- `JobRequest` has four new fields for local runs: `outdir`, `infiles`, `nfiles`, `nsamples`.
-- The job-config glob of `main_status` is now `planner.cfg_globs(..., group='*')`; the patterns are the same.
-- READMEs: `PicoProducer/python/README.md` (all packages, and which `jobs/` pipeline each `pico.py` command uses)
-  and `pico/README.md`. The BUGS.md locations of P01-P12 point to the new modules. `Utilities/IOInventory.md` is
-  regenerated.
-
-**Check:** the comparison harness got 11 local-run scenarios (verbosity 0-3 each): sample filters, `-S`/`-n`,
-user input files, skims with preselection, no matching samples, dry runs, no era/channel, sample and user
-options, `-m`/`-p`/`-t`, data-only selection. All 280 scenarios (submit, resubmit, status, merge, run) give
-identical output, files, scheduler, hadd, rm and shell calls compared with `3c401cd`.
-
-### B1. Crash fixes without output change (P01, P02, P03, P07)
+### B1. Crash fixes without BBB change (P01, P02, P03, P07)
 
 | Bug | Fix |
 |---|---|
-| P01 | `err.message` (Python 2) in two `except IOError` handlers (`jobs/pipeline.py` event chunking, `pico/config.py` `write`): now `str(err)`. The handlers print the error instead of raising `AttributeError` |
-| P02 | `submit --prompt` with an existing job config: the question `">>> Submit anyway? [y/n] "%(nchunks)` used an undefined name and had no placeholder. It is now a plain string, so the dialog works (see P20 in B2 for its answers) |
-| P03 | `write_jobcfg` for `.json.gz` names: `gzip` imported, and `json.dump(jobcfg,file,indent=2)` instead of `file.write(json.dump(jobcfg),indent=2)`. A written file reads back with `Sample.loadjson` |
-| P07 | `check_sample`: `checkexpevts==False` (a comparison) is now the assignment it was meant to be. `None` and `False` both disable the comparison, so the output is the same |
+| P01 | Error handlers use `str(err)` instead of Python 2's `err.message`, reporting errors instead of crashing. |
+| P02 | Fixed the existing-job-config submission prompt's invalid formatting/undefined name. |
+| P03 | Fixed gzip imports and JSON writing for `.json.gz` job configs; written configs read back correctly. |
+| P07 | Replaced a mistaken comparison with assignment when disabling expected-event checks; output is unchanged. |
 
-**Check:** no BBB case reaches these paths, so all baselines are unchanged. In the comparison harness only the
-`--prompt` scenario with an existing job config changes: it now asks instead of crashing. A `.json.gz` job config
-written by `write_jobcfg` reads back correctly.
+No BBB case reaches these paths. Targeted checks verified the repaired prompt and gzip round trip.
 
-### B2. Behavior fixes without BBB change (P04, P05, P06, P11, P19, P20, P21, P22, P23)
+### B2. Behavior fixes without BBB change (P04, P05, P06, P11, P19–P23)
 
-| Bug | Fix | What users see |
-|---|---|---|
-| P04 | `--checkqueue 1` ("check once"): `jobs is None` instead of `jobs!=None`, in `iter_plans` and `main_status` | the queue is queried once and pending jobs are found; before, the queue was not checked at all |
-| P05 | `found = len(samples)>0` | `submit` with no matching sample says so |
-| P06 | the sample's `maxevts` is used when positive | per-sample event splitting works; samples without it use `maxevtsperjob` from the configuration |
-| P11 | `execute_run` uses `subprocess.call` and returns the exit code | `pico.py run` warns about each failed worker and lists them at the end |
-| P19 | `merge.validated(nevents, status)`: before cleanup after `haddclean`/`hadd -r`, the merged tuple must be readable and, with event counting, hold the processed events of the good chunks | a corrupt or incomplete merge keeps the job output (warning); `MergeResult.invalid` gives the reason |
-| P20 | `--prompt` on an existing job config: `y`/`f` submit, `n` skips | the dialog does what the answer says |
-| P21 | the status-only branch passes `checkexpevts` | `status` warns about unexpected event counts by default for analysis channels, like `hadd` and `resubmit` |
-| P22 | `check_sample` opens the output directory without creating it | `status` and the coming read-only API calls do not write to storage |
-| P23 | cleanup removes the whole job directory only if all its job configs belong to the sample | cleaning one tag keeps the job configs, job lists and logs of the other tags in the same directory |
+| Bug | User-visible result |
+|---|---|
+| P04 | `--checkqueue 1` queries the queue once and detects pending jobs. |
+| P05 | Submission reports when no samples match. |
+| P06 | Event splitting honors positive sample `maxevts`, otherwise using configured `maxevtsperjob`. |
+| P11 | Local runs report failed worker exit codes and list failures at the end. |
+| P19 | Cleanup after `haddclean`/`hadd -r` requires a readable merged tuple and, when counting events, the processed total of good chunks. Invalid merges warn and retain job outputs; `MergeResult.invalid` records why. |
+| P20 | Existing-config prompts submit on `y`/`f` and skip on `n`. |
+| P21 | Analysis-channel status warns about unexpected event counts by default, matching merge/resubmission checks. |
+| P22 | Status checks no longer create storage output directories. |
+| P23 | Whole-directory cleanup requires every job config to belong to the sample; cleaning one tag preserves other tags' configs, lists and logs. |
 
-**Check:** BBB unchanged: no case reaches these paths, or the result is the same (`pico.merge` merges valid tuples,
-one job per directory; `pico.jobs` keeps only the summary lines of `status`). The comparison harness against the
-B1 commit changes exactly in the affected scenarios: the `--prompt` dialog, `status` (event-count warnings,
-pending jobs found with `--checkqueue 1`), cleanup with two tags in one directory, failing local runs, and a
-merged tuple with the wrong number of events (job output kept).
+BBB baselines stayed unchanged because these paths are untested or produce the same recorded results.
+Targeted comparisons changed only affected scenarios, including failed workers, pending jobs, invalid merges
+and cleanup with multiple tags.
 
 ### B3. Module options and `run -m` (P08, P09, P10), with re-locked baselines
 
 | Bug | Fix |
 |---|---|
-| P08 | Module options are applied in the order channel table < sample (`opts` in the catalog) < user (`-E`); a later value of the same key wins in the worker. `resolve_worker` returns the channel's options (`WorkerSpec.chopts`) and the user's (`useropts`) separately; `module_options(worker, sampleopts)` joins them |
-| P09 | A resubmission reuses the options of the previous try (already merged) and appends only new user options (`resubmit_options`); they no longer grow with every retry |
-| P10 | `pico.py run` passes `-m` only for a positive number of events (the default `-1` added `-m -1` to every command) |
+| P08 | Option precedence is channel < sample < user (`-E`); later values win. Channel/user options are resolved separately and joined with sample options. |
+| P09 | Resubmission reuses merged options and appends only new user options, preventing growth on every retry. |
+| P10 | Local runs pass `-m` only for positive event limits, removing the default `-m -1`. |
 
-Verbose output (`-v`) shows `chopts` and `useropts` instead of `extrachopts`.
-
-**Baselines:** `pico.run` and `pico.jobs` change on purpose and are re-locked on lxplus
-(`python3 Tests/run.py bbb lock --replace`); see [BUGS.md](../PicoProducer/BUGS.md#p08-p09-p10-module-options-and-run--m)
-for the exact differences. All other cases are unchanged. In the comparison harness the only differences against
-the B2 commit are the option order, the missing `-m -1` and the verbose labels.
+Verbose output shows `chopts`/`useropts` instead of `extrachopts`.
+`pico.run` and `pico.jobs` intentionally change and are re-locked on lxplus with `bbb lock --replace`;
+all other cases remain unchanged. Comparisons differ only in option order, removal of `-m -1` and verbose labels.
+See [exact baseline differences](../PicoProducer/BUGS.md#p08-p09-p10-module-options-and-run--m).
 
 ---
 
-## 10. PicoProducer cleanup, Part 5: public API, command line, workers
+## 8. PicoProducer cleanup, Part 5: public API, command line, workers
 
 **Date:** 2026-10-13
-**Details:** [docs/PicoProducer/API.md](../PicoProducer/API.md), [docs/PicoProducer/IO.md](../PicoProducer/IO.md),
-[docs/PicoProducer/BUGS.md](../PicoProducer/BUGS.md)
+**Details:** [API](../PicoProducer/API.md), [I/O contract](../PicoProducer/IO.md),
+[bugs](../PicoProducer/BUGS.md)
 
-Part 5 gives PicoProducer a public Python API, makes `pico.py` a client of it, and renames `processors/` to
-`workers/`. The `Framework` orchestrator (section 11) uses only this API. The restructuring steps (A1-A3) do not
-change behavior; the bug fixes of the command line follow in B.
+Added a public Python API, made `pico.py` its client, and renamed `processors/` to `workers/`.
+Framework uses only the public API. Restructuring preserves behavior; command/worker fixes follow separately.
 
-### A1. Public API: `api/`
+### A. API, CLI and workers
 
-| Module | Contents |
+| Component | Responsibility |
 |---|---|
-| `api/producer.py` | `class PicoProducer`: `plan`, `submit`, `resubmit`, `status`, `merge`, `clean`, `run_local`, and `iter_plan` (stream). Each method's docstring lists its side effects. `PicoProducer.from_config(config, reporter, basedir)` takes `None` (config/config.json), a path, a dict or a `Config`, and never writes the configuration |
-| `api/types.py` | frozen result records with `to_dict()`/`from_dict()`: `JobPlan`/`PlannedSample`, `Submission`/`SubmittedSample`, `StageStatus`/`SampleStatus` (`complete` = the merge gate), `MergeReport`/`TupleArtifact`, `LocalResult`. The request is the existing `JobRequest` (`request_to_dict`/`request_from_dict`) |
-| `settings/store.py` | `loadconfig(path)`: reads a configuration without caching and without writing (missing keys get defaults in memory) |
+| `api/producer.py` | `PicoProducer`: `plan`, `iter_plan`, `submit`, `resubmit`, `status`, `merge`, `clean`, `run_local` |
+| `api/types.py` | Frozen plan/submission/status/merge/local result records with JSON round trips; requests use `JobRequest` |
+| `settings/store.py` | `loadconfig(path)`: uncached, read-only loading with defaults repaired in memory |
+| `cli/` | Replaces `pico/`: parser, lazy command dispatch, config/install commands and job commands calling the API |
+| `scripts/pico.py` | Thin entry point: directory/config setup, parsing and dispatch |
+| `workers/` | Renamed worker scripts, Bookkeeper and branch-selection files; callers updated |
 
-- `plan()` writes nothing: it runs the submission pipeline with `materialize=False`; a sample whose job config
-  already exists is planned with `conflict=True`.
-- Methods that touch files run inside the PicoProducer directory (the configured paths are relative to it) and
-  restore the working directory afterwards. This is not thread-safe; [API.md](../PicoProducer/API.md)
-  documents it.
-- Messages go to the reporter given at construction: silent by default, `ConsoleReporter` for terminal output.
+- `PicoProducer.from_config(config, reporter, basedir)` accepts the default config, a path, dict or `Config`,
+  without writing it. `plan()` writes nothing and marks existing job configs with `conflict=True`.
+- File operations temporarily enter the PicoProducer directory and restore it afterwards; **not thread-safe**.
+- Reporting is silent by default; `ConsoleReporter` supplies terminal output. Status `complete` uses the merge gate.
+- BBB drives the same CLI → API path used by users. API/I/O documentation records side effects and limitations.
 
-### A2. Command line: `cli/`, thin `pico.py`
+**Validation:** 296 job scenarios at verbosity 0–3 matched old output/files/calls; 30 CLI command lines matched
+output and exit codes. Direct API checks covered read-only planning, directory restoration, submit/status/merge
+artifacts, cleanup and record serialization. Worker-path normalization avoided BBB changes; the harness passed.
 
-`pico/` is gone. Its contents moved to `cli/`, and the job commands now call the API:
+### User migration and compatibility
 
-| Before | Now |
+Private imports should change from `TauFW.PicoProducer.processors` to `TauFW.PicoProducer.workers`.
+Config channels name worker scripts only and need no change; `pico.py resubmit` rewrites old job lists to `workers/`.
+
+At the user's request, deprecated `processors/` aliases and script forwarders preserve external scripts and old
+job lists ([README](../PicoProducer/python/processors/README.md)):
+
+- Import aliases preserve the same Bookkeeper module/classes and emit `FutureWarning` with the replacement.
+- Script forwarders preserve arguments, execution context, output and exit status, adding a notice on stderr.
+  They also work when the package is not installed in `$CMSSW_BASE/python`.
+
+No in-repo caller uses this layer. **Removal:** delete `processors/` and `Tests/PicoProducer/compat/` once no
+pre-2026-10-13 job lists remain in use. Ten offline tests cover aliases, warnings, forwarding and shim coverage.
+
+### B. Command-line and worker fixes
+
+| Bug | Fix / retained behavior |
 |---|---|
-| `scripts/pico.py` (260 lines: parser, dispatch, `install`) | `scripts/pico.py` (30 lines): change directory, load the configuration, `parse_args(build_parser(CONFIG))`, `dispatch(args)` |
-| parser in `scripts/pico.py` | `cli/parser.py`: `build_parser(config)`, `parse_args(parser, argv)` (abbreviations, tag prefix) |
-| `if/elif` chain of subcommands | `cli/__init__.py`: `COMMANDS` table (`subcommand -> module:function`, imported on use) and `dispatch` |
-| `pico/job.py`, `pico/run.py` | `cli/jobs.py`: `main_run` -> `PicoProducer.run_local`, `main_submit` -> `submit`/`resubmit`, `main_status` -> `status`/`merge`/`clean`; the `--prompt` dialog |
-| `pico/config.py`, `pico/common.py` | `cli/config.py`, `cli/common.py` (moved; imports updated) |
-| `main_install` in `scripts/pico.py` | `cli/install.py` |
+| P12 | Worker commands use `--opts` rather than relying on argparse prefix matching for `--opt`. |
+| P13 | Install dispatch no longer also reports the command as unimplemented. |
+| P14 | Install accepts `cmssw`, correcting `cmmsw`. |
+| P15 | **Won't fix:** status/merge/cleanup omit submission options; `hadd -m` means `--maxopenfiles`. |
+| W01 | **Won't fix:** skim workers accept but ignore `-E/--opts`, keeping a common worker command line. |
+| W02 | Corrected picojob's copied skimjob description. |
 
-So there is one code path: BBB drives `pico.py`, and `pico.py` drives the API.
-
-**Check:** the comparison harness (296 scenarios: submit, resubmit, status, hadd/haddclean/clean, run, at
-verbosity 0-3) gives identical output, files and calls through `cli/jobs.py` and the API as through the old
-`pico/` functions. `scripts/pico.py` itself was compared on 30 command lines (every `-h`, no arguments,
-abbreviations, `list`, `install`, `channel`/`rm`/`set` edits, an unknown subcommand): identical output and exit codes.
-
-### A3. `processors/` renamed to `workers/`
-
-`PicoProducer/python/processors/` (`picojob.py`, `skimjob.py`, `Bookkeeper.py`, the `keep_and_drop_*.txt` branch
-selections) is now `PicoProducer/python/workers/` (`git mv`), importable as `TauFW.PicoProducer.workers`. The
-rename itself added no compatibility module (hard-break rule); one was added afterwards, see A5. Updated callers: `jobs/worker_command.py` (`PROCDIR`), `cli/config.py`
-(`pico.py channel` checks the skim script there), `analysis/SumWeights.py`, the two `legacy/analysis` generator
-modules, the HTCondor submit template comment, `Tests/BBB/cases.py` (`pico.bookkeeper`),
-`Tests/BBB/pico_harness.py` (`pico.workers`), `Tests/PicoProducer/processors/testBookkeeper.py` (marked `edited` in
-`Tests/migration.json`), `Utilities/_audit_io.py`, the CMSDAS 2020 preselection notes and the READMEs.
-
-**For users:** a private script that imports `TauFW.PicoProducer.processors` should import
-`TauFW.PicoProducer.workers`; the old name still works with a warning (A5). Job lists written before this change name
-`python/processors/picojob.py`; they still run through the forwarders of A5, and `pico.py resubmit` rewrites them
-with `python/workers/`. Channels in `config/config.json` name only the script (`skimjob.py`), so they need no change.
-
-**Check:** BBB normalizes worker paths to `<pico>/picojob.py`, so no baseline changes. The comparison harness is
-unchanged (296 scenarios), and `Tests/check_harness.py` passes.
-
-### A4. Documentation
-
-- [docs/PicoProducer/API.md](../PicoProducer/API.md): usage, the pipeline, each method with its side effects
-  and `pico.py` equivalent, construction, the records, known limitations (working directory and thread safety,
-  messages of lower-level code, workers reading the global configuration).
-- [docs/PicoProducer/IO.md](../PicoProducer/IO.md): the files each step reads and writes, the job config keys,
-  the merged tuple.
-- `Utilities/IOInventory.md` regenerated.
-
-**Check:** a smoke test drove `PicoProducer` directly with a silent reporter (fake catalog, storage and batch
-system): `plan` writes nothing and restores the working directory, `submit` → `status` → `merge(clean=True)` returns
-the expected artifacts and removes the job output, and every record survives a JSON round trip
-(`to_dict`/`from_dict`).
-
-### A5. Compatibility layer for `processors/`
-
-An exception to the hard-break rule, at the user's request: the rename in A3 broke private scripts and job lists
-outside the repository, which in-repo caller updates cannot reach. `PicoProducer/python/processors/` is back as a
-deprecated layer with no worker code ([README](../PicoProducer/python/processors/README.md)):
-
-- `__init__.py` re-exports `TauFW.PicoProducer.workers` and `processors/Bookkeeper.py` puts the
-  `workers.Bookkeeper` module object into `sys.modules` under the old name (same classes, so `isinstance` holds).
-  Both raise a `FutureWarning` naming the replacement; `FutureWarning` is shown by default, `DeprecationWarning`
-  is not.
-- `picojob.py` and `skimjob.py` forward to `workers/` with `runpy` (same arguments, `__main__`, `sys.argv[0]`,
-  output and exit status) after one notice on stderr. They load their helper `_forward.py` as a sibling file, so
-  they work even where the package is not installed in `$CMSSW_BASE/python`.
-
-`pico.py resubmit` already rebuilds the job list from the job config (`jobs/pipeline.py`), so the forwarders matter
-only for jobs queued before the update, job-list lines run by hand and task files submitted without `pico.py`.
-Nothing in the repository uses the layer, so no output changes. **Removal:** delete the directory and
-`Tests/PicoProducer/compat/` once no job lists from before 2026-10-13 are in use.
-
-**Check:** `python -m unittest discover -s Tests/PicoProducer/compat` (any Python 3.9+, no ROOT; 10 tests): the
-shim runs against a fake `workers/` package (import aliases, warnings, forwarded arguments and exit status, a missing
-worker) and is checked against the checkout (every file `processors/` had is covered, every shim has a worker).
-
-### B. Command-line and worker fixes (P12, P13, P14, P15, W01, W02), with re-locked baselines
-
-| Bug | Fix |
-|---|---|
-| P12 | Worker commands pass `--opts` (the workers' `-E/--opts`) instead of `--opt`, which only worked through argparse's prefix matching |
-| P13 | `install` is an entry of the `cli.COMMANDS` table, so `pico.py install` no longer also prints "subcommand 'install' not implemented!" |
-| P14 | `pico.py install` accepts `cmssw` (was misspelled `cmmsw`) |
-| P15 | Won't fix, documented in `cli.parser.build_parser`: `status`/`hadd`/`clean` do not take the submission options, and `hadd` reuses `-m` for `--maxopenfiles` |
-| W01 | Won't fix: `skimjob.py` accepts `-E/--opts` and ignores them, so every worker takes the same command line |
-| W02 | `picojob.py`'s description line no longer repeats skimjob's |
-
-BUGS.md locations now point to `cli/`, `api/` and `workers/`.
-
-**Baselines:** `pico.run` and `pico.jobs` change again (`--opt` → `--opts`) and are re-locked together with B3 of
-Part 4: `python3 Tests/run.py bbb lock --replace` after checking that the differences are only the option order
-(P08/P09), `-m -1` (P10) and `--opts` (P12). The comparison harness against the A4 commit differs only in `--opts`;
-`pico.py install` was checked by hand.
+**Baselines:** `pico.run`/`pico.jobs` were re-locked on lxplus with Part 4 B3. Reviewed differences are only
+P08/P09 option order, P10 removal of `-m -1`, and P12 `--opt` → `--opts`. Comparisons against the restructuring
+changed only `--opts`; install was checked manually.
 
 ---
 
-## 11. Framework: the TauFW orchestrator (Part F)
+## 9. Framework: the TauFW orchestrator (Part F)
 
 **Date:** 2026-10-13
 **Details:** [Framework/README.md](../../Framework/README.md)
 
-TauFW had no single entry point: users chained `pico.py`, Plotter scripts and Fitter drivers by hand, and the
-production state lived only in PicoProducer's job configs. The new top-level package `Framework` (importable as
-`TauFW.Framework`) runs an analysis pipeline from a recipe, step by step, with a persisted run record.
+Added `TauFW.Framework` to run recipe-based pipelines with persisted state, replacing manually chained
+PicoProducer, Plotter and Fitter commands.
 
 ### What changed
 
-- **`Framework` class** (`Framework/python/framework.py`): `plan`, `start`, `advance`, `run`, `status`. It builds
-  each stage's request from the recipe, keeps `run.json`, and decides whether to wait, resubmit or move on. It
-  never prints (reporter), never sleeps unless asked (`advance(wait=True)`), and construction reads files only.
-- **Stages** (`Framework/python/stages/`): the contract (`Stage`, `StageState`: `NEW → SUBMITTED → WAITING →
-  MERGING → DONE`, plus `FAILED` and `NOT_IMPLEMENTED`; `StageOutcome`). `ProductionStage` uses only the public
-  PicoProducer API (`request`, `plan`, `submit`, `resubmit`, `status`, `merge`, `run_local`); its policy is the pure
-  function `decide_next` (wait / resubmit / merge / fail, with `max_tries`). `histograms` and `fit` are
-  placeholders with declared contracts (`HistogramSpec`/`ShapeArtifact`, `FitSpec`/`FitResult`).
-- **Recipes** (`recipe.py`): see the [analysis guide](../../Analyses/README.md) (moved from `Framework/recipes/` in section 14).
-- **Run record** (`run_record.py`): `taufw_runs/<name>_<time>/run.json` (schema 1) with the recipe, the
-  PicoProducer configuration snapshot, and per stage: state, attempt, request, submissions, last status, artifacts
-  and history. Saved after every stage step, atomically (temporary file + `os.replace`).
-- **Reporting** (`reporting.py`): `FrameworkReporter` (TauFW.Utilities CLI + plain-text `run.log`) and
-  `SilentReporter`; PicoProducer's messages are routed to the same terminal and log.
-- **Command line** `Framework/scripts/taufw.py`: `plan RECIPE [--local -m N]`, `start RECIPE [--run-root DIR]
-  [--wait --poll S]`, `advance RUN_DIR [--wait --poll S]`, `status RUN_DIR`. No logic: each command calls the
-  Framework.
-- **PicoProducer API:** `PicoProducer.request(**fields)` builds a `JobRequest`, so the Framework never imports
-  PicoProducer internals (and imports PicoProducer only when a production stage is built).
-- **Repository:** `.gitignore` keeps `Framework/python/**/__init__.py` and ignores `taufw_runs/`;
-  `Tests/support/bootstrap.py` mirrors `Framework`; the root README has a "Running a pipeline" section.
+- **Framework:** `plan`, `start`, `advance`, `run`, `status` build stage requests and decide when to wait,
+  resubmit or continue. Construction is read-only; waiting is explicit (`advance(wait=True)`).
+- **Stages:** shared `Stage`/`StageOutcome` contracts and states NEW → SUBMITTED → WAITING → MERGING → DONE,
+  plus FAILED/NOT_IMPLEMENTED. Production uses only the public PicoProducer API; pure `decide_next` selects
+  wait/resubmit/merge/fail with `max_tries`. Histograms and fit initially have placeholder contracts (implemented in §10).
+- **Run record:** `taufw_runs/<name>_<time>/run.json` (schema 1) stores the recipe/config snapshot and each stage's
+  state, attempts, requests, submissions, status, artifacts and history. Saved atomically after every stage step.
+- **Reporting:** terminal output and `run.log` share Framework/PicoProducer messages; silent reporting is supported.
+- **CLI:** `taufw.py plan RECIPE [--local -m N]`, `start RECIPE [--run-root DIR] [--wait --poll S]`,
+  `advance RUN_DIR [--wait --poll S]`, `status RUN_DIR`; all delegate to Framework.
+- **API boundary:** `PicoProducer.request(**fields)` builds requests without internal imports; PicoProducer loads
+  only when constructing a production stage. Recipes are documented in the [analysis guide](../../Analyses/README.md).
 
 ### Tests
 
-- `Tests/Framework/` (unittest, any Python 3.9+, no ROOT): a fake PicoProducer drives the state machine
-  (start → waiting; failed chunks resubmitted until `max_tries` → `FAILED`; complete → merge → `DONE` with artifacts;
-  invalid or refused merges; no samples; placeholder stage → `BLOCKED` without losing the production results;
-  `--wait` loop; an exception is recorded and the state kept; `status` is read-only), the `decide_next` truth table,
-  `run.json` round trip, crash-safe save and unique run directories, recipe validation, and `taufw.py` commands and
-  parser. 21 tests: `python -m unittest discover -s Tests/Framework`.
-- BBB case `framework.production` (lxplus): `taufw.py plan`, `start`, `advance` (a missing chunk is resubmitted),
-  `advance` (merge with cleanup; the `histograms` placeholder blocks), `status`, against the fake HTCondor of the
-  PicoProducer harness. It snapshots the plan and status output, the normalized `run.json` after each step, the
-  merged tuples and the remaining files. It is new, so it is added with the next lock
-  (`python3 Tests/run.py bbb lock --replace`, together with the intended changes of `pico.run` and `pico.jobs`).
-- On Windows, an integration run of the real `Framework` with the real `PicoProducer` API (fake catalog, storage and
-  scheduler) went through submit → resubmit → merge → `BLOCKED` with the expected artifacts and `run.log`.
+- 21 offline Framework tests cover stage transitions/retries, merge failures, placeholder blocking, exception
+  recording, read-only status, persistence, recipe validation and CLI behavior.
+- New lxplus BBB `framework.production` records plan/status, run-state snapshots, resubmission, merged tuples
+  and cleanup. Added with the next `bbb lock --replace`, alongside intended `pico.run`/`pico.jobs` changes.
+- A Windows integration with real Framework/PicoProducer APIs and fake storage/scheduling reached
+  submit → resubmit → merge → BLOCKED at the placeholder, preserving artifacts and `run.log`.
 
 ---
 
-## 12. Framework: plots, histograms and fit stages (Part G)
+## 10. Framework: plots, histograms and fit stages (Part G)
 
 **Date:** 2026-10-13
 **Details:** [Framework/README.md](../../Framework/README.md), [docs/Fitter/BUGS.md](../Fitter/BUGS.md),
@@ -636,7 +460,7 @@ and `Fitter/run_workflow_zmm.sh`, option 3), plus control plots with `Plotter/pl
 - **`taufw.py`:** `plan` shows the commands of the local stages as a table, with preflight problems as warnings;
   `status` shows the fitted values; every unfinished run gets the "Continue with" hint.
 - **Recipes:** see the [bundled analyses](../../Analyses/README.md#bundled-analyses)
-  for the current examples (moved to `Analyses/` in section 14).
+  for the current examples (moved to `Analyses/` in section 12).
 - **Repository:** `.gitignore` keeps `Fitter/python/api/__init__.py` and `Plotter/python/api/__init__.py`; the menu
   help (`Utilities/python/Menu/faq.py`) describes the stages; "Public API" sections in the Fitter and Plotter
   READMEs.
@@ -682,7 +506,7 @@ See the analysis guide's [current limitations](../../Analyses/README.md#current-
   VTight/Tight run compared with the
   shell scripts in a clean copy (`FitparameterValues__mutau_*`, `tau_sf/*VSjetVTight_VSeleTight*`).
 
-## 13. Test runner: quiet defaults and BBB lock logs
+## 11. Test runner: quiet defaults and BBB lock logs
 
 **Date:** 2026-10-13
 
@@ -711,7 +535,7 @@ git diff --exit-code -- Tests/BBB/baselines/
 
 Both checks must pass; replacement must leave the baseline status empty and the diff exit zero.
 
-## 14. Framework: analysis bundles and Python steps (Part H)
+## 12. Framework: analysis bundles and Python steps (Part H)
 
 **Date:** 2026-10-13
 **Details:** [Analyses/README.md](../../Analyses/README.md), [Framework/README.md](../../Framework/README.md)
@@ -776,7 +600,7 @@ The sample lists are not part of a bundle yet: `plot.py` and `createinputsTES.py
   PicoProducer config lines. Re-lock on lxplus with `python3 Tests/run.py bbb lock --replace` once the other cases
   pass unchanged; `$TAUFW_PICO_CONFIG` is unset there, so the PicoProducer cases must not change.
 
-## 15. common tools moved to Utilities: parallel processes and the loading bar
+## 13. common tools moved to Utilities: parallel processes and the loading bar
 
 **Date:** 2026-10-13
 **Details:** [Utilities/README.md](../../Utilities/README.md) (Terminal I/O, Parallel Python calls)
@@ -839,13 +663,13 @@ output changes.
 - BBB: no baseline changes are expected (`common.formatting` writes the same bytes). Check on lxplus with
   `python3 Tests/run.py bbb check`; no re-lock.
 
-## 16. common tools moved to Utilities: numeric helpers
+## 14. common tools moved to Utilities: numeric helpers
 
 **Date:** 2026-10-13
 **Details:** [Utilities/README.md](../../Utilities/README.md#numeric-helpers)
 
 `common/python/tools/math.py` was re-implemented as the new package `TauFW.Utilities.Math` (`Math/_math.py`), in
-the same way as §15: Utilities style, no imports of `TauFW.common`, every caller updated, the old module deleted.
+the same way as §13: Utilities style, no imports of `TauFW.common`, every caller updated, the old module deleted.
 The functions print nothing, so there is no BACKWARD COMPATIBILITY section; the rule here is the same results for the
 same inputs.
 
@@ -887,13 +711,13 @@ same inputs.
 - BBB: `common.chunking` was run locally against its baseline (identical output). No baseline changes are expected;
   check on lxplus with `python3 Tests/run.py bbb check`; no re-lock.
 
-## 17. common tools moved to Utilities: the printf-style table
+## 15. common tools moved to Utilities: the printf-style table
 
 **Date:** 2026-10-13
 **Details:** [Utilities/README.md](../../Utilities/README.md#terminal-io) (`CLI.table`); open items in [TODO.md](TODO.md)
 
 `common/python/tools/Table.py` was re-implemented as `CLI.table(...)`, returning a `Table`
-(`Utilities/python/CLI/_internal/table.py`), in the same way as the loading bar in §15. No logic changed: every line is
+(`Utilities/python/CLI/_internal/table.py`), in the same way as the loading bar in §13. No logic changed: every line is
 byte for byte what the old class wrote, and the callers' tables print in the same cases as before. The old quirks are
 kept in a section with a new banner, `# ===== LEGACY, CLEAN UP LATER =====`: the four constructor forms told apart by
 argument types, the header always underlined with raw ANSI codes (even into a file), the old `LOG.warning` text for
@@ -944,7 +768,7 @@ end). The table no longer needs `LOG`: its two warnings write the old `LOG.warni
 - BBB: `common.formatting` and `common.chunking` were run locally against their baselines (identical output). No baseline
   changes are expected; check on lxplus with `python3 Tests/run.py bbb check`; no re-lock.
 
-## 18. Drawing library moves to Utilities: BBB safety net first
+## 16. Drawing library moves to Utilities: BBB safety net first
 
 **Date:** 2026-10-14
 **Plan:** the Plotter's drawing code (`Plot`, `Plot2D`, `Stack`, `Ratio`, `CMSStyle`, `SampleStyle`, the histogram
@@ -1061,7 +885,7 @@ imports only the drawing library, not the Plotter's sample code as the old `Samp
 shows that the drawing code no longer depends on that import. Then `python3 Tests/run.py normal`.
 
 
-## 19. Import-boundary test and coupling inventory
+## 17. Import-boundary test and coupling inventory
 
 **Date:** 2026-10-14
 
@@ -1103,7 +927,7 @@ instead of its home in `TauFW.common.tools.file`; postfit helpers import `CMSSty
 even though Drawing now owns CMSStyle (check the setera behavior before replacing it). The two PicoProducer
 comparison utilities still use Plotter Variable and could be migrated or archived. None were fixed here.
 
-## 20. Fitter imports drawing helpers from their own home
+## 18. Fitter imports drawing helpers from their own home
 
 **Date:** 2026-10-14
 
@@ -1133,11 +957,11 @@ All five files parse; every `CMSStyle.*` attribute they use exists in `TauFW.Uti
 `Tests/import_boundary_allowlist.json` (22 -> 18 pairs). Fitter -> Plotter is now 16 occurrences / 15 pairs / 13
 files; no new or stale entries. Not run on lxplus yet (TODO §1).
 
-## 21. ROOT expression helpers move to `TauFW.Utilities.Expressions`
+## 19. ROOT expression helpers move to `TauFW.Utilities.Expressions`
 
 **Date:** 2026-10-14
 
-`Plotter/python/plot/string.py` held three kinds of helpers: label helpers (moved to `Drawing/labels.py` in §18),
+`Plotter/python/plot/string.py` held three kinds of helpers: label helpers (moved to `Drawing/labels.py` in §16),
 helpers that know pico branch names (`shift`, `undoshift`, `shiftjme`, `invertcharge`, `filtervars`), and helpers for
 ROOT selection and weight expressions that know only the C++ syntax. The last group moves to a new package, so that
 the Fitter can build cuts without importing the Plotter (`Fitter/python/plot/datacard.py` imported `joincuts` from it).
@@ -1177,7 +1001,7 @@ patterns), L07 (`joincuts` does not bracket `(x)||y`).
 - The `plotter.*` BBB cases reach these functions through `Selection` and `Sample`; no baseline change is expected.
   Not run on lxplus yet (TODO §1).
 
-## 22. PicoProducer comparison scripts removed
+## 20. PicoProducer comparison scripts removed
 
 **Date:** 2026-10-14 (commit `d05d5cf`, by the user)
 
@@ -1192,7 +1016,7 @@ names from the Python 2 list in TODO §8. Coupling now: PicoProducer -> Plotter 
 pairs; Plotter -> PicoProducer 1 file (`getconfig`, A03). `docs/Refactor-2025/dependencies/old-evidence.md` keeps its
 references as a record of the old state.
 
-## Root legacy archive consolidation
+## 21. Root legacy archive consolidation
 
 **Date:** 2026-10-14
 
