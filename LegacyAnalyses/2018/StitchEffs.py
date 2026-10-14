@@ -118,8 +118,8 @@ def printtable(hist,norm=False):
 # QUICK PLOTTING SCRIPT
 if __name__ == '__main__':
   from ROOT import gROOT, TFile
-  from TauFW.Plotter.plot.Plot import Plot
-  from TauFW.Plotter.plot.Plot2D import Plot2D
+  from TauFW.Utilities.Drawing.Plot import Plot
+  from TauFW.Utilities.Drawing.Plot2D import Plot2D
   from argparse import ArgumentParser
   gROOT.SetBatch(True)      # don't open GUI windows
   gStyle.SetOptTitle(False) # don't make title on top of histogram

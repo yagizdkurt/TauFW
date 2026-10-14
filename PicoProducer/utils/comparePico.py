@@ -4,9 +4,10 @@
 # Sources:
 #   https://github.com/CMS-HTT/2017-sync/blob/master/compare.py
 from TauFW.common.tools.file import ensuredir
-from TauFW.Plotter.plot.Plot import Plot, CMSStyle, Variable
+from TauFW.Utilities.Drawing.Plot import Plot, CMSStyle
+from TauFW.Plotter.plot.Variable import Variable
 from ROOT import TFile, TH1D
-from TauFW.Plotter.plot.utils import LOG
+from TauFW.Utilities.Drawing import LOG
 
 
 def compare(fnames,variables,**kwargs):

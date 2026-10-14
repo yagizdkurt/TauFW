@@ -10,7 +10,7 @@ from samples import *
 #from TauFW.Plotter.config.samples import *
 
 from TauFW.Plotter.plot.string import filtervars
-from TauFW.Plotter.plot.utils import LOG as PLOG
+from TauFW.Utilities.Drawing import LOG as PLOG
 import TauFW.Plotter.legacy.methods.JetToTau_MisID # adds SampleSet.JetToTau_MisID (not found by name in legacy/)
 
 def plot(sampleset,channel,parallel=True,tag="",extratext="",outdir="plots",era="",

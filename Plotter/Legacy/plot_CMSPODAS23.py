@@ -7,8 +7,8 @@
 #   ./plot.py -y 2018 -c mutau -S baseline -V m_vis
 from config.samples_v10 import *
 from TauFW.Plotter.plot.string import filtervars
-from TauFW.Plotter.plot.utils import LOG as PLOG
-from TauFW.Plotter.plot.Plot import Plot, deletehist
+from TauFW.Utilities.Drawing import LOG as PLOG
+from TauFW.Utilities.Drawing.Plot import Plot, deletehist
 import yaml
 
 

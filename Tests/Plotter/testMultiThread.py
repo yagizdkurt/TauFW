@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 # Author: Izaak Neutelings (Februari 2019)
-from TauFW.Plotter.plot.utils import LOG
+from TauFW.Utilities.Drawing import LOG
 from TauFW.Utilities.Process import ParallelProcessor
 from ROOT import gROOT, gSystem, gDirectory, TFile, TH1D
 import time

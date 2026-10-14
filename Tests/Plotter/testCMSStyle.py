@@ -4,7 +4,7 @@
 #   test/testCMSStyle.py -v2
 import os, sys
 #from TauFW.Plotter.sample.utils import LOG, STYLE, CMSStyle, ensuredir, ensurelist # decouple script from TauFW
-#import TauFW.Plotter.sample.SampleStyle as STYLE
+#import TauFW.Utilities.Drawing.SampleStyle as STYLE
 import ROOT; ROOT.PyConfig.IgnoreCommandLineOptions = True
 from ROOT import gROOT, gStyle, TCanvas, TLegend, TH1F, kBlack
 gROOT.SetBatch(True)      # don't open GUI windows
@@ -114,7 +114,7 @@ def testCMSlogo(iPosX=0,width=800,height=750,lmargin=0.14,rmargin=0.04,tmargin=0
 def checklegend(samples,tag=""):
   """Check legend entries: colors, titles, ..."""
   from TauFW.Plotter.sample.utils import LOG, STYLE
-  #import TauFW.Plotter.sample.SampleStyle as STYLE
+  #import TauFW.Utilities.Drawing.SampleStyle as STYLE
   # https://root.cern.ch/doc/master/classTLegend.html
   LOG.header("checklegend"+tag.replace(' ',''))
   #print(">>> checklegend: samples=%r"%(samples,))

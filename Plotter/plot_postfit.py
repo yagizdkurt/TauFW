@@ -10,9 +10,9 @@
 #   ./plot_v10.py -y 2018 -c mutau --serial
 from config.samples_v12 import *
 from TauFW.Plotter.plot.string import filtervars
-from TauFW.Plotter.plot.utils import LOG as PLOG
-from TauFW.Plotter.plot.Plot import Plot, deletehist
-import TauFW.Plotter.sample.SampleStyle as STYLE
+from TauFW.Utilities.Drawing import LOG as PLOG
+from TauFW.Utilities.Drawing.Plot import Plot, deletehist
+import TauFW.Utilities.Drawing.SampleStyle as STYLE
 import yaml
 
 def plot(sampleset,setup,region,parallel=True,tag="",extratext="",outdir="plots",era="",

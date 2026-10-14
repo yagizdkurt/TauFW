@@ -2,8 +2,9 @@
 # Author: Izaak Neutelings (July 2020)
 # Description: Test SampleStyle.py
 #   test/testLatex.py -v2 && eog plots/testLatex.png
-from TauFW.Plotter.plot.utils import LOG, ensuredir
-from TauFW.Plotter.plot.string import makelatex
+from TauFW.Utilities.Drawing import LOG
+from TauFW.common.tools.file import ensuredir
+from TauFW.Utilities.Drawing.labels import makelatex
 from ROOT import TCanvas, TPaveText
 
 

@@ -6,8 +6,8 @@ from TauFW.Utilities.Math import relative_difference
 from TauFW.common.tools.RDataFrame import RDF, RDataFrame, AddRDFColumn
 from TauFW.Plotter.sample.ResultDict import ResultDict, MeanResult # for containing RDataFRame RResultPtr
 from TauFW.Plotter.plot.string import *
-from TauFW.Plotter.plot.utils import deletehist, printhist
-from TauFW.Plotter.sample.SampleStyle import *
+from TauFW.Utilities.Drawing.hist_tools import deletehist, printhist
+from TauFW.Utilities.Drawing.SampleStyle import *
 from ROOT import TTree, TFile
 
 

@@ -11,7 +11,7 @@
 
 from config.samples_v15 import *
 from TauFW.Plotter.plot.string import filtervars
-from TauFW.Plotter.plot.utils import LOG as PLOG
+from TauFW.Utilities.Drawing import LOG as PLOG
 import yaml
 
 

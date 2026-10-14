@@ -1,22 +1,35 @@
 # -*- coding: utf-8 -*-
 # Author: Izaak Neutelings (June 2020)
+# Moved from TauFW.Plotter.plot.utils by Yagizhan Dinckurt (October 2026) (yagizdkurt)
+"""ROOT histogram helpers of the drawing library: normalize, ratios, error bands, overflow, ranges, binning.
+
+Moved verbatim from TauFW.Plotter.plot.utils (2026); only the imports changed. LOG is the drawing library's logger
+(TauFW.Utilities.Drawing.LOG), the same object as before for every caller.
+"""
 import os, re
 from math import sqrt, floor
 from array import array
 import ctypes # for passing by reference
-from TauFW.common.tools.file import ensuredir
-from TauFW.common.tools.root import ensureTFile
-from TauFW.common.tools.utils import isnumber, islist, ensurelist, unpacklistargs, quotestrs
-from TauFW.common.tools.log import Logger
+from TauFW.Utilities.Drawing import LOG
+from TauFW.Utilities.Drawing._internal.legacy_helpers import isnumber, islist, ensurelist, unpacklistargs, quotestrs
 from TauFW.Utilities.CLI import CLI
-from TauFW.Plotter.plot import moddir
-import TauFW.Plotter.plot.CMSStyle as CMSStyle
+import TauFW.Utilities.Drawing.CMSStyle as CMSStyle
 import ROOT; ROOT.PyConfig.IgnoreCommandLineOptions = True
 from ROOT import gDirectory, gROOT, gStyle, gPad, TH1, TH2, TH1D, TH2D, THStack, TGraph, TGraphErrors, TGraphAsymmErrors, TAxis,\
                  kSolid, kDashed, kDotted, kBlack, kWhite
-#moddir = os.path.dirname(__file__)
+
+
+# ===== LEGACY, CLEAN UP LATER =====
+# Import side effects kept from the Plotter: batch mode for every importer, and two methods added to ROOT's TGraph
+# (a draw option per graph). Unused helpers kept as they were: sumhists (broken, Plotter BUGS L03), ensurepoisson,
+# getbinedges, havesamebins, reducehist2d.
 gROOT.SetBatch(True)
-LOG = Logger('Plot')
+
+
+def _is_variable(obj):
+  """Whether obj is a variable object (like TauFW.Plotter.plot.Variable.Variable): the drawing library does not
+  import the Plotter, so a variable is recognized by its attributes."""
+  return hasattr(obj,'getedge') and hasattr(obj,'dividebins') and hasattr(obj,'binlabels')
 
 
 # HACK: Add class methods to TGraph:
@@ -85,7 +98,7 @@ def getframe(pad,hist,xmin=None,xmax=None,variable=False,**kwargs):
 
 def gethist(hists,*searchterms,**kwargs):
   """Help function to get all samples corresponding to some name and optional label."""
-  from TauFW.Plotter.plot.string import match
+  from TauFW.Utilities.Drawing.labels import match
   verbosity   = LOG.getverbosity(kwargs)
   unique      = kwargs.get('unique', False )
   warning     = kwargs.get('warn',   True  )
@@ -187,7 +200,7 @@ def grouphists(hists,searchterms,name=None,title=None,color=None,**kwargs):
   kwargs['verb'] = verbosity-1
   matches        = gethist(hists,*searchterms,warn=False,**kwargs) if searchterms else hists
   if not isinstance(color,int):
-    import TauFW.Plotter.sample.SampleStyle as STYLE
+    import TauFW.Utilities.Drawing.SampleStyle as STYLE
     color = STYLE.sample_colors.get(name,color)
   histsum   = None
   if matches:

@@ -5,7 +5,7 @@
 import sys
 sys.path.append("../../Plotter/tutorial") # for config.samples
 from config.samples import *
-from TauFW.Plotter.plot.utils import LOG as PLOG
+from TauFW.Utilities.Drawing import LOG as PLOG
 from TauFW.Fitter.plot.datacard import createinputs, plotinputs, preparesysts
 
 

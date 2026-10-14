@@ -344,7 +344,7 @@ make corresponding histograms and control plots:
 ```
 
 Try to choose for each variable an appropriate binning. To make the plots nicer,
-extend the dictionary containing the labels of each stored variable, if necessary. The dictionary is implemented in [string.py](../../Plotter/python/plot/string.py).
+extend the dictionary containing the labels of each stored variable, if necessary. The dictionary is implemented in [labels.py](../../Utilities/python/Drawing/labels.py).
 
 ## Event-by-event corrections to simulated contributions
 

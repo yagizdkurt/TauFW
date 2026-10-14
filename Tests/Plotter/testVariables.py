@@ -5,7 +5,8 @@
 #   test/testVariables.py -v -V mtau -S dm_2
 from TauFW.common.tools.log import color
 from TauFW.Plotter.plot.string import filtervars
-from TauFW.Plotter.plot.utils import LOG, gDirectory
+from TauFW.Utilities.Drawing import LOG
+from TauFW.Utilities.Drawing.hist_tools import gDirectory
 from TauFW.Plotter.plot.Variable import Variable
 LOG.verbosity = 1
 

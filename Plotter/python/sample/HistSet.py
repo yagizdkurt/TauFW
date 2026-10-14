@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Author: Izaak Neutelings (July 2020)
 # Description: Container class for histgrams lists to separate those of observed data from MC.
-from TauFW.Plotter.plot.Stack import Stack, THStack, TH1
+from TauFW.Utilities.Drawing.Stack import Stack, THStack, TH1
 from TauFW.Utilities.CLI import CLI
 
 def integratehist(hist):

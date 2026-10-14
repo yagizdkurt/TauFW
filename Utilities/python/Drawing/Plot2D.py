@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 # Author: Izaak Neutelings (May 2021)
+# Moved from TauFW.Plotter.plot.Plot2D by Yagizhan Dinckurt (October 2026) (yagizdkurt)
 # Description: Class to automatically make CMS 2D plot.
-from TauFW.Plotter.plot.Plot import *
-import TauFW.Plotter.plot.Plot
-_lcolors2D = [ kOrange+7, kMagenta-4 ] + TauFW.Plotter.plot.Plot._lcolors # kOrange-3,
+from TauFW.Utilities.Drawing.Plot import *
+from TauFW.Utilities.Drawing.hist_tools import _is_variable
+import TauFW.Utilities.Drawing.Plot
+_lcolors2D = [ kOrange+7, kMagenta-4 ] + TauFW.Utilities.Drawing.Plot._lcolors # kOrange-3,
 
 class Plot2D(Plot):
   """Class to automatically make CMS 2D plot."""
@@ -45,7 +47,7 @@ class Plot2D(Plot):
     self.graphs   = [ ]
     self.lines    = [ ]
     self.texts    = [ ]
-    if isinstance(xvariable,Variable) and isinstance(yvariable,Variable):
+    if _is_variable(xvariable) and _is_variable(yvariable):
       self.xvariable  = xvariable
       self.yvariable  = yvariable
       self.xtitle     = kwargs.get('xtitle',     xvariable.title     )

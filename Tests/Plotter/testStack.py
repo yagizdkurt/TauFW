@@ -3,9 +3,10 @@
 # Description: Test script for Stack class
 #   test/testStack.py -v2 && eog plots/testStacks*.png
 from array import array
-from TauFW.Plotter.plot.utils import LOG, ensuredir
+from TauFW.Utilities.Drawing import LOG
+from TauFW.common.tools.file import ensuredir
 from TauFW.Utilities.CLI import CLI
-from TauFW.Plotter.plot.Stack import Stack, CMSStyle
+from TauFW.Utilities.Drawing.Stack import Stack, CMSStyle
 from ROOT import TH1D, gRandom, TColor, kBlack, kWhite, kBlue, kOrange, kMagenta
 from TauFW.Plotter.plot.Variable import Variable
 

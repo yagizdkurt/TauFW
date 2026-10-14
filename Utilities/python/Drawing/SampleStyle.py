@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
 # Author: Izaak Neutelings (July 2020)
+# Moved from TauFW.Plotter.sample.SampleStyle by Yagizhan Dinckurt (October 2026) (yagizdkurt): default colors
+# and titles of processes, used by grouphists and by the Fitter's postfit plots.
 import os, re
 from collections import OrderedDict
 from tabnanny import verbose
-from TauFW.Plotter.sample.utils import LOG
-from TauFW.Plotter.plot.string import makelatex
+from TauFW.Utilities.Drawing._internal.legacy_log import Logger as _Logger
+from TauFW.Utilities.Drawing.labels import makelatex
 from ROOT import TColor, kBlack, kWhite, kGray, kAzure, kBlue, kCyan,\
                  kGreen, kSpring, kTeal, kYellow,\
                  kOrange, kRed, kPink, kMagenta, kViolet
+LOG = _Logger('Sample') # the Plotter's sample logger: TauFW.Plotter.sample.utils.LOG is this object
 
 sample_titles = {
   'DY':         "Drell-Yan", # Z + jets

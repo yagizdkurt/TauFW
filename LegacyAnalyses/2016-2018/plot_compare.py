@@ -16,8 +16,8 @@
 import os
 from config.samples import * # for general getsampleset
 from TauFW.Plotter.sample.utils import getsampleset as _getsampleset # for getsampleset_simple
-from TauFW.Plotter.plot.Plot import Plot, deletehist
-from TauFW.Plotter.plot.Plot import LOG as PLOG
+from TauFW.Utilities.Drawing.Plot import Plot, deletehist
+from TauFW.Utilities.Drawing import LOG as PLOG
 from TauFW.Plotter.sample.utils import MC, SampleSet, getmcsample
 
 

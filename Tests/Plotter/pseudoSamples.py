@@ -3,7 +3,9 @@
 import time
 import numpy as np
 from ROOT import TFile, TTree, TH1D, gRandom, TColor, kBlack, kWhite, kBlue, kOrange, kMagenta
-from TauFW.Plotter.plot.utils import LOG, ensurelist, ensuredir
+from TauFW.Utilities.Drawing import LOG
+from TauFW.common.tools.utils import ensurelist
+from TauFW.common.tools.file import ensuredir
 from TauFW.Plotter.sample.utils import join
 
 coldict = { # HTT / TauPOG colors

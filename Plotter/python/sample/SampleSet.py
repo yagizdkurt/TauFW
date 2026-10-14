@@ -5,9 +5,9 @@ from math import sqrt
 from copy import copy, deepcopy
 from TauFW.Plotter.sample.utils import *
 from TauFW.Plotter.sample.HistSet import HistSet, HistDict
-from TauFW.Plotter.plot.string import makelatex, maketitle, makehistname
+from TauFW.Utilities.Drawing.labels import makelatex, maketitle, makehistname
 from TauFW.Plotter.plot.Variable import Variable
-from TauFW.Plotter.plot.Stack import Stack
+from TauFW.Utilities.Drawing.Stack import Stack
 from TauFW.common.tools.string import took
 
 

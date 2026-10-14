@@ -5,8 +5,8 @@ import os, re
 from TauFW.common.tools.log import header
 from TauFW.common.tools.root import loadmacro
 from TauFW.Plotter.sample.utils import setera
-from TauFW.Plotter.plot.string import makehistname
-from TauFW.Plotter.plot.Plot import Plot
+from TauFW.Utilities.Drawing.labels import makehistname
+from TauFW.Utilities.Drawing.Plot import Plot
 from ROOT import gROOT, TFile, TH1D
 
 

@@ -7,7 +7,8 @@ from copy import copy, deepcopy
 from ROOT import TH1D, TH2D
 from TauFW.Plotter.plot.string import *
 from TauFW.Plotter.plot.Context import getcontext
-from TauFW.Plotter.plot.utils import LOG, isnumber, islist, ensurelist, unpacklistargs
+from TauFW.Utilities.Drawing import LOG
+from TauFW.common.tools.utils import isnumber, islist, ensurelist, unpacklistargs
 
 
 class Variable(object):

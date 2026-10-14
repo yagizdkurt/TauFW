@@ -3,7 +3,7 @@
 # Description: Test Variable initiation
 #   test/testVariables.py
 from TauFW.common.tools.log import color
-from TauFW.Plotter.plot.utils import LOG
+from TauFW.Utilities.Drawing import LOG
 from TauFW.Plotter.plot.Selection import Selection
 
 

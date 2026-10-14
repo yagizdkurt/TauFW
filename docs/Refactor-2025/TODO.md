@@ -1,7 +1,7 @@
 # Refactor-2025: still to do
 
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-**Last updated:** 2026-10-13
+**Last updated:** 2026-10-14
 
 Everything the `Refactor-2025` branch has left open: checks that need lxplus, the rest of the `common` → `Utilities`
 move, old output kept on purpose, open bugs, and planned next steps. The [change log](Refactor-2025.md) ("CL §N")
@@ -12,10 +12,10 @@ Items marked **(verify)** may already be done; check before working on them.
 
 ## 1. Checks to run on lxplus
 
-- [ ] **Lock the new `drawing.canvas` case before the drawing code moves.** `python3 Tests/run.py bbb lock --replace`,
-      then `python3 Tests/run.py bbb diff`: only `drawing.canvas` ADDED, every other case `same`. If a scenario
-      records an `exception`, report it before locking. Commit the baseline; the move to `TauFW.Utilities.Drawing`
-      waits for it. (CL §18)
+- [x] Lock the new `drawing.canvas` case before the drawing code moves (locked 2026-10-14: 19 same, 1 added). (CL §18)
+- [ ] **BBB check after the drawing move.** `python3 Tests/run.py bbb check`: every case, `drawing.canvas` included,
+      must pass with no difference; no re-lock. Then `python3 Tests/run.py normal` (the `Tests/Plotter` scripts import
+      the new paths) and, by eye, one `Plotter/plot.py` run and one Fitter postfit plot. (CL §18)
 - [ ] **BBB check after §15–§17.** `python3 Tests/run.py bbb check`; nothing should change (ParallelProcessor/loading
       bar, `Utilities.Math`, `CLI.table`). No re-lock. The `3d09ea6` lock may already include §15/§16 **(verify)**.
       (CL §15, §16, §17)
@@ -50,7 +50,7 @@ Done: `parallel`, `LoadingBar` (§15), `math` (§16), `Table` (§17). Rules for 
 
 | Module | Importers (approx.) | Obstacles |
 |---|---|---|
-| `string.py` | ~15 direct | `utils.py` star-imports it, and `Plotter/python/sample/utils.py`, `Plotter/python/plot/utils.py` and `PicoProducer/python/analysis/utils.py` re-export it again: `repkey` is used in ~48 files, `getyear` in ~21. Trace every star-import chain. Best done together with `utils.py`. |
+| `string.py` | ~15 direct | `utils.py` star-imports it, and `Plotter/python/sample/utils.py` and `PicoProducer/python/analysis/utils.py` re-export it again (the drawing library has its own copies of `quotestrs` and `repkey` in `Utilities/python/Drawing/_internal/`): `repkey` is used in ~48 files, `getyear` in ~21. Trace every star-import chain. Best done together with `utils.py`. |
 | `utils.py` | ~23 | `execute` (`shell=True`, architecture finding A05) should map onto `Utilities.Process.ProcessRunner`; used by `batch/base.py`, `datasets/das.py`, `jobs/merge.py`, `storage/base.py`. Untangle from `string.py` first. |
 | `file.py` | ~32 | `ensuredir` is in ~76 files. Maps onto `FileIO`. Imports `log` and `utils`; `past.builtins`; `ensuremodule` is the channel loader's dynamic import. |
 | `root.py` | ~21 | ROOT (`ensureTFile` in ~29 files, `gethist`, `loadmacro`); maps onto `FileIO` ROOT methods. `rootname()` has no callers. |
@@ -71,7 +71,7 @@ Each changes logs, so do each in its own commit, with a BBB re-lock where a base
 - [ ] The two warnings (wrong number of header titles, unrecognized arguments) print the old `LOG.warning` bytes on
       stdout with a fixed `">>> "`; use `CLI.print_warning` (stderr).
 - [ ] The two `>>> headerformat=...` debug lines at verbosity ≥ `minimum_verbosity + 3`.
-- [ ] `Plotter/python/plot/utils.py:422`: the `TGraph`/`TGraph` ratio table prints its data rows with `print_header`
+- [ ] `Utilities/python/Drawing/hist_tools.py:435` (was `Plotter/python/plot/utils.py:422`): the `TGraph`/`TGraph` ratio table prints its data rows with `print_header`
       (all columns as `%s`); it should be `print_row`. Kept as it was (`printheader`).
 - [ ] Too few header titles raise `TypeError` from `%` after the warning.
 - [ ] Consider merging `CLI.table` with `CLI.print_table` once the old output may change.
@@ -85,6 +85,25 @@ Each changes logs, so do each in its own commit, with a BBB re-lock where a base
 - [ ] Verbose messages still name the old classes (`MultiProcessor.start`, `ReturnProcess.join`, ...), and `close()`
       always prints; route through a CLI instance.
 - [ ] Nested target functions need the `fork` start method; Python 3.14 changes the Linux default. Nice to have.
+
+**Drawing library** — `Utilities/python/Drawing/`, moved as it was from the Plotter (CL §18). Each item changes the
+`drawing.canvas` baseline unless noted; re-lock after each:
+
+- [ ] Restyle to the Utilities style (4-space indent, banners, layout rule) and split `Plot.py` (1376 lines); no
+      output change, so `bbb check` must still pass.
+- [ ] Import side effects: ROOT batch mode and the `TGraph.SetOption/GetOption` patch (`hist_tools.py`), the TDR style
+      applied when `Plot` is imported. Make them explicit calls.
+- [ ] `CMSStyle` holds the lumi/era/energy tables per era (analysis data in a style module); move them to
+      configuration (a recipe or a data file).
+- [ ] `SampleStyle` holds the process color/title tables of the TauFW analyses; make them data passed in by the
+      caller (an analysis bundle), with `grouphists` taking the colors explicitly.
+- [ ] `_internal/legacy_log.py` (old `Logger`) and `_internal/legacy_helpers.py` duplicate `TauFW.common`; replace the
+      logger with `CLI` once output may change (or merge when `common/tools/log.py` moves).
+- [ ] Unused helpers: `sumhists` (bug L03), `ensurepoisson`, `getbinedges`, `havesamebins`, `reducehist2d`.
+- [ ] `Plotter/python/plot/string.py` re-exports the label helpers of `labels.py` for its star-importers
+      (`Variable.py`, `Sample.py`, `Selection.py`); import them explicitly there.
+- [ ] `PicoProducer/utils/compare{Nano,Pico}.py` (Python 2) still import the Plotter's `Variable`; give them a plain
+      string axis or move them to `LegacyAnalyses/`. Not on any production path.
 
 **Quirks frozen in BBB baselines** (PicoProducer plan):
 
@@ -111,6 +130,9 @@ Each changes logs, so do each in its own commit, with a BBB re-lock where a base
 **Plotter** ([BUGS.md](../Plotter/BUGS.md)):
 
 - [ ] L02: `fname=` vs `file=` (`config/samples_v15.py:285` vs `python/sample/utils.py:29`); needs a test with tuples.
+- [ ] L03: `sumhists` adds to an undefined `sighist` (now `Utilities/python/Drawing/hist_tools.py`); the fix changes
+      the `drawing.canvas` baseline (`$.tools.sumhists`), so re-lock.
+- [ ] L04: `estimatelen` with several arguments raises `TypeError` (now `Utilities/python/Drawing/labels.py`).
 
 **Jobs/workers audit follow-ups** ([JobsWorkersAudit.md](JobsWorkersAudit.md) §7; none needed for correctness):
 
@@ -187,7 +209,7 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
 - [ ] Duplicate definitions: two `replace()` in `Plotter/python/sample/SampleSet.py` (163, 436; the general one is
       shadowed); two `ensureDirectory` in `Fitter/TauES_ID/plot2DScan_MultiDimFit.py` (28, 33).
 - [ ] Helpers without callers: `_read_profile` (`Fitter/plot1D_NLL_profiles.py`), `plot_scan_correlations`
-      (`plot2DScan_MultiDimFit.py`), `rootname` (`common/tools/root.py`), `ensurepoisson` (`Plotter/plot/utils.py`),
+      (`plot2DScan_MultiDimFit.py`), `rootname` (`common/tools/root.py`), `ensurepoisson` (`Utilities/python/Drawing/hist_tools.py`),
       Tau_Trigger_SF helpers, `analysis/Run3_DEV`.
 - [ ] Plotter import-time side effects: `gROOT.SetBatch` in `sample/utils.py`, the `SampleSet.QCD_OSSS` monkey-patch
       (`methods/QCD_OSSS.py`), the RDataFrame setup (A01/A09). Plotter still imports

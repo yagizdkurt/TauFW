@@ -446,13 +446,13 @@ _DRAWING_MODULE = re.compile(r"TauFW\.(?:Plotter\.(?:plot|sample)|Utilities\.Dra
 
 def _drawing_modules():
     """The drawing code under test. Only this function changes when the drawing code moves."""
-    import TauFW.Plotter.plot.CMSStyle as CMSStyle
-    import TauFW.Plotter.plot.utils as hist_tools
-    import TauFW.Plotter.plot.string as labels
-    import TauFW.Plotter.sample.SampleStyle as SampleStyle
-    from TauFW.Plotter.plot.Plot import Plot
-    from TauFW.Plotter.plot.Plot2D import Plot2D
-    from TauFW.Plotter.plot.Stack import Stack
+    import TauFW.Utilities.Drawing.CMSStyle as CMSStyle
+    import TauFW.Utilities.Drawing.hist_tools as hist_tools
+    import TauFW.Utilities.Drawing.labels as labels
+    import TauFW.Utilities.Drawing.SampleStyle as SampleStyle
+    from TauFW.Utilities.Drawing.Plot import Plot
+    from TauFW.Utilities.Drawing.Plot2D import Plot2D
+    from TauFW.Utilities.Drawing.Stack import Stack
     from TauFW.Plotter.plot.Variable import Variable
     return SimpleNamespace(CMSStyle=CMSStyle, hist_tools=hist_tools, labels=labels, SampleStyle=SampleStyle,
                            LOG=hist_tools.LOG, Plot=Plot, Plot2D=Plot2D, Stack=Stack, Variable=Variable)

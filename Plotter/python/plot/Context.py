@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # Author: Izaak Neutelings (2017)
 import re
-from TauFW.Plotter.plot.utils import LOG
+from TauFW.Utilities.Drawing import LOG
 
 
 class Context(object):

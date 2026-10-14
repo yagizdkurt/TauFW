@@ -1,15 +1,16 @@
 # -*- coding: utf-8 -*-
 # Author: Izaak Neutelings (June 2020)
+# Moved from TauFW.Plotter.plot.Plot by Yagizhan Dinckurt (October 2026) (yagizdkurt)
 # Description: Class to automatically make CMS plot comparing histograms.
 import os, re
 from math import ceil, log10
 #import ctypes # for passing by reference
-from TauFW.common.tools.utils import ensurelist, islist, isnumber, repkey
+from TauFW.Utilities.Drawing._internal.legacy_helpers import ensurelist, islist, isnumber, repkey
 from TauFW.Utilities.Math import magnitude, columnize, scale_vector
-from TauFW.Plotter.plot.utils import *
-from TauFW.Plotter.plot.string import makelatex, maketitle, makehistname, estimatelen
-from TauFW.Plotter.plot.Variable import Variable, Var
-from TauFW.Plotter.plot.Ratio import Ratio
+from TauFW.Utilities.Drawing.hist_tools import *
+from TauFW.Utilities.Drawing.hist_tools import _is_variable
+from TauFW.Utilities.Drawing.labels import makelatex, maketitle, makehistname, estimatelen
+from TauFW.Utilities.Drawing.Ratio import Ratio
 import ROOT
 from ROOT import gDirectory, gROOT, gPad, gStyle, TCanvas, TH1, TH1D, THStack, TGraph, TLine,\
                  TLegend, TGaxis, TLatex, TBox, TColor,\
@@ -58,7 +59,7 @@ class Plot(object):
     vargs      = [ ] # string / Variable arguments
     hargs      = [ ] # other arguments
     for arg in args: # sort arguments by type
-      if isinstance(arg,(str,Variable)):
+      if isinstance(arg,str) or _is_variable(arg):
         if variable==None:
           variable = arg
         else: # expect at most one string/Variable
@@ -84,7 +85,7 @@ class Plot(object):
     frame      = self.frame or self.hists[0] # use local frame to set defaults
     binlabels  = frame.GetXaxis().GetLabels()
     binlabels  = [str(s) for s in binlabels] if binlabels else None
-    if isinstance(variable,Variable):
+    if _is_variable(variable):
       self.variable   = variable
       self.hasvarbins = variable.dividebins
       self.name       = kwargs.get('name',       variable.filename   )
@@ -1203,7 +1204,7 @@ class Plot(object):
     ioffset = kwargs.get('ioffset',     0     )
     addof   = kwargs.get('addoverflow', False ) # last bin is infinity
     xmin, xmax = self.xmin, self.xmax
-    if isinstance(bins,Variable):
+    if _is_variable(bins):
       nbins = bins.nbins
     elif islist(bins):
       nbins = len(bins)-1
@@ -1235,7 +1236,7 @@ class Plot(object):
             logx = pad.GetLogx()>0
             x = scale_vector(xmin,xmax,y,log=logx)
             y_ = ymin + (ymax-ymin)*(i+0.5)/nbins
-          if isinstance(bins,Variable):
+          if _is_variable(bins):
             y1 = bins.getedge(ioffset+i) # edges mass bin
             y2 = bins.getedge(ioffset+i+1)
           else:

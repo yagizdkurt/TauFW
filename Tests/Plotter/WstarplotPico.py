@@ -9,7 +9,7 @@ from TauFW.Plotter.sample.utils import getsampleset, setera
 from TauFW.common.tools.file import ensuredir
 from TauFW.common.tools.log import LOG
 from TauFW.Plotter.plot.Variable import Var
-import TauFW.Plotter.sample.SampleStyle as STYLE
+import TauFW.Utilities.Drawing.SampleStyle as STYLE
 
 def makesamples(channel,era,fname):
   LOG.header("makesamples") 

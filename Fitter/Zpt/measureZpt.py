@@ -6,7 +6,7 @@
 #   ./measureZpt.py -y 2018 -m 2 --dy mass -Y njets
 #   for s in tt_up tt_down; do ./measureZpt.py -y 2018 -m 2 --dy mass -S syst_$s; done
 from utils import *
-from TauFW.Plotter.plot.Plot2D import Plot2D, addoverflow, capoff
+from TauFW.Utilities.Drawing.Plot2D import Plot2D, addoverflow, capoff
 gSystem.Load('RooUnfold/libRooUnfold.so')
 from ROOT import TNamed, RooUnfoldResponse, RooUnfoldBinByBin, RooUnfoldBayes
 

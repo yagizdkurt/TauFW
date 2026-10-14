@@ -2,9 +2,11 @@
 # Author: Izaak Neutelings (July 2020)
 # Description: Test script for Ratio class
 #   test/testRatio.py -v2 && eog plots/testRatio*.png
-from TauFW.Plotter.plot.utils import LOG, ensuredir
-from TauFW.Plotter.plot.Plot import Plot, Variable, CMSStyle
-from TauFW.Plotter.plot.Stack import Stack
+from TauFW.Utilities.Drawing import LOG
+from TauFW.common.tools.file import ensuredir
+from TauFW.Utilities.Drawing.Plot import Plot, CMSStyle
+from TauFW.Plotter.plot.Variable import Variable
+from TauFW.Utilities.Drawing.Stack import Stack
 from testPlot import createhists
 from testStack import createhists as createhists_obsexp
 from ROOT import gRandom

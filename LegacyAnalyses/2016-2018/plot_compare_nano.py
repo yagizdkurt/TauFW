@@ -16,9 +16,9 @@
 # Description: Quickly compare distributions in NanoAOD samples
 import os, glob, re
 from TauFW.Plotter.sample.utils import LOG, STYLE, setera, ensuredir, ensurelist, Var, Sel, repkey
-import TauFW.Plotter.plot.Plot as PLOT
-from TauFW.Plotter.plot.Plot import Plot, deletehist, _lcolors
-from TauFW.Plotter.plot.Plot import LOG as PLOG
+import TauFW.Utilities.Drawing.Plot as PLOT
+from TauFW.Utilities.Drawing.Plot import Plot, deletehist, _lcolors
+from TauFW.Utilities.Drawing import LOG as PLOG
 from TauFW.Plotter.plot.MultiDraw import MultiDraw
 from TauFW.Utilities.Process import ParallelProcessor
 from ROOT import TChain, TFile

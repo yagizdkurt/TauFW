@@ -2,8 +2,10 @@
 # Author: Izaak Neutelings (June 2020)
 # Description: Test script for Plot class
 #   python3 test/testPlot.py -v2 && eog plots/test/testPlot*.png
-from TauFW.Plotter.plot.utils import LOG, ensuredir, deletehist
-from TauFW.Plotter.plot.Plot import Plot, CMSStyle
+from TauFW.Utilities.Drawing import LOG
+from TauFW.common.tools.file import ensuredir
+from TauFW.Utilities.Drawing.hist_tools import deletehist
+from TauFW.Utilities.Drawing.Plot import Plot, CMSStyle
 from TauFW.common.tools.root import rootrepr
 from ROOT import gRandom, TH1F, TGraph, TGraphErrors,\
                  kSolid, kDashed, kDotted, kBlue, kGreen, kRed, kBlack
@@ -11,7 +13,7 @@ from ROOT import gRandom, TH1F, TGraph, TGraphErrors,\
 
 def testPlot_init(xtitle,hists,norm=False,clone=False):
   """Test Plot.__init__ with different arguments."""
-  from TauFW.Plotter.plot.Plot import Var
+  from TauFW.Plotter.plot.Variable import Var
   
   # SETTING
   outdir = ensuredir("plots/test/")

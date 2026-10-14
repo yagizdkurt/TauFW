@@ -9,7 +9,7 @@ import os, re
 from array import array
 from TauFW.common.tools.file import ensuredir
 from ROOT import gROOT, gSystem, gDirectory, TFile, TTree, TH1D, TH2D, gRandom, TColor
-from TauFW.Plotter.plot.utils import LOG
+from TauFW.Utilities.Drawing import LOG
 from TauFW.Plotter.plot.MultiDraw import MultiDraw
 #from test.pseudoSamples import makesamples
 from pseudoSamples import makesamples

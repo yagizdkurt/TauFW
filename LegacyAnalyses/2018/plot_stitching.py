@@ -15,9 +15,9 @@
 # Sources:
 #   https://twiki.cern.ch/twiki/bin/viewauth/CMS/MCStitching
 import os
-import TauFW.Plotter.plot.Plot as _Plot
-from TauFW.Plotter.plot.Plot import Plot, deletehist
-from TauFW.Plotter.plot.Plot import LOG as PLOG
+import TauFW.Utilities.Drawing.Plot as _Plot
+from TauFW.Utilities.Drawing.Plot import Plot, deletehist
+from TauFW.Utilities.Drawing import LOG as PLOG
 from TauFW.Plotter.sample.utils import LOG, STYLE, ensuredir, ensurelist, setera,\
                                        Sel, Var, MC, SampleSet, getmcsample, stitch
 

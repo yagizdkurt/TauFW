@@ -1,6 +1,7 @@
 # Initiated by: Gautier Hamel de Monchenault (Saclay)
 # Translated in Python by: Joshua Hardenbrook (Princeton)
 # Edited: Izaak Neutelings (July 2018)
+# Moved from TauFW.Plotter.plot.CMSStyle by Yagizhan Dinckurt (October 2026) (yagizdkurt)
 # CMS guidelines:
 #   https://ghm.web.cern.ch/ghm/plots/
 #   https://twiki.cern.ch/twiki/bin/view/CMS/Internal/FigGuidelines
@@ -13,7 +14,7 @@
 #   https://root.cern.ch/doc/master/classTAttText.html
 # Instructions:
 # 1a) Set extra text and luminosity with CMSStyle.setCMSEra:
-#   import TauFW.Plotter.plot.CMSStyle as CMSStyle
+#   import TauFW.Utilities.Drawing.CMSStyle as CMSStyle
 #   CMSStyle.setCMSEra(2018) # use default settings
 #   CMSStyle.setCMSEra(2018,lumi=59.7,cme=13,extra="Preliminary") # override default
 #   CMSStyle.setCMSEra(era='Run 2',lumi=None,thesis=True,extra="(CMS simulation)")

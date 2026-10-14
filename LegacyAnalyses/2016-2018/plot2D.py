@@ -17,8 +17,8 @@
 #   ./plot2D.py -c mutau -y UL2018 -s DY
 from config.samples import *
 from TauFW.Plotter.plot.string import filtervars
-from TauFW.Plotter.plot.utils import LOG as PLOG
-from TauFW.Plotter.plot.Plot2D import Plot2D
+from TauFW.Utilities.Drawing import LOG as PLOG
+from TauFW.Utilities.Drawing.Plot2D import Plot2D
 
   
 def plot2D(samples,channel,parallel=True,tag="",extratext="",outdir="plots",era="",

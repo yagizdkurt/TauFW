@@ -6,8 +6,8 @@ from TauFW.Plotter.sample.utils import LOG, STYLE, setera, CMSStyle, ensuredir,\
                                        Sample, MergedSample, SampleSet
 #from TauFW.Plotter.sample.SampleSet import SampleSet
 from TauFW.Plotter.plot.Variable import Variable #as Var
-from TauFW.Plotter.plot.Stack import Stack
-from TauFW.Plotter.plot.Stack import LOG as PLOG
+from TauFW.Utilities.Drawing.Stack import Stack
+from TauFW.Utilities.Drawing import LOG as PLOG
 from pseudoSamples import makesamples
 
 selections = [

@@ -8,7 +8,8 @@ from collections import OrderedDict
 sys.path.append("../Plotter/") # for config.samples
 # from config.samples import *
 from config.samples_v15 import *
-from TauFW.Plotter.plot.utils import LOG as PLOG, ensuredir
+from TauFW.Utilities.Drawing import LOG as PLOG
+from TauFW.common.tools.file import ensuredir
 from TauFW.Fitter.plot.datacard import createinputs, plotinputs
 from TauFW.Fitter.plot.rebinning import rebinning
 import yaml

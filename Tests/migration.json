@@ -17,13 +17,15 @@
       "original": "Plotter/test/pseudoSamples.py",
       "moved": "Tests/Plotter/pseudoSamples.py",
       "sha256": "5a30334e73e40d1423ae7f1e05d733e212479d641801e0e5b3a8fb43a5ea3cbd",
-      "canonical_sha256": "9371dd256d5c71a4b7eae312072b3ea59d4174080d9697ef697d3416db2257a5"
+      "canonical_sha256": "9371dd256d5c71a4b7eae312072b3ea59d4174080d9697ef697d3416db2257a5",
+      "edited": "Imports of the drawing code point to TauFW.Utilities.Drawing (Plot, Stack, Plot2D, CMSStyle, hist_tools, labels, SampleStyle; LOG from TauFW.Utilities.Drawing) after it moved out of the Plotter (2026-10-14)."
     },
     {
       "original": "Plotter/test/testCMSStyle.py",
       "moved": "Tests/Plotter/testCMSStyle.py",
       "sha256": "18360e53afe2ce0e1e053b37a3bada2790ec2db3a0ed57e25998ade80bb10c4c",
-      "canonical_sha256": "6977175c1c7ec8ed3f3d4cb0cd73c9427a6e22f21628c0642914a78beb8ef5ec"
+      "canonical_sha256": "6977175c1c7ec8ed3f3d4cb0cd73c9427a6e22f21628c0642914a78beb8ef5ec",
+      "edited": "Imports of the drawing code point to TauFW.Utilities.Drawing (Plot, Stack, Plot2D, CMSStyle, hist_tools, labels, SampleStyle; LOG from TauFW.Utilities.Drawing) after it moved out of the Plotter (2026-10-14)."
     },
     {
       "original": "Plotter/test/testColors.py",
@@ -35,19 +37,22 @@
       "original": "Plotter/test/testLatex.py",
       "moved": "Tests/Plotter/testLatex.py",
       "sha256": "29f107e9a53a580189c803792918466297ebe15208ec43a71d4264a7f6f71c63",
-      "canonical_sha256": "ac8b56f4f3b22227538fa900e84cbe7004753399acc4f5eb6e4e8d4d83aa0a2a"
+      "canonical_sha256": "ac8b56f4f3b22227538fa900e84cbe7004753399acc4f5eb6e4e8d4d83aa0a2a",
+      "edited": "Imports of the drawing code point to TauFW.Utilities.Drawing (Plot, Stack, Plot2D, CMSStyle, hist_tools, labels, SampleStyle; LOG from TauFW.Utilities.Drawing) after it moved out of the Plotter (2026-10-14)."
     },
     {
       "original": "Plotter/test/testLegend.py",
       "moved": "Tests/Plotter/testLegend.py",
       "sha256": "2c14cf563250b4a78f32f04cb90e8198037e5fe723cf0399ccce876665d3847e",
-      "canonical_sha256": "5a4b42da0dc6800004f1a8622bf2465e7140991d133af6069a3023cc2bb090c9"
+      "canonical_sha256": "5a4b42da0dc6800004f1a8622bf2465e7140991d133af6069a3023cc2bb090c9",
+      "edited": "Imports of the drawing code point to TauFW.Utilities.Drawing (Plot, Stack, Plot2D, CMSStyle, hist_tools, labels, SampleStyle; LOG from TauFW.Utilities.Drawing) after it moved out of the Plotter (2026-10-14)."
     },
     {
       "original": "Plotter/test/testMacros.py",
       "moved": "Tests/Plotter/testMacros.py",
       "sha256": "c63695d16b7426453df9052be2d518d059b734e3006172dfd8039c30789bd226",
-      "canonical_sha256": "b20756b92d6dfdf390cd227b67db0fc64e928aab728789dde0457dac7efff15e"
+      "canonical_sha256": "b20756b92d6dfdf390cd227b67db0fc64e928aab728789dde0457dac7efff15e",
+      "edited": "Imports of the drawing code point to TauFW.Utilities.Drawing (Plot, Stack, Plot2D, CMSStyle, hist_tools, labels, SampleStyle; LOG from TauFW.Utilities.Drawing) after it moved out of the Plotter (2026-10-14)."
     },
     {
       "original": "Plotter/test/testMethods.py",
@@ -59,14 +64,15 @@
       "original": "Plotter/test/testMultiDraw.py",
       "moved": "Tests/Plotter/testMultiDraw.py",
       "sha256": "9b4d5c0d33993005946ad0238888fe05d979c21bbb3f934fd18c6b3567013c6d",
-      "canonical_sha256": "a717aa4c06570a06df586034537c58cb921dddd404696a9494afc3d3e862f308"
+      "canonical_sha256": "a717aa4c06570a06df586034537c58cb921dddd404696a9494afc3d3e862f308",
+      "edited": "Imports of the drawing code point to TauFW.Utilities.Drawing (Plot, Stack, Plot2D, CMSStyle, hist_tools, labels, SampleStyle; LOG from TauFW.Utilities.Drawing) after it moved out of the Plotter (2026-10-14)."
     },
     {
       "original": "Plotter/test/testMultiThread.py",
       "moved": "Tests/Plotter/testMultiThread.py",
       "sha256": "08539a69549e260a97a721eeab5024c15e955546a5ed624849653a1ac46bdae0",
       "canonical_sha256": "ec8a55aad6a1ad481b0d0979b270c39ca132dacdd62ed76774d217ff3f4388aa",
-      "edited": "Imports follow the PicoProducer package restructuring (settings/, datasets/, storage/, batch/, jobs/) and the move of MultiThread to TauFW.common.tools.parallel (2026-10-12), then to TauFW.Utilities.Process.ParallelProcessor without the unused Thread demos (2026-10-13)."
+      "edited": "Imports follow the PicoProducer package restructuring (settings/, datasets/, storage/, batch/, jobs/) and the move of MultiThread to TauFW.common.tools.parallel (2026-10-12), then to TauFW.Utilities.Process.ParallelProcessor without the unused Thread demos (2026-10-13). Imports of the drawing code point to TauFW.Utilities.Drawing (Plot, Stack, Plot2D, CMSStyle, hist_tools, labels, SampleStyle; LOG from TauFW.Utilities.Drawing) after it moved out of the Plotter (2026-10-14)."
     },
     {
       "original": "Plotter/test/testPanels.py",
@@ -78,13 +84,15 @@
       "original": "Plotter/test/testPlot.py",
       "moved": "Tests/Plotter/testPlot.py",
       "sha256": "9da0ce3d727cd7c20d0abd62736076d14ee87cb29d046dac7e1e26cd7c917b26",
-      "canonical_sha256": "1a4aa1a7f6427437b6f276eb9e8eaa8051b525acff9f92df207ee203fa3d5a2e"
+      "canonical_sha256": "1a4aa1a7f6427437b6f276eb9e8eaa8051b525acff9f92df207ee203fa3d5a2e",
+      "edited": "Imports of the drawing code point to TauFW.Utilities.Drawing (Plot, Stack, Plot2D, CMSStyle, hist_tools, labels, SampleStyle; LOG from TauFW.Utilities.Drawing) after it moved out of the Plotter (2026-10-14)."
     },
     {
       "original": "Plotter/test/testRatio.py",
       "moved": "Tests/Plotter/testRatio.py",
       "sha256": "dfdd8bb38f5dd3b9f687d70abbe9a7ddbd2315389a6513d505ff946b7dce7cf8",
-      "canonical_sha256": "b872d9becbbbc6ad66963e0b2817a3855c2d29196111f62dad170d47841447bc"
+      "canonical_sha256": "b872d9becbbbc6ad66963e0b2817a3855c2d29196111f62dad170d47841447bc",
+      "edited": "Imports of the drawing code point to TauFW.Utilities.Drawing (Plot, Stack, Plot2D, CMSStyle, hist_tools, labels, SampleStyle; LOG from TauFW.Utilities.Drawing) after it moved out of the Plotter (2026-10-14)."
     },
     {
       "original": "Plotter/test/testRDataFrame.py",
@@ -97,33 +105,35 @@
       "moved": "Tests/Plotter/testRDataFrame_Sample.py",
       "sha256": "9b2c1b2355c993ffbbe224cc864d5ed30412d26797c3ba47fd685772fa08cfbd",
       "canonical_sha256": "1095d0d84d1f48774c7a62249a37c0b8ce7f8127da855d2b3f294cb2ba73f0a0",
-      "edited": "LOG.table(...) became CLI().table(...) with print_header/print_row after TauFW.common.tools.Table moved to TauFW.Utilities.CLI (2026-10-13)."
+      "edited": "LOG.table(...) became CLI().table(...) with print_header/print_row after TauFW.common.tools.Table moved to TauFW.Utilities.CLI (2026-10-13). Imports of the drawing code point to TauFW.Utilities.Drawing (Plot, Stack, Plot2D, CMSStyle, hist_tools, labels, SampleStyle; LOG from TauFW.Utilities.Drawing) after it moved out of the Plotter (2026-10-14)."
     },
     {
       "original": "Plotter/test/testSamples.py",
       "moved": "Tests/Plotter/testSamples.py",
       "sha256": "7022b5eae6fbe943fb9cc79aed7ea1872e1b9ac7bafc82ad4c2d3fdf577ba283",
       "canonical_sha256": "ec21ae1bcc09cf81309ed65882c36cf1f59d2d10e534cb7e7c0abef4918d0c88",
-      "edited": "Updated after migration for the dict returned by Sample.gethist/gethist2D."
+      "edited": "Updated after migration for the dict returned by Sample.gethist/gethist2D. Imports of the drawing code point to TauFW.Utilities.Drawing (Plot, Stack, Plot2D, CMSStyle, hist_tools, labels, SampleStyle; LOG from TauFW.Utilities.Drawing) after it moved out of the Plotter (2026-10-14)."
     },
     {
       "original": "Plotter/test/testSampleSet.py",
       "moved": "Tests/Plotter/testSampleSet.py",
       "sha256": "af8f44d4b87c6e2d63163535014e7042d49eafd15960636098006e09d394cd0c",
-      "canonical_sha256": "268297ea2ab3535dfe6292959306291df97daa3fc70a9bbea584b09f882dd243"
+      "canonical_sha256": "268297ea2ab3535dfe6292959306291df97daa3fc70a9bbea584b09f882dd243",
+      "edited": "Imports of the drawing code point to TauFW.Utilities.Drawing (Plot, Stack, Plot2D, CMSStyle, hist_tools, labels, SampleStyle; LOG from TauFW.Utilities.Drawing) after it moved out of the Plotter (2026-10-14)."
     },
     {
       "original": "Plotter/test/testSelection.py",
       "moved": "Tests/Plotter/testSelection.py",
       "sha256": "b042110a022cb331438db412ef413755676112357840669f206514abb3fb69cc",
-      "canonical_sha256": "b57d8a75f8232c20dfd4aa7e1f51bd5d6031ddc71a06c54bcd95f813731a6831"
+      "canonical_sha256": "b57d8a75f8232c20dfd4aa7e1f51bd5d6031ddc71a06c54bcd95f813731a6831",
+      "edited": "Imports of the drawing code point to TauFW.Utilities.Drawing (Plot, Stack, Plot2D, CMSStyle, hist_tools, labels, SampleStyle; LOG from TauFW.Utilities.Drawing) after it moved out of the Plotter (2026-10-14)."
     },
     {
       "original": "Plotter/test/testStack.py",
       "moved": "Tests/Plotter/testStack.py",
       "sha256": "e58562eecb94d9a25da6f72f081787548395096d984c945226f7dcd99d713c23",
       "canonical_sha256": "9e7eecb845b669a52086b384b0c71ff0bcd73fe2f2ab842324153f4ea3188329",
-      "edited": "LOG.table(...) became CLI().table(...) with print_header/print_row after TauFW.common.tools.Table moved to TauFW.Utilities.CLI (2026-10-13)."
+      "edited": "LOG.table(...) became CLI().table(...) with print_header/print_row after TauFW.common.tools.Table moved to TauFW.Utilities.CLI (2026-10-13). Imports of the drawing code point to TauFW.Utilities.Drawing (Plot, Stack, Plot2D, CMSStyle, hist_tools, labels, SampleStyle; LOG from TauFW.Utilities.Drawing) after it moved out of the Plotter (2026-10-14)."
     },
     {
       "original": "Plotter/test/testStitching.py",
@@ -159,13 +169,15 @@
       "original": "Plotter/test/testVariables.py",
       "moved": "Tests/Plotter/testVariables.py",
       "sha256": "6027a9c0eeb80c635c7bf7019ddd8e29d4548a9657da7e3c6c95f2f3a272d5c2",
-      "canonical_sha256": "2384944f342e99267815151a5024041a348ac54ddf26d2aa8e0194e039ea1cd2"
+      "canonical_sha256": "2384944f342e99267815151a5024041a348ac54ddf26d2aa8e0194e039ea1cd2",
+      "edited": "Imports of the drawing code point to TauFW.Utilities.Drawing (Plot, Stack, Plot2D, CMSStyle, hist_tools, labels, SampleStyle; LOG from TauFW.Utilities.Drawing) after it moved out of the Plotter (2026-10-14)."
     },
     {
       "original": "Plotter/test/WstarplotPico.py",
       "moved": "Tests/Plotter/WstarplotPico.py",
       "sha256": "a73b1dbb0372190229242214179b3c0ef1ca971cf8436a9197397bb487cca3f8",
-      "canonical_sha256": "31990ab9555ad80c4933ade2990230205a1d5c57a5ddaeac29a276b06a775ce2"
+      "canonical_sha256": "31990ab9555ad80c4933ade2990230205a1d5c57a5ddaeac29a276b06a775ce2",
+      "edited": "Imports of the drawing code point to TauFW.Utilities.Drawing (Plot, Stack, Plot2D, CMSStyle, hist_tools, labels, SampleStyle; LOG from TauFW.Utilities.Drawing) after it moved out of the Plotter (2026-10-14)."
     },
     {
       "original": "PicoProducer/test/testBatch.py",

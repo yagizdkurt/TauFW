@@ -1,7 +1,8 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 # Utilities
 
-Independent terminal, menu presentation, file I/O, process, numeric and installer helpers. Like the other TauFW packages, the source lives under `Utilities/python/`, and `scram b` exposes it as `TauFW.Utilities` after `cmsenv`.
+Independent terminal, menu presentation, file I/O, process, numeric and installer helpers, and the drawing library
+for CMS-style ROOT plots. Like the other TauFW packages, the source lives under `Utilities/python/`, and `scram b` exposes it as `TauFW.Utilities` after `cmsenv`.
 
 ```python
 from TauFW.Utilities.CLI import CLI
@@ -9,6 +10,7 @@ from TauFW.Utilities.FIO import FileIO
 from TauFW.Utilities.Math import float_range, partition
 from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation
 from TauFW.Utilities.Process import Command, ParallelProcessor, ProcessRunner
+from TauFW.Utilities.Drawing.Plot import Plot      # also Stack, Plot2D, CMSStyle, hist_tools, labels, SampleStyle
 ```
 
 The package `__init__.py` files contain the public exports, so they are tracked despite the repository-wide `__init__.py` ignore rule meant for SCRAM-generated files (see the exception in `.gitignore`).
@@ -18,6 +20,7 @@ The package `__init__.py` files contain the public exports, so they are tracked 
 CLI and FIO each export one class; Menu exports `ConsoleUI` and `MenuNavigation`; Process exports `Command`, `CommandResult`, `ProcessRunner` and `ParallelProcessor`; Math exports plain functions (`_math.py`). `_cli.py`, `_file_io.py`, and `_menu.py` implement those entry points; CLI and FIO use `_internal/` for formatting, filesystem, serialization, command, transport and ROOT functions. Application code should import only the owning package's public class. Underscores and `__all__` document Python's private API convention; they do not prevent access to internal modules.
 
 These packages do not import existing analysis/startup modules or Framework. Construction is silent and does not open files, change directories, read configuration or launch commands; only `ProcessRunner.run`/`run_all` and `ParallelProcessor.start` launch processes. There are no global utility instances, base classes or service registries. Pass instances explicitly to future framework components.
+The drawing library is the exception; see [Drawing](#drawing-cms-style-root-plots).
 
 ## Installer helpers
 
@@ -234,6 +237,44 @@ groups = partition_by_sum([2, 3, 4, 5, 1], 6)       # [[5, 1], [4, 2], [3]]
 | `relative_difference(x, y)` | `abs(x-y)/x`; for `x == 0`: 0 if `y == 0`, else -1. Was `reldiff`. |
 
 `ceil` and `log10` are no longer re-exported; callers import them from the standard `math` module.
+
+## Drawing: CMS-style ROOT plots
+
+```python
+from TauFW.Utilities.Drawing import LOG
+from TauFW.Utilities.Drawing.Stack import Stack
+from TauFW.Utilities.Drawing.hist_tools import grouphists
+import TauFW.Utilities.Drawing.CMSStyle as CMSStyle
+
+CMSStyle.setCMSEra(2018)
+plot = Stack("m_{vis} [GeV]", datahist, [ztt, top, ewk], [signal])  # a string or a Plotter Variable as x axis
+plot.draw(ratio=True, staterr=True)
+plot.drawlegend(position="right")
+plot.saveas("plots/m_vis.png", "plots/m_vis.pdf")
+```
+
+The drawing code of the Plotter, moved here in October 2026 (changelog section 18) so that every module can draw
+without importing the Plotter. It moved **as it was**: the drawn canvases, styles and printed output are the same,
+checked by the BBB case `drawing.canvas`. Modernizing it (style, splitting `Plot.py`) is listed in
+[TODO.md](../docs/Refactor-2025/TODO.md).
+
+| Module | Contents | Was |
+|---|---|---|
+| `Plot`, `Plot2D`, `Stack`, `Ratio` | Canvases: histogram comparison, 2D, data/MC stack, ratio panel | `TauFW.Plotter.plot.*` |
+| `CMSStyle` | CMS/lumi labels per era, TDR style | `TauFW.Plotter.plot.CMSStyle` |
+| `SampleStyle` | Default colors and titles of processes (`getcolor`, `sample_colors`, ...) | `TauFW.Plotter.sample.SampleStyle` |
+| `hist_tools` | ROOT histogram helpers: `normalize`, `grouphists`, `gethistratio`, `geterrorband`, `addoverflow`, `deletehist`, ... | `TauFW.Plotter.plot.utils` |
+| `labels` | `makelatex`, `maketitle`, `makehistname`, `makefilename`, `estimatelen`, `match`, `var_dict` | first half of `TauFW.Plotter.plot.string` |
+| package | `LOG`, the drawing logger (`Logger('Plot')`) | `TauFW.Plotter.plot.utils.LOG` |
+
+Unlike the other Utilities packages, Drawing needs ROOT, and it keeps the old behavior that callers rely on:
+importing it sets ROOT batch mode, adds `SetOption`/`GetOption` to ROOT's `TGraph`, and importing `Plot` applies the
+TDR style to `gStyle`. `CMSStyle` and `SampleStyle` hold module-level state (the lumi text, the color tables), so
+import them only from here, never from a copy. `LOG` and `SampleStyle.LOG` are the same objects the Plotter uses
+(`TauFW.Plotter.plot.*` and `TauFW.Plotter.sample.utils` import them), so `LOG.verbosity = 2` in a script sets the
+verbosity of both. The library never imports the Plotter: a plot's variable is a string or any object with the
+attributes of the Plotter's `Variable` (`getedge`, `dividebins`, `binlabels`, ranges, titles). The old logger and five
+small helpers are verbatim copies in `Drawing/_internal/` (Utilities does not import `TauFW.common`).
 
 ## Inventory and validation
 

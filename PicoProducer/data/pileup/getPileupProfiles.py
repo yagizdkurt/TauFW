@@ -31,7 +31,7 @@ from TauFW.common.tools.file import ensuredir
 from TauFW.common.tools.root import ensureTFile, gethist
 from TauFW.common.tools.utils import repkey, getyear, islist
 from TauFW.PicoProducer import datadir
-from TauFW.Plotter.plot.Plot import Plot, CMSStyle, deletehist
+from TauFW.Utilities.Drawing.Plot import Plot, CMSStyle, deletehist
 from ROOT import gROOT, gDirectory, gStyle, gPad, TFile, TTree, TCanvas, TH1, TH1F, TLine, TLegend,\
                  kBlack, kRed, kAzure, kGreen, kOrange, kMagenta, kYellow, kSolid, kDashed
 #gROOT.SetBatch(True)

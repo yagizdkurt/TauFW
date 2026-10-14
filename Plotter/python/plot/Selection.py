@@ -4,7 +4,8 @@ from copy import copy, deepcopy
 from ROOT import TH1D, TH2D
 from TauFW.Plotter.plot.string import joinweights, invertcharge
 from TauFW.Plotter.plot.Context import getcontext
-from TauFW.Plotter.plot.utils import LOG, isnumber, islist, ensurelist
+from TauFW.Utilities.Drawing import LOG
+from TauFW.common.tools.utils import isnumber, islist, ensurelist
 
 
 class Selection(object):

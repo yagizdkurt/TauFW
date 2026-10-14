@@ -5,10 +5,11 @@ import os, sys, re
 from TauFW.common.tools.file import ensuredir
 from TauFW.common.tools.root import ensureTFile #, gethist
 from TauFW.common.tools.utils import repkey
-from TauFW.Plotter.plot.utils import LOG, grouphists
-from TauFW.Plotter.plot.Stack import Stack # Var
+from TauFW.Utilities.Drawing import LOG
+from TauFW.Utilities.Drawing.hist_tools import grouphists
+from TauFW.Utilities.Drawing.Stack import Stack # Var
 from TauFW.Plotter.sample.utils import CMSStyle, setera
-import TauFW.Plotter.sample.SampleStyle as STYLE
+import TauFW.Utilities.Drawing.SampleStyle as STYLE
 from ROOT import kBlack,TCanvas
 
 

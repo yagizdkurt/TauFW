@@ -12,7 +12,7 @@ from ROOT import TCanvas, TGraph, TGraphAsymmErrors, TLatex, TLegend, TLine, kBl
 
 TREE_TAG = ""  # tagger suffix for the output/postfit trees (e.g. "_pnet"); set from --tagger, "" = DeepTau
 
-from TauFW.Plotter.plot import CMSStyle
+import TauFW.Utilities.Drawing.CMSStyle as CMSStyle
 
 def lumi_label(year):
     """Lumi + CoM label for the measurement plots, derived from CMSStyle

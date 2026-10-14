@@ -23,10 +23,10 @@
 import os
 from TauFW.common.tools.log import bold
 from TauFW.Utilities.Math import float_range
-import TauFW.Plotter.plot.Plot as _Plot
-import TauFW.Plotter.plot.CMSStyle as CMSStyle
-from TauFW.Plotter.plot.Plot import Plot, deletehist
-from TauFW.Plotter.plot.Plot import LOG as PLOG
+import TauFW.Utilities.Drawing.Plot as _Plot
+import TauFW.Utilities.Drawing.CMSStyle as CMSStyle
+from TauFW.Utilities.Drawing.Plot import Plot, deletehist
+from TauFW.Utilities.Drawing import LOG as PLOG
 from TauFW.Plotter.sample.utils import LOG, STYLE, ensuredir, ensurelist, ensureTFile,\
                                        setera, Sel, Var
 from ROOT import TChain, kBlack, kRed, kBlue, kAzure, kGreen, kOrange, kMagenta, kYellow

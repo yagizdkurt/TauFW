@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 # Author: Izaak Neutelings (June 2020)
+# Moved from TauFW.Plotter.plot.Stack by Yagizhan Dinckurt (October 2026) (yagizdkurt)
 # Description: Class to automatically make CMS plot comparing data to expectation (as a stack)
 # Sources:
 #   https://twiki.cern.ch/twiki/bin/view/CMS/PoissonErrorBars
 #   https://twiki.cern.ch/twiki/bin/view/CMS/StatComWideBins
 #   https://twiki.cern.ch/twiki/bin/view/CMS/DataMCComparison
-from TauFW.Plotter.plot.Plot import *
-from TauFW.Plotter.plot.Plot import _tsize, _lsize
+from TauFW.Utilities.Drawing.Plot import *
+from TauFW.Utilities.Drawing.Plot import _tsize, _lsize
 
 
 class Stack(Plot):

@@ -2,7 +2,9 @@
 # Author: Izaak Neutelings (December 2021)
 # Description: Script to compare Z pT plots from the ROOT files
 from TauFW.Plotter.sample.utils import setera
-from TauFW.Plotter.plot.Plot import Plot, Var, LOG, close #, getconstanthist
+from TauFW.Utilities.Drawing.Plot import Plot, close #, getconstanthist
+from TauFW.Plotter.plot.Variable import Var
+from TauFW.Utilities.Drawing import LOG
 from TauFW.common.tools.file import ensuredir
 from TauFW.common.tools.root import ensureTFile, ensureTDirectory
 from TauFW.common.tools.string import repkey

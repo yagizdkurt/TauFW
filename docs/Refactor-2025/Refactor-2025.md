@@ -1348,8 +1348,68 @@ code without callers that reaches them, registered as [Plotter BUGS](../Plotter/
 undefined `sighist`; its `NameError` stays recorded until it is fixed after the move) and L04 (`estimatelen` with
 several arguments; the case now passes one list, like `Plot.drawlegend`). `Tests/BBB/snapshot.py` gained `drawn_snapshot`, `primitives_snapshot` and `style_snapshot` for this.
 
-### To do on lxplus
+### Lock (done)
 
 `bbb check` refuses to run while the case list differs from the lock, and `lock` captures the whole suite. So:
 `python3 Tests/run.py bbb lock --replace`, then `python3 Tests/run.py bbb diff`, which must show only the new
-`drawing.canvas` baseline and no change to any other case. Commit the new baseline before the move.
+`drawing.canvas` baseline and no change to any other case. Done on lxplus on 2026-10-14 (19 same, 1 added); the only
+recorded exception is `$.tools.sumhists` (L03).
+
+### The move
+
+`Utilities/python/Drawing/` (`TauFW.Utilities.Drawing`). The code moved as it was: function bodies are unchanged and
+keep the Plotter's 2-space style; only imports changed, plus the `Variable` checks below. Modernizing it is listed in
+[TODO.md](TODO.md) ("Drawing library").
+
+| Old | New | Notes |
+|---|---|---|
+| `Plotter/python/plot/{Plot,Plot2D,Stack,Ratio,CMSStyle}.py` | `Utilities/python/Drawing/` (same names) | `git mv` |
+| `Plotter/python/plot/utils.py` | `Utilities/python/Drawing/hist_tools.py` | `git mv`; `LOG` now comes from the package |
+| `Plotter/python/sample/SampleStyle.py` | `Utilities/python/Drawing/SampleStyle.py` | `git mv`; owns the `Logger('Sample')` object |
+| `Plotter/python/plot/string.py`, lines up to `match` | `Utilities/python/Drawing/labels.py` | `var_dict`, `makelatex`, `maketitle`, `makehistname`, `makefilename`, `getobjname`, `estimatelen`, `match`; copied byte for byte. `getselstr` and the selection helpers (`joincuts`, `invertcharge`, `shift`, `filtervars`, ...) stay in `string.py`, which imports the label names back for its star-importers |
+| `LOG = Logger('Plot')` in `plot/utils.py` | `TauFW.Utilities.Drawing.LOG` | the same single object for the drawing code and the Plotter |
+| `TauFW.common.tools.log` (`color`, `underline`, `header`, `Logger`) | `Drawing/_internal/legacy_log.py` | verbatim copy (Utilities must not import `common`); only `past.builtins.long` is gone, the same as `int` on Python 3 |
+| `isnumber`, `islist`, `ensurelist`, `unpacklistargs`, `quotestrs`, `repkey` from `common` | `Drawing/_internal/legacy_helpers.py` | verbatim copies, generated from the `common` sources |
+
+How the output stays the same:
+
+- **One logger object, as before.** The Plotter's `Variable`, `Selection`, `Context` and `string` take `LOG` from
+  `TauFW.Utilities.Drawing`, and `Plotter/python/sample/utils.py` takes its `LOG` from `SampleStyle`, so scripts that
+  set `PLOG.verbosity`/`LOG.verbosity` still set it for all the code that printed through those objects.
+- **One module object per stateful module.** `CMSStyle` (lumi text), `SampleStyle` (color tables) and `hist_tools`
+  (the `TGraph` patch) are imported from one place only; no old import path is left in the repository.
+- **`Variable` by duck typing.** The library does not import the Plotter. `Plot` and `Plot2D` used
+  `isinstance(x, Variable)` (5 places); they now call `hist_tools._is_variable(x)`: true for an object with `getedge`,
+  `dividebins` and `binlabels`, which only the Plotter's `Variable` has. `Plot` no longer re-exports `Variable`/`Var`;
+  the 4 callers import them from `TauFW.Plotter.plot.Variable`.
+- Names the drawing modules no longer re-export, and where their callers get them now: `ensuredir`
+  (`TauFW.common.tools.file`), `ensureTFile`, `Logger`, `moddir` (no caller used them through the drawing modules).
+
+### Callers updated
+
+About 55 files, imports only: the Plotter (`sample/`, `plot/Variable|Selection|Context|string`, `plot.py`,
+`plot_postfit*.py`, `plot_v10.py`, `tutorial/`, `Legacy/`, `python/legacy/`), the Fitter (`python/plot/`,
+`createinputs*`, `Zpt/`, `tutorial/`, `ETauFR/Plotter/`, `plot_measurements.py`), PicoProducer
+(`utils/compare{Nano,Pico}.py`, `data/pileup/getPileupProfiles.py`), `LegacyAnalyses/`, `Tests/Plotter/` (16 scripts,
+`edited` notes in `Tests/migration.json`) and the BBB case (`_drawing_modules()` only).
+`Utilities/IOInventory.md`: the rows of the 7 moved files are gone (the audit does not scan Utilities), and line
+numbers of the touched callers are updated; merged into the hand-edited file, not regenerated.
+
+### Checks on Windows (no ROOT)
+
+Every Plotter, Fitter and drawing module was imported against a stand-in ROOT module before and after the move, and
+the names each module defines were compared, functions by their parsed source. All Plotter modules (`sample/*`,
+`plot/Variable|Selection|Context|string|MultiDraw`, `methods/QCD_OSSS`) and the Fitter modules define exactly the same
+names with the same code as before. The drawing modules differ only as intended (no `Variable`, `Var`,
+`ensuredir`, `ensureTFile`, `Logger`, `moddir`; the `_is_variable` checks). Three Fitter modules that failed to import
+before still fail the same way (`correlation.py`: Python 2 `xrange`; `runpostfit.py`; `ETauFR/zttmodels.py` needs
+Combine). Every `from M import name` and `M.attribute` in the repository (813) names something that exists. The
+compile failures among the touched files are the four Python 2 scripts already listed in TODO.md section 8
+(`Fitter/HighPT/createinputs.py`, `Fitter/Zpt/utils.py`, `PicoProducer/utils/compare{Nano,Pico}.py`).
+`check_harness.py` passes.
+
+### To do on lxplus
+
+`python3 Tests/run.py bbb check`: every case must pass unchanged, `drawing.canvas` included (no re-lock). Its case
+imports only the drawing library, not the Plotter's sample code as the old `SampleStyle` import did, so a pass also
+shows that the drawing code no longer depends on that import. Then `python3 Tests/run.py normal`.

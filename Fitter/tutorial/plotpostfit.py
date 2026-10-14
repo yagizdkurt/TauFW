@@ -4,12 +4,12 @@ import os, sys, re
 #sys.path.append('../plots')
 from TauFW.common.tools.file import ensuredir
 from TauFW.common.tools.utils import repkey
-from TauFW.Plotter.plot.utils import LOG
-from TauFW.Plotter.plot.Stack import Stack # Var
+from TauFW.Utilities.Drawing import LOG
+from TauFW.Utilities.Drawing.Stack import Stack # Var
 from TauFW.Plotter.sample.utils import setera
 from TauFW.Fitter.plot.postfit import drawpostfit
-import TauFW.Plotter.plot.Plot as PLOT
-import TauFW.Plotter.sample.SampleStyle as STYLE
+import TauFW.Utilities.Drawing.Plot as PLOT
+import TauFW.Utilities.Drawing.SampleStyle as STYLE
 from argparse import ArgumentParser
 argv = sys.argv
 description = '''This script generate post fit plots.'''

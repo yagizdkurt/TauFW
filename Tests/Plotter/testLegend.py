@@ -2,8 +2,10 @@
 # Author: Izaak Neutelings (June 2020)
 # Description: Test script for Plot.drawlegend
 #   test/testLegend.py -v2 && eog plots/testLegend*.png
-from TauFW.Plotter.plot.utils import LOG, ensuredir, deletehist
-from TauFW.Plotter.plot.Plot import Plot, CMSStyle
+from TauFW.Utilities.Drawing import LOG
+from TauFW.common.tools.file import ensuredir
+from TauFW.Utilities.Drawing.hist_tools import deletehist
+from TauFW.Utilities.Drawing.Plot import Plot, CMSStyle
 from testPlot import createhists
 from ROOT import TH1D, gRandom
 

@@ -7,11 +7,11 @@ from TauFW.common.tools.root import ensureTFile, loadmacro
 from TauFW.common.tools.log import Logger, color
 from TauFW.Plotter.plot.Variable import Variable, Var, ensurevar
 from TauFW.Plotter.plot.Selection import Selection, Sel
-import TauFW.Plotter.plot.CMSStyle as CMSStyle
+import TauFW.Utilities.Drawing.CMSStyle as CMSStyle
 import ROOT; ROOT.PyConfig.IgnoreCommandLineOptions = True
 from ROOT import gDirectory, gROOT, TH1, THStack, kDotted, kBlack, kWhite
 gROOT.SetBatch(True)
-LOG  = Logger('Sample')
+from TauFW.Utilities.Drawing.SampleStyle import LOG # Logger('Sample'), shared with the drawing library's process styles
 era  = None # data period: 2016, 2017, 2018, ...
 lumi = -1   # integrated luminosity [fb-1]
 cme  = 13   # center-of-mass energy [TeV]
@@ -640,4 +640,4 @@ def selectbranches(tree,selections,verb=0):
 from TauFW.Plotter.sample.Sample import *
 from TauFW.Plotter.sample.MergedSample import MergedSample
 from TauFW.Plotter.sample.SampleSet import SampleSet
-import TauFW.Plotter.sample.SampleStyle as STYLE
+import TauFW.Utilities.Drawing.SampleStyle as STYLE

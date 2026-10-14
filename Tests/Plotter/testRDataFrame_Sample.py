@@ -9,11 +9,12 @@ from TauFW.common.tools.string import took
 from TauFW.Plotter.sample.ResultDict import ResultDict, RDF # for containing RDataFRame RResultPtr
 from TauFW.Plotter.sample.SampleSet import SampleSet
 from TauFW.Plotter.sample.utils import join
-from TauFW.Plotter.plot.utils import LOG
+from TauFW.Utilities.Drawing import LOG
 from TauFW.Utilities.CLI import CLI
-from TauFW.Plotter.plot.Plot import Plot, Var
-from TauFW.Plotter.plot.Plot2D import Plot2D
-from TauFW.Plotter.plot.Stack import Stack
+from TauFW.Utilities.Drawing.Plot import Plot
+from TauFW.Plotter.plot.Variable import Var
+from TauFW.Utilities.Drawing.Plot2D import Plot2D
+from TauFW.Utilities.Drawing.Stack import Stack
 from TauFW.Plotter.plot.Selection import Sel
 from pseudoSamples import getsamples
 

@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 # Author: Izaak Neutelings (June 2020)
+# Moved from TauFW.Plotter.plot.Ratio by Yagizhan Dinckurt (October 2026) (yagizdkurt)
 # Sources:
 #   https://twiki.cern.ch/twiki/bin/view/CMS/PoissonErrorBars
 #   https://twiki.cern.ch/twiki/bin/view/CMS/StatComWideBins
 #   https://twiki.cern.ch/twiki/bin/view/CMS/DataMCComparison
 import os, re
-from TauFW.Plotter.plot.utils import *
-from TauFW.Plotter.plot.string import makehistname
+from TauFW.Utilities.Drawing.hist_tools import *
+from TauFW.Utilities.Drawing.labels import makehistname
 import ROOT
 from ROOT import TH1, TProfile, TLine
 

@@ -4,14 +4,14 @@
 #   test/testSamples.py -v2
 from TauFW.Plotter.sample.utils import LOG, STYLE, setera, CMSStyle, ensuredir,\
                                        Sample, MergedSample, SampleSet
-#import TauFW.Plotter.sample.SampleStyle as STYLE
-#from TauFW.Plotter.sample.SampleStyle import getcolor, sample_colors
+#import TauFW.Utilities.Drawing.SampleStyle as STYLE
+#from TauFW.Utilities.Drawing.SampleStyle import getcolor, sample_colors
 #from TauFW.Plotter.sample.Sample import Sample
 #from TauFW.Plotter.sample.MergedSample import MergedSample
 #from TauFW.Plotter.sample.SampleSet import SampleSet
 from TauFW.Plotter.plot.Variable import Variable #as Var
-from TauFW.Plotter.plot.Stack import Stack
-from TauFW.Plotter.plot.Stack import LOG as PLOG
+from TauFW.Utilities.Drawing.Stack import Stack
+from TauFW.Utilities.Drawing import LOG as PLOG
 from pseudoSamples import getsamples
 
 selections = [

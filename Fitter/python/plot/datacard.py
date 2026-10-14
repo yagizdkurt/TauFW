@@ -7,10 +7,11 @@ from TauFW.common.tools.utils import ensurelist, repkey, lreplace #, rreplace
 from TauFW.common.tools.file import ensuredir
 from TauFW.common.tools.root import ensureTDirectory, ensureTFile, gethist
 from TauFW.common.tools.log import color
-from TauFW.Plotter.plot.utils import LOG, deletehist, grouphists
+from TauFW.Utilities.Drawing import LOG
+from TauFW.Utilities.Drawing.hist_tools import deletehist, grouphists
 from TauFW.Utilities.CLI import CLI
-from TauFW.Plotter.plot.Stack import Stack
-from TauFW.Plotter.plot.Plot import Plot
+from TauFW.Utilities.Drawing.Stack import Stack
+from TauFW.Utilities.Drawing.Plot import Plot
 from TauFW.Plotter.plot.string import joincuts
 from ROOT import gStyle, TFile, TH1, TNamed, kBlack
 

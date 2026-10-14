@@ -4,7 +4,7 @@
 #   ./measureZpt.py -y 2018
 #   ./validateZpt.py -y 2018
 from config.samples import *
-from TauFW.Plotter.plot.utils import LOG as PLOG
+from TauFW.Utilities.Drawing import LOG as PLOG
 from TauFW.Utilities.Math import float_range
 from ROOT import gROOT, gSystem
 gROOT.Macro('weights/zptweight.C+')

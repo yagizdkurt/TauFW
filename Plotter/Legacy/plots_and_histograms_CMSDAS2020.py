@@ -4,7 +4,7 @@
 #   ./plot.py -c mutau -y 2018
 import re
 import ROOT as R
-from TauFW.Plotter.plot.utils import LOG as PLOG
+from TauFW.Utilities.Drawing import LOG as PLOG
 from TauFW.Plotter.sample.utils import LOG, STYLE, ensuredir, repkey, joincuts, setera, getyear, Sel, Var
 from TauFW.Plotter.sample.utils import getsampleset as _getsampleset
 
