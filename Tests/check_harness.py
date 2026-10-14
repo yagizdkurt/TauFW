@@ -58,6 +58,10 @@ class HarnessChecks(unittest.TestCase):
         self.assertEqual([item["id"] for item in metadata["checks"]],
                          [case["id"] for case in run.check_cases()])
         self.assertEqual([item["id"] for item in metadata["bbb"]], runner.selected_cases([]))
+        for case_id in ("pico.chunking", "plotter.histogram_correctness"):
+            entry = next(item for item in metadata["normal"] if item["id"] == case_id)
+            self.assertEqual(entry["dependencies"], ["ROOT", "numpy", "past"])
+            self.assertTrue(entry["description"])
         name = run.check_cases()[0]["id"]
         with mock.patch.object(run, "execute_scripts", return_value=0) as execute:
             self.assertEqual(run.main(["checks", "--case", name, "--case", name], check_environment=False), 0)
@@ -112,7 +116,8 @@ class HarnessChecks(unittest.TestCase):
         self.assertEqual(len({case["id"] for case in cases}), len(cases))
         moved = json.loads((TESTS / "migration.json").read_text())["files"]
         expected = {record["moved"][6:] for record in moved if Path(record["moved"]).name.startswith(("test", "Test"))}
-        expected |= {"Plotter/plotPico.py", "Plotter/WstarplotPico.py"}
+        expected |= {"Plotter/plotPico.py", "Plotter/WstarplotPico.py",
+                     "PicoProducer/testChunking.py", "Plotter/testHistogramCorrectness.py"}
         self.assertEqual(expected, {case["path"] for case in cases})
         for case in cases:
             self.assertIn(TESTS.resolve(), (TESTS / case["path"]).resolve().parents)

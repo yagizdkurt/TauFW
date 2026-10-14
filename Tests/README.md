@@ -80,6 +80,23 @@ python3 Tests/run.py normal --case plotter.unroll
 python3 Tests/run.py normal --case pico.testmodule
 ```
 
+Two assertion-based normal cases check numerical correctness independently of BBB
+snapshots:
+
+```bash
+python3 Tests/run.py normal --case pico.chunking
+python3 Tests/run.py normal --case plotter.histogram_correctness
+```
+
+`pico.chunking` uses cached counts and rejects file reads while checking event
+coverage, job limits and totals (including already-split inputs).
+`plotter.histogram_correctness` calls the production Sample API on nine local
+events and compares weighted contents, squared errors, bin edges, flow bins,
+normalization and empty selections with hand-calculated values. Both use the
+normal harness's isolated workspace and declared ROOT/NumPy/future dependencies;
+they require no BBB lock. A failed assertion is reported as a failure without
+changing production code or expectations.
+
 Calling `python3 Tests/run.py` also selects normal tests. Every selected script
 runs in its own process and temporary workspace. The runner uses fresh copies of
 the current source, preserving its contents and package layout while isolating

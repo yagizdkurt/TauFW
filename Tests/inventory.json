@@ -1,6 +1,22 @@
 {
   "cases": [
     {
+      "id": "pico.chunking",
+      "path": "PicoProducer/testChunking.py",
+      "package": "PicoProducer",
+      "group": "local",
+      "reason": "Assert cached-count event chunking boundaries, totals and coverage without file reads.",
+      "dependencies": ["ROOT", "numpy", "past"]
+    },
+    {
+      "id": "plotter.histogram_correctness",
+      "path": "Plotter/testHistogramCorrectness.py",
+      "package": "Plotter",
+      "group": "local",
+      "reason": "Assert hand-calculated weighted bins, errors, flow and normalization using tiny local ROOT inputs.",
+      "dependencies": ["ROOT", "numpy", "past"]
+    },
+    {
       "id": "plotter.cmsstyle",
       "path": "Plotter/testCMSStyle.py",
       "package": "Plotter",

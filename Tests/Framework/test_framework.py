@@ -173,6 +173,63 @@ class StateMachineTests(FrameworkTestCase):
         self.assertNotIn("resubmit", pico.names())
 
 
+class RecoveryTests(FrameworkTestCase):
+    def resume(self, run_dir, pico):
+        record = RunRecord.load(run_dir)
+        fw = Framework.from_record(record, pico=pico, reporter=SilentReporter())
+        fw.clock = Clock()
+        return fw.advance(record)
+
+    def test_reload_pending_jobs_does_not_submit_again(self):
+        original = fakes.FakePicoProducer(statuses=[fakes.pending("DY", "TT")])
+        record = framework(original).start(run_root=self.root)
+        saved = RunRecord.load(record.run_dir).stage("production")
+        for _ in range(2):
+            # Each continuation has no in-memory state from the previous Framework or API.
+            fresh = fakes.FakePicoProducer(statuses=[fakes.pending("DY", "TT")])
+            record = self.resume(record.run_dir, fresh)
+            self.assertEqual(fresh.names(), ["status"])
+            self.assertEqual(record.state, "WAITING")
+            stage = RunRecord.load(record.run_dir).stage("production")
+            self.assertEqual(stage.state, "WAITING")
+            self.assertEqual(stage.attempt, 1)
+            self.assertEqual(stage.submissions, saved.submissions)
+            self.assertEqual(stage.request, saved.request)
+        self.assertEqual(original.names(), ["plan", "submit"])
+
+    def test_reload_preserves_retry_count_and_stops_at_limit(self):
+        original = fakes.FakePicoProducer(statuses=[fakes.pending("DY", "TT")])
+        record = framework(original).start(run_root=self.root)
+        submissions = RunRecord.load(record.run_dir).stage("production").submissions
+        retry = fakes.FakePicoProducer(statuses=[fakes.failed("DY")], jobid=1002)
+        record = self.resume(record.run_dir, retry)
+        self.assertEqual(retry.names(), ["status", "resubmit"])
+        stage = RunRecord.load(record.run_dir).stage("production")
+        self.assertEqual((stage.state, stage.attempt), ("SUBMITTED", 2))
+        self.assertEqual(stage.submissions, submissions + [{"jobids": [1003, 1004]}])
+
+        exhausted = fakes.FakePicoProducer(statuses=[fakes.failed("DY")])
+        record = self.resume(record.run_dir, exhausted)
+        self.assertEqual(exhausted.names(), ["status"])
+        stage = RunRecord.load(record.run_dir).stage("production")
+        self.assertEqual((record.state, stage.state, stage.attempt), ("FAILED", "FAILED", 2))
+        self.assertIn("after 2 tries", stage.message)
+        self.assertEqual([event["event"] for event in stage.history], ["submitted", "resubmitted", "failed"])
+        self.assertEqual(stage.submissions, submissions + [{"jobids": [1003, 1004]}])
+
+    def test_reload_completed_run_performs_no_api_work(self):
+        original = fakes.FakePicoProducer(statuses=[fakes.complete("DY", "TT")])
+        fw = framework(original)
+        record = fw.advance(fw.start(run_root=self.root))
+        saved = RunRecord.load(record.run_dir).to_dict()
+        self.assertEqual(record.state, "DONE")
+        fresh = fakes.FakePicoProducer()
+        record = self.resume(record.run_dir, fresh)
+        self.assertEqual(record.state, "DONE")
+        self.assertEqual(fresh.calls, [])
+        self.assertEqual(RunRecord.load(record.run_dir).to_dict()["stages"], saved["stages"])
+
+
 class DecisionTests(unittest.TestCase):
     def test_decide_next_truth_table(self):
         cases = [

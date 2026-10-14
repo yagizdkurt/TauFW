@@ -128,6 +128,45 @@ class PipelineTests(LocalStageTestCase):
         self.assertEqual(record.stage("fit").state, "FAILED")
 
 
+class RecoveryTests(LocalStageTestCase):
+    def test_reload_keeps_completed_stages_and_passes_saved_artifacts_downstream(self):
+        # Stop at histograms preflight after production and plots genuinely finish.
+        self.fitter.problems = ("combine is not on PATH",)
+        fw = self.framework(PRODUCTION, PLOTS, HISTOGRAMS, FIT)
+        record = fw.advance(fw.start(run_root=self.root))
+        loaded = RunRecord.load(record.run_dir)
+        self.assertEqual([s.state for s in loaded.stages], ["DONE", "DONE", "NEW", "NEW"])
+        upstream = loaded.to_dict()["stages"][:2]
+        self.assertEqual(loaded.stage("production").artifacts[0]["path"], "/pico/DY_mutau.root")
+
+        pico = fakes.FakePicoProducer()
+        plotter = fakes.FakePlotter()
+        fitter = fakes.FakeFitter()
+        resumed = Framework.from_record(loaded, pico=pico, plotter=plotter, fitter=fitter,
+                                        reporter=SilentReporter())
+        resumed.clock = Clock()
+        record = resumed.advance(loaded)
+        saved = RunRecord.load(record.run_dir)
+        self.assertEqual(saved.state, "DONE")
+        self.assertEqual(saved.to_dict()["stages"][:2], upstream)
+        self.assertEqual(pico.calls, [])
+        self.assertEqual(plotter.calls, [])
+        self.assertEqual(saved.stage("histograms").last_status["inputs"], ["/pico/DY_mutau.root"])
+        self.assertEqual(len(saved.stage("histograms").artifacts), 4)
+        self.assertEqual(fitter.call("fit")[0]["points"],
+                         (("2025", "VTight", "Tight"), ("2025", "Tight", "Tight")))
+        self.assertIs(fitter.call("preflight_fit")[1], False)  # uses the upstream shapes
+
+        # Reload the now-complete multi-stage run with another set of fresh services.
+        pico, plotter, fitter = fakes.FakePicoProducer(), fakes.FakePlotter(), fakes.FakeFitter()
+        completed_stages = saved.to_dict()["stages"]
+        completed = Framework.from_record(saved, pico=pico, plotter=plotter, fitter=fitter,
+                                          reporter=SilentReporter())
+        completed.advance(saved)
+        self.assertEqual([pico.calls, plotter.calls, fitter.calls], [[], [], []])
+        self.assertEqual(RunRecord.load(saved.run_dir).to_dict()["stages"], completed_stages)
+
+
 class PlanTests(LocalStageTestCase):
     def test_plan_passes_planned_artifacts_forward(self):
         self.fitter.problems = ("combine is not on PATH",)

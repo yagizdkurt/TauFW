@@ -114,12 +114,12 @@ Each changes logs, so do each in its own commit, with a BBB re-lock where a base
 
 **PicoProducer** ([BUGS.md](../PicoProducer/BUGS.md)), planned for Part 6 (§5 below), none fixed yet:
 
-- [ ] Analysis modules: A01, A02, A03, A04, A05, A06, A07, A08 (cosmetic), A09, A10, A12 (latent), A13, A14.
+- [ ] Analysis modules: A01, A02, A03, A04, A05, A06, A07, A08 (cosmetic), A09, A10, A12 (latent), A14.
 - [ ] Corrections: C01, C02 (cosmetic), C03, C04, C05, C06, C07, C08, C09 (latent), C11 (layering), C12, C13 (latent).
 - [ ] **Blocking for Part 6:** a `pico.channel_tau_pair` BBB case based on `ModuleTauPair` (larger synthetic NanoAOD
       plus jsonpog/TauIDSFs payloads). Every A/C fix must be checked against it.
-- Moved, not fixed: A11 (`Legacy/OldAnalysis/2016-2017/CheckMuTrigger.py`), C10 (`legacy/corrections/PreFireTool.py`),
-  W03 (`Legacy/OldAnalysis/2018/dumpGen.py`). Won't fix: P15, S16, W01.
+- Legacy-only entries A11, A13, C10, W03 and the archived A01 copies moved to
+  [Legacy/Bugs.md](../../Legacy/Bugs.md#picoproducer). Won't fix in maintained code: P15, S16, W01.
 
 **Fitter** ([BUGS.md](../Fitter/BUGS.md)), registered only, options 4–6 of the workflow:
 
@@ -148,8 +148,8 @@ Each changes logs, so do each in its own commit, with a BBB re-lock where a base
 Parts 1–5 are done (CL §5–§7, §9, §10).
 
 - [ ] **Part 6, `analysis/` and `corrections/`** (blocked by the tau-pair BBB case): split `analysis/utils.py` into
-      `helpers/`; channels and writers into folders; one path per tool instead of the `datadir` star-import leak
-      (A13); the A and C bugs; move `hasbit` so corrections no longer import analysis (C11); last, and only if BBB stays
+      `helpers/`; channels and writers into folders; one path per tool (the archived A13 leak is tracked in
+      [Legacy/Bugs.md](../../Legacy/Bugs.md#picoproducer)); the maintained A and C bugs; move `hasbit` so corrections no longer import analysis (C11); last, and only if BBB stays
       identical, pass writer schema options instead of a live module object.
 - [ ] **Part 7, callers and docs:** Plotter/Fitter/Tau_Trigger_SF imports, READMEs, shell scripts,
       `config_example.json`, the TauES_ID helper scripts; a migration guide for users' `config.json` (old to new
@@ -189,8 +189,8 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
 
 ## 7. Tests
 
-- [ ] `pico.sample` (broken): unclosed `print(` at line 88; also queries DAS. ([LEGACY_BROKEN_CASES.md](../../Tests/LEGACY_BROKEN_CASES.md))
-- [ ] `plotter.rdataframe` (broken): `kBlue` etc. not imported (line 17), plus undefined names and `/scratch` inputs.
+- Excluded broken cases `pico.sample` and `plotter.rdataframe`: defects and recorded evidence moved to
+  [Legacy/Bugs.md](../../Legacy/Bugs.md#excluded-broken-test-and-demonstration-scripts).
 - [ ] `Tests/PicoProducer/testSFs.py` still imports the legacy `MuonSFs_ROOT`. Nice to have.
 - [ ] Utilities menu tests depend on the terminal and colors (CL §13); the later menu commits may have fixed this
       **(verify)**.
@@ -218,8 +218,9 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
       local only).
 - [ ] Use Utilities (`FileIO`, `CLI`) at the I/O sites listed in [IOInventory.md](../../Utilities/IOInventory.md);
       today only the Framework, the Fitter/Plotter APIs and three PicoProducer files use them.
-- Archived files with known defects (`takeZmu.py`, `plot_mvis_uncorr_corr.py`, the g-2 macros): fix only if revived
-  ([Legacy/OldAnalysis/README.md](../../Legacy/OldAnalysis/README.md), [LegacyCode.md](../LegacyCode.md)).
+- Archived defects and external-payload constraints are tracked in
+  [Legacy/Bugs.md](../../Legacy/Bugs.md#one-off-analysis-archives); fix only if revived
+  ([LegacyCode.md](../LegacyCode.md)).
 
 ## 9. Docs
 
