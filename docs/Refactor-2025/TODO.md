@@ -12,15 +12,7 @@ Items marked **(verify)** may already be done; check before working on them.
 
 ## 1. Checks to run on lxplus
 
-- [ ] **BBB after the recipe ids/inputs and the run layout (CL §15, §16):** `python3 Tests/run.py bbb check`: only
-      `framework.production` may differ: its `plan` lines (`=== Stage production (production) ===`, `Inputs: none`)
-      and the recorded `run.json` (`"schema": 2`, the recipe's `id` and `inputs` keys); then
-      `bbb lock --replace`. Also `taufw.py check` on the three bundles (`example_broken`: 4 problems, exit 1) and the
-      menu once by eye (`example_broken` red, its problems in the preview).
 
-- [x] **Import-boundary detector on Windows without ROOT:** 10 synthetic self-tests and 28 offline harness checks
-      pass; the targeted repository check fails as intended on 24 known import occurrences (22 file/module pairs,
-      20 files), with nine explicit parse exemptions and no new/stale entries. Roadmap step 1 is implemented. (CL §13)
 - [ ] **Confirm import-boundary reporting on lxplus:** `python3 Tests/run.py checks --case check_import_boundaries`.
       Nonzero status is expected while coupling remains; compare the debt report, do not rebaseline or fix production
       code to make this validation pass. Detector-only command: `python3 Tests/check_import_boundaries.py DetectorTests -q`. (CL §13)
