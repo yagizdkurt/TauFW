@@ -1423,6 +1423,48 @@ imports only the drawing library, not the Plotter's sample code as the old `Samp
 shows that the drawing code no longer depends on that import. Then `python3 Tests/run.py normal`.
 
 
+## 19. Import-boundary test and coupling inventory
+
+**Date:** 2026-10-14
+
+Roadmap step 1 is implemented in `Tests/check_import_boundaries.py`, using the Python standard library only.
+Stages (PicoProducer, Plotter, Fitter) cannot import one another. Framework can import exactly the stage API
+modules; libraries remain available to everyone. Tau_Trigger_SF has no registered TauFW package layout here.
+AST traversal includes function-level imports and parent-module forms. Implicit `config.*`, `plot.*`, and
+`sample.*` imports without a matching local module are reported too. Legacy directories and Tests are excluded.
+
+The adjacent JSON inventory contains one reason/roadmap entry per existing file/module pair plus separate
+unparseable-file exemptions. **Known violations still fail**: this is an isolation progress check, not a green
+baseline. Fixed violations with leftover entries fail as stale; parse exemptions also become stale when their
+file becomes parseable. Python 2 parse failures are reported separately and their complete import statements
+are recovered using tokenize and parsed with AST. Recovery failures are never suppressed by exemptions.
+
+Re-measured after the drawing move (including recovered Python 2 imports):
+
+| Coupling | Occurrences | File/module pairs | Files |
+|---|---|---|---|
+| Fitter -> Plotter | 20 | 19 | 17 |
+| PicoProducer -> Plotter | 2 | 2 | 2 |
+| Plotter -> PicoProducer | 2 | 1 | 1 |
+| Total | 24 | 22 | 20 |
+
+Nine existing files fail full-file parsing. There are no new/stale entries or import-recovery errors in the
+seeded inventory. Framework's three API imports in one file are allowed and are not counted as violations.
+
+`Tests/run.py` registers `check_import_boundaries` alongside the offline checks; checks/all and the testing
+menu obtain it through the existing catalog, status output and logging. No production source changed.
+
+Windows validation: 10 detector self-tests pass, and all 28 existing offline harness checks pass. The targeted
+runner command reports FAIL/exit 1 with the known debt as intended; catalog metadata includes the new check
+without ROOT imports. No full normal or BBB suite ran, and no baselines were changed. Targeted lxplus
+confirmation remains in TODO §1.
+
+Potential simple follow-ups, recorded only: `Fitter/MuTauFR/createinputs.py:11` imports the removed Plotter
+datacard path (the Fitter helper exists); `Fitter/python/plot/rebinning.py:5` imports `ensuredir` through Plotter
+instead of its home in `TauFW.common.tools.file`; postfit helpers import `CMSStyle`/`setera` through sample utilities
+even though Drawing now owns CMSStyle (check the setera behavior before replacing it). The two PicoProducer
+comparison utilities still use Plotter Variable and could be migrated or archived. None were fixed here.
+
 ## Root legacy archive consolidation
 
 **Date:** 2026-10-14

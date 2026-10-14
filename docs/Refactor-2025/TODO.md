@@ -12,6 +12,12 @@ Items marked **(verify)** may already be done; check before working on them.
 
 ## 1. Checks to run on lxplus
 
+- [x] **Import-boundary detector on Windows without ROOT:** 10 synthetic self-tests and 28 offline harness checks
+      pass; the targeted repository check fails as intended on 24 known import occurrences (22 file/module pairs,
+      20 files), with nine explicit parse exemptions and no new/stale entries. Roadmap step 1 is implemented. (CL §19)
+- [ ] **Confirm import-boundary reporting on lxplus:** `python3 Tests/run.py checks --case check_import_boundaries`.
+      Nonzero status is expected while coupling remains; compare the debt report, do not rebaseline or fix production
+      code to make this validation pass. Detector-only command: `python3 Tests/check_import_boundaries.py DetectorTests -q`. (CL §19)
 - [x] Lock the new `drawing.canvas` case before the drawing code moves (locked 2026-10-14: 19 same, 1 added). (CL §18)
 - [ ] **BBB check after the drawing move.** `python3 Tests/run.py bbb check`: every case, `drawing.canvas` included,
       must pass with no difference; no re-lock. Then `python3 Tests/run.py normal` (the `Tests/Plotter` scripts import

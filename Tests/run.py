@@ -154,9 +154,9 @@ def check_cases(quiet=True):
         cases.append({"id": "unit." + directory.replace("/", ".").lower(),
                       "path": directory, "group": "checks", "command": command,
                       "rerun": "python3 " + " ".join(command)})
-    for name in ("check_harness", "check_root"):
+    for name in ("check_harness", "check_import_boundaries", "check_root"):
         path = "Tests/%s.py" % name
-        command = [path] + (["-q" if quiet else "-v"] if name == "check_harness" else [])
+        command = [path] + (["-q" if quiet else "-v"] if name != "check_root" else [])
         cases.append({"id": name, "path": name + ".py", "group": "checks",
                       "command": command, "rerun": "python3 " + " ".join(command)})
     return cases

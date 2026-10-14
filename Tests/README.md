@@ -276,6 +276,47 @@ behavior these baselines record are listed in `docs/PicoProducer/BUGS.md`.
 
 ## Small validation commands
 
+### Import boundaries (offline, no ROOT)
+
+```bash
+# Repository boundary assertion plus synthetic detector self-tests:
+python Tests/run.py checks --case check_import_boundaries
+
+# Detector self-tests only; these should pass even while production debt remains:
+python Tests/check_import_boundaries.py DetectorTests -q
+```
+
+`check_import_boundaries` is included in `checks`, `all`, and the catalog-driven
+testing menu. It uses only the Python standard library and runs on Windows with
+Python 3.9 or newer. It reads source with AST/tokenize; it never imports TauFW or
+ROOT. It scans PicoProducer, Plotter, Fitter, Framework, Utilities, and common,
+excluding `Legacy/`, `legacy/`, `LegacyAnalyses/`, and `Tests/`. Tau_Trigger_SF
+does not have a registered TauFW package layout in this checkout.
+
+Stages may import themselves and the libraries. Framework may import exactly
+`TauFW.PicoProducer.api`, `TauFW.Plotter.api`, and `TauFW.Fitter.api`; deeper
+Framework imports fail. Absolute `config.*`, `plot.*`, and `sample.*` stage
+imports fail when the complete module has no local match beside the source file.
+The report names the target stage when exactly one other stage contains a match.
+
+**Current failure is expected:** the 2026-10-14 baseline has 24 import occurrences,
+22 file/module pairs, and 20 files. Fitter -> Plotter accounts for 20 occurrences
+in 17 files; PicoProducer -> Plotter for two in two files; Plotter -> PicoProducer
+for two in one file. `import_boundary_allowlist.json` classifies known debt and
+records a reason/roadmap step per exact file/module pair; **known entries still
+fail**. New violations are marked `NEW`. Remove entries as violations are fixed:
+entries with no remaining violation fail as `STALE`. No automatic inventory
+regeneration or production fixes are performed by this check.
+
+Nine Python 2 files have explicit `unparseable` exemptions in the same inventory.
+Full-file parse errors are always reported separately, and tokenizer extraction
+plus AST parsing of complete import statements still checks their imports,
+including multiline/function-level imports. Unapproved parse errors, recovery
+errors, duplicate/malformed inventory entries, and stale parse exemptions fail.
+Remove a parse exemption when its file becomes parseable or is removed.
+
+### Existing offline and ROOT checks
+
 ```bash
 # Offline: migration hashes, Python 3.9 syntax, selection and lock/check mechanics.
 python3 Tests/check_harness.py

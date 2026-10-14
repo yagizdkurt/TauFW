@@ -1,0 +1,183 @@
+{
+  "imports": [
+    {
+      "file": "Fitter/ETauFR/Plotter/plotpostfit.py",
+      "module": "TauFW.Plotter.sample.utils",
+      "reason": "Fitter script still imports Plotter sample/selection helpers; isolate histogram filling and shared helpers.",
+      "roadmap_step": "4"
+    },
+    {
+      "file": "Fitter/ETauFR/createinputs.py",
+      "module": "config.samples_v12",
+      "reason": "Histogram-input script implicitly loads Plotter/config via the configured path.",
+      "roadmap_step": "4"
+    },
+    {
+      "file": "Fitter/HighPT/createinputs.py",
+      "module": "config.samples_HighPT",
+      "reason": "Histogram-input script implicitly loads Plotter/config via the configured path.",
+      "roadmap_step": "4"
+    },
+    {
+      "file": "Fitter/MuTauFR/createinputs.py",
+      "module": "TauFW.Plotter.plot.datacard",
+      "reason": "Known broken Plotter datacard import; recorded in TODO section 8.",
+      "roadmap_step": "4 / 5"
+    },
+    {
+      "file": "Fitter/MuTauFR/createinputs.py",
+      "module": "config.samples",
+      "reason": "Histogram-input script implicitly loads Plotter/config via the configured path.",
+      "roadmap_step": "4"
+    },
+    {
+      "file": "Fitter/TauES/createinputsTES.py",
+      "module": "config.samples_v15",
+      "reason": "Histogram-input script implicitly loads Plotter/config via the configured path.",
+      "roadmap_step": "4"
+    },
+    {
+      "file": "Fitter/TauES_ID/plot2DScan_MultiDimFit.py",
+      "module": "TauFW.Plotter.sample.utils",
+      "reason": "Fitter script still imports Plotter sample/selection helpers; isolate histogram filling and shared helpers.",
+      "roadmap_step": "4"
+    },
+    {
+      "file": "Fitter/TauES_ID/plotParabola_POI_region.py",
+      "module": "TauFW.Plotter.sample.utils",
+      "reason": "Fitter script still imports Plotter sample/selection helpers; isolate histogram filling and shared helpers.",
+      "roadmap_step": "4"
+    },
+    {
+      "file": "Fitter/TauES_ID/plotPostFitScan_POI.py",
+      "module": "TauFW.Plotter.sample.utils",
+      "reason": "Fitter script still imports Plotter sample/selection helpers; isolate histogram filling and shared helpers.",
+      "roadmap_step": "4"
+    },
+    {
+      "file": "Fitter/Zpt/compareZpt.py",
+      "module": "TauFW.Plotter.plot.Variable",
+      "reason": "Fitter script still imports Plotter sample/selection helpers; isolate histogram filling and shared helpers.",
+      "roadmap_step": "4"
+    },
+    {
+      "file": "Fitter/Zpt/compareZpt.py",
+      "module": "TauFW.Plotter.sample.utils",
+      "reason": "Fitter script still imports Plotter sample/selection helpers; isolate histogram filling and shared helpers.",
+      "roadmap_step": "4"
+    },
+    {
+      "file": "Fitter/Zpt/config/samples.py",
+      "module": "TauFW.Plotter.sample.utils",
+      "reason": "Fitter script still imports Plotter sample/selection helpers; isolate histogram filling and shared helpers.",
+      "roadmap_step": "4"
+    },
+    {
+      "file": "Fitter/paper/createinputs.py",
+      "module": "config.samples",
+      "reason": "Histogram-input script implicitly loads Plotter/config via the configured path.",
+      "roadmap_step": "4"
+    },
+    {
+      "file": "Fitter/python/plot/datacard.py",
+      "module": "TauFW.Plotter.plot.string",
+      "reason": "Datacard helper still uses Plotter selection-string helpers.",
+      "roadmap_step": "4"
+    },
+    {
+      "file": "Fitter/python/plot/postfit.py",
+      "module": "TauFW.Plotter.sample.utils",
+      "reason": "Fitter script still imports Plotter sample/selection helpers; isolate histogram filling and shared helpers.",
+      "roadmap_step": "4"
+    },
+    {
+      "file": "Fitter/python/plot/postfit_TES.py",
+      "module": "TauFW.Plotter.sample.utils",
+      "reason": "Fitter script still imports Plotter sample/selection helpers; isolate histogram filling and shared helpers.",
+      "roadmap_step": "4"
+    },
+    {
+      "file": "Fitter/python/plot/rebinning.py",
+      "module": "TauFW.Plotter.sample.utils",
+      "reason": "Fitter script still imports Plotter sample/selection helpers; isolate histogram filling and shared helpers.",
+      "roadmap_step": "4"
+    },
+    {
+      "file": "Fitter/tutorial/createinputs.py",
+      "module": "config.samples",
+      "reason": "Histogram-input script implicitly loads Plotter/config via the configured path.",
+      "roadmap_step": "4"
+    },
+    {
+      "file": "Fitter/tutorial/plotpostfit.py",
+      "module": "TauFW.Plotter.sample.utils",
+      "reason": "Fitter script still imports Plotter sample/selection helpers; isolate histogram filling and shared helpers.",
+      "roadmap_step": "4"
+    },
+    {
+      "file": "PicoProducer/utils/compareNano.py",
+      "module": "TauFW.Plotter.plot.Variable",
+      "reason": "Python 2 comparison utility still uses Plotter Variable; migrate or archive without changing production here.",
+      "roadmap_step": "2 follow-up / 5"
+    },
+    {
+      "file": "PicoProducer/utils/comparePico.py",
+      "module": "TauFW.Plotter.plot.Variable",
+      "reason": "Python 2 comparison utility still uses Plotter Variable; migrate or archive without changing production here.",
+      "roadmap_step": "2 follow-up / 5"
+    },
+    {
+      "file": "Plotter/python/sample/utils.py",
+      "module": "TauFW.PicoProducer.settings",
+      "reason": "Sample helpers read PicoProducer configuration to locate tuples (A03).",
+      "roadmap_step": "3"
+    }
+  ],
+  "unparseable": [
+    {
+      "file": "Fitter/ETauFR/writedatacard.py",
+      "reason": "Existing Python 2 print syntax; imports remain inspected with tokenizer/AST recovery.",
+      "roadmap_step": "5 / TODO section 8"
+    },
+    {
+      "file": "Fitter/HighPT/createinputs.py",
+      "reason": "Existing Python 2 print syntax; imports remain inspected with tokenizer/AST recovery.",
+      "roadmap_step": "5 / TODO section 8"
+    },
+    {
+      "file": "Fitter/Zpt/config/samples.py",
+      "reason": "Existing Python 2 print syntax; imports remain inspected with tokenizer/AST recovery.",
+      "roadmap_step": "5 / TODO section 8"
+    },
+    {
+      "file": "Fitter/Zpt/utils.py",
+      "reason": "Existing Python 2 print syntax; imports remain inspected with tokenizer/AST recovery.",
+      "roadmap_step": "5 / TODO section 8"
+    },
+    {
+      "file": "PicoProducer/utils/checkEvents.py",
+      "reason": "Existing Python 2 print syntax; imports remain inspected with tokenizer/AST recovery.",
+      "roadmap_step": "5 / TODO section 8"
+    },
+    {
+      "file": "PicoProducer/utils/compareNano.py",
+      "reason": "Existing Python 2 print syntax; imports remain inspected with tokenizer/AST recovery.",
+      "roadmap_step": "5 / TODO section 8"
+    },
+    {
+      "file": "PicoProducer/utils/comparePico.py",
+      "reason": "Existing Python 2 print syntax; imports remain inspected with tokenizer/AST recovery.",
+      "roadmap_step": "5 / TODO section 8"
+    },
+    {
+      "file": "PicoProducer/utils/convertGENSIM.py",
+      "reason": "Existing Python 2 print syntax; imports remain inspected with tokenizer/AST recovery.",
+      "roadmap_step": "5 / TODO section 8"
+    },
+    {
+      "file": "PicoProducer/utils/getDASParents.py",
+      "reason": "Existing Python 2 print syntax; imports remain inspected with tokenizer/AST recovery.",
+      "roadmap_step": "5 / TODO section 8"
+    }
+  ]
+}
