@@ -1,5 +1,7 @@
 # Fitter legacy area
 
+Known defects are tracked in [Legacy/Bugs.md](../Bugs.md#fitter-archives).
+
 This folder holds Fitter scripts that are broken, superseded, or no longer used by any workflow.
 They were archived in `Fitter/Legacy/` on 2026-10-13 instead of being deleted, then moved here on 2026-10-14 (see
 [docs/Refactor-2025.md](../../docs/Refactor-2025/Refactor-2025.md#8-fitter-cleanup-legacy-area)). Each file keeps its original
@@ -17,7 +19,7 @@ can still be imported as `TauFW.Fitter.legacy.*`.
 | File | Why it is here | Use instead |
 | --- | --- | --- |
 | `createJSON_TES.py` | Imports `fit_tools`, which does not exist | `createroot_TES.py -f json` |
-| `run_createroot_TES.py` | 2023C/D driver; uses `jet_wp`, which is never defined | `run_workflow_zmm*.sh` (step 4) |
+| `run_createroot_TES.py` | 2023C/D driver; malformed merge command (LEG-F02 in the bug register) | `run_workflow_zmm*.sh` (step 4) |
 | `run_workflow.sh` | 2024 driver from before the Z→μμ control region | `run_workflow_zmm*.sh` |
 | `TauES/doTES.sh` | TES-only workflow; points at the missing `Fitter/analysis/TauES` and at removed scripts | `run_workflow_zmm*.sh` |
 | `TauES/harvestDatacards_TES.py` | Called only by `doTES.sh` | `TauES_ID/harvestDatacards_TES_idSF_MCStat*.py` |

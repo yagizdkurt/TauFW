@@ -1,5 +1,8 @@
 # Plotter bug register
 
+Defects in retired workflows are tracked separately in [Legacy/Bugs.md](../../Legacy/Bugs.md).
+Latent defects in maintained modules and workflow options remain here.
+
 Defects found while connecting the Plotter to the TauFW Framework (Part G, October 2026, branch `Refactor-2025`).
 Same policy as [docs/PicoProducer/BUGS.md](../PicoProducer/BUGS.md): bugs on the path the Framework runs are
 fixed with `# BUGS <ID>` comments at the changed lines; others are registered only.

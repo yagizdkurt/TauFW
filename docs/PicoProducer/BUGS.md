@@ -19,6 +19,10 @@ worker output, or `--tail N` to adjust failure tails. Lock logs both runs per ca
 **BBB column:** whether a PicoProducer BBB case exercises the path. If it does, the bug's current behavior is in
 the baseline, and fixing it changes that baseline on purpose.
 
+Legacy-only entries W03, A11, A13 and C10, plus the archived copies affected by A01,
+are recorded in [Legacy/Bugs.md](../../Legacy/Bugs.md#picoproducer). Maintained paths,
+including latent and off-Framework defects, stay here.
+
 ## Control plane: CLI, config, jobs
 
 | ID | Location | Symptom | Severity | BBB | Session | Fix | Output impact |
@@ -74,13 +78,12 @@ the baseline, and fixing it changes that baseline on purpose.
 |---|---|---|---|---|---|---|---|
 | W01 | `workers/skimjob.py:24` (was `processors/`) | `-E/--opts` is parsed and never used | latent | no | S5 | Won't fix (Part 5B): pico.py passes the same `--opts` to every worker; skimjob accepts and ignores them | none |
 | W02 | `workers/picojob.py:3` (was `processors/`) | Description line was copied from skimjob | latent | no | S5 | Part 5B: the description says what picojob.py does | none |
-| W03 | `processors/dumpGen.py` | Not referenced anywhere | latent | no | S2 | moved to `Legacy/OldAnalysis/2018/dumpGen.py` (not fixed) | none |
 
 ## Analysis modules and writers
 
 | ID | Location | Symptom | Severity | BBB | Session | Fix | Output impact |
 |---|---|---|---|---|---|---|---|
-| A01 | `analysis/ModuleMuTau.py:168`, `ModuleETau.py:155`, `ModuleEMu.py:133`, `ModuleTauTau.py:131`, `ModuleMuTau_nanoV10_DeepTau2p5.py:172`, `ETauFakeRate/ModuleETau.py:201` (and the `legacy/` copies `ModuleMuTau_nanoV10_DeepTau2p1`, `TauES/ModuleMuTau`, `MuTauFakeRate/ModuleMuTau`) | `getlepvetoes(...)` is called without the now-required `era` argument (changed in `877e636`), so a `TypeError` is raised on the first event that reaches the vetoes | crash | no | S6 | | |
+| A01 | `analysis/ModuleMuTau.py:168`, `ModuleETau.py:155`, `ModuleEMu.py:133`, `ModuleTauTau.py:131`, `ModuleMuTau_nanoV10_DeepTau2p5.py:172`, `ETauFakeRate/ModuleETau.py:201` | `getlepvetoes(...)` is called without the now-required `era` argument (changed in `877e636`), so a `TypeError` is raised on the first event that reaches the vetoes | crash | no | S6 | | |
 | A02 | `analysis/ModuleMuTau.py:40-46` vs `285-302` | Tau ID / e→τ / μ→τ SF tools are commented out but still used for MC with genmatch 1–5 (`AttributeError`); the comments at 293/298 swap muon and electron | crash | no | S6 | | |
 | A03 | `analysis/TreeProducerTauPair.py` vs `ModuleTauPair.py:562-566` | With `jec=True`, `met_<unc>`, `mt_1_<unc>` and `dzeta_<unc>` are filled but never declared, and `pzeta_vis` is undefined (the variable is `pzetavis`) | crash | no | S6 | | |
 | A04 | `analysis/ModuleEMu.py:198` | Writes `idiso_2`, which `TreeProducerEMu` does not define (probably `idiso_3`) | crash | no | S6 | | |
@@ -90,9 +93,7 @@ the baseline, and fixing it changes that baseline on purpose.
 | A08 | `analysis/utils.py:294,348` | `getmet`/`getmetfilters` always print, ignoring `verb` | wrong (cosmetic) | no | S6 | | |
 | A09 | `analysis/utils.py:355` | `loosestIso` hard-codes DeepTau2017v2p1 | wrong | no | S6 | | |
 | A10 | `analysis/Run3_DEV/ModuleMuTau.py:34,44` | No trigger for 2025 (`self.trigger` unset); `self.muSFs = 1` for 2024 | crash | no | S6 | | |
-| A11 | `Legacy/OldAnalysis/2016-2017/CheckMuTrigger.py:26` | Trigger threshold attributes are assigned but unused (hard-coded 24 GeV); `trigsf` stays 1.0 | wrong | no | S2 | moved to `legacy/` (not fixed) | none |
 | A12 | `ModuleTauPair.py:51` and variants | `recoil` option is stored, but the tool and calls are commented out | latent | no | S6 | | |
-| A13 | `import *` chains (now only in `legacy/`) | `datadir` is rebound by BTagTool/PileupTool/JetVetoMapTool/TauTriggerSFs and leaks through star imports. JetTauFakeRate works around it with `replace("/pileup","")`. Session 2 replaced every star import outside `legacy/` by explicit imports of the *same* objects: all maintained modules see the base `datadir`, as before | wrong | no | S6 | | |
 | A14 | `analysis/ETauFakeRate/ModuleETau.py:172-174` | Uses an undefined name `fes` (`NameError` on that path); found while resolving star imports | crash | no | S6 | | |
 
 ## Corrections
@@ -108,14 +109,13 @@ the baseline, and fixing it changes that baseline on purpose.
 | C07 | `corrections/ElectronSFs.py:11-14,89` | Stray no-op string literals; no 2024/2025 branch (assertion fails); the 2023 message says "MuonSFs" | crash | no | S6 | | |
 | C08 | `corrections/JetVetoMapTool.py` | No 2024 branch, although `Winter24Prompt24_*.root` is in `data/` | wrong | no | S6 | | |
 | C09 | `corrections/era_config.py:104-105` | `getjmecalib`: `jmeUncs`/`MET` are used before assignment in the data branch (not called) | latent | no | S6 | | |
-| C10 | `legacy/corrections/PreFireTool.py:7,10` | `from corrections import ...` fails, and CMSSW_BASE path building raises without CMSSW | crash | no | S2 | moved to `legacy/` (not fixed) | none |
 | C11 | `corrections/RecoilCorrectionTool.py:12` | A correction imports `analysis.utils` (layering inversion); the `RecoilCorrectionTool` class itself is unused | latent | no | S6 | | |
 | C12 | `corrections/MetTriggerSF.py:8`, `WmassCorrection.py:7` | Paths are built from `os.getenv('CMSSW_BASE')+…`, bypassing `datadir`; `TypeError` without CMSSW; `data/Wstar/` and `trigger/mettrigger_<era>.root` are absent | crash | no | S6 | | |
 | C13 | `corrections/MuonSFs.py:27`, `DYandRecoilCorrlib.py:27` | `getcorr()` is duplicated verbatim; DYandRecoilCorrlib docstrings still say "muon" | latent | no | S6 | | |
 
 ## How old
 
-Open bugs only (including won't-fix and moved-not-fixed); fixed ones are left out. Found with `git log -S/-G`,
+Open bugs in maintained code only (including won't-fix); fixed ones are left out. Found with `git log -S/-G`,
 `git show` and `git blame` on old revisions. Where the reason nobody noticed is a guess, it says so.
 
 ### Control plane, batch, workers
@@ -141,12 +141,6 @@ Open bugs only (including won't-fix and moved-not-fixed); fixed ones are left ou
   commit pico.py started adding `--opt '...'` to every job command, and the option was added to
   `processors/skimjob.py` so the skim worker would accept the flag instead of failing in argparse. `args.extraopts`
   has never been read there. Accepting and ignoring the flag was the point, so nobody noticed.
-- **W03** `dumpGen.py` has had no references from day one: commit `d5c9d36` (2020-05-25, "add dump gen processor")
-  added it as a standalone script ("Standalone to dump gen particle information"; its usage line still says
-  `python dumpLHE.py`, a copy-paste leftover). The only mentions are a link in the header of `analysis/GenDumper.py`
-  (`195c53d`, 2020-06-22) and a line in `processors/README.md` (`fc46a42`, 2021-07-16). It is a script run by hand,
-  so it never had a caller. It moved to legacy in `0bc4d62` (2026-10-12).
-
 ### Analysis modules and writers
 
 - **A01** The callers were fine when they were written. A later signature change broke them. The
@@ -210,23 +204,11 @@ Open bugs only (including won't-fix and moved-not-fixed); fixed ones are left ou
   check since `53770ac` (2026-03-16, "2025 Updates"). Nobody noticed because the 2025 campaign apparently runs the
   `_Inclusive` module. The `self.muSFs = 1` for 2024 comes from `6f2db3c`, which also sets the 2024 weights to 1, so
   the integer is never used.
-- **A11** `CheckMuTrigger` has been like this since the day it was written: commit `62b74a8` (2021-07-20, "split
-  triggers") created it as `analysis/ModuleMuTrigger.py`, already with the unused threshold lambdas, the hard-coded
-  `if muon.pt<24: continue` and `self.out.trigsf[0] = 1.0 # TODO`. Since then it was only renamed (`eea9c66`,
-  `18da2c3`, `490dd93`, 2021-07-23) and moved (`0bc4d62`, `623a040`, 2026-10). It is a one-off trigger-overlap study
-  and nothing reads `trigsf`, so nobody noticed.
 - **A12** The `recoil` option has been dead since the day it was written: commit `f8ba048` (2020-06-21) created
   `ModuleTauPair` with `self.doRecoil = kwargs.get('doRecoil', False)`, and in that same commit the import, the
   `RecoilCorrectionTool(...)` construction and the correction calls were already commented out. `64ce575`
   (2020-07-06) renamed it to `kwargs.get('recoil', False)`; the tool was never turned back on. The default is `False`
   and no config passes `recoil=`, so nobody noticed.
-- **A13** The `datadir` leak has been there since the day the code was written: commit `f8ba048` (2020-06-21) created
-  `PileupTool.py` with a module-level `datadir = os.path.join(datadir,"pileup")` (and `BTagTool.py` with `"btag"`),
-  and `ModuleTauPair.py` star-imported `PileupTool`. `TauTriggerSFs` (`8ce519b`, 2020-07-18) and `JetVetoMapTool`
-  (`26271a6`, 2024-03-25) later rebound it the same way. The `replace("/pileup","")` workaround came in `5853bb3`
-  (2022-06-21, JetTauFake modules, with the comment "for some reason the pileup subfolder is selected as datadir ...
-  fixme") and was copied in `50f604f` (2022-07-26). Maintained modules almost never use `datadir` directly, and the
-  one author who hit it patched around it, so it was never fixed.
 - **A14** The undefined `fes` came in later. `a0ac361` (2021-06-17, "ETauFR modules") created the file with a working
   `fes = self.fesTool.getFES(...)`. `486a11d` (2023-10-10, "ETau Update") commented out the tool and that line and set
   `fes = 1.0`, which still worked. The bug is `43f229c` (2024-01-26, "Add combined fit + minor changes"), which
@@ -274,11 +256,6 @@ Open bugs only (including won't-fix and moved-not-fixed); fixed ones are left ou
   `createJMECorrector(..., jesUncert=jmeUncs, ..., metBranchName=MET)` while `jmeUncs`/`MET` are only set in the MC
   branch. The same commit switched `skimjob.py` to NanoAODTools' `createJMECorrector` directly, so the function has had
   no caller since the day the bug went in.
-- **C10** `PreFireTool` has been broken since it was added in `7c97e15` (2020-06-21, "add correction tools"), with
-  `from corrections import modulepath, extractTH1` (`modulepath` was never defined in this repo; probably a
-  leftover of an older standalone setup) and the `CMSSW_BASE` path. `RecoilCorrectionTool` had the same bad import
-  and was fixed in `64ce575` (2020-07-06); `PreFireTool` never was. Every use has always been commented out, so it
-  was never imported. `0bc4d62` (2026-10-12) only moved it to `legacy/`.
 - **C11** The import `from TauFW.PicoProducer.analysis.utils import hasbit` comes from `64ce575` (2020-07-06, "add
   TauIDSFs, Z pt and top pt tool"), which replaced the broken imports of `7c97e15` with working ones and took
   `hasbit` from `analysis.utils`. It works at runtime, so there was no reason to notice. The class itself has never

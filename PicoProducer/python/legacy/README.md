@@ -1,5 +1,7 @@
 # PicoProducer/python/legacy
 
+Known defects are tracked in [Legacy/Bugs.md](../../../Legacy/Bugs.md#picoproducer).
+
 These files are **unmaintained**. They were moved here on 2026-10-12 during the PicoProducer cleanup
 (`Refactor-2025`) instead of being deleted, so their code stays easy to find. Their Git history follows them
 (`git log --follow <file>`).

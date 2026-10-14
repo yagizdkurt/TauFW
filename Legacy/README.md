@@ -1,5 +1,7 @@
 # Legacy archive
 
+Known defects are tracked in [Legacy/Bugs.md](Bugs.md).
+
 Historical scripts and workflows were consolidated here on **2026-10-14**.
 
 | Folder | Contents | Previous location |

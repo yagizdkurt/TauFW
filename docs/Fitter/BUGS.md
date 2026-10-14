@@ -1,5 +1,8 @@
 # Fitter bug register
 
+Defects in retired workflows are tracked separately in [Legacy/Bugs.md](../../Legacy/Bugs.md).
+Latent defects in maintained modules and workflow options remain here.
+
 Defects found while connecting the TES + tau ID fit to the TauFW Framework (Part G, October 2026, branch
 `Refactor-2025`). They were found by reading the source of the wrapped workflow: `run_inputs.sh`,
 `run_workflow_zmm.sh` and the scripts they call. A bug is fixed when the **Fix** column names the part that fixed it.
