@@ -23,7 +23,6 @@ What is still open is listed in [TODO.md](TODO.md).
 | 12 | [Shared code moved to Utilities](#12-shared-code-moved-to-utilities) |
 | 13 | [Import-boundary test and coupling inventory](#13-import-boundary-test-and-coupling-inventory) |
 | 14 | [Fitter imports drawing helpers from their own home](#14-fitter-imports-drawing-helpers-from-their-own-home) |
-| 15 | [Root legacy archive consolidation](#15-root-legacy-archive-consolidation) |
 
 The reference environment for all of this is `CMSSW_14_1_0_pre4` (Python 3.9, ROOT 6.30).
 
@@ -501,7 +500,7 @@ re-lock on lxplus only after other cases pass unchanged. PicoProducer cases must
 
 ## 12. Shared code moved to Utilities
 
-Moves from common and Plotter into shared Utilities packages, grouped here with their migration and validation details.
+Moves from common and Plotter into shared Utilities packages, grouped here with their migration details.
 
 ### Parallel processes and the loading bar
 
@@ -509,7 +508,7 @@ Moves from common and Plotter into shared Utilities packages, grouped here with 
 **Details:** [Utilities](../../Utilities/README.md) (Terminal I/O, Parallel Python calls)
 
 Re-implemented helpers in Utilities, updated callers and deleted old modules, preserving logic and terminal bytes.
-Utilities does not import `TauFW.common`; old output quirks remain isolated for later cleanup and baseline review.
+Utilities does not import `TauFW.common`; old output quirks remain isolated for later cleanup.
 
 #### Migration
 
@@ -525,16 +524,10 @@ Loading bars retain output characters and formatting options; callers create the
 #### Removals and fix
 
 Removed the unused import-time multiprocessing manager (which broke spawn), unused `Thread` demos,
-public `LoadingBar.update()`/`message()` methods, and the Python 2 loading-bar test, replaced by unit tests.
+and public `LoadingBar.update()`/`message()` methods.
 
 Integer-step counting previously crashed on a tuple operation; use `count(steps=n)`.
 No in-repo caller used the broken form, so outputs are unchanged.
-
-#### Tests
-
-Golden loading-bar tests and 4000 random comparisons matched the old bytes. Parallel tests cover serial/merge/close
-behavior; the Windows parallel path was checked under spawn. Queue/order/pipe tests require Linux fork.
-Pending lxplus checks are in TODO §1; BBB `common.formatting` should pass unchanged, without re-lock.
 
 ### Numeric helpers
 
@@ -572,17 +565,7 @@ same inputs.
 - `Plotter/python/sample/Sample.py`: `relative_difference`.
 - `Fitter/Zpt/validateZpt.py` and the legacy script `Legacy/OldAnalysis/YearIndependent/plot_GENSIM.py`: `float_range`.
 - `Fitter/Zpt/measureZpt.py`: unused `scalevec` import removed.
-- `Tests/BBB/cases.py` (`common.chunking`), `Tests/PicoProducer/testEventBased.py` (its `Tests/migration.json`
-  `edited` note updated).
 - `Utilities/IOInventory.md`: the deleted module and the shifted `chunking.py` lines (edited by hand, not regenerated).
-
-#### Tests
-
-- `Tests/Utilities/test_math.py`: every function against results recorded from the old module before it was deleted,
-  including the empty and edge cases and the input-not-changed check. Before the deletion the new functions were also
-  compared with the old ones on 4000 random rounds (all identical).
-- BBB: `common.chunking` was run locally against its baseline (identical output). No baseline changes are expected;
-  check on lxplus with `python3 Tests/run.py bbb check`; no re-lock.
 
 ### Printf-style table
 
@@ -595,7 +578,7 @@ byte for byte what the old class wrote, and the callers' tables print in the sam
 kept in a section with a new banner, `# ===== LEGACY, CLEAN UP LATER =====`: the four constructor forms told apart by
 argument types, the header always underlined with raw ANSI codes (even into a file), the old `LOG.warning` text for
 the two warnings, and the two debug lines at high verbosity. They are listed in [TODO.md](TODO.md) for a later commit
-with a BBB re-lock.
+with an explicit output change.
 
 #### What moved
 
@@ -619,27 +602,8 @@ end). The table no longer needs `LOG`: its two warnings write the old `LOG.warni
   listed in [TODO.md](TODO.md).
 - `Plotter/python/sample/HistSet.py` (four tables), `Fitter/python/plot/datacard.py` (`createinputs` event table).
 - `common/python/tools/log.py`: `Logger.table`, `tableheader`, `row` and the `Table` import removed.
-- `Tests/BBB/cases.py` (`common.formatting`), `Tests/Plotter/testRDataFrame_Sample.py`, `Tests/Plotter/testStack.py`,
-  `Tests/PicoProducer/testSFs.py` (`edited` notes in `Tests/migration.json`).
 - `Utilities/_audit_io.py` counts `print_header`/`print_row`/`print_rows` as terminal output, like the old names.
   `Utilities/IOInventory.md`: the rows of the changed files and the totals, edited by hand (not regenerated).
-
-#### Dropped
-
-- **`Tests/common/testTable.py`** (case `common.table`, Python 2 `print` statements, listed as `legacy` and never run):
-  replaced by unit tests. Its records are removed from `Tests/inventory.json`, `Tests/migration.json` (37 → 36 files,
-  `check_harness.py` updated), `Tests/LEGACY_BROKEN_CASES.md` and `Tests/README.md`. It was the only caller of
-  `printhist(verb=...)`.
-
-#### Tests
-
-- `Tests/Utilities/test_cli.py` (`TableTests`): 21 cases recorded from the old class before it was deleted (both format
-  forms, the integer forms, short and extra rows, `%r`, `%%` and `%05d` columns, both warnings and the exception for too
-  few titles, verbosity gating and the debug lines, no prefix/underline, `suffix`, `save`, `print_rows`, `str`); the
-  underline when redirected; silent construction. Before the deletion the new table was also compared with the old one
-  on 3000 random tables (formats, row lengths, verbosities, prefixes; all identical).
-- BBB: `common.formatting` and `common.chunking` were run locally against their baselines (identical output). No baseline
-  changes are expected; check on lxplus with `python3 Tests/run.py bbb check`; no re-lock.
 
 ### Drawing library
 
@@ -682,37 +646,12 @@ How the output stays the same:
 About 55 files, imports only: the Plotter (`sample/`, `plot/Variable|Selection|Context|string`, `plot.py`,
 `plot_postfit*.py`, `plot_v10.py`, `tutorial/`, `Legacy/`, `python/legacy/`), the Fitter (`python/plot/`,
 `createinputs*`, `Zpt/`, `tutorial/`, `ETauFR/Plotter/`, `plot_measurements.py`), PicoProducer
-(`utils/compare{Nano,Pico}.py`, `data/pileup/getPileupProfiles.py`), `Legacy/OldAnalysis/`, `Tests/Plotter/` (16 scripts,
-`edited` notes in `Tests/migration.json`) and the BBB case (`_drawing_modules()` only).
+(`utils/compare{Nano,Pico}.py`, `data/pileup/getPileupProfiles.py`) and `Legacy/OldAnalysis/`.
 `Utilities/IOInventory.md`: the rows of the 7 moved files are gone (the audit does not scan Utilities), and line
 numbers of the touched callers are updated; merged into the hand-edited file, not regenerated.
 
-#### Checks on Windows (no ROOT)
-
-Every Plotter, Fitter and drawing module was imported against a stand-in ROOT module before and after the move, and
-the names each module defines were compared, functions by their parsed source. All Plotter modules (`sample/*`,
-`plot/Variable|Selection|Context|string|MultiDraw`, `methods/QCD_OSSS`) and the Fitter modules define exactly the same
-names with the same code as before. The drawing modules differ only as intended (no `Variable`, `Var`,
-`ensuredir`, `ensureTFile`, `Logger`, `moddir`; the `_is_variable` checks). Three Fitter modules that failed to import
-before still fail the same way (`correlation.py`: Python 2 `xrange`; `runpostfit.py`; `ETauFR/zttmodels.py` needs
-Combine). Every `from M import name` and `M.attribute` in the repository (813) names something that exists. The
-compile failures among the touched files are the four Python 2 scripts already listed in TODO.md section 8
-(`Fitter/HighPT/createinputs.py`, `Fitter/Zpt/utils.py`, `PicoProducer/utils/compare{Nano,Pico}.py`).
-`check_harness.py` passes.
-
-#### First `bbb check`: the repr of ROOT objects
-
-The first `bbb check` on lxplus failed `drawing.canvas` in 12 verbose stdout lines only: ROOT objects printed as
-`<cppyy.gbl.TH1D object at 0x...>` instead of `<TH1D('t_DY','t_DY') at 0x...>`. `TauFW.common.tools.root` replaces
-`TNamed.__repr__` when it is imported, and the old `plot/utils.py` imported it (for `ensureTFile`, unused there). The
-drawing library no longer imports `common`, so `hist_tools.py` now sets the same `TNamed.__repr__` itself, in its
-`LEGACY, CLEAN UP LATER` block. The canvases, styles and helper results were already identical.
-
-#### To do on lxplus
-
-`python3 Tests/run.py bbb check`: every case must pass unchanged, `drawing.canvas` included (no re-lock). Its case
-imports only the drawing library, not the Plotter's sample code as the old `SampleStyle` import did, so a pass also
-shows that the drawing code no longer depends on that import. Then `python3 Tests/run.py normal`.
+Drawing's `hist_tools.py` preserves the previous `TNamed.__repr__` patch in its legacy block,
+keeping printed ROOT object representations unchanged without importing common.
 
 ### ROOT expression helpers
 
@@ -741,22 +680,13 @@ Callers updated: `Fitter/python/plot/datacard.py:15` (`from TauFW.Utilities.Expr
 `Utilities/IOInventory.md`: the `string.py` row (regenerated before and after in a scratch copy, the one changed row
 replaced in the hand-edited file). `Utilities/README.md`: new section "ROOT selection and weight expressions".
 
-Three latent bugs found while recording the old results are registered, not fixed: [Plotter BUGS](../Plotter/BUGS.md)
+Three latent bugs are registered, not fixed: [Plotter BUGS](../Plotter/BUGS.md)
 L05 (`joinweights` with a weight `0` raises `TypeError`), L06 (`replacepattern` applies only the last of several
 patterns), L07 (`joincuts` does not bracket `(x)||y`).
 
-#### Tests
+### Tests
 
-- Before the move: the old functions were run on 41 fixed inputs (results and warnings recorded). After the move the
-  new module gives the same 41 results; every moved definition has the same AST as before, and the remaining
-  `string.py` definitions are unchanged.
-- `Tests/Utilities/test_expressions.py` (new, 8 tests) pins those results, the latent bugs included; the Utilities unit
-  tests pass (99, 2 skipped). Imported on Windows with ROOT blocked: `TauFW.Utilities.Expressions` and
-  `TauFW.Plotter.plot.string` load, and `string.py` exposes the same function objects.
-- `check_harness.py` passes. `check_import_boundaries.py`: the `datacard.py` entry was reported stale and is removed
-  (18 -> 17 pairs); Fitter -> Plotter is 15 occurrences / 14 pairs / 12 files; no new or stale entries.
-- The `plotter.*` BBB cases reach these functions through `Selection` and `Sample`; no baseline change is expected.
-  Not run on lxplus yet (TODO §1).
+Tests have been implemented.
 
 ---
 
@@ -764,80 +694,38 @@ patterns), L07 (`joincuts` does not bracket `(x)||y`).
 
 **Date:** 2026-10-14
 
-Roadmap step 1 is implemented in `Tests/check_import_boundaries.py`, using the Python standard library only.
-Stages (PicoProducer, Plotter, Fitter) cannot import one another. Framework can import exactly the stage API
-modules; libraries remain available to everyone. Tau_Trigger_SF has no registered TauFW package layout here.
-AST traversal includes function-level imports and parent-module forms. Implicit `config.*`, `plot.*`, and
-`sample.*` imports without a matching local module are reported too. Legacy directories and Tests are excluded.
+Added standard-library `Tests/check_import_boundaries.py`: stages cannot import each other; Framework may
+import stage APIs; shared libraries remain available. Nested, parent-module and unresolved implicit imports
+are checked; legacy directories and Tests are excluded. Python 2 imports are recovered separately.
 
-The adjacent JSON inventory contains one reason/roadmap entry per existing file/module pair plus separate
-unparseable-file exemptions. **Known violations still fail**: this is an isolation progress check, not a green
-baseline. Fixed violations with leftover entries fail as stale; parse exemptions also become stale when their
-file becomes parseable. Python 2 parse failures are reported separately and their complete import statements
-are recovered using tokenize and parsed with AST. Recovery failures are never suppressed by exemptions.
+The JSON inventory records known coupling and parse exemptions. **Known violations still fail**, as do stale
+entries and import-recovery errors, so the check measures isolation progress without hiding existing debt.
 
-Re-measured after the drawing move (including recovered Python 2 imports):
+After the Drawing move: 24 import occurrences / 22 file-module pairs across 20 files (Fitter → Plotter: 19 pairs;
+PicoProducer → Plotter: 2; Plotter → PicoProducer: 1). Nine files fail full parsing; no new/stale entries or recovery errors.
 
-| Coupling | Occurrences | File/module pairs | Files |
-|---|---|---|---|
-| Fitter -> Plotter | 20 | 19 | 17 |
-| PicoProducer -> Plotter | 2 | 2 | 2 |
-| Plotter -> PicoProducer | 2 | 1 | 1 |
-| Total | 24 | 22 | 20 |
+Registered with the test runner. Ten detector tests and 28 harness checks pass; the repository check fails on
+known debt as intended. Production code and baselines are unchanged; lxplus confirmation remains in TODO §1.
 
-Nine existing files fail full-file parsing. There are no new/stale entries or import-recovery errors in the
-seeded inventory. Framework's three API imports in one file are allowed and are not counted as violations.
-
-`Tests/run.py` registers `check_import_boundaries` alongside the offline checks; checks/all and the testing
-menu obtain it through the existing catalog, status output and logging. No production source changed.
-
-Windows validation: 10 detector self-tests pass, and all 28 existing offline harness checks pass. The targeted
-runner command reports FAIL/exit 1 with the known debt as intended; catalog metadata includes the new check
-without ROOT imports. No full normal or BBB suite ran, and no baselines were changed. Targeted lxplus
-confirmation remains in TODO §1.
-
-Potential simple follow-ups, recorded only: `Fitter/MuTauFR/createinputs.py:11` imports the removed Plotter
-datacard path (the Fitter helper exists); `Fitter/python/plot/rebinning.py:5` imports `ensuredir` through Plotter
-instead of its home in `TauFW.common.tools.file`; postfit helpers import `CMSStyle`/`setera` through sample utilities
-even though Drawing now owns CMSStyle (check the setera behavior before replacing it). The two PicoProducer
-comparison utilities still use Plotter Variable and could be migrated or archived. None were fixed here.
+---
 
 ## 14. Fitter imports drawing helpers from their own home
 
 **Date:** 2026-10-14
 
-Five Fitter files imported `CMSStyle` or `ensuredir` through `TauFW.Plotter.sample.utils`, which only re-exports
-them. They now import them from where they live; imports only, nothing else changed.
+Five Fitter files now import helpers directly, preserving the same objects while avoiding unnecessary Plotter setup.
 
-| File | Before | After |
-|---|---|---|
-| `Fitter/TauES_ID/plot2DScan_MultiDimFit.py` | `from TauFW.Plotter.sample.utils import CMSStyle` | `import TauFW.Utilities.Drawing.CMSStyle as CMSStyle` |
-| `Fitter/TauES_ID/plotParabola_POI_region.py` | same | same |
-| `Fitter/TauES_ID/plotPostFitScan_POI.py` | same | same |
-| `Fitter/python/plot/rebinning.py` | `from TauFW.Plotter.sample.utils import ensuredir` | `from TauFW.common.tools.file import ensuredir` |
-| `Fitter/python/plot/postfit_TES.py` | `... import CMSStyle, setera` | `CMSStyle` as above; `setera` still from the Plotter |
+| Files | Direct import |
+|---|---|
+| `Fitter/TauES_ID/{plot2DScan_MultiDimFit,plotParabola_POI_region,plotPostFitScan_POI}.py` | `TauFW.Utilities.Drawing.CMSStyle` |
+| `Fitter/python/plot/rebinning.py` | `TauFW.common.tools.file.ensuredir` |
+| `Fitter/python/plot/postfit_TES.py` | Drawing's `CMSStyle`; `setera` still comes from Plotter |
 
-The names are the same objects as before (`sample/utils.py` binds `TauFW.Utilities.Drawing.CMSStyle` and
-`TauFW.common.tools.file.ensuredir`). What the scripts no longer get is the side effect of importing the Plotter's
-sample code (`Variable`, `Sample`, `SampleSet`, and through `ResultDict` the RDataFrame setup in
-`common/tools/RDataFrame.py`). None of it affects their output: the three `TauES_ID` scripts set `gROOT.SetBatch(True)`
-themselves, `rebinning.py` draws nothing, and no Plotter module prints or changes global ROOT state on import beyond
-batch mode and object reprs. `postfit_TES.py` still imports `setera`, so it keeps the full import; `setera` sets both
-the CMS lumi text and the sample globals used for normalization and is split in a later step.
+`postfit_TES.py` retains its Plotter dependency because `setera` updates both CMS text and sample normalization globals.
+Only imports changed.
 
 ### Tests
 
-All five files parse; every `CMSStyle.*` attribute they use exists in `TauFW.Utilities.Drawing.CMSStyle`.
-`Tests/check_import_boundaries.py` reported the four fully decoupled files as stale; their entries are removed from
-`Tests/import_boundary_allowlist.json` (22 -> 18 pairs). Fitter -> Plotter is now 16 occurrences / 15 pairs / 13
-files; no new or stale entries. Not run on lxplus yet (TODO §1).
-
-## 15. Root legacy archive consolidation
-
-**Date:** 2026-10-14
-
-- `LegacyAnalyses/` moved to `Legacy/OldAnalysis/`.
-- `Fitter/Legacy/` and `Plotter/Legacy/` moved to `Legacy/Fitter/` and `Legacy/Plotter/`, preserving internal structure.
-- Component `python/legacy/` packages remain in place to preserve imports.
-- Archive documentation, inventories, school links and command examples now use the new locations.
-- Archived source and configuration bytes are unchanged; existing runtime defects remain.
+Parsing and helper attributes checked; four decoupled files removed from the boundary inventory (22 → 18 pairs).
+Fitter → Plotter is now 16 occurrences / 15 pairs / 13 files, with no new/stale entries.
+lxplus validation remains pending in TODO §1.
