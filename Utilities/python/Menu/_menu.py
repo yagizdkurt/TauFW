@@ -450,23 +450,23 @@ class ConsoleUI:
                                                           "Review" if review else "Select tests")
                     first = max(0, focus - rows + 1)
                     for index in range(first, min(len(items) + 2, first + rows)):
-                        if index < len(items):
-                            item = items[index]
+                        if 0 < index <= len(items):
+                            item = items[index - 1]
                             label = item["id"] if review else (
                                 "[x] " if item["id"] in enabled else "[ ] ") + item["id"]
                         else:
-                            label = "[ Run ]" if index == len(items) else "Back"
+                            label = "[ Run ]" if index == 0 else "Back"
                         self._line(screen, top + index - first, left, label[:columns], index == focus)
                     rect = self._panel(screen, 3 + list_height, 1, height - list_height - 6,
                                        width - 2, "Details")
-                    if focus < len(items):
-                        item = items[focus]
+                    if 0 < focus <= len(items):
+                        item = items[focus - 1]
                         text = item["description"]
                         if item["dependencies"]:
                             text += "\nDependencies: " + ", ".join(item["dependencies"])
                     else:
                         text = ("%d selected. Quiet output; failures show the last 80 lines and log paths."
-                                % (len(items) if review else len(enabled))) if focus == len(items) else "Return without running tests."
+                                % (len(items) if review else len(enabled))) if focus == 0 else "Return without running tests."
                     offset, page = self._viewport(screen, rect, self._wrap(text, rect[3]), offset)
                 else:
                     self._line(screen, 3, 1, "Enlarge terminal (at least 40 x 12).")
@@ -485,8 +485,8 @@ class ConsoleUI:
                     offset += page
                 elif key == self.curses.KEY_PPAGE:
                     offset = max(0, offset - page)
-                elif key == 32 and focus < len(items) and not review:
-                    name = items[focus]["id"]
+                elif key == 32 and 0 < focus <= len(items) and not review:
+                    name = items[focus - 1]["id"]
                     if name in enabled:
                         enabled.remove(name)
                     else:
@@ -494,7 +494,7 @@ class ConsoleUI:
                 elif key in (10, 13, self.curses.KEY_ENTER):
                     if focus == len(items) + 1:
                         return None
-                    if focus == len(items):
+                    if focus == 0:
                         if enabled:
                             return [item["id"] for item in items if item["id"] in enabled]
                         self.curses.beep()

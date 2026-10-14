@@ -32,7 +32,7 @@ class ScreenTests(unittest.TestCase):
     def test_test_checkboxes_require_selection_and_review_restores_terminal(self):
         items = [dict(id="example", description="Local example", dependencies=["ROOT"])]
         # Empty Run is refused, Enter on an item does not toggle it, Space does.
-        curses, screen = self.curses([1002, 10, 1001, 10, 32, 1002, 10])
+        curses, screen = self.curses([10, 1002, 10, 32, 1001, 10])
         ui = ConsoleUI(curses)
         self.assertEqual(ui.test_selection("Tests", items), ["example"])
         curses.beep.assert_called_once()
@@ -41,7 +41,7 @@ class ScreenTests(unittest.TestCase):
         for keys in ([27], [1002, 1002, 10]):
             curses, _ = self.curses(keys)
             self.assertIsNone(ConsoleUI(curses).test_selection("Tests", items))
-        curses, _ = self.curses([32, 1002, 10])
+        curses, _ = self.curses([32, 10])
         self.assertEqual(ConsoleUI(curses).test_selection("Review", items, review=True), ["example"])
 
     def test_testing_navigation_selection_review_and_recovery(self):
