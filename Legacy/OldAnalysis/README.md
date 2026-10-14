@@ -79,12 +79,12 @@ This is a path example, not a successful runtime check. Existing defects and ext
 | [YearIndependent/plot_decayLengths.py](YearIndependent/plot_decayLengths.py) | plotting | `Plotter/utils/plot_decayLengths.py` | Theoretical mass/momentum/lifetime functions without collision-data inputs. | Draws particle decay-length functions over mass, momentum and lifetime ranges. | Standalone ROOT physics study with no maintained workflow consumer. |
 | [YearIndependent/project_bins.py](YearIndependent/project_bins.py) | analysis | `Fitter/scripts/project_bins.py` | Arbitrary workspaces/histograms; October 2021 is its authoring date, not a specified data campaign. | Represents histogram bins as vectors and projects observed, background-only and signal-plus-background predictions onto a plane to study systematics. | Unreferenced one-off 2021 study, outside maintained fitting workflows. |
 
-## Candidates kept in place
+## Infrastructure archives and candidates kept in place
 
-| Files / area | Why relocation was withheld |
+| Files / area | Current placement / reason |
 | --- | --- |
-| `Plotter/python/legacy/corrections/JetToTauFR/` and `methods/JetToTau_MisID.py` | These are a coupled Python helper package: readAndPlotFR, fakeFactors, jsonWriter and JetToTau_MisID use its qualified package imports. Moving only its scripts would break those imports. The independent PicoProducer fake-rate producers above have no callers and do not import this package. |
-| `PicoProducer/python/legacy/analysis/Run3_DEV/puppiMET/` | ModuleMuTau imports its sibling ModuleTauPair using the existing legacy package path. These development forks stay together in the package archive. |
+| `Legacy/Plotter/python/corrections/JetToTauFR/` and `python/methods/JetToTau_MisID.py` | Coupled helper package consolidated under the root component archive on 2026-10-14; sibling imports now use `Legacy.Plotter.python.*`. It stays together rather than being flattened into year groups. |
+| `Legacy/PicoProducer/python/analysis/Run3_DEV/puppiMET/` | Development forks consolidated under the root component archive on 2026-10-14; ModuleMuTau imports its sibling through `Legacy.PicoProducer.python.*`. |
 | Other archived analyzer copies, correction tools, sample catalogs and retired fit workflows | These are superseded infrastructure/configuration rather than independent one-off studies. Their existing component archives remain appropriate. MuonSFs_ROOT also has a test importer. |
 | CMSDAS2020 / CMSPODAS23 scripts, modules, configs and documentation | School material still has documented entry points and links; it is not an orphan one-off study. |
 | `Fitter/tau_tid_2024.py`, `TauES/correctionlib/utils.py` | The current make_tid_2025.py exporter imports the 2024 implementation, which uses the correction helpers. |

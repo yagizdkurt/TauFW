@@ -4,7 +4,7 @@ This page is being moved to the [wiki pages](https://github.com/cms-tau-pog/TauF
 
 For instructions, please refer to the [Plotter wiki page](https://github.com/cms-tau-pog/TauFW/wiki/Plotter)
 
-Unmaintained scripts and configs are kept in [Legacy/Plotter/](../Legacy/Plotter/README.md); package modules and macros remain in `python/legacy/`.
+Unmaintained scripts and configs are kept in [Legacy/Plotter/](../Legacy/Plotter/README.md), including package modules and macros under `Legacy/Plotter/python/`.
 
 ## Public API (`TauFW.Plotter.api`)
 

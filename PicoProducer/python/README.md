@@ -13,7 +13,7 @@
 | [`processors/`](processors) | **deprecated** compatibility layer: forwards the old `processors` imports and scripts to `workers/` (see its README) |
 | [`settings/`](settings) | the global configuration `config/config.json`: model, defaults and loading |
 | [`storage/`](storage) | storage systems (local, EOS, T2/T3 sites): listing, copying, merging; job-output validation |
-| [`legacy/`](legacy) | unmaintained code kept for reference, importable as `TauFW.PicoProducer.legacy.*` |
+| [root legacy archive](../../Legacy/PicoProducer/python/README.md) | unmaintained code kept under `Legacy/PicoProducer/python/`; explicit imports use `Legacy.PicoProducer.python.*` with the checkout root on `PYTHONPATH` |
 
 How `pico.py` uses them (the job commands go through the same API as any Python caller):
 ```

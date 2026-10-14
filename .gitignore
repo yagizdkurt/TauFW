@@ -18,6 +18,7 @@ __init__.py
 !Framework/python/**/__init__.py
 !Fitter/python/api/__init__.py
 !Plotter/python/api/__init__.py
+!Legacy/**/__init__.py
 taufw_runs/
 */compare
 config.json

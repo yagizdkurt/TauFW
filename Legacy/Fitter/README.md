@@ -11,8 +11,12 @@ path relative to `Fitter/`, so `Legacy/Fitter/TauES/doTES.sh` was `Fitter/TauES/
 same-directory imports such as `from utils import *` were **not** updated, so a script may also fail from its new
 location. If you need one, move it back and fix it first.
 
-Unused modules from the `TauFW.Fitter` Python package remain in [Fitter/python/legacy/](../../Fitter/python/legacy/), where they
-can still be imported as `TauFW.Fitter.legacy.*`.
+Unused modules from the `TauFW.Fitter` Python package moved from `Fitter/python/legacy/`
+to [python/](python/) on 2026-10-14. Explicit imports use `Legacy.Fitter.python.*`
+with the checkout root on `PYTHONPATH` (see [archive setup](../README.md)).
+`TagAndProbeModel.py` requires CMSSW's HiggsAnalysis.CombinedLimit; its inputs are
+pass/fail datacards and workspaces, with no fixed data-taking year. No current
+replacement or archive owner is recorded; its author reference is retained in the file.
 
 ## Contents
 
@@ -38,7 +42,7 @@ can still be imported as `TauFW.Fitter.legacy.*`.
 | `ETauFR/Plotter/PlotShapes.C`, `FastPlot.sh` | Marked "deprecated" in the ETauFR README | `ETauFR/Plotter/plotpostfit.py` |
 | `HighPT/combine_logger.out` | Combine log output that was committed by mistake | — |
 | `paper/postfit.sh` | Calls the removed `writecards.py` | — |
-| `Fitter/python/legacy/models/TagAndProbeModel.py` (outside this folder) | Not referenced | — |
+| `python/models/TagAndProbeModel.py` | Not referenced; archived 2026-10-13, consolidated 2026-10-14 | — |
 
 ## One-off analysis archive
 

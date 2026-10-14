@@ -1,0 +1,51 @@
+# Legacy/PicoProducer/python
+
+Known defects are tracked in [Legacy/Bugs.md](../../../Legacy/Bugs.md#picoproducer).
+
+These files are **unmaintained**. They were archived in `PicoProducer/python/legacy/` on 2026-10-12 during the PicoProducer cleanup
+(`Refactor-2025`) instead of being deleted, so their code stays easy to find. Their Git history follows them
+(`git log --follow <file>`). They moved to this root archive on 2026-10-14.
+Explicit imports use `Legacy.PicoProducer.python.*` with the checkout root on
+`PYTHONPATH`; see [archive setup](../../README.md). Normal TauFW/CMSSW setup,
+ROOT, NanoAODTools and TauPOG dependencies remain necessary where imported.
+Correction payloads still come from maintained `PicoProducer/data/` via `datadir`.
+No archive owner is recorded; original author comments are retained in each file.
+
+- **Not supported.** Nothing in the framework imports these files; `Tests/PicoProducer/testSFs.py` still imports `MuonSFs_ROOT`.
+- **They may stop working.** Later cleanup sessions rename or move the modules they import (for example
+  `analysis.ModuleTauPair` and `analysis.utils`), and the legacy copies will not be updated.
+- **Not runnable through `pico.py`.** Its channel loader only finds modules under `analysis/`.
+- **To revive a file,** move it back next to the maintained code, update its imports, add a BBB case, and
+  record the change in `docs/Refactor-2025.md`.
+
+The originals were under `PicoProducer/python/` (`PicoProducer/scripts/` for `pico2.sh`).
+The production shell commands assume an activated PicoProducer environment and
+its original working directory. `pico2.sh` still assumes a sibling `pico.py` and
+uses Bash's `BASH_SOURCE` despite its `/bin/sh` shebang; it is historical reference,
+not a working launcher from this archive. Use `PicoProducer/scripts/pico.py` with Python 3.
+
+| Legacy path | Original location | Last change | Reason |
+|---|---|---|---|
+| `analysis/MuTauFakeRate/ModuleTauPair.py` | `analysis/MuTauFakeRate/` | 2025-07-09 | Orphaned fork of `ModuleTauPair`; nothing imports it (its sibling uses the main base class) |
+| `analysis/MuTauFakeRate/ModuleMuTau.py` | `analysis/MuTauFakeRate/` | 2024-09-12 | Fork of `ModuleMuTau`; no references; crashes in `getlepvetoes` (BUGS A01) |
+| `analysis/Run3_DEV/puppiMET/ModuleTauPair.py`, `ModuleMuTau.py` | `analysis/Run3_DEV/puppiMET/` | 2024-09-12 | PUPPI-MET fork of the Run 3 pair modules; no references since 2024 |
+| `analysis/ModuleMuTau_nanoV10_DeepTau2p1.py` | `analysis/` | 2024-09-12 | Near copy of `ModuleMuTau_nanoV10_DeepTau2p5` (26 lines differ); no references |
+| `analysis/TauES/ModuleMuTau.py` | `analysis/TauES/` | 2024-09-12 | Copy of `ModuleMuTau` for TES; no references |
+| `corrections/BeamSpotTool.py` | `corrections/` | 2023-07-20 | No references |
+| `corrections/METCorrectionTool.py` | `corrections/` | 2023-05-28 | Run 2 MET φ corrections; no references |
+| `corrections/PreFireTool.py` | `corrections/` | 2020-06-21 | Cannot be imported (`from corrections import ...`, BUGS C10); only commented-out uses |
+| `corrections/MuonSFs_ROOT.py` | `corrections/` | 2024-05-03 | ROOT-based predecessor of the correctionlib `MuonSFs`; only `Tests/PicoProducer/testSFs.py` uses it |
+| `scripts/pico2.sh` | `scripts/pico2.py` | 2023-05-31 | Python 2 launcher for `pico.py` (a shell script; renamed so `scram b` does not compile it as Python); Python 2 releases are no longer supported |
+| `defAllChannelsTESvar.sh` | `python/defAllChannelsTESvar.sh` | Not recorded | Fixed NanoAOD v10 / DeepTau2p5 TES channel registration for the companion UL2018 scan |
+| `runAllChannelsTESvar.sh` | `python/runAllChannelsTESvar.sh` | Not recorded | UL2018 production driver for those registered TES scan channels |
+| `runAllChannelsVar_etau.sh` | `python/runAllChannelsVar_etau.sh` | Not recorded | Fixed 2022_preEE electron-tau variation production commands |
+
+Each source banner records its campaign evidence and retirement reason. The
+tracked inventory excludes local generated caches and `nanoV10branch.txt`, an
+ignored branch-list companion preserved during this relocation.
+
+The tutorial module `analysis/CMSDAS2020/` was **not** moved, because `docs/CMSDAS2020/` still links to it.
+
+## One-off analysis archive
+
+Independent analysis studies were moved to [`Legacy/OldAnalysis/`](../../../Legacy/OldAnalysis/README.md) on 2026-10-13, then renamed and relocated on 2026-10-14. Their current locations, purposes and path requirements are documented there. The table above describes files remaining in this component archive.

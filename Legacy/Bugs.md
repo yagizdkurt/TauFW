@@ -28,8 +28,8 @@ Severity and BBB coverage retain the source register's definitions.
 | W03 | `Legacy/OldAnalysis/2018/dumpGen.py` (was `processors/dumpGen.py`) | Not referenced anywhere | latent | no | S2 | moved to `Legacy/OldAnalysis/2018/dumpGen.py` (not fixed) | none |
 | A11 | `Legacy/OldAnalysis/2016-2017/CheckMuTrigger.py:26` | Trigger threshold attributes are assigned but unused (hard-coded 24 GeV); `trigsf` stays 1.0 | wrong | no | S2 | moved to `legacy/` (not fixed) | none |
 | A13 | `import *` chains (now only in the component package archives and `Legacy/OldAnalysis/`) | `datadir` is rebound by BTagTool/PileupTool/JetVetoMapTool/TauTriggerSFs and leaks through star imports. JetTauFakeRate works around it with `replace("/pileup","")`. Session 2 replaced every star import outside `legacy/` by explicit imports of the *same* objects: all maintained modules see the base `datadir`, as before | wrong | no | S6 | | |
-| C10 | `PicoProducer/python/legacy/corrections/PreFireTool.py:7,10` | `from corrections import ...` fails, and CMSSW_BASE path building raises without CMSSW | crash | no | S2 | moved to `legacy/` (not fixed) | none |
-| A01 (archived copies) | `PicoProducer/python/legacy/analysis/ModuleMuTau_nanoV10_DeepTau2p1.py`, `analysis/TauES/ModuleMuTau.py`, `analysis/MuTauFakeRate/ModuleMuTau.py` (all under that legacy package) | `getlepvetoes(...)` is called without the required `era` argument; the first event reaching the vetoes raises `TypeError` | crash | no | S6 | not fixed | Maintained copies remain under A01 in the production register |
+| C10 | `Legacy/PicoProducer/python/corrections/PreFireTool.py` | `from corrections import ...` fails, and CMSSW_BASE path building raises without CMSSW | crash | no | S2 | moved to `legacy/` (not fixed) | none |
+| A01 (archived copies) | `Legacy/PicoProducer/python/analysis/ModuleMuTau_nanoV10_DeepTau2p1.py`, `analysis/TauES/ModuleMuTau.py`, `analysis/MuTauFakeRate/ModuleMuTau.py` (all under that legacy package) | `getlepvetoes(...)` is called without the required `era` argument; the first event reaching the vetoes raises `TypeError` | crash | no | S6 | not fixed | Maintained copies remain under A01 in the production register |
 
 ### Recorded origins
 
@@ -82,19 +82,19 @@ Paths are relative to `Legacy/Fitter/`.
 ## Plotter archives
 
 Sources: [Plotter archive README](Plotter/README.md),
-[JetToTauFR README](../Plotter/python/legacy/corrections/JetToTauFR/README.md),
+[JetToTauFR README](../Legacy/Plotter/python/corrections/JetToTauFR/README.md),
 [component inventory](../docs/Refactor-2025/Legacy.md) and the local cleanup audit
 (`LocalR/CodebaseCleanupAudit.md`, historical paths). All entries remain unfixed.
 
 | ID | Location (repository-relative) | Recorded defect or limitation | Recorded workaround |
 |---|---|---|---|
-| LEG-L01 | `Plotter/python/legacy/corrections/JetToTauFR/plotJetToTauFRvariables_writeJson.py` | JSON final-state/barrel key is written as `mumettau__mumettau:Barrel` instead of `mumettau_Barrel`; endcap has the same issue | Manually correct the barrel and endcap keys before reading/applying the fake rates |
-| LEG-L02 | `Plotter/python/legacy/corrections/JetToTauFR/plotJetToTauFRvariables_writeJson_FRinPtBins.py` and its consumers | pT-only fake rates require a manual eta-list change in `readAndPlotFR.py` and `Plotter/python/legacy/methods/JetToTau_MisID.py` | Set `eta = [""]` in both consumers for pT-only results |
-| LEG-L03 | `Plotter/python/legacy/corrections/JetToTauFR/` workflow | Recorded Python 2 dependencies (`StringIO`, `raw_input`), implicit relative imports and personal AFS configuration paths; this is a workflow-level limitation, not a claim that every helper has all defects | Review dependencies and paths before reuse |
-| LEG-L04 | `Plotter/python/legacy/methods/ScaleVariations.py` | Cannot be selected by `method='ScaleVariations'`: there is no matching attribute | No workaround recorded |
-| LEG-L05 | `Plotter/python/legacy/corrections/JetToTauFR/tools/styles.py` | Two different `getSignalStyleHToTB()` definitions; the later definition hides the first | No workaround recorded |
-| LEG-L06 | `Plotter/python/legacy/corrections/JetToTauFR/tools/histograms.py` | `HistoEfficiency.getYmin()` and `getYmax()` are redefined; earlier calculations incorporating efficiency uncertainties are hidden | No workaround recorded |
-| LEG-L07 | `Plotter/python/legacy/corrections/JetToTauFR/readAndPlotFR.py` | Additional plot text is disabled with `if 0:`; another disabled block contains an OpenGL setting | Recorded as an ineffective feature; no runtime failure established |
+| LEG-L01 | `Legacy/Plotter/python/corrections/JetToTauFR/plotJetToTauFRvariables_writeJson.py` | JSON final-state/barrel key is written as `mumettau__mumettau:Barrel` instead of `mumettau_Barrel`; endcap has the same issue | Manually correct the barrel and endcap keys before reading/applying the fake rates |
+| LEG-L02 | `Legacy/Plotter/python/corrections/JetToTauFR/plotJetToTauFRvariables_writeJson_FRinPtBins.py` and its consumers | pT-only fake rates require a manual eta-list change in `readAndPlotFR.py` and `Legacy/Plotter/python/methods/JetToTau_MisID.py` | Set `eta = [""]` in both consumers for pT-only results |
+| LEG-L03 | `Legacy/Plotter/python/corrections/JetToTauFR/` workflow | Recorded Python 2 dependencies (`StringIO`, `raw_input`), implicit relative imports and personal AFS configuration paths; this is a workflow-level limitation, not a claim that every helper has all defects | Review dependencies and paths before reuse |
+| LEG-L04 | `Legacy/Plotter/python/methods/ScaleVariations.py` | Cannot be selected by `method='ScaleVariations'`: there is no matching attribute | No workaround recorded |
+| LEG-L05 | `Legacy/Plotter/python/corrections/JetToTauFR/tools/styles.py` | Two different `getSignalStyleHToTB()` definitions; the later definition hides the first | No workaround recorded |
+| LEG-L06 | `Legacy/Plotter/python/corrections/JetToTauFR/tools/histograms.py` | `HistoEfficiency.getYmin()` and `getYmax()` are redefined; earlier calculations incorporating efficiency uncertainties are hidden | No workaround recorded |
+| LEG-L07 | `Legacy/Plotter/python/corrections/JetToTauFR/readAndPlotFR.py` | Additional plot text is disabled with `if 0:`; another disabled block contains an OpenGL setting | Recorded as an ineffective feature; no runtime failure established |
 
 ## One-off analysis archives
 

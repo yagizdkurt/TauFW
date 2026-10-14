@@ -65,10 +65,11 @@ Keep required configurations alongside the script with descriptive filenames.
 
 Coupled retired workflows belong under the root `Legacy/<Component>/` archive,
 preserving their internal script and configuration structure. Python modules,
-shared helpers and macros whose package structure matters remain in the owning
-component's `python/legacy/` area. Check the actual
+shared helpers and macros whose package structure matters belong in
+`Legacy/<Component>/python/`, preserving their internal package structure. Check the actual
 imports before choosing a destination. Do not flatten a package if that breaks
-its consumers. Explain why it stays in the component archive; do not create
+its consumers. Update explicit imports to `Legacy.<Component>.python.*` and
+document that the checkout root must be on `PYTHONPATH`. Explain why it stays in the component archive; do not create
 another arbitrary archive directory to avoid making this decision.
 
 ## What every archived source file must explain
