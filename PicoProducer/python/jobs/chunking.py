@@ -50,22 +50,14 @@ def chunkify_by_evts(fnames,maxevts,evenly=True,evtdict=None,verb=0,progress=Non
   elif verb>=4:
     print(">>> chunkify_by_evts: events per file:")
   for fname in fnames[:]:
-    if evtsplitexp.match(fname): # already split; cannot be split again
-      # TODO: add maxevts to ntot ?
+    match = evtsplitexp.match(fname)
+    if match: # already split; cannot be split again
+      ifirst, nmax = int(match.group(2)), int(match.group(3))
+      nevts = _get_nevts(match.group(1),evtdict,verb)
+      ntot += max(0,min(ifirst+nmax,nevts)-ifirst) # last range may be clipped at end of file
       result.append([fname]) # do not split again, keep in single chunk
       continue
-    if evtdict and fname in evtdict: # get number of events from sample's dictionary to speed up
-      nevts = evtdict[fname]
-      if verb>=4:
-        print(">>> %10d %s (dict)"%(nevts,fname))
-    else: # get number of events from file
-      file  = ensureTFile(fname,'READ')
-      nevts = file.Get('Events').GetEntries()
-      file.Close()
-      if isinstance(evtdict,dict):
-        evtdict[fname] = nevts # store for possible later reuse (if same sample is submitted multiple times)
-      if verb>=4:
-        print(">>> %10d %s"%(nevts,fname))
+    nevts = _get_nevts(fname,evtdict,verb)
     if nevts<maxevts: # split this large file into several chunks
       if nevts<=0:
         LOG.warning("chunkify_by_evts: File %r has %s<=0 events, not including..."%(fname,nevts))
@@ -112,4 +104,23 @@ def chunkify_by_evts(fnames,maxevts,evenly=True,evtdict=None,verb=0,progress=Non
       print(">>>   %s"%(chunk))
     print(">>> ]")
   return ntot, result
+
+
+# ===== Helpers =====
+
+def _get_nevts(fname,evtdict=None,verb=0):
+  """Number of events in a file, from the cache dictionary if possible, else from its 'Events' tree."""
+  if evtdict and fname in evtdict: # get number of events from sample's dictionary to speed up
+    nevts = evtdict[fname]
+    if verb>=4:
+      print(">>> %10d %s (dict)"%(nevts,fname))
+  else: # get number of events from file
+    file  = ensureTFile(fname,'READ')
+    nevts = file.Get('Events').GetEntries()
+    file.Close()
+    if isinstance(evtdict,dict):
+      evtdict[fname] = nevts # store for possible later reuse (if same sample is submitted multiple times)
+    if verb>=4:
+      print(">>> %10d %s"%(nevts,fname))
+  return nevts
 

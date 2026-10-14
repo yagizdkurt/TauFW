@@ -178,7 +178,7 @@ Parts 1–5 are done (CL §5–§8; the Part 2 changelog section was removed).
 - [ ] Remove the compatibility layer `PicoProducer/python/processors/` and `Tests/PicoProducer/compat/` once no job
       lists from before 2026-10-13 are in use. (CL §8 "User migration and compatibility")
 - [ ] `pico.py install` is a stub (`cli/install.py`: site guess, config defaults, symlinks). Nice to have.
-- [ ] TODO comments: `batch/base.py:54`, `jobs/chunking.py:54`, `jobs/jobconfig.py:90` (compare job configs to avoid
+- [ ] TODO comments: `batch/base.py:54`, `jobs/jobconfig.py:90` (compare job configs to avoid
       mixing jobs), `jobs/merge.py:86`, `jobs/pipeline.py:130`, `jobs/status.py:419`, `workers/Bookkeeper.py:39`,
       `corrections/BTagTool.py:131,139,148`.
 
