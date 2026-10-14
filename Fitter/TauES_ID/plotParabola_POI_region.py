@@ -15,7 +15,7 @@ import shutil
 import os
 from ROOT import gROOT, gPad, gStyle, TFile, TCanvas, TLegend, TLatex, TF1, TGraph, TGraph2D, TPolyMarker3D, TGraphAsymmErrors, TLine,\
                  kBlack, kBlue, kRed, kGreen, kYellow, kOrange, kMagenta, kTeal, kAzure, TMath
-from TauFW.Plotter.sample.utils import CMSStyle
+import TauFW.Utilities.Drawing.CMSStyle as CMSStyle
 from itertools import combinations
 from math import sqrt, log, ceil, floor
 

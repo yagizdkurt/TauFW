@@ -2,7 +2,7 @@ import ROOT as r
 import numpy as np
 import os
 from math import sqrt
-from TauFW.Plotter.sample.utils import ensuredir
+from TauFW.common.tools.file import ensuredir
 from TauFW.common.tools.string import repkey
 
 class rebinning():

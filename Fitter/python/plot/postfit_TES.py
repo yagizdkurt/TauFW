@@ -8,7 +8,8 @@ from TauFW.common.tools.utils import repkey
 from TauFW.Utilities.Drawing import LOG
 from TauFW.Utilities.Drawing.hist_tools import grouphists
 from TauFW.Utilities.Drawing.Stack import Stack # Var
-from TauFW.Plotter.sample.utils import CMSStyle, setera
+import TauFW.Utilities.Drawing.CMSStyle as CMSStyle
+from TauFW.Plotter.sample.utils import setera
 import TauFW.Utilities.Drawing.SampleStyle as STYLE
 from ROOT import kBlack,TCanvas
 

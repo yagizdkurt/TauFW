@@ -16,7 +16,7 @@ from math import sqrt, pi
 from argparse import ArgumentParser
 from ROOT import gROOT, gPad, gStyle, TFile, TCanvas, TLegend, TLatex, TF2, TGraph2D, TH2D, TPolyMarker3D, TGraphAsymmErrors, TLine, TEllipse
 from ROOT import kBlack, kBlue, kRed, kGreen, kYellow, kOrange, kMagenta, kTeal, kAzure, TMath
-from TauFW.Plotter.sample.utils import CMSStyle
+import TauFW.Utilities.Drawing.CMSStyle as CMSStyle
 
 # Ensure ROOT runs in batch mode
 gROOT.SetBatch(True)

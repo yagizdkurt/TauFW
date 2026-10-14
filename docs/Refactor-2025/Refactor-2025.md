@@ -1465,6 +1465,36 @@ instead of its home in `TauFW.common.tools.file`; postfit helpers import `CMSSty
 even though Drawing now owns CMSStyle (check the setera behavior before replacing it). The two PicoProducer
 comparison utilities still use Plotter Variable and could be migrated or archived. None were fixed here.
 
+## 20. Fitter imports drawing helpers from their own home
+
+**Date:** 2026-10-14
+
+Five Fitter files imported `CMSStyle` or `ensuredir` through `TauFW.Plotter.sample.utils`, which only re-exports
+them. They now import them from where they live; imports only, nothing else changed.
+
+| File | Before | After |
+|---|---|---|
+| `Fitter/TauES_ID/plot2DScan_MultiDimFit.py` | `from TauFW.Plotter.sample.utils import CMSStyle` | `import TauFW.Utilities.Drawing.CMSStyle as CMSStyle` |
+| `Fitter/TauES_ID/plotParabola_POI_region.py` | same | same |
+| `Fitter/TauES_ID/plotPostFitScan_POI.py` | same | same |
+| `Fitter/python/plot/rebinning.py` | `from TauFW.Plotter.sample.utils import ensuredir` | `from TauFW.common.tools.file import ensuredir` |
+| `Fitter/python/plot/postfit_TES.py` | `... import CMSStyle, setera` | `CMSStyle` as above; `setera` still from the Plotter |
+
+The names are the same objects as before (`sample/utils.py` binds `TauFW.Utilities.Drawing.CMSStyle` and
+`TauFW.common.tools.file.ensuredir`). What the scripts no longer get is the side effect of importing the Plotter's
+sample code (`Variable`, `Sample`, `SampleSet`, and through `ResultDict` the RDataFrame setup in
+`common/tools/RDataFrame.py`). None of it affects their output: the three `TauES_ID` scripts set `gROOT.SetBatch(True)`
+themselves, `rebinning.py` draws nothing, and no Plotter module prints or changes global ROOT state on import beyond
+batch mode and object reprs. `postfit_TES.py` still imports `setera`, so it keeps the full import; `setera` sets both
+the CMS lumi text and the sample globals used for normalization and is split in a later step.
+
+### Tests
+
+All five files parse; every `CMSStyle.*` attribute they use exists in `TauFW.Utilities.Drawing.CMSStyle`.
+`Tests/check_import_boundaries.py` reported the four fully decoupled files as stale; their entries are removed from
+`Tests/import_boundary_allowlist.json` (22 -> 18 pairs). Fitter -> Plotter is now 16 occurrences / 15 pairs / 13
+files; no new or stale entries. Not run on lxplus yet (TODO §1).
+
 ## Root legacy archive consolidation
 
 **Date:** 2026-10-14

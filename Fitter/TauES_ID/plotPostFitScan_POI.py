@@ -8,7 +8,7 @@ from argparse import ArgumentParser
 from plotParabola_POI_region import measurepoi, ensureDirectory, ensureTFile
 from ROOT import gROOT, gPad, gStyle, TFile, TCanvas, TLegend, TLatex, TF1, TH2F, TGraph, TLine, TColor,\
                  kBlack, kBlue, kRed, kGreen, kYellow, kOrange, kMagenta, kTeal, kAzure, kBlackBody, kTemperatureMap
-from TauFW.Plotter.sample.utils import CMSStyle
+import TauFW.Utilities.Drawing.CMSStyle as CMSStyle
 from math import sqrt, log, ceil, floor
 from itertools import combinations
 import yaml
