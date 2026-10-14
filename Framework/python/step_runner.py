@@ -1,7 +1,7 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Step runner: runs the function of a recipe's Python step in its own process.
 
-    python3 step_runner.py <stage_dir>/context.json
+    python3 step_runner.py <run_dir>/logs/<id>/context.json
 
 The python stage (stages/python_step.py) writes context.json and runs this file as a separate process, in the
 bundle directory, with the stage's log as stdout. This file only uses the standard library, so a step runs even
@@ -69,7 +69,7 @@ class StepContext:
 
     options:     the step's `options:` from the recipe (a dict)
     stage_id:    the step's id
-    stage_dir:   a directory for the step's own files, <run_dir>/<id> (exists)
+    stage_dir:   the directory for the step's own files, <run_dir>/stages/<id> (exists)
     run_dir:     the run directory
     bundle_dir:  the bundle directory of the run (its copy of the bundle files); also the working directory
     pico_config: the run's PicoProducer configuration, or None (also in $TAUFW_PICO_CONFIG)

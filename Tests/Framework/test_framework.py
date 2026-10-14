@@ -289,6 +289,8 @@ class RunRecordTests(FrameworkTestCase):
     def test_unknown_schema(self):
         with self.assertRaises(ValueError):
             RunRecord.from_dict({"schema": 99})
+        with self.assertRaisesRegex(ValueError, "schema 1 .expected 2"):  # before ids, inputs and stages/<id>
+            RunRecord.from_dict({"schema": 1})
 
 
 class RecipeTests(FrameworkTestCase):

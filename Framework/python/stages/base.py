@@ -40,6 +40,8 @@ from enum import Enum
 import os
 from typing import Mapping, Optional, Tuple
 
+from TauFW.Framework.defaults import LOGS_DIR_NAME, STAGES_DIR_NAME
+
 __all__ = ['StageState', 'StageOutcome', 'StageContext', 'Stage', 'StageNotImplemented', 'PreflightError',
            'SpecError', 'spec_from_dict', 'as_strings', 'spec_to_dict']
 
@@ -97,7 +99,7 @@ class StageOutcome:
 class StageContext:
     """What a stage may know about its run, besides its own options and record.
 
-    run_dir:     the run directory; a stage writes its log files to stage_dir(stage_id)
+    run_dir:     the run directory: a stage's output goes to stage_dir(), its log files to log_dir()
     upstream:    stage id -> artifacts (dicts) of the stages this one's inputs name. In advance() these are the
                  recorded artifacts of DONE stages; in plan() the artifacts the earlier stages plan to make.
     inputs:      input slot -> the stage id the recipe connects it to (None: not from this run)
@@ -123,9 +125,15 @@ class StageContext:
         stage_id = self.inputs.get(slot)
         return self.artifacts(stage_id, kind) if stage_id else ()
 
-    def stage_dir(self, name=None):
-        """The directory for the files (logs) of one stage: <run_dir>/<id> (default: this context's stage)."""
-        return os.path.join(self.run_dir, name or self.stage_id)
+    def stage_dir(self, stage_id=None):
+        """The output directory of one stage: <run_dir>/stages/<id> (default: this context's stage). It holds only
+        what the stage makes, and its manifest.json once the stage is DONE."""
+        return os.path.join(self.run_dir, STAGES_DIR_NAME, stage_id or self.stage_id)
+
+    def log_dir(self, stage_id=None):
+        """The directory of the Framework's files of one stage (command logs, a python step's context.json and
+        result.json): <run_dir>/logs/<id> (default: this context's stage)."""
+        return os.path.join(self.run_dir, LOGS_DIR_NAME, stage_id or self.stage_id)
 
 
 # =============================================================================

@@ -185,8 +185,10 @@ class StageIdTests(BundleTestCase):
         self.assertIn("stages[0] (python): missing 'id'", self.error({"stage": "python", "inputs": None,
                                                                      "file": "steps/check.py"}))
         self.assertIn("stages[0] (python).id: must be a word", self.error(dict(STEP, id="a b")))
-        self.assertIn("'bundle' is a name the run directory uses", self.error(dict(STEP, id="bundle")))
-        self.assertIn("'run.json' is a name the run directory uses", self.error(dict(STEP, id="run.json")))
+        self.assertIn("stages[0] (python).id: '..' is not allowed (it names a directory)",
+                      self.error(dict(STEP, id="..")))
+        recipe = Recipe.from_dict({"name": "x", "stages": [dict(STEP, id="bundle"), dict(STEP, id="logs")]})
+        self.assertEqual([s.id for s in recipe.stages], ["bundle", "logs"])  # stages/<id>: no clash in the run
         self.assertIn("must be in the order", self.error(dict(FIT, inputs={"shapes": None}), STEP, HISTOGRAMS))
         self.assertIn("unknown stage 'pyhton' (known: production, plots, histograms, fit, python)",
                       self.error({"stage": "pyhton"}))

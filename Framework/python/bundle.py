@@ -242,7 +242,7 @@ def run(ctx):
     ctx.input(name, kind):  the artifacts of the stage connected to an input (e.g. ctx.input('fit', kind='fit')
                             for inputs: {fit: fit})
     ctx.artifacts(stage, kind): the artifacts of the input stages, by stage id
-    ctx.stage_dir:          a directory for this step's files (inside the run directory)
+    ctx.stage_dir:          the directory for this step's files (<run_dir>/stages/<id>/)
     ctx.path(relative):     a file of the bundle
     ctx.log(message):       a line in the step's log
     Return None, a list of artifacts (dicts), or {'message': ..., 'artifacts': [...]}."""

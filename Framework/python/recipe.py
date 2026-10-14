@@ -21,7 +21,8 @@
 
 Every stage has the keys `stage`, `id` and `inputs`, and may have `description`; the other keys are its options.
 
-    id:       letters, digits, '_', '.', '-'; unique; not a name the run directory uses (RESERVED_STAGE_IDS).
+    id:       letters, digits, '_', '.', '-' (not '.' or '..'); unique. It names the stage's directories in the run:
+              <run_dir>/stages/<id>/ (output) and <run_dir>/logs/<id>/ (logs).
     inputs:   which earlier stage's output the stage reads, per input slot (Stage.inputs):
                 production    no slots                     inputs: null
                 plots         tuples   <- tuples           null: the tuples in $PICODIR of the PicoProducer config
@@ -56,7 +57,7 @@ import os, re, copy
 from dataclasses import dataclass, field, replace
 from typing import Optional, Tuple
 from TauFW.Framework.bundle import leaves_bundle
-from TauFW.Framework.defaults import RECIPE_NAME, RESERVED_STAGE_IDS, default_file_io
+from TauFW.Framework.defaults import RECIPE_NAME, default_file_io
 from TauFW.Framework.stages import STAGES, ORDER, SpecError, spec_from_dict
 
 __all__ = ['Recipe', 'StageSpec', 'Issue', 'RecipeError']
@@ -283,9 +284,8 @@ def _check_id(entry, where, issues):
         issues.append(Issue(where + ".id", "must be a word of letters, digits, '_', '.' or '-' (got %r)"
                             % (stage_id,)))
         return None
-    if stage_id in RESERVED_STAGE_IDS:
-        issues.append(Issue(where + ".id", "%r is a name the run directory uses (not allowed: %s)"
-                            % (stage_id, ', '.join(RESERVED_STAGE_IDS))))
+    if stage_id in ('.', '..'):  # a directory name: <run_dir>/stages/<id>
+        issues.append(Issue(where + ".id", "%r is not allowed (it names a directory)" % (stage_id)))
         return None
     return stage_id
 

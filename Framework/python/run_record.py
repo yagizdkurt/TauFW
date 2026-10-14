@@ -1,16 +1,18 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Run record: the saved state of one run, in taufw_runs/<name>_<YYYYmmdd-HHMMSS>/run.json.
 
-    {"schema": 1, "run_id": "...", "created": "...", "updated": "...",
+    {"schema": 2, "run_id": "...", "created": "...", "updated": "...",
      "recipe": {...}, "pico_config": {"path": "...", "snapshot": {...}},
      "bundle": {"source": "/.../Analyses/tes_id_2025", "files": ["recipe.yml", "config_coarse_TT.yml", ...]},
      "stages": [{"name": "production", "state": "WAITING", "attempt": 2, "message": "...",
                  "request": {...}, "submissions": [...], "last_status": {...}, "artifacts": [...],
                  "history": [{"time": "...", "event": "submitted", "state": "SUBMITTED", "detail": "..."}]}]}
 
-A stage record's "name" is the stage's id (a built-in stage: its name; a python step: its id). "bundle" lists the
-bundle files copied to <run_dir>/bundle/ when the run started (empty for a run without bundle files, and for runs
-saved before bundles existed).
+A stage record's "name" is the stage's id. "bundle" lists the bundle files copied to <run_dir>/bundle/ when the run
+started (empty for a run without bundle files).
+
+Schema 2 (2026-10-14): required stage ids and inputs in the recipe, the run directory with logs/<id>/ and
+stages/<id>/. Runs of another schema are refused when loaded (there is no conversion).
 
 The record holds references and summaries only. The real state of the jobs stays with each stage's package (for
 production: PicoProducer's job configs), so a lost record can be rebuilt from them.
@@ -42,7 +44,7 @@ __all__ = ['RunRecord', 'RunState', 'StageRecord', 'RUN_RECORD_NAME', 'SCHEMA']
 # ================================= CONSTANTS =================================
 
 
-SCHEMA = 1  # version of the run.json layout; increase it when the layout changes
+SCHEMA = 2  # version of the run.json and run directory layout; increase it when the layout changes
 
 
 # =============================================================================

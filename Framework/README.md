@@ -29,7 +29,7 @@ The words below are used everywhere in the code and in this README.
 | **analysis bundle** | A directory `Analyses/<name>/` with `recipe.yml`, the config files the recipe uses and its Python steps; every path is relative to the directory of `recipe.yml`. A stage's path option that names a bundle file uses it instead of the module's config. A run copies the bundle to `<run dir>/bundle/` and reads only that copy. | `bundle.py` |
 | **recipe** | A YAML file that says what to run: a name, the PicoProducer configuration and a list of stages with their options. You write it; the Framework checks it before anything runs. | `Recipe` (`recipe.py`) |
 | **stage** | One step of the analysis: `production` (NanoAOD → pico tuples), `plots` (control plots), `histograms` (fit input shapes), `fit` (TES + tau ID fit), `python` (a Python file of the bundle). Each stage calls the API of its own package. | `Stage` subclasses (`stages/`) |
-| **stage id** | The name of a stage in a run, required for every stage (`id:`): `run.json` records, log directories and upstream artifacts are keyed by it, and `inputs:` refer to it. Unique; letters, digits, `_`, `.`, `-`; not `bundle`, `logs`, `run.json` or `run.log`. Any stage may have any id. | `StageSpec.id` |
+| **stage id** | The name of a stage in a run, required for every stage (`id:`): `run.json` records, the stage's directories (`stages/<id>/`, `logs/<id>/`) and upstream artifacts are keyed by it, and `inputs:` refer to it. Unique; letters, digits, `_`, `.`, `-` (not `.` or `..`). Any stage may have any id. | `StageSpec.id` |
 | **inputs** | Required for every stage: which earlier stage's output each input slot reads (`inputs: {shapes: histograms}`), or `null` for a stage without slots. A slot is connected to the id of an earlier stage that makes that kind of data, or to `null` (not from this run: the tuples in `$PICODIR`, the shapes already in `Fitter/`). Nothing is connected implicitly. | `Stage.inputs`, `Stage.outputs`, `StageSpec.inputs` |
 | **description** | Optional free text of a stage, shown by `plan` and in the menu; nothing depends on it. | `StageSpec.description` |
 | **validation** | Every problem of a recipe at once (structure, ids, inputs, order, the files it names), before anything runs: `taufw.py check`, the menu's recipe list (red) and preview. `Recipe.load` raises one `RecipeError` that lists all of them. | `check_recipe` (`validation.py`), `Recipe.parse` |
@@ -168,7 +168,7 @@ The local stages (`plots`, `histograms`, `fit`, `python`) take one step, `NEW` �
 | every command exits with 0 **and** writes its expected outputs | `DONE`, with the artifacts |
 | a command exits with another code, or does not write an expected output | `FAILED`; the message names the command, the exit code or the missing output, and the log; the last 20 log lines are printed |
 
-Each command's output goes to `<run dir>/<stage id>/NN_<label>.log`, and `run.json` lists every command with its exit
+Each command's output goes to `<run dir>/logs/<stage id>/NN_<label>.log`, and `run.json` lists every command with its exit
 code and duration (`last_status.commands`). The expected outputs must be written by the command itself (modified
 after it started): the Fitter scripts run `combine` through `os.system` and exit with 0 even when it fails, and the
 output folders are shared by all runs, so neither the exit code nor an old file is trusted.
@@ -200,15 +200,23 @@ taufw_runs/<name>_<YYYYmmdd-HHMMSS>/
   run.json    the run record (below)
   run.log     plain-text copy of the messages of every start/advance
   bundle/     the run's copy of the bundle: the stages read their bundle files from here, never from the source
-  plots/, histograms/, fit/, <python step id>/
-              one log per command of the local stages: NN_<label>.log (header with cwd and command line,
-              the command's output, footer with exit code, duration and missing outputs); a python step also
-              has context.json (its input), result.json (its output) and its own files
+  logs/<stage id>/
+              the Framework's files of a stage: one log per command of the local stages, NN_<label>.log (header
+              with cwd and command line, the command's output, footer with exit code, duration and missing
+              outputs); a python step also has context.json (its input) and result.json (its output)
+  stages/<stage id>/
+              the stage's output and nothing else: a python step's own files (ctx.stage_dir); manifest.json once the
+              stage is DONE. Plots, shapes and fit results still go to Plotter/ and Fitter/ (TODO §6 C), so these
+              stages hold only the manifest for now; production's tuples stay in PicoProducer's storage.
 ```
 
-`run.json` (schema 1):
+`manifest.json` is written when a stage becomes `DONE` (never for a failed stage), before `run.json` is saved:
+`{"manifest": 1, "run_id", "stage_id", "stage", "description", "inputs", "finished", "artifacts"}`. It is a copy of the
+stage's record, so that a stage directory describes itself; `run.json` stays the source of truth.
+
+`run.json` (schema 2; a run directory of another schema is refused):
 ```json
-{"schema": 1, "run_id": "...", "created": "...", "updated": "...",
+{"schema": 2, "run_id": "...", "created": "...", "updated": "...",
  "recipe": {"name": "...", "pico": {"config": null}, "stages": [...]},
  "pico_config": {"path": ".../config/config.json", "snapshot": {...}},
  "bundle": {"source": ".../Analyses/tes_id_2025", "files": ["recipe.yml", "config_coarse_TT.yml", ...]},
@@ -217,7 +225,7 @@ taufw_runs/<name>_<YYYYmmdd-HHMMSS>/
              "history": [{"time": "...", "event": "resubmitted", "state": "SUBMITTED", "detail": "..."}]}]}
 ```
 - A run always continues with the recipe stored in `run.json` and its `bundle/` copy, not with the current files.
-- A stage record's `name` is the stage id. `bundle` is `{}` in run records written before bundles existed.
+- A stage record's `name` is the stage id. `bundle` is `{}` for a loose recipe file without bundle files.
 - `run.json` is written to a temporary file and renamed, so it is never half written.
 - The production stage's source of truth stays with PicoProducer (its job configs under `PicoProducer/output/`);
   `run.json` holds the requests, summaries and artifacts.

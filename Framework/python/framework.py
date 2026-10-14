@@ -6,9 +6,10 @@ Purpose:  run the stages of an analysis (production -> histograms -> fit) one af
           to wait for the batch system or to move on. What a stage really does stays in its own package (the
           production stage, for example, calls the PicoProducer API).
 Inputs:   a recipe (a Recipe, an analysis bundle directory, or a .yml/.json file) and the files it names.
-Outputs:  a run directory taufw_runs/<name>_<YYYYmmdd-HHMMSS>/ with run.json (the state), run.log (the messages)
-          and bundle/ (a copy of the bundle files the run uses), plus what the stages produce (for production:
-          merged pico tuples, listed in run.json).
+Outputs:  a run directory taufw_runs/<name>_<YYYYmmdd-HHMMSS>/ with run.json (the state), run.log (the messages),
+          bundle/ (a copy of the bundle files the run uses), logs/<stage id>/ (the Framework's files of each
+          stage) and stages/<stage id>/ (what the stage makes, and its manifest.json once it is DONE; production's
+          merged pico tuples stay in PicoProducer's storage and are listed in run.json and the manifest).
 
 Pipeline map:
 
@@ -24,7 +25,8 @@ Pipeline map:
     run model:   stepwise. start() and advance() move the run as far as they can (until a stage waits for the
                  batch system, fails, is not ready or is not implemented), save run.json and return.
                  advance(wait=True) repeats this every `poll` seconds until the run no longer waits.
-    stage data:  every stage gets a StageContext: the run directory (its logs go to <run_dir>/<stage id>/),
+    stage data:  every stage gets a StageContext: the run directory (logs: <run_dir>/logs/<stage id>/, output:
+                 <run_dir>/stages/<stage id>/),
                  its inputs (slot -> stage id, from the recipe) and the artifacts of those stages once they are
                  DONE (production's tuples, the histograms' shapes), the run's PicoProducer config and the
                  bundle directory its path options are resolved against. A stage never sees the artifacts of a
@@ -44,7 +46,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional, Tuple
 from TauFW.Framework.defaults import (DEFAULT_RUN_ROOT, RUN_LOG_NAME, DEFAULT_POLL_SECONDS, BUNDLE_DIR_NAME,
-                                      timestamp, default_file_io)
+                                      MANIFEST_NAME, timestamp, default_file_io)
 from TauFW.Framework.bundle import path_rows, snapshot, make_bundle
 from TauFW.Framework.recipe import Recipe
 from TauFW.Framework.run_record import RunRecord, RunState
@@ -61,6 +63,7 @@ __all__ = ['Framework', 'RunPlan', 'StagePlan', 'RunSummary', 'StageSummary', 'l
 
 
 MAX_STEPS = 8  # most steps one stage may take in one advance() call (a safety net against a stage that never settles)
+MANIFEST_FORMAT = 1  # version of the manifest.json layout
 
 
 class Framework:
@@ -72,7 +75,7 @@ class Framework:
                     run(recipe=None, run_root, wait, poll)    -> RunRecord   start(), then advance() while waiting
                     status(record)                            -> RunSummary  read-only: saved and live state
                     make_bundle(target, name)                 -> paths       new bundle from this recipe
-    Stage dispatch: _advance_stages, _advance_stage, _apply, _stage_for
+    Stage dispatch: _advance_stages, _advance_stage, _apply, _write_manifest, _stage_for
     Construction:   from_recipe(recipe_or_path, reporter, pico, fitter, plotter); from_record(record, ...);
                     Framework(recipe, stages, reporter, files, sleep, clock)
 
@@ -208,6 +211,8 @@ class Framework:
                     record.save(self.files)  # keep the error in the stage's history; the state is unchanged
                     raise
                 self._apply(stage_record, outcome)
+                if outcome.state is StageState.DONE:  # first the manifest: a crash before run.json is saved
+                    self._write_manifest(record, stage_spec, stage_record)  # only repeats the stage
                 record.save(self.files)
                 if outcome.state.waiting:
                     return  # the stage now waits for the batch system: come back later
@@ -251,6 +256,17 @@ class Framework:
         report = self.reporter.warning if outcome.state is StageState.FAILED else self.reporter.message
         report("Stage %s: %s%s" % (stage_record.name, outcome.state.value,
                                    " - " + outcome.message if outcome.message else ""))
+
+    def _write_manifest(self, record, stage_spec, stage_record):
+        """<run_dir>/stages/<id>/manifest.json of a stage that is DONE: which stage of which run made the directory,
+        from which inputs, and its artifacts. It is a copy of the stage's record (run.json stays the source of truth),
+        so that the directory describes itself; only a DONE stage has one."""
+        directory = StageContext(run_dir=record.run_dir).stage_dir(stage_spec.id)
+        self.files.make_directory(directory)
+        self.files.write_json(os.path.join(directory, MANIFEST_NAME), {
+            'manifest': MANIFEST_FORMAT, 'run_id': record.run_id, 'stage_id': stage_spec.id,
+            'stage': stage_spec.stage, 'description': stage_spec.description, 'inputs': stage_spec.inputs,
+            'finished': self._now(), 'artifacts': stage_record.artifacts}, overwrite=True)
 
     def _context(self, record, stage_spec):
         """The StageContext of one stage: the run directory, its inputs and the artifacts of those of its input

@@ -159,7 +159,7 @@ Every stage has these keys besides its options:
 | Key | Required | Meaning |
 | --- | --- | --- |
 | `stage` | Yes | The stage type: `production`, `plots`, `histograms`, `fit`, `python`. |
-| `id` | Yes | The stage's name in the run: its record in `run.json`, its directory `taufw_runs/<run>/<id>/`, and what `inputs:` refer to. Unique; letters, digits, `_`, `.`, `-`; not `bundle`, `logs`, `run.json`, `run.log`. Any stage may have any id (`id: shapes_tight`). |
+| `id` | Yes | The stage's name in the run: its record in `run.json`, its directories `taufw_runs/<run>/stages/<id>/` (output) and `logs/<id>/`, and what `inputs:` refer to. Unique; letters, digits, `_`, `.`, `-` (not `.` or `..`). Any stage may have any id (`id: shapes_tight`). |
 | `inputs` | Yes | Which earlier stage's output the stage reads (see the table below). Never left out and never `{}`: a stage without inputs says `inputs: null`. |
 | `description` | No | Free text, shown by `plan` and in the menu. Nothing depends on it. |
 
@@ -430,7 +430,7 @@ The function gets one argument, `ctx`:
 | `ctx.input(name, kind=None)` | Artifacts of the stage connected to the input `name`, optionally of one `kind`. An input the recipe does not give is an error. |
 | `ctx.artifacts(stage=None, kind=None)` | Artifacts of the input stages by stage id (or all of them), optionally of one `kind`. |
 | `ctx.inputs` | The step's inputs: name → stage id. |
-| `ctx.stage_dir` | `taufw_runs/<run>/<id>/`, for the step's own files (exists). |
+| `ctx.stage_dir` | `taufw_runs/<run>/stages/<id>/`, for the step's own files (exists); nothing else is written there except the stage's `manifest.json` when it is done. |
 | `ctx.path(relative)` | A file of the run's bundle copy, e.g. `ctx.path('config_coarse_TT.yml')`. |
 | `ctx.log(message)` | One line in the step's log. |
 | `ctx.run_dir`, `ctx.bundle_dir`, `ctx.stage_id`, `ctx.pico_config`, `ctx.upstream` | The run directory, the bundle copy, the step's id, the run's PicoProducer config (also `$TAUFW_PICO_CONFIG`), the artifacts of the input stages. |
@@ -450,7 +450,7 @@ How a step runs:
 - Before it runs, `plan` and `advance` check that the file exists, that it
   defines the function (without importing it), and that the options can be
   written as JSON. A problem leaves the step `NEW`, like any preflight problem.
-- Its output goes to `taufw_runs/<run>/<id>/01_<id>.log`, next to
+- Its output goes to `taufw_runs/<run>/logs/<id>/01_<id>.log`, next to
   `context.json` (what the step was given) and `result.json` (what it
   returned). An exception, or a return value that is not valid, makes the step
   `FAILED` with the traceback in the log.
@@ -581,13 +581,13 @@ taufw_runs/<name>_<YYYYmmdd-HHMMSS>/
   run.json
   run.log
   bundle/                     the run's copy of the bundle (what the stages read)
-  plots/NN_<label>.log
-  histograms/NN_<label>.log
-  fit/NN_<label>.log
-  <step id>/01_<step id>.log  a python step: also context.json, result.json and its own files
+  logs/<stage id>/            the command logs NN_<label>.log; a python step: also context.json, result.json
+  stages/<stage id>/          the stage's output: a python step's own files, and manifest.json when DONE
 ```
 
-Only the selected local stages create their log directories. `run.log` contains
+A stage's directories are made when it runs; `stages/<id>/manifest.json`
+exists only for a stage that finished (`DONE`): it names the run, the stage,
+its inputs and its artifacts. `run.log` contains
 Framework messages; each command log contains its working directory, command
 line, output, exit code, duration, and any missing expected outputs.
 `run.json` stores the recipe, configuration snapshot, the list of copied bundle
@@ -600,7 +600,7 @@ results.
 | `plots` | `Plotter/plots/<era>/` | `kind: plots`, era, config, channel, directory, matching file count. |
 | `histograms` | `Fitter/input_pt_less_region/againstjet_<J>/againstelectron_<E>/` | `kind: shapes`, path, era, channel, config, WP pair, observable. |
 | `fit` | Fitter's `output_*`, `postfit_*`, plot directories, and `tau_sf/` | `kind: fit` per point, output/postfit directories, fitted values, correction paths; `kind: corrections` per era when summary runs. |
-| `python` | `taufw_runs/<run>/<id>/` (by convention) | What the step returns. |
+| `python` | `taufw_runs/<run>/stages/<id>/` (`ctx.stage_dir`) | What the step returns. |
 
 Fit values include the region, parameter of interest, central value, and lower
 and upper interval limits, parsed from `FitparameterValues_*.txt`.
@@ -623,7 +623,7 @@ prints the last 20 lines of its log.
 | Invalid stage order or duplicate stage | Keep the supported order and combine selections into the stage's lists, or use separate recipes. Every stage needs its own unique `id`. |
 | A config change has no effect | Run `plan` and check the `from` column: `module` means the file is not in the bundle (typo in the path), so the module's own config is used. |
 | Python step `NEW` with "no top-level function" | Define `def run(ctx):` at the top level of the file, or set `function:`. |
-| Python step `FAILED` | Read `taufw_runs/<run>/<id>/01_<id>.log` for the traceback; `context.json` shows what the step was given. |
+| Python step `FAILED` | Read `taufw_runs/<run>/logs/<id>/01_<id>.log` for the traceback; `context.json` next to it shows what the step was given. |
 | No samples match production | Inspect `plan`, configured era/channel catalogs, sample/DAS filters, vetoes, and `dtypes`. |
 | Production stays `WAITING` | Inspect live job status; pending/running chunks delay resubmission of failed chunks. Continue with `advance`, or use `--wait`. |
 | Production fails after the allowed tries | Inspect PicoProducer job logs and fix the cause. The failed run cannot be restarted by editing its recipe; start a new run with the corrected setup. |

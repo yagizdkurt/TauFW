@@ -63,10 +63,19 @@ class PipelineTests(LocalStageTestCase):
         record = fw.advance(record)
         self.assertEqual(record.state, "DONE")
         self.assertEqual([record.stage(s).state for s in ("plots", "histograms", "fit")], ["DONE"] * 3)
-        # each stage logs to <run_dir>/<stage>
-        self.assertEqual(self.plotter.logdirs, [os.path.join(record.run_dir, "plots")])
-        self.assertEqual(self.fitter.logdirs, [os.path.join(record.run_dir, "histograms"),
-                                               os.path.join(record.run_dir, "fit")])
+        # each stage logs to <run_dir>/logs/<stage id>, and gets a manifest in <run_dir>/stages/<stage id> when DONE
+        logs = os.path.join(record.run_dir, "logs")
+        self.assertEqual(self.plotter.logdirs, [os.path.join(logs, "plots")])
+        self.assertEqual(self.fitter.logdirs, [os.path.join(logs, "histograms"), os.path.join(logs, "fit")])
+        self.assertEqual(sorted(os.listdir(os.path.join(record.run_dir, "stages"))),
+                         ["fit", "histograms", "plots", "production"])
+        with open(os.path.join(record.run_dir, "stages", "histograms", "manifest.json")) as stream:
+            manifest = json.load(stream)
+        self.assertEqual({key: manifest[key] for key in ("manifest", "run_id", "stage_id", "stage", "inputs")},
+                         {"manifest": 1, "run_id": record.run_id, "stage_id": "histograms", "stage": "histograms",
+                          "inputs": {"tuples": "production"}})
+        self.assertEqual(manifest["artifacts"], record.stage("histograms").artifacts)
+        self.assertEqual(os.listdir(os.path.join(record.run_dir, "stages", "production")), ["manifest.json"])
         # the histograms record the production tuples as inputs, and their shapes as artifacts
         histograms = record.stage("histograms")
         self.assertEqual(histograms.last_status["inputs"], ["/pico/DY_mutau.root"])
@@ -98,7 +107,8 @@ class PipelineTests(LocalStageTestCase):
         self.assertEqual(record.state, "FAILED")
         self.assertIn("shapes 2025 Tight Tight", stage.message)
         self.assertIn("exit code 2", stage.message)
-        self.assertIn(os.path.join(record.run_dir, "histograms"), stage.message)
+        self.assertIn(os.path.join(record.run_dir, "logs", "histograms"), stage.message)
+        self.assertFalse(os.path.exists(os.path.join(record.run_dir, "stages", "histograms")))  # FAILED: no manifest
         self.assertEqual(len(stage.last_status["commands"]), 3)  # stopped at the failed command
         self.assertEqual(stage.artifacts, [])
         self.assertEqual(record.stage("fit").state, "NEW")
@@ -223,7 +233,10 @@ class ContextTests(LocalStageTestCase):
         self.assertNotIn("inputs", record.stage("plots").last_status)  # no production tuples recorded
 
     def test_stage_dir(self):
-        self.assertEqual(StageContext(run_dir="runs/x").stage_dir("fit"), os.path.join("runs/x", "fit"))
+        context = StageContext(run_dir="runs/x", stage_id="plots")
+        self.assertEqual(context.stage_dir("fit"), os.path.join("runs/x", "stages", "fit"))
+        self.assertEqual(context.stage_dir(), os.path.join("runs/x", "stages", "plots"))
+        self.assertEqual(context.log_dir(), os.path.join("runs/x", "logs", "plots"))
 
 
 class SpecTests(unittest.TestCase):
@@ -283,12 +296,11 @@ class CommandLineTests(LocalStageTestCase):
     def test_check_lists_every_problem(self):
         path = os.path.join(self.root, "r.json")
         with open(path, "w") as stream:
-            json.dump({"name": "tes", "stages": [dict(HISTOGRAMS, id="logs"), dict(FIT, inputs=None)]}, stream)
+            json.dump({"name": "tes", "stages": [dict(HISTOGRAMS, id="a/b"), dict(FIT, inputs=None)]}, stream)
         self.assertEqual(self.cli.main(["check", path]), 1)
         self.assertEqual(self.warnings(), [
             "Recipe tes: 2 problem(s)",
-            "  stages[0] (histograms).id: 'logs' is a name the run directory uses (not allowed: bundle, logs, "
-            "run.json, run.log)",
+            "  stages[0] (histograms).id: must be a word of letters, digits, '_', '.' or '-' (got 'a/b')",
             "  stages[1] (fit).inputs: fit reads shapes: write inputs: {shapes: <stage id or null>}"])
         self.assertEqual(self.cli.main(["plan", path]), 1)  # an invalid recipe: the problems, no traceback
         self.assertIn("r.json: 2 problems", self.warnings()[-1])

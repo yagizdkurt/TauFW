@@ -24,6 +24,7 @@ What is still open is listed in [TODO.md](TODO.md).
 | 13 | [Import-boundary test and coupling inventory](#13-import-boundary-test-and-coupling-inventory) |
 | 14 | [Fitter imports drawing helpers from their own home](#14-fitter-imports-drawing-helpers-from-their-own-home) |
 | 15 | [Framework: explicit stage ids, inputs and recipe validation](#15-framework-explicit-stage-ids-inputs-and-recipe-validation) |
+| 16 | [Framework: run directory with logs/ and stages/, stage manifests](#16-framework-run-directory-with-logs-and-stages-stage-manifests) |
 
 The reference environment for all of this is `CMSSW_14_1_0_pre4` (Python 3.9, ROOT 6.30).
 
@@ -746,8 +747,8 @@ per-run output directories are the next step, TODO §6 C).
 
 - **Every stage has `stage`, `id` and `inputs`, and may have `description`.** `id` is required for every stage and any
   stage may have any id (the old rules "a built-in stage's id is its name" and "a python step's id defaults to its file
-  name" are gone). Ids that the run directory uses are reserved (`bundle`, `logs`, `run.json`, `run.log`;
-  `defaults.RESERVED_STAGE_IDS`). `description` is free text, shown by `plan` and the menu, used for nothing else.
+  name" are gone). Ids that the run directory used were reserved at first (`bundle`, `logs`, `run.json`, `run.log`);
+  §16 removed that rule. `description` is free text, shown by `plan` and the menu, used for nothing else.
 - **Inputs:** each stage type declares its input slots and the kinds of data it makes (`Stage.inputs`, `Stage.outputs`:
   plots/histograms `tuples`, fit `shapes`, python any names). `inputs` connects every slot to the id of an earlier stage
   that makes that kind, or to `null` (not from this run: the tuples in `$PICODIR`, the shapes already in `Fitter/`); a
@@ -769,6 +770,40 @@ per-run output directories are the next step, TODO §6 C).
 Framework unit tests (now 90, with `Tests/Framework/test_validation.py`) and the menu tests (27) pass on Windows. New
 cases: every input error, reserved and duplicate ids, a stage that does not see an unnamed earlier stage, a python step
 without inputs, `taufw.py check`, broken recipes red in the menu, the bundled analyses valid. The recipe of the BBB case
-`framework.production` (`Tests/BBB/cases.py`) gets `id: production` and `inputs: null`; its `plan` output changes on
-purpose (`=== Stage production (production) ===` and a new `Inputs: none` line): re-lock on lxplus once every other
-case passes unchanged.
+`framework.production` (`Tests/BBB/cases.py`) gets `id: production` and `inputs: null`; its output changes on
+purpose: the `plan` lines (`=== Stage production (production) ===` and a new `Inputs: none` line) and the recipe in the
+recorded `run.json` (`id`, `inputs` keys). Re-lock on lxplus once every other case passes unchanged.
+
+---
+
+## 16. Framework: run directory with logs/ and stages/, stage manifests
+
+**Date:** 2026-10-15
+**Details:** [Framework](../../Framework/README.md) "Run directory", [Analyses](../../Analyses/README.md) "Outputs and logs"
+
+Second step of the recipe IO work (R2): a stage's directory in the run now holds only what the stage makes, so the
+next step can run the Plotter and Fitter scripts inside it (TODO §6 C).
+
+### What changed
+
+- **Layout:** `taufw_runs/<run>/logs/<id>/` holds the Framework's files of a stage (command logs `NN_<label>.log`, a
+  python step's `context.json` and `result.json`); `taufw_runs/<run>/stages/<id>/` holds its output (a python step's
+  own files, `ctx.stage_dir`) and nothing else. Before, both were `taufw_runs/<run>/<id>/`. `StageContext.stage_dir()`
+  is the output directory, the new `StageContext.log_dir()` the log directory. Directories are made when a stage runs.
+- **Ids:** stage directories live under `stages/`, so an id can no longer clash with `run.json`, `run.log`, `bundle/`
+  or `logs/`: the reserved ids of §15 are gone (`defaults.RESERVED_STAGE_IDS` removed); only `.` and `..` are refused.
+- **Manifest:** when a stage becomes `DONE`, the Framework writes `stages/<id>/manifest.json`
+  (`{manifest: 1, run_id, stage_id, stage, description, inputs, finished, artifacts}`), before `run.json` is saved.
+  It is a copy of the stage's record, so a stage directory describes itself (for a later input that names another
+  run's stage directory); `run.json` stays the source of truth, and the Framework does not read manifests yet. A
+  failed stage has none. Production's directory holds only its manifest (its tuples stay in PicoProducer's storage);
+  plots, histograms and fit hold only theirs until their outputs move (R3).
+- **`run.json` schema 2:** the recipe format of §15 and this layout. A run directory of schema 1 is refused when it is
+  loaded (no conversion: there are no runs to keep).
+
+### Tests
+
+Framework unit tests (90) pass on Windows: log and output directories of every stage, the manifest content of a DONE
+stage and its absence for a failed one, production's directory with only the manifest, a python step's files split
+between `logs/` and `stages/`, ids `bundle`/`logs` now allowed and `..` refused, schema 1 refused. BBB
+`framework.production` records `run.json`, so `"schema": 2` adds to the §15 difference: one re-lock for both.

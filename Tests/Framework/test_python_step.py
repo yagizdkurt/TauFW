@@ -88,18 +88,23 @@ class PythonStepTests(PythonStepTestCase):
         self.assertEqual(value["pico"], os.path.join(copy, "configs", "pico.json"))
         self.assertEqual(value["ctx_pico"], value["pico"])
         self.assertEqual(use.message, "1 command(s), 1 artifact(s)")  # no message returned
-        stage_dir = os.path.join(record.run_dir, "make")
-        for name in ("context.json", "result.json", "numbers.txt", "01_make.log"):
-            self.assertTrue(os.path.isfile(os.path.join(stage_dir, name)), name)
-        with open(os.path.join(stage_dir, "01_make.log")) as stream:
+        stage_dir = os.path.join(record.run_dir, "stages", "make")  # the step's own files and the manifest only
+        log_dir = os.path.join(record.run_dir, "logs", "make")      # the Framework's files
+        self.assertEqual(sorted(os.listdir(stage_dir)), ["manifest.json", "numbers.txt"])
+        self.assertEqual(sorted(os.listdir(log_dir)), ["01_make.log", "context.json", "result.json"])
+        with open(os.path.join(log_dir, "01_make.log")) as stream:
             self.assertIn("[make] wrote", stream.read())
+        with open(os.path.join(stage_dir, "manifest.json")) as stream:
+            manifest = json.load(stream)
+        self.assertEqual((manifest["stage_id"], manifest["stage"], manifest["inputs"], manifest["artifacts"]),
+                         ("make", "python", None, make.artifacts))
         self.assertEqual(sorted(record.bundle["files"]), sorted(os.path.normpath(p) for p in (  # the whole bundle
             "configs/pico.json", "configs/scale.txt", "recipe.yml", "steps/helper.py", "steps/make.py",
             "steps/use.py")))
         loaded = RunRecord.load(record.run_dir)
         self.assertEqual([s.name for s in loaded.stages], ["make", "use"])  # stage records are named by id
         self.assertEqual(loaded.recipe["stages"][1]["inputs"], {"numbers": "make"})
-        with open(os.path.join(record.run_dir, "use", "context.json")) as stream:
+        with open(os.path.join(record.run_dir, "logs", "use", "context.json")) as stream:
             context = json.load(stream)
         self.assertEqual((context["inputs"], list(context["upstream"])), ({"numbers": "make"}, ["make"]))
 
@@ -110,7 +115,8 @@ class PythonStepTests(PythonStepTestCase):
         self.write("steps/ask.py", "def run(ctx):\n    ctx.input('numbers')\n")
         record = self.start(step("ask"))
         self.assertEqual(record.stage("ask").state, "FAILED")
-        with open(os.path.join(record.run_dir, "ask", "01_ask.log")) as stream:
+        self.assertFalse(os.path.exists(os.path.join(record.run_dir, "stages", "ask", "manifest.json")))  # FAILED
+        with open(os.path.join(record.run_dir, "logs", "ask", "01_ask.log")) as stream:
             self.assertIn("step 'ask' has no input 'numbers' (inputs: none)", stream.read())
 
     def test_exception_fails_the_step_with_the_log(self):
@@ -126,7 +132,7 @@ class PythonStepTests(PythonStepTestCase):
         self.write("steps/odd.py", "def run(ctx):\n    return [{'kind': 'x', 'value': object()}]\n")
         record = self.start(step("odd"))
         self.assertEqual(record.stage("odd").state, "FAILED")
-        with open(os.path.join(record.run_dir, "odd", "01_odd.log")) as stream:
+        with open(os.path.join(record.run_dir, "logs", "odd", "01_odd.log")) as stream:
             self.assertIn("cannot be written as JSON", stream.read())
 
     def test_preflight_keeps_the_step_new(self):
@@ -147,7 +153,7 @@ class PythonStepTests(PythonStepTestCase):
         command = plan.commands[0]
         self.assertEqual(command.argv[0], sys.executable)
         self.assertTrue(command.argv[1].endswith("step_runner.py"))
-        self.assertEqual(command.argv[2], os.path.join("<run_dir>", "make", "context.json"))
+        self.assertEqual(command.argv[2], os.path.join("<run_dir>", "logs", "make", "context.json"))
         self.assertEqual(command.cwd, self.bundle)
         self.assertEqual(plan.notes, ())
         with self.assertRaises(PreflightError):  # the id is the step's directory: it is required

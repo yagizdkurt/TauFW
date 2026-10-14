@@ -16,14 +16,15 @@
 A python step may appear anywhere in a recipe and any number of times (each with its own id). It runs after the
 stages before it, in its own Python process (step_runner.py), in the bundle directory:
 
-    advance(): NEW ─▶ preflight ─▶ <run_dir>/<id>/context.json ─▶ python3 step_runner.py context.json
-                                                                   │  log: <run_dir>/<id>/01_<id>.log
-                                   DONE (message, artifacts) ◀─ ok ┴─ fails ─▶ FAILED (log tail)
+    advance(): NEW ─▶ preflight ─▶ <run_dir>/logs/<id>/context.json ─▶ python3 step_runner.py context.json
+                                                                        │  log: <run_dir>/logs/<id>/01_<id>.log
+                                   DONE (message, artifacts) ◀─ ok ─────┴─ fails ─▶ FAILED (log tail)
 
     inputs:   the artifacts of the stages its inputs name (ctx.input, ctx.artifacts), the step's options, the
               bundle files
     outputs:  what the function returns: a message and artifacts (dicts), saved in run.json; the step's own
-              files belong in ctx.stage_dir
+              files belong in ctx.stage_dir (<run_dir>/stages/<id>/); context.json, result.json and the log are
+              the Framework's and go to <run_dir>/logs/<id>/
     preflight: the file exists, it defines the function (checked with ast: nothing is imported), the options
               can be written as JSON
 
@@ -38,7 +39,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from TauFW.Utilities.Process import Command, CommandPlan, ProcessRunner, RunReport
-from TauFW.Framework.stages.base import spec_to_dict
+from TauFW.Framework.stages.base import StageContext, spec_to_dict
 from TauFW.Framework.stages.local import LocalStage
 
 __all__ = ['PythonStage', 'PythonSpec', 'StepRequest', 'STEP_RUNNER']
@@ -49,8 +50,8 @@ __all__ = ['PythonStage', 'PythonSpec', 'StepRequest', 'STEP_RUNNER']
 
 
 STEP_RUNNER = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'step_runner.py')
-CONTEXT_NAME = 'context.json'  # written to the step's directory before it runs
-RESULT_NAME = 'result.json'    # written by the step runner when the step succeeded
+CONTEXT_NAME = 'context.json'  # written to the step's log directory before it runs
+RESULT_NAME = 'result.json'    # written there by the step runner when the step succeeded
 
 
 # =============================================================================
@@ -73,11 +74,13 @@ class PythonStage(LocalStage):
             raise ValueError("a python step needs its stage id (the recipe's 'id')")
         if context.run_dir:
             stage_dir = os.path.abspath(context.stage_dir(stage_id))
+            log_dir = os.path.abspath(context.log_dir(stage_id))
         else:  # plan() before the run exists
-            stage_dir = os.path.join('<run_dir>', stage_id)
+            placeholder = StageContext(run_dir='<run_dir>', stage_id=stage_id)
+            stage_dir, log_dir = placeholder.stage_dir(), placeholder.log_dir()
         return StepRequest(stage_id=stage_id, file=os.path.abspath(spec.file), function=spec.function,
                            options=dict(spec.options), timeout=spec.timeout, run_dir=context.run_dir,
-                           stage_dir=stage_dir, bundle_dir=context.bundle_dir or os.path.dirname(
+                           stage_dir=stage_dir, log_dir=log_dir, bundle_dir=context.bundle_dir or os.path.dirname(
                                os.path.abspath(spec.file)),
                            upstream={key: list(value) for key, value in context.upstream.items()},
                            inputs=dict(context.inputs), pico_config=context.pico_config)
@@ -111,6 +114,7 @@ class PythonStage(LocalStage):
         """Write context.json, run the step, read result.json. Raises RuntimeError if the step succeeded but its
         result.json cannot be read (the step runner always writes a valid one)."""
         os.makedirs(request.stage_dir, exist_ok=True)
+        os.makedirs(request.log_dir, exist_ok=True)
         with open(request.context_file, 'w', encoding='utf-8') as stream:
             json.dump(request.context_dict(), stream, indent=2)
         plan = self.plan_commands(request)
@@ -176,6 +180,7 @@ class StepRequest:
     timeout:     Optional[float]
     run_dir:     str
     stage_dir:   str
+    log_dir:     str
     bundle_dir:  str
     upstream:    dict
     inputs:      dict = field(default_factory=dict)
@@ -183,11 +188,11 @@ class StepRequest:
 
     @property
     def context_file(self):
-        return os.path.join(self.stage_dir, CONTEXT_NAME)
+        return os.path.join(self.log_dir, CONTEXT_NAME)
 
     @property
     def result_file(self):
-        return os.path.join(self.stage_dir, RESULT_NAME)
+        return os.path.join(self.log_dir, RESULT_NAME)
 
     def context_dict(self):
         """The content of context.json (see step_runner.py)."""

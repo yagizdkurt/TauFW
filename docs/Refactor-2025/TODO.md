@@ -12,8 +12,9 @@ Items marked **(verify)** may already be done; check before working on them.
 
 ## 1. Checks to run on lxplus
 
-- [ ] **BBB after the recipe ids/inputs (CL §15):** `python3 Tests/run.py bbb check`: only `framework.production` may
-      differ, and only in its `plan` lines (`=== Stage production (production) ===`, `Inputs: none`); then
+- [ ] **BBB after the recipe ids/inputs and the run layout (CL §15, §16):** `python3 Tests/run.py bbb check`: only
+      `framework.production` may differ: its `plan` lines (`=== Stage production (production) ===`, `Inputs: none`)
+      and the recorded `run.json` (`"schema": 2`, the recipe's `id` and `inputs` keys); then
       `bbb lock --replace`. Also `taufw.py check` on the three bundles (`example_broken`: 4 problems, exit 1) and the
       menu once by eye (`example_broken` red, its problems in the preview).
 
@@ -190,9 +191,10 @@ Next-work proposals (not designed in detail yet):
 - [ ] B: replace `os.system` with checked calls in the Fitter scripts.
 - [ ] C: one output base per run. Plotter and Fitter outputs are shared between runs and overwritten; `--run-root`
       does not isolate them, and the summary scripts pick up working points of other runs. Agreed design (2026-10-14):
-      a stage's output is `<run_dir>/<stage_id>/` (logs move to `<run_dir>/logs/<stage_id>/`, a `manifest.json` per
+      a stage's output is `<run_dir>/stages/<stage_id>/` (logs in `<run_dir>/logs/<stage_id>/`, a `manifest.json` per
       stage), the scripts run with that directory as working directory, and the Framework links each input slot
-      (CL §15) to the output of the stage it names. Next: R2 (run directory layout), then R3 (read inventory of the
+      (CL §15) to the output of the stage it names. R2 (layout `logs/<id>/` + `stages/<id>/`, manifests) is done
+      (CL §16). Next: R3 (read inventory of the
       scripts' cwd-relative paths, API `outdir`/`inputs`, lxplus comparison with the shell scripts). Later: an input
       may also be a path (another run's stage directory), and a built-in stage may repeat.
 - [ ] D: condor for the local stages, and resume. Local stages cannot resume partway; Ctrl+C leaves a stage `NEW`

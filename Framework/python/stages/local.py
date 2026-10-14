@@ -61,7 +61,7 @@ class LocalStage(Stage):
         if problems:
             raise PreflightError("; ".join(problems))
         stage_id = context.stage_id or self.name
-        report = self.execute(request, context.stage_dir(stage_id), self._progress(reporter, stage_id))
+        report = self.execute(request, context.log_dir(stage_id), self._progress(reporter, stage_id))
         status = {'commands': [result.to_dict() for result in report.results]}
         if context.input_artifacts('tuples'):
             status['inputs'] = [artifact.get('path') for artifact in context.input_artifacts('tuples')]
