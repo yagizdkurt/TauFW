@@ -45,8 +45,8 @@ Done: `parallel`, `LoadingBar` (§15), `math` (§16), `Table` (§17). Rules for 
 - deleting a `Tests/` script also means updating `Tests/inventory.json`, `Tests/migration.json` (+ the count in
   `check_harness.py`), `Tests/LEGACY_BROKEN_CASES.md` and `Tests/README.md`; editing a moved test needs an
   `edited` note in `migration.json`;
-- `Utilities/IOInventory.md` has hand edits (author line, `LegacyAnalyses/` rows, which the generator misses while
-  `LegacyAnalyses/` is untracked): patch it by hand, or move those edits into `_audit_io.py` first.
+- `Utilities/IOInventory.md` has hand edits (author line, `Legacy/OldAnalysis/` rows, which the generator misses while
+  `Legacy/OldAnalysis/` is untracked): patch it by hand, or move those edits into `_audit_io.py` first.
 
 | Module | Importers (approx.) | Obstacles |
 |---|---|---|
@@ -103,7 +103,7 @@ Each changes logs, so do each in its own commit, with a BBB re-lock where a base
 - [ ] `Plotter/python/plot/string.py` re-exports the label helpers of `labels.py` for its star-importers
       (`Variable.py`, `Sample.py`, `Selection.py`); import them explicitly there.
 - [ ] `PicoProducer/utils/compare{Nano,Pico}.py` (Python 2) still import the Plotter's `Variable`; give them a plain
-      string axis or move them to `LegacyAnalyses/`. Not on any production path.
+      string axis or move them to `Legacy/OldAnalysis/`. Not on any production path.
 
 **Quirks frozen in BBB baselines** (PicoProducer plan):
 
@@ -118,8 +118,8 @@ Each changes logs, so do each in its own commit, with a BBB re-lock where a base
 - [ ] Corrections: C01, C02 (cosmetic), C03, C04, C05, C06, C07, C08, C09 (latent), C11 (layering), C12, C13 (latent).
 - [ ] **Blocking for Part 6:** a `pico.channel_tau_pair` BBB case based on `ModuleTauPair` (larger synthetic NanoAOD
       plus jsonpog/TauIDSFs payloads). Every A/C fix must be checked against it.
-- Moved, not fixed: A11 (`LegacyAnalyses/2016-2017/CheckMuTrigger.py`), C10 (`legacy/corrections/PreFireTool.py`),
-  W03 (`LegacyAnalyses/2018/dumpGen.py`). Won't fix: P15, S16, W01.
+- Moved, not fixed: A11 (`Legacy/OldAnalysis/2016-2017/CheckMuTrigger.py`), C10 (`legacy/corrections/PreFireTool.py`),
+  W03 (`Legacy/OldAnalysis/2018/dumpGen.py`). Won't fix: P15, S16, W01.
 
 **Fitter** ([BUGS.md](../Fitter/BUGS.md)), registered only, options 4–6 of the workflow:
 
@@ -219,14 +219,14 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
 - [ ] Use Utilities (`FileIO`, `CLI`) at the I/O sites listed in [IOInventory.md](../../Utilities/IOInventory.md);
       today only the Framework, the Fitter/Plotter APIs and three PicoProducer files use them.
 - Archived files with known defects (`takeZmu.py`, `plot_mvis_uncorr_corr.py`, the g-2 macros): fix only if revived
-  ([LegacyAnalyses/README.md](../../LegacyAnalyses/README.md), [LegacyCode.md](../LegacyCode.md)).
+  ([Legacy/OldAnalysis/README.md](../../Legacy/OldAnalysis/README.md), [LegacyCode.md](../LegacyCode.md)).
 
 ## 9. Docs
 
 - [ ] Changelog sections for commits that have none **(verify)**: `b61700f` (`sample_monitor.py` deleted), `e8400fc`
       (`runTESvar.py`, `runShapevar.py` deleted), `cd735b6` (`getTESvariations.py`, `nanoV10branch.txt`, TESvar shell
-      scripts), `623a040`/`d801879` (`LegacyAnalyses/` by year), `d5db827` (`LegacyCode.md`, `HowToCodeGood.md`),
+      scripts), `623a040`/`d801879` (`Legacy/OldAnalysis/` by year), `d5db827` (`LegacyCode.md`, `HowToCodeGood.md`),
       `749dfb3`/`b8309cb` (console menu).
 - [ ] Two changelog sections are numbered 9; §12 onwards have no `---` separators. Cosmetic.
 - [ ] CL §6 says the forks and generator studies moved to `PicoProducer/python/legacy/`; several are now in
-      `LegacyAnalyses/` (A11, W03). Add a note if wanted.
+      `Legacy/OldAnalysis/` (A11, W03). Add a note if wanted.

@@ -4,4 +4,4 @@ Unmaintained modules and ROOT macros that were under `Plotter/python/`, moved he
 path relative to `python/` and stay importable as `TauFW.Plotter.legacy.*`
 (e.g. `TauFW.Plotter.legacy.methods.JetToTau_MisID`).
 
-The list of files, the reason for each, and usage notes are in [Plotter/Legacy/README.md](../../Legacy/README.md).
+The list of files, the reason for each, and usage notes are in [Legacy/Plotter/README.md](../../../Legacy/Plotter/README.md).

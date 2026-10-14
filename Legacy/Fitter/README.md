@@ -1,15 +1,15 @@
 # Fitter legacy area
 
 This folder holds Fitter scripts that are broken, superseded, or no longer used by any workflow.
-They were moved here on 2026-10-13 instead of being deleted (see
+They were archived in `Fitter/Legacy/` on 2026-10-13 instead of being deleted, then moved here on 2026-10-14 (see
 [docs/Refactor-2025.md](../../docs/Refactor-2025/Refactor-2025.md#8-fitter-cleanup-legacy-area)). Each file keeps its original
-path relative to `Fitter/`, so `Legacy/TauES/doTES.sh` was `TauES/doTES.sh`.
+path relative to `Fitter/`, so `Legacy/Fitter/TauES/doTES.sh` was `Fitter/TauES/doTES.sh`.
 
 **These files are not maintained.** Many did not run even before the move. Relative paths, `#include`s and
 same-directory imports such as `from utils import *` were **not** updated, so a script may also fail from its new
 location. If you need one, move it back and fix it first.
 
-Unused modules from the `TauFW.Fitter` Python package are in [../python/legacy/](../python/legacy/) instead, where they
+Unused modules from the `TauFW.Fitter` Python package remain in [Fitter/python/legacy/](../../Fitter/python/legacy/), where they
 can still be imported as `TauFW.Fitter.legacy.*`.
 
 ## Contents
@@ -36,8 +36,8 @@ can still be imported as `TauFW.Fitter.legacy.*`.
 | `ETauFR/Plotter/PlotShapes.C`, `FastPlot.sh` | Marked "deprecated" in the ETauFR README | `ETauFR/Plotter/plotpostfit.py` |
 | `HighPT/combine_logger.out` | Combine log output that was committed by mistake | — |
 | `paper/postfit.sh` | Calls the removed `writecards.py` | — |
-| `../python/legacy/models/TagAndProbeModel.py` | Not referenced | — |
+| `Fitter/python/legacy/models/TagAndProbeModel.py` (outside this folder) | Not referenced | — |
 
 ## One-off analysis archive
 
-Independent analysis studies were moved to [`LegacyAnalyses/`](../../LegacyAnalyses/README.md) on 2026-10-13. Their current locations, purposes and path requirements are documented there. The table above describes files remaining in this component archive.
+Independent analysis studies were moved to [`Legacy/OldAnalysis/`](../OldAnalysis/README.md) on 2026-10-13 and consolidated here on 2026-10-14. Their current locations, purposes and path requirements are documented there. The table above describes files remaining in this component archive.

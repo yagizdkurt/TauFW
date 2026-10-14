@@ -500,7 +500,7 @@ before committing.
 ## 8. Fitter cleanup: legacy area
 
 **Date:** 2026-10-13
-**Details:** [Fitter/Legacy/README.md](../Fitter/Legacy/README.md)
+**Details:** [Legacy/Fitter/README.md](../../Legacy/Fitter/README.md)
 
 ### What changed
 
@@ -551,7 +551,7 @@ before committing.
 ## 9. Plotter cleanup: legacy area
 
 **Date:** 2026-10-13
-**Details:** [Plotter/Legacy/README.md](../Plotter/Legacy/README.md)
+**Details:** [Legacy/Plotter/README.md](../../Legacy/Plotter/README.md)
 
 ### What changed
 
@@ -575,7 +575,7 @@ before committing.
   `TauFW.Plotter.methods`, so `JetToTauFR/plot_forTauFR.py` now imports `TauFW.Plotter.legacy.methods.JetToTau_MisID`
   explicitly before using `method='JetToTau_MisID'`. None of these modules was imported by maintained code.
 - References updated: the CMSDAS2020 and CMSPODAS23 school pages in `docs/` now link to the `Legacy/` copies
-  (command examples become `./Legacy/plots_and_histograms_CMSDAS2020.py`); two relative links in the moved
+  (command examples become `../Legacy/Plotter/plots_and_histograms_CMSDAS2020.py`); two relative links in the moved
   JetToTauFR README; a link to `Legacy/` in `Plotter/README.md`. New `Plotter/Legacy/README.md` lists the reason for
   each file (both areas); `Plotter/python/legacy/README.md` points to it.
 - `Utilities/IOInventory.md` regenerated (only the Plotter paths changed).
@@ -1235,7 +1235,7 @@ same inputs.
 - `PicoProducer/python/storage/validation.py` (`itervalid`, `iterevts`): `partition`.
 - `Plotter/python/plot/Plot.py`: `magnitude`, `columnize`, `scale_vector`; `ceil`, `log10` from `math`.
 - `Plotter/python/sample/Sample.py`: `relative_difference`.
-- `Fitter/Zpt/validateZpt.py` and the legacy script `LegacyAnalyses/YearIndependent/plot_GENSIM.py`: `float_range`.
+- `Fitter/Zpt/validateZpt.py` and the legacy script `Legacy/OldAnalysis/YearIndependent/plot_GENSIM.py`: `float_range`.
 - `Fitter/Zpt/measureZpt.py`: unused `scalevec` import removed.
 - `Tests/BBB/cases.py` (`common.chunking`), `Tests/PicoProducer/testEventBased.py` (its `Tests/migration.json`
   `edited` note updated).
@@ -1390,7 +1390,7 @@ How the output stays the same:
 About 55 files, imports only: the Plotter (`sample/`, `plot/Variable|Selection|Context|string`, `plot.py`,
 `plot_postfit*.py`, `plot_v10.py`, `tutorial/`, `Legacy/`, `python/legacy/`), the Fitter (`python/plot/`,
 `createinputs*`, `Zpt/`, `tutorial/`, `ETauFR/Plotter/`, `plot_measurements.py`), PicoProducer
-(`utils/compare{Nano,Pico}.py`, `data/pileup/getPileupProfiles.py`), `LegacyAnalyses/`, `Tests/Plotter/` (16 scripts,
+(`utils/compare{Nano,Pico}.py`, `data/pileup/getPileupProfiles.py`), `Legacy/OldAnalysis/`, `Tests/Plotter/` (16 scripts,
 `edited` notes in `Tests/migration.json`) and the BBB case (`_drawing_modules()` only).
 `Utilities/IOInventory.md`: the rows of the 7 moved files are gone (the audit does not scan Utilities), and line
 numbers of the touched callers are updated; merged into the hand-edited file, not regenerated.
@@ -1421,3 +1421,14 @@ drawing library no longer imports `common`, so `hist_tools.py` now sets the same
 `python3 Tests/run.py bbb check`: every case must pass unchanged, `drawing.canvas` included (no re-lock). Its case
 imports only the drawing library, not the Plotter's sample code as the old `SampleStyle` import did, so a pass also
 shows that the drawing code no longer depends on that import. Then `python3 Tests/run.py normal`.
+
+
+## Root legacy archive consolidation
+
+**Date:** 2026-10-14
+
+- `LegacyAnalyses/` moved to `Legacy/OldAnalysis/`.
+- `Fitter/Legacy/` and `Plotter/Legacy/` moved to `Legacy/Fitter/` and `Legacy/Plotter/`, preserving internal structure.
+- Component `python/legacy/` packages remain in place to preserve imports.
+- Archive documentation, inventories, school links and command examples now use the new locations.
+- Archived source and configuration bytes are unchanged; existing runtime defects remain.

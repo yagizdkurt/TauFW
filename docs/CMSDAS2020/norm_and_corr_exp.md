@@ -9,7 +9,7 @@ the impact of improvements and corrections to be applied to step by step for a b
 Expect to play around most of your time with the tools introduced in this section, as well as with the analysis module
 [ModuleMuTau](../../PicoProducer/python/analysis/CMSDAS2020/ModuleMuTau.py), which you will need to adapt step by step and start reproducing the outputs :).
 
-The main script for the tasks considered and discussed within this section is [plots_and_histograms_CMSDAS2020.py](../../Plotter/Legacy/plots_and_histograms_CMSDAS2020.py)
+The main script for the tasks considered and discussed within this section is [plots_and_histograms_CMSDAS2020.py](../../Legacy/Plotter/plots_and_histograms_CMSDAS2020.py)
 
 It is constructed to produce nice plots of distributions of various quantities, like the visible mass of the &tau;&tau; system, m<sub>vis</sub>, and to create histograms
 for further processing with CombineHarvester. The distribution plots, often referred to as **control plots**, are used to examine the agreement between data and expected
@@ -31,10 +31,10 @@ To run the plot and histogram production script, please use the following comman
 cd ${CMSSW_BASE/src}/TauFW/Plotter/
 
 # In case you obtained your flat n-tuples from batch submission
-./Legacy/plots_and_histograms_CMSDAS2020.py -c mutau -y 2018
+../Legacy/Plotter/plots_and_histograms_CMSDAS2020.py -c mutau -y 2018
 
 # In case you produced your flat n-tuples locally (via parallelized script, for example). Here, you need to specify a custom pattern for your output files
-./Legacy/plots_and_histograms_CMSDAS2020.py -c mutau -y 2018 --picopattern "${CMSSW_BASE}/src/TauFW/PicoProducer/output/pico_\$CHANNEL_\$ERA_\$SAMPLE.root"
+../Legacy/Plotter/plots_and_histograms_CMSDAS2020.py -c mutau -y 2018 --picopattern "${CMSSW_BASE}/src/TauFW/PicoProducer/output/pico_\$CHANNEL_\$ERA_\$SAMPLE.root"
 ```
 
 If everything works out properly, you should obtain plots in the `${CMSSW_BASE}/src/TauFW/Plotter/plots/2018/` folder and a histogram in the `${CMSSW_BASE}/src/TauFW/Plotter/hists/2018/` folder.
@@ -77,7 +77,7 @@ a weight with the same absolute value - often just 1.0 or the generator cross-se
 
 N<sub>eff</sub> = N(+) - N(-) = N<sub>sim</sub> - 2 &middot; N(-) = N<sub>sim</sub> &middot; ( 1 - 2 &middot; f ), with f being the fraction of negative events.
 
-This explains the setup of different samples in [plots_and_histograms_CMSDAS2020.py](../../Plotter/Legacy/plots_and_histograms_CMSDAS2020.py), e.g. for the Drell-Yan production:
+This explains the setup of different samples in [plots_and_histograms_CMSDAS2020.py](../../Legacy/Plotter/plots_and_histograms_CMSDAS2020.py), e.g. for the Drell-Yan production:
 
 ```python
     # GROUP NAME                     TITLE                 XSEC [pb]      effective NEVENTS = simulated NEVENTS * ( 1  - 2 * negative fraction)
@@ -89,7 +89,7 @@ This explains the setup of different samples in [plots_and_histograms_CMSDAS2020
 If you execute the plotting script with an increased verbosity:
 
 ```sh
-./Legacy/plots_and_histograms_CMSDAS2020.py -c mutau -y 2018 --verbose 2
+../Legacy/Plotter/plots_and_histograms_CMSDAS2020.py -c mutau -y 2018 --verbose 2
 ```
 
 you will see the total normalization factor:
@@ -167,7 +167,7 @@ and leave it running over night.
 Alternatively, you can have at the values stored on [XSDB](https://cms-gen-dev.cern.ch/xsdb/) by searching for the appropriate "process_name" and activating "process_name", "DAS", and "fraction_negative_weight" to check, that it is the right sample and its fraction of negativ events. Since this database is not updated regurarly, it might well be, that this information is outdated and not available for the recent "DAS" names.
 
 Side remark: all the needed numbers for cross-sections, numbers of simulated events, and the fractions of negative events are already integrated into the
-[plots_and_histograms_CMSDAS2020.py](../../Plotter/Legacy/plots_and_histograms_CMSDAS2020.py). The instructions above are for your information and later reference.
+[plots_and_histograms_CMSDAS2020.py](../../Legacy/Plotter/plots_and_histograms_CMSDAS2020.py). The instructions above are for your information and later reference.
 
 In case of data, there are no adaptions to be made. The only thing to be done is the selection of the appropriate sample for the considered final state.
 For &mu;&tau;<sub></sub>, the setup look as follows:
@@ -184,7 +184,7 @@ datasample = ('Data',dataset) # Data for chosen channel
 
 After having defined each contribution, it is often good to summarize multiple contributions into one. For example, since we are not interested in the individual
 contributions involving two of the bosons W or Z, but in an inclusive contribution of these processes in the first place.
-In the script [plots_and_histograms_CMSDAS2020.py](../../Plotter/Legacy/plots_and_histograms_CMSDAS2020.py), this is achieved with the following line:
+In the script [plots_and_histograms_CMSDAS2020.py](../../Legacy/Plotter/plots_and_histograms_CMSDAS2020.py), this is achieved with the following line:
 
 ```python
 sampleset.join('WW', 'WZ', 'ZZ', name='VV'  ) # Diboson
@@ -237,7 +237,7 @@ inclusive_cr_qcd = inclusive.replace("q_1*q_2<0","q_1*q_2>0") # inverting the op
 ```
 
 This is also done in the corresponding implementation of the background estimation method [QCD_OSSS.py](../../Plotter/python/methods/QCD_OSSS.py),
-which is used in the plotting script [plots_and_histograms_CMSDAS2020.py](../../Plotter/Legacy/plots_and_histograms_CMSDAS2020.py)
+which is used in the plotting script [plots_and_histograms_CMSDAS2020.py](../../Legacy/Plotter/plots_and_histograms_CMSDAS2020.py)
 after the definition of considered data samples and simulated samples, the selection, and the variables:
 
 ```python
@@ -272,7 +272,7 @@ in the analysis module [ModuleMuTau](../../PicoProducer/python/analysis/CMSDAS20
 ```
 
 Given that the analysis selection in the n-tuple is kept loose, a stricter selection can be applied at the level of the plotting script
-[plots_and_histograms_CMSDAS2020.py](../../Plotter/Legacy/plots_and_histograms_CMSDAS2020.py),
+[plots_and_histograms_CMSDAS2020.py](../../Legacy/Plotter/plots_and_histograms_CMSDAS2020.py),
 adding additional cut strings to the `selections` list, which contain the muon isolation `iso_1`.
 
 A stricter signal region requirement could be for example `iso_1 < 0.15`, while side-band region with a relaxed muon isolation condition could constructed accordingly
@@ -311,7 +311,7 @@ above and documenting the procedure with plots and graphics:
 ## Selection and variables
 
 As indicated already in the discussion about the QCD estimation, selection requirements can also be introduced in the plotting script
-[plots_and_histograms_CMSDAS2020.py](../../Plotter/Legacy/plots_and_histograms_CMSDAS2020.py).
+[plots_and_histograms_CMSDAS2020.py](../../Legacy/Plotter/plots_and_histograms_CMSDAS2020.py).
 
 In the process of trying out different cuts, it is more convenient to produce a set of loosely selected n-tuples containing all variables
 to be used in the selection, and then trying out different cuts by adding corresponding selection requirement to the list of `selections`:
@@ -375,7 +375,7 @@ The corresponding histograms are already included in the software framework:
 This means, that you would need to introduce a new weight quantity `pileupWeight` to the analysis module
 [ModuleMuTau](../../PicoProducer/python/analysis/CMSDAS2020/ModuleMuTau.py) by dividing the two histograms after having normalized them to unity, and extracting
 the appropriate weight using the `Pileup_nTrueInt` quantity from the simulated NanoAOD input sample. In the next step, extend the weight applied to all simulated
-samples in [plots_and_histograms_CMSDAS2020.py](../../Plotter/Legacy/plots_and_histograms_CMSDAS2020.py) accordingly.
+samples in [plots_and_histograms_CMSDAS2020.py](../../Legacy/Plotter/plots_and_histograms_CMSDAS2020.py) accordingly.
 
 You can demonstrate the effect of the reweighting by having a look at the control plots of the two quantities affected by this correction:
 
@@ -449,7 +449,7 @@ selection choices to apply the corrections consistently.
 Please introduce two weights `idWeight` and `isoWeight` to the analysis module
 [ModuleMuTau](../../PicoProducer/python/analysis/CMSDAS2020/ModuleMuTau.py) by extracting the weights from the histograms using the p<sub>T</sub> and &eta; of the muon
 from the &mu;&tau;<sub>h</sub> pair. As for the pileup weight before, please extend the total weight applied to all simulated
-samples in [plots_and_histograms_CMSDAS2020.py](../../Plotter/Legacy/plots_and_histograms_CMSDAS2020.py) accordingly after having added the two weights to your n-tuples.
+samples in [plots_and_histograms_CMSDAS2020.py](../../Legacy/Plotter/plots_and_histograms_CMSDAS2020.py) accordingly after having added the two weights to your n-tuples.
 
 As you might already have guessed, the change of the correction can be demonstrated best with control plots of p<sub>T</sub> and &eta; of the muon.
 
@@ -480,7 +480,7 @@ only be computed for and applied to the simulated events of the Drell-Yan proces
 in a similar way as the sample type `dtype` in [ModuleMuTau.py](../../PicoProducer/python/analysis/CMSDAS2020/ModuleMuTau.py#L25).
 
 After having introduced a sample specific weight `zptWeight` to your Drell-Yan n-tuple, you can add it with the `extraweight` key into the dictionary of the Drell-Yan
-process in [plots_and_histograms_CMSDAS2020.py](../../Plotter/Legacy/plots_and_histograms_CMSDAS2020.py#L37-L38), as already done for `nevts`.
+process in [plots_and_histograms_CMSDAS2020.py](../../Legacy/Plotter/plots_and_histograms_CMSDAS2020.py#L37-L38), as already done for `nevts`.
 An example, how this can be done, is given in [samples.py](../../Plotter/config/samples.py#L19-L24).
 
 To demonstrate the change introduced by this correction, you can have a look at the control plots of the visible Z boson p<sub>T</sub>, computed from the p<sub>T</sub>

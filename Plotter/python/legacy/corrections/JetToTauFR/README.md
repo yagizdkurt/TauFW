@@ -19,7 +19,7 @@ All scripts and tools needed for perfoming Jet to Tau Fake Rate measurements are
 The goal of these measurements is to measure and compare the fake rate probability for a given jet
 faking a tau in both Data and MC.  In order to proceed with the FR measurements and plotting, one should
 first produce the dedicated pico tuple, using the analyzers in 
-['JetTauFakeRate'](../../../../../LegacyAnalyses/README.md)
+['JetTauFakeRate'](../../../../../Legacy/OldAnalysis/README.md)
 (unmaintained since 2022, kept in PicoProducer's `legacy/` area).
 
 ## Scripts and tools

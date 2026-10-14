@@ -8,6 +8,6 @@ cleanup; [`processors/`](../processors) now only forwards the old imports and sc
 * [`picojob.py`](picojob.py): Analyze nanoAOD events (input: nanoAOD, output: custom "pico" format, e.g. a flat tree).
 * [`Bookkeeper.py`](Bookkeeper.py): NanoAODTools module that keeps the total cutflow and weights of skims.
 * `keep_and_drop_*.txt`: branch selections of the skim, gen and sum-of-weights jobs.
-* The former `dumpGen.py` gen-level dumper now lives in [`LegacyAnalyses/2018/dumpGen.py`](../../../LegacyAnalyses/2018/dumpGen.py); use the `gen` channel ([`GenDumper`](../analysis/GenDumper.py)) instead.
+* The former `dumpGen.py` gen-level dumper now lives in [`Legacy/OldAnalysis/2018/dumpGen.py`](../../../Legacy/OldAnalysis/2018/dumpGen.py); use the `gen` channel ([`GenDumper`](../analysis/GenDumper.py)) instead.
 
 For instructions, please see [the PicoProducer README](../..#skimming).

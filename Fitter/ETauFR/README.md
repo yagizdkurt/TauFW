@@ -50,7 +50,7 @@ python ./Plotter/plotpostfit.py -c et -y ${era} -wp ${wp}
 
 --OLD--
 *The scripts of this old flow (`Fitting.sh`, `runAll.sh`, `doImpacts.sh`, `doImpacts2.sh`, `doFitPlots.sh`, `text2wp.sh`)
-were moved to [../Legacy/ETauFR/](../Legacy/ETauFR/). `Fitting.sh` calls the removed `compare.py`; use combine's `diffNuisances.py`.*
+were moved to [Legacy/Fitter/ETauFR/](../../Legacy/Fitter/ETauFR/). `Fitting.sh` calls the removed `compare.py`; use combine's `diffNuisances.py`.*
 
 The script `Fitting.sh` provides several commands to perform the fit and create post-fit histograms for plotting.
 Please, have a look at the script to understand where inputs and outputs of each command are stored.
@@ -67,7 +67,7 @@ python plotpostfit.py -c et -y <ERA> -w <Working Point>
 Plots are created automatically for both PASS and FAIL regions.
 
 #### Plotting code (deprecated)
-*`PlotShapes.C` and `FastPlot.sh` were moved to [../Legacy/ETauFR/Plotter/](../Legacy/ETauFR/Plotter/).*
+*`PlotShapes.C` and `FastPlot.sh` were moved to [Legacy/Fitter/ETauFR/Plotter/](../../Legacy/Fitter/ETauFR/Plotter/).*
 
 To create pre and post fit plots of the observable you have used into the fit, you can use the `PlotShapes.C` script into the `Plotter` folder.
 To create a single plot, you should set up (by hardcoding) era, eta range, and DeepTau WP, and you can choose Fail or Pass and pre-fit or post-fit plots in `PlotShapes.C`.

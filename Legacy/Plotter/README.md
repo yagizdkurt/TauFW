@@ -1,15 +1,15 @@
-# Plotter/Legacy
+# Legacy/Plotter
 
-These files are **unmaintained**. They were moved here on 2026-10-13 during the Plotter cleanup
+These files are **unmaintained**. They were archived in `Plotter/Legacy/` on 2026-10-13 during the Plotter cleanup
 (`Refactor-2025`, see [docs/Refactor-2025.md](../../docs/Refactor-2025/Refactor-2025.md#9-plotter-cleanup-legacy-area))
 instead of being deleted, so their code stays easy to find. Their Git history follows them
-(`git log --follow <file>`).
+(`git log --follow <file>`). The scripts and configurations moved to this root archive on 2026-10-14; Python package modules remain in `Plotter/python/legacy/`.
 
 There are two legacy areas:
 
-- **`Plotter/Legacy/`** (this folder): scripts and configs. Each keeps its path relative to `Plotter/`
-  (e.g. `config/samples_v10.py` → `Legacy/config/samples_v10.py`).
-- **[`Plotter/python/legacy/`](../python/legacy/)**: modules and ROOT macros that were under `Plotter/python/`.
+- **`Legacy/Plotter/`** (this folder): scripts and configs. Each keeps its path relative to `Plotter/`
+  (e.g. `Plotter/config/samples_v10.py` → `Legacy/Plotter/config/samples_v10.py`).
+- **[`Plotter/python/legacy/`](../../Plotter/python/legacy/)**: modules and ROOT macros that were under `Plotter/python/`.
   They keep their path relative to `python/` (e.g. `methods/JetToTau_MisID.py` → `legacy/methods/JetToTau_MisID.py`),
   so they stay **importable** as `TauFW.Plotter.legacy.*`. Their imports of each other were updated to the new
   package path. Macros are loaded from the new path, e.g. `loadmacro("python/legacy/corrections/zptweight.C")`.
@@ -34,7 +34,7 @@ Notes:
 | `config/samples_Summer24.py` | 2026-03-11 | Unused variant of `samples_v12.py` |
 | `config/samples_Summer24v15.py` | 2026-03-11 | Unused predecessor of `samples_v15.py` (no 2026 / 2526 eras) |
 | `config/setup_mutau_v10_2p5.yml` | 2023-03-20 | NanoAOD v10 / DeepTau2p5 mutau setup; no references |
-| `python/legacy/corrections/JetToTauFR/` (README, 4 scripts, `tools/`) | 2023-05-31 | Jet→τ fake-rate workflow (UL2018). Python 2 code (`StringIO`, implicit relative imports, `raw_input`), personal AFS `sys.path`; its independent PicoProducer analyzers are in `LegacyAnalyses/README.md` |
+| `python/legacy/corrections/JetToTauFR/` (README, 4 scripts, `tools/`) | 2023-05-31 | Jet→τ fake-rate workflow (UL2018). Python 2 code (`StringIO`, implicit relative imports, `raw_input`), personal AFS `sys.path`; its independent PicoProducer analyzers are in `Legacy/OldAnalysis/README.md` |
 | `python/legacy/methods/JetToTau_MisID.py` | 2022-08-11 | Sample method used only by `JetToTauFR/plot_forTauFR.py`; imports `JetToTauFR/tools/fakeFactors.py` |
 | `python/legacy/methods/ScaleVariations.py` | 2023-05-28 | Adds `Sample.getenvelope_scalevars`, which nothing calls; cannot be loaded via `method=` (no attribute of the same name) |
 | `python/legacy/methods/QCD.C` | 2020-07-13 | Only referenced in a commented-out line of `QCD_OSSS.py`; personal path |
@@ -49,4 +49,4 @@ Notes:
 
 ## One-off analysis archive
 
-Independent analysis studies were moved to [`LegacyAnalyses/`](../../LegacyAnalyses/README.md) on 2026-10-13. Their current locations, purposes and path requirements are documented there. The table above describes files remaining in this component archive.
+Independent analysis studies were moved to [`Legacy/OldAnalysis/`](../OldAnalysis/README.md) on 2026-10-13 and consolidated here on 2026-10-14. Their current locations, purposes and path requirements are documented there. The table above describes files remaining in this component archive.

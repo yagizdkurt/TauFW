@@ -22,6 +22,6 @@ See [the README.md in the parent directory](../../../#taufw).
 ## Running the fit:
 
 The TES-only fit (`doTES.sh`, `harvestDatacards_TES.py`, `makeFitTES.py`) is no longer maintained.
-Its remaining scripts are in [../Legacy/TauES/](../Legacy/TauES/).
+Its remaining scripts are in [Legacy/Fitter/TauES/](../../Legacy/Fitter/TauES/).
 The current measurement is the combined TES + TauID fit; see
 [../TauES_ID/README_2DTES_TauID_Fit.md](../TauES_ID/README_2DTES_TauID_Fit.md).

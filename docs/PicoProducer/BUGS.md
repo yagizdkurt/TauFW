@@ -74,7 +74,7 @@ the baseline, and fixing it changes that baseline on purpose.
 |---|---|---|---|---|---|---|---|
 | W01 | `workers/skimjob.py:24` (was `processors/`) | `-E/--opts` is parsed and never used | latent | no | S5 | Won't fix (Part 5B): pico.py passes the same `--opts` to every worker; skimjob accepts and ignores them | none |
 | W02 | `workers/picojob.py:3` (was `processors/`) | Description line was copied from skimjob | latent | no | S5 | Part 5B: the description says what picojob.py does | none |
-| W03 | `processors/dumpGen.py` | Not referenced anywhere | latent | no | S2 | moved to `LegacyAnalyses/2018/dumpGen.py` (not fixed) | none |
+| W03 | `processors/dumpGen.py` | Not referenced anywhere | latent | no | S2 | moved to `Legacy/OldAnalysis/2018/dumpGen.py` (not fixed) | none |
 
 ## Analysis modules and writers
 
@@ -90,7 +90,7 @@ the baseline, and fixing it changes that baseline on purpose.
 | A08 | `analysis/utils.py:294,348` | `getmet`/`getmetfilters` always print, ignoring `verb` | wrong (cosmetic) | no | S6 | | |
 | A09 | `analysis/utils.py:355` | `loosestIso` hard-codes DeepTau2017v2p1 | wrong | no | S6 | | |
 | A10 | `analysis/Run3_DEV/ModuleMuTau.py:34,44` | No trigger for 2025 (`self.trigger` unset); `self.muSFs = 1` for 2024 | crash | no | S6 | | |
-| A11 | `LegacyAnalyses/2016-2017/CheckMuTrigger.py:26` | Trigger threshold attributes are assigned but unused (hard-coded 24 GeV); `trigsf` stays 1.0 | wrong | no | S2 | moved to `legacy/` (not fixed) | none |
+| A11 | `Legacy/OldAnalysis/2016-2017/CheckMuTrigger.py:26` | Trigger threshold attributes are assigned but unused (hard-coded 24 GeV); `trigsf` stays 1.0 | wrong | no | S2 | moved to `legacy/` (not fixed) | none |
 | A12 | `ModuleTauPair.py:51` and variants | `recoil` option is stored, but the tool and calls are commented out | latent | no | S6 | | |
 | A13 | `import *` chains (now only in `legacy/`) | `datadir` is rebound by BTagTool/PileupTool/JetVetoMapTool/TauTriggerSFs and leaks through star imports. JetTauFakeRate works around it with `replace("/pileup","")`. Session 2 replaced every star import outside `legacy/` by explicit imports of the *same* objects: all maintained modules see the base `datadir`, as before | wrong | no | S6 | | |
 | A14 | `analysis/ETauFakeRate/ModuleETau.py:172-174` | Uses an undefined name `fes` (`NameError` on that path); found while resolving star imports | crash | no | S6 | | |
@@ -193,7 +193,7 @@ Open bugs only (including won't-fix and moved-not-fixed); fixed ones are left ou
   (2023-10-13, "Change all bins in one loop ... -- not yet debugged, need nTuples with cutflow for this") changed it to
   `total_w = []` with `total_w[iSel] += ...` outside the inner loop. The commit message itself says it was never
   tested. Nobody noticed because the callers (`scripts/get_dataset_info.py`,
-  `LegacyAnalyses/2022/modify_cutflow_hist*.py`) are one-off scripts, and the JSON was made with the working version.
+  `Legacy/OldAnalysis/2022/modify_cutflow_hist*.py`) are one-off scripts, and the JSON was made with the working version.
 - **A08** `getmet`/`getmetfilters` have printed regardless of `verb` since commit `ac73d84` (2023-12-09, "update
   metfilter"). That commit added Run 3 MET-filter handling and, under the existing `if verb>=1: LOG.verb(...)` lines,
   unconditional `print(">>> getmet: ...")` and `print(">>> getmetfilters: ...")`, probably leftover debug prints. Each

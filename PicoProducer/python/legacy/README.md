@@ -30,4 +30,4 @@ The tutorial module `analysis/CMSDAS2020/` was **not** moved, because `docs/CMSD
 
 ## One-off analysis archive
 
-Independent analysis studies were moved to [`LegacyAnalyses/`](../../../LegacyAnalyses/README.md) on 2026-10-13. Their current locations, purposes and path requirements are documented there. The table above describes files remaining in this component archive.
+Independent analysis studies were moved to [`Legacy/OldAnalysis/`](../../../Legacy/OldAnalysis/README.md) on 2026-10-13, then renamed and relocated on 2026-10-14. Their current locations, purposes and path requirements are documented there. The table above describes files remaining in this component archive.

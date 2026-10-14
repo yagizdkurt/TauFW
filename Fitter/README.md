@@ -36,6 +36,6 @@ Bugs found and fixed on this path: [docs/Fitter/BUGS.md](../docs/Fitter/BUGS.md)
 
 ## Legacy
 
-Broken, superseded or unused scripts were moved to [Legacy/](Legacy/README.md) (same relative paths),
+Broken, superseded or unused scripts are in [Legacy/Fitter/](../Legacy/Fitter/README.md) (same internal relative paths),
 and unused Python modules to `python/legacy/` (`TauFW.Fitter.legacy.*`).
 They are kept for reference and are not maintained.

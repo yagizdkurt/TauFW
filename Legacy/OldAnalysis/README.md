@@ -1,8 +1,8 @@
 # Legacy analysis archive
 
-For future additions and retirements, follow the [legacy code policy](../docs/LegacyCode.md).
+For future additions and retirements, follow the [legacy code policy](../../docs/LegacyCode.md).
 
-Archived on **2026-10-13**. This directory holds 33 one-off or retired analysis files whose relocation has no identified executable consumer in this checkout. It uses the existing `LegacyAnalyses/` name. These files are reference material; moving them does not certify that they run.
+Archived on **2026-10-13** as `LegacyAnalyses/`, then moved to `Legacy/OldAnalysis/` on **2026-10-14**. This directory holds 33 one-off or retired analysis files whose relocation has no identified executable consumer in this checkout. These files are reference material; moving them does not certify that they run.
 
 ## Layout and move decisions
 
@@ -34,7 +34,7 @@ Keep the original working directory when inspecting or adapting a script. Plotte
 
 ```bash
 cd Plotter
-PYTHONPATH=".:${PYTHONPATH}" python3 ../LegacyAnalyses/2016-2018/plot_differential.py --help
+PYTHONPATH=".:${PYTHONPATH}" python3 ../Legacy/OldAnalysis/2016-2018/plot_differential.py --help
 ```
 
 This is a path example, not a successful runtime check. Existing defects remain: `takeZmu.py` has an indentation error and an undefined `dm`; `plot_mvis_uncorr_corr.py` omits `import os`; some plotting scripts have missing initialization/imports; g-2 macros require external ROOT payloads at their original absolute paths. The tuple/cutflow repair scripts modify ROOT files when run, so they were not executed during this cleanup.

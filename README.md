@@ -8,6 +8,9 @@ Framework for tau analysis using NanoAOD at CMS. Three main packages are
 The [`Framework`](Framework) package runs these steps as one pipeline from a recipe file, see
 [Running a pipeline](#running-a-pipeline).
 
+Historical studies and retired component workflows are kept in the root
+[Legacy archive](Legacy/README.md).
+
 Run all automated tests quietly with `python3 Tests/run.py all` (see the
 [test setup and requirements](Tests/README.md#all-automated-tests-quiet-shortcut)).
 

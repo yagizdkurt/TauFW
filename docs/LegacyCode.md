@@ -6,7 +6,7 @@ should leave the next developer able to understand that reason without asking
 the original author.
 
 This policy describes how to retire code and commit historical scripts. The
-[analysis archive](../LegacyAnalyses/README.md) lists archived analysis files;
+[analysis archive](../Legacy/OldAnalysis/README.md) lists archived analysis files;
 the [component legacy inventory](Refactor-2025/Legacy.md) lists code remaining
 in the component archives. Keep each file's inventory entry in one place.
 
@@ -48,24 +48,25 @@ maintained or invent an original path it never occupied.
 ## Where to put it
 
 Independent historical scripts belong directly inside a folder under
-`LegacyAnalyses/`, without component or analysis subfolders:
+`Legacy/OldAnalysis/`, without component or analysis subfolders:
 
 | Scope | Location | Assignment rule |
 | --- | --- | --- |
-| One data-taking year | `LegacyAnalyses/2022/file.py` | Use input campaigns, era settings, payloads or recorded production commands. |
-| Several explicitly identified years | `LegacyAnalyses/2016-2018/file.py` | Use a range that accurately describes the covered years. |
-| Multiple campaigns that do not fit a clear range | `LegacyAnalyses/MultiYear/file.py` | List the supported years explicitly in the banner and inventory. |
-| No dependence on a data-taking year | `LegacyAnalyses/YearIndependent/file.py` | For theoretical or general studies whose inputs do not require a campaign year. |
-| Insufficient campaign evidence | `LegacyAnalyses/UnknownYear/file.py` | Explain what is missing; do not guess from the authoring date or algorithm name. |
+| One data-taking year | `Legacy/OldAnalysis/2022/file.py` | Use input campaigns, era settings, payloads or recorded production commands. |
+| Several explicitly identified years | `Legacy/OldAnalysis/2016-2018/file.py` | Use a range that accurately describes the covered years. |
+| Multiple campaigns that do not fit a clear range | `Legacy/OldAnalysis/MultiYear/file.py` | List the supported years explicitly in the banner and inventory. |
+| No dependence on a data-taking year | `Legacy/OldAnalysis/YearIndependent/file.py` | For theoretical or general studies whose inputs do not require a campaign year. |
+| Insufficient campaign evidence | `Legacy/OldAnalysis/UnknownYear/file.py` | Explain what is missing; do not guess from the authoring date or algorithm name. |
 
 Store a file once. A multi-year tool should not be copied into every year
 folder. For a filename collision, choose a descriptive name such as
 `mutau_cutflow_repair.py`; avoid ambiguous suffixes such as `old2` or `final`.
 Keep required configurations alongside the script with descriptive filenames.
 
-Coupled retired packages are a different case. Existing component `Legacy/`
-and `python/legacy/` areas remain appropriate for modules, shared helpers,
-macros and configurations whose package structure matters. Check the actual
+Coupled retired workflows belong under the root `Legacy/<Component>/` archive,
+preserving their internal script and configuration structure. Python modules,
+shared helpers and macros whose package structure matters remain in the owning
+component's `python/legacy/` area. Check the actual
 imports before choosing a destination. Do not flatten a package if that breaks
 its consumers. Explain why it stays in the component archive; do not create
 another arbitrary archive directory to avoid making this decision.
