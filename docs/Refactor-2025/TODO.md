@@ -211,7 +211,7 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
 - [ ] Python 2 scripts kept for migration (CL §3): high priority `Fitter/ETauFR/writedatacard.py` (its
       `prefitFR.json` is read by `text2wp.py`), `Fitter/Zpt/utils.py`, `Fitter/Zpt/config/samples.py` (imported by
       `measureZpt*.py`, `validateZpt.py`); normal `Fitter/HighPT/createinputs.py`,
-      `PicoProducer/utils/{checkEvents,compareNano,comparePico,convertGENSIM,getDASParents}.py`.
+      `PicoProducer/utils/{checkEvents,convertGENSIM,getDASParents}.py`.
 - [ ] Stale references to removed scripts: `Fitter/TauID/README.md:57-58` (`plotfit.py`, `plotfit_dm.py`),
       `Fitter/ETauFR/README.md:63` (`paper/plotpostfit.py`).
 - [ ] Missing imports: `Fitter/MuTauFR/createinputs.py:11` (`TauFW.Plotter.plot.datacard`); Tau_Trigger_SF imports

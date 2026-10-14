@@ -85,18 +85,6 @@
       "roadmap_step": "4"
     },
     {
-      "file": "PicoProducer/utils/compareNano.py",
-      "module": "TauFW.Plotter.plot.Variable",
-      "reason": "Python 2 comparison utility still uses Plotter Variable; migrate or archive without changing production here.",
-      "roadmap_step": "2 follow-up / 5"
-    },
-    {
-      "file": "PicoProducer/utils/comparePico.py",
-      "module": "TauFW.Plotter.plot.Variable",
-      "reason": "Python 2 comparison utility still uses Plotter Variable; migrate or archive without changing production here.",
-      "roadmap_step": "2 follow-up / 5"
-    },
-    {
       "file": "Plotter/python/sample/utils.py",
       "module": "TauFW.PicoProducer.settings",
       "reason": "Sample helpers read PicoProducer configuration to locate tuples (A03).",
@@ -126,16 +114,6 @@
     },
     {
       "file": "PicoProducer/utils/checkEvents.py",
-      "reason": "Existing Python 2 print syntax; imports remain inspected with tokenizer/AST recovery.",
-      "roadmap_step": "5 / TODO section 8"
-    },
-    {
-      "file": "PicoProducer/utils/compareNano.py",
-      "reason": "Existing Python 2 print syntax; imports remain inspected with tokenizer/AST recovery.",
-      "roadmap_step": "5 / TODO section 8"
-    },
-    {
-      "file": "PicoProducer/utils/comparePico.py",
       "reason": "Existing Python 2 print syntax; imports remain inspected with tokenizer/AST recovery.",
       "roadmap_step": "5 / TODO section 8"
     },

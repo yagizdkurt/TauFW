@@ -1539,6 +1539,21 @@ patterns), L07 (`joincuts` does not bracket `(x)||y`).
 - The `plotter.*` BBB cases reach these functions through `Selection` and `Sample`; no baseline change is expected.
   Not run on lxplus yet (TODO §1).
 
+## 22. PicoProducer comparison scripts removed
+
+**Date:** 2026-10-14 (commit `d05d5cf`, by the user)
+
+`PicoProducer/utils/compareNano.py` and `comparePico.py` were deleted. They filled and drew histograms with the
+Plotter's `Variable` (`gethist`, `drawcmd`, `draw`): plotting work inside PicoProducer, and the last PicoProducer ->
+Plotter imports. Both were Python 2 (`print` statements), unparseable under Python 3, and called by nothing; comparing
+pico outputs between versions is what the BBB cases do.
+
+Follow-up cleanup: their two entries and two parse exemptions are removed from `Tests/import_boundary_allowlist.json`
+(reported stale); their sections from `PicoProducer/utils/README.md`; their rows from `Utilities/IOInventory.md`; their
+names from the Python 2 list in TODO §8. Coupling now: PicoProducer -> Plotter 0; Fitter -> Plotter 12 files / 14
+pairs; Plotter -> PicoProducer 1 file (`getconfig`, A03). `docs/Refactor-2025/dependencies/old-evidence.md` keeps its
+references as a record of the old state.
+
 ## Root legacy archive consolidation
 
 **Date:** 2026-10-14
