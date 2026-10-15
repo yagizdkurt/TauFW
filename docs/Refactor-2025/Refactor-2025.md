@@ -807,3 +807,54 @@ Framework unit tests (90) pass on Windows: log and output directories of every s
 stage and its absence for a failed one, production's directory with only the manifest, a python step's files split
 between `logs/` and `stages/`, ids `bundle`/`logs` now allowed and `..` refused, schema 1 refused. BBB
 `framework.production` records `run.json`, so `"schema": 2` adds to the §15 difference: one re-lock for both.
+
+---
+
+## 17. Framework: Plotter and Fitter outputs in the run directory (R3)
+
+**Date:** 2026-10-15
+**Details:** [Framework](../../Framework/README.md) "Run directory", [Analyses](../../Analyses/README.md) "Stage
+options" and "Outputs and logs", [scripts_arg_changes.md](scripts_arg_changes.md), Fitter BUGS F11-F24, Plotter
+BUGS L08-L11
+
+Third step of the recipe IO work: the plots, shapes and fit results of a run go to its stage directories, so runs
+no longer overwrite each other in `Plotter/` and `Fitter/`, and the summary scripts no longer pick up the working
+points of other runs. Plan and inventory of what the scripts read and write: `LocalR/architecture/10-r3-plan.md`.
+
+### What changed
+
+- **The Framework decides where a stage writes.** `LocalStage.output_dir(context)` is `<run_dir>/stages/<id>/`
+  (absolute; `'<run_dir>/stages/<id>'` in a plan). The plots, histograms and fit stages pass it to their module API
+  as `outdir`; the fit also gets `shapes_dirs`, the directory of each point's shapes, from the shapes artifacts of
+  its input stage (a recipe point without shapes there fails the stage before anything runs). There are no links
+  and no copies. `taufw.py plan` shows `Commands run in: <era>` for the fit.
+- **Module APIs** (`PlotsRequest`, `ShapesRequest`, `FitRequest`: new `outdir`; `FitRequest.shapes_dirs`). Without
+  `outdir` the commands are exactly those of the shell scripts, in `Plotter/` and `Fitter/` (the existing API tests
+  are unchanged). With it the scripts run there (the fit in `<outdir>/<era>/`, because several of its outputs have
+  no era in their names), scripts and configs are given as absolute paths, `$TAUFW_PICO_CONFIG` is absolute, the
+  directories inside the working directory stay relative as in the shell scripts (several scripts derive one from
+  another with `str.replace` on the whole path, Fitter BUGS F18), and a few options keep every output inside it
+  ([scripts_arg_changes.md](scripts_arg_changes.md)). Preflight refuses a non-empty output directory (an
+  interrupted attempt) and a relative `picodir` (`TauFW.Utilities.Process.output_dir_problems`).
+- **Scripts** (defaults unchanged): `makecombinedfitTES_SF.py --output_dir --plot_dir` (passed on as
+  `harvestDatacards_TES_idSF_MCStat.py --output_dir` and `plot2DScan_MultiDimFit.py --outdir`),
+  `make_tid_2025.py --sf-dir`; paths found from `__file__`: `plot.py` macro (L11), `createinputsTES.py` sample
+  config (F16), the two sub-scripts of `makecombinedfitTES_SF.py` (F15); `harvestDatacards_zmm.py` default output
+  directory (F14).
+- **Artifacts:** paths inside the stage directories. Plots: `nfiles` counts only this run's plots, with the setup's
+  tag (L08, L09); `plan` notes two setups that write the same file names (L10). Fit: the correction files of other
+  taggers are no longer listed (F22); with the summary step, a second `corrections` artifact per era for the
+  combined TES + ID file of `make_tid_2025.py` (`combined: true`); expected outputs added for
+  `plot_measurements.py` and `make_tid_2025.py`.
+- **Input slots and null:** a stage lists the slots that may be `null` and what `null` means
+  (`Stage.null_inputs`); `null` elsewhere is a recipe error, and `plan` shows the meaning. The fit's
+  `{shapes: null}` (the shapes in `Fitter/`) is a documented temporary exception.
+
+### Tests
+
+On Windows: Framework 94, Plotter API 11, Fitter API 18, Utilities process 17 pass. New cases: the commands, working
+directories, artifacts and preflight problems with an output directory (both APIs), two eras in two directories, a
+point without shapes in the input stage, null shapes reading `Fitter/`, a slot that does not allow null, the
+output-directory check. **Not yet run on lxplus:** there are no 2025 pico tuples there yet. The comparison with
+the shell scripts (shell before/after with the defaults, then the Framework run; `FitparameterValues__mutau_*`,
+`tau_sf/*VSjetVTight_VSeleTight*`) and `bbb check` (no baseline should change) are open (TODO §6 C).

@@ -88,6 +88,12 @@ class PipelineTests(LocalStageTestCase):
         self.assertIs(self.fitter.call("preflight_fit")[1], False)  # the shapes come from the histograms stage
         self.assertEqual(fit_request["points"], (("2025", "VTight", "Tight"), ("2025", "Tight", "Tight")))
         self.assertEqual(fit_request["steps"], ("fit", "corrections"))
+        # the Framework gives each stage its directory, and the fit the directory of each point's shapes
+        stages = os.path.join(record.run_dir, "stages")
+        self.assertEqual(self.fitter.call("make_shapes")[0]["outdir"], os.path.join(stages, "histograms"))
+        self.assertEqual(fit_request["outdir"], os.path.join(stages, "fit"))
+        self.assertEqual(fit_request["shapes_dirs"], (("2025", "VTight", "Tight", "/fit"),
+                                                      ("2025", "Tight", "Tight", "/fit")))
         self.assertEqual(len(record.stage("fit").last_status["commands"]), 2)
         # status shows the fitted values, read from run.json
         live = fw.status(record).stages[3].live
@@ -144,6 +150,14 @@ class PipelineTests(LocalStageTestCase):
         self.assertIs(self.fitter.call("preflight_fit")[1], True)  # shapes: null: check the shapes on disk
         self.assertEqual(self.fitter.call("fit")[0]["points"],
                          (("2025", "Medium", "VVLoose"), ("2025", "Tight", "VVLoose")))
+        self.assertEqual(self.fitter.call("fit")[0]["shapes_dirs"], ())  # null: the scripts read Fitter/
+
+    def test_fit_point_without_shapes_in_the_input_stage_fails(self):
+        fit = connected(dict(FIT, eras=["2025"], jet_wps=["Loose"], ele_wps=["Tight"]), shapes="histograms")
+        record = self.framework(HISTOGRAMS, fit).start(run_root=self.root)
+        self.assertEqual(record.stage("fit").state, "FAILED")
+        self.assertIn("no shapes of 2025 Loose/Tight in stage 'histograms'", record.stage("fit").message)
+        self.assertNotIn("fit", self.fitter.names())
 
     def test_fit_needs_shapes_of_both_configs(self):
         histograms = dict(HISTOGRAMS, configs=[TT])  # no mumu shapes
@@ -323,6 +337,15 @@ class CommandLineTests(LocalStageTestCase):
         command = Command("plots", (sys.executable, "plot.py"), "/repo/Plotter",
                           env=(("TAUFW_PICO_CONFIG", "/b/pico.json"),))
         self.assertEqual(self.cli._command_line(command), "TAUFW_PICO_CONFIG=/b/pico.json python3 plot.py")
+
+    def test_commands_in_subdirectories_are_named(self):  # the fit: the scripts of each era run in <stage>/<era>
+        from TauFW.Utilities.Process import Command, CommandPlan
+        base = os.path.join("<run_dir>", "stages", "fit")
+        plan = CommandPlan(base, tuple(Command("fit %s" % era, ("python3", "x.py"), os.path.join(base, era))
+                                       for era in ("2025", "2024")))
+        self.cli._show_commands(self.reporter, plan)
+        self.assertIn("Commands run in: 2025, 2024 (relative to the working directory)",
+                      [text for kind, text in self.reporter.messages if kind == "message"])
 
 
 if __name__ == "__main__":

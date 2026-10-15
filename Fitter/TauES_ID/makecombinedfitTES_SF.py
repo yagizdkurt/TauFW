@@ -83,11 +83,14 @@ def find_boost_params(fit_result_file, poi1_name, poi2_name, threshold=0):
     return ",".join(parts) if parts else None
 
 # Generating the datacards for mutau channel
-def generate_datacards_mutau(era, config, extratag,input_dir):
+def generate_datacards_mutau(era, config, extratag,input_dir,output_dir=None):
     print(' >>>>>> Generating datacards for mutau channel')
     # BUGS F04: an `input_file` lookup in locals()/globals() was removed here; it never found a value (and
     # harvestDatacards_TES_idSF_MCStat.py has no --input_file option), so the datacards always came from input_dir
-    os.system("python3 TauES_ID/harvestDatacards_TES_idSF_MCStat.py -y %s -c %s -e %s -i %s" % (era, config, extratag, input_dir))
+    # BUGS F15: the script is found next to this one, not relative to the working directory
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "harvestDatacards_TES_idSF_MCStat.py")
+    outopt = " --output_dir %s"%(output_dir) if output_dir else "" # else the cards go next to the input tree
+    os.system("python3 %s -y %s -c %s -e %s -i %s%s" % (script, era, config, extratag, input_dir, outopt))
 
 # Generating the datacards for mumu channel
 def generate_datacards_mumu(era, config_mumu, extratag, output_dir):
@@ -174,12 +177,14 @@ def run_combined_fit(setup, setup_mumu, option, **kwargs):
     config_mumu  = kwargs.get('config_mumu',  "")
     mumu_input_file = kwargs.get('mumu_input_file', None)  # Add this line
     input_dir   = kwargs.get('input_dir')
-    # build output_dir from input_dir but avoid duplicating the era if input_dir already ends with it
-    base_out = input_dir.replace('input', 'output')
-    if os.path.basename(os.path.normpath(input_dir)) == era:
-        output_dir = os.path.normpath(base_out)
-    else:
-        output_dir = os.path.join(os.path.normpath(base_out), era)
+    output_dir  = kwargs.get('output_dir', None)
+    if output_dir is None:  # derived from input_dir (BUGS F18); --output_dir gives it when the input is elsewhere
+        # build output_dir from input_dir but avoid duplicating the era if input_dir already ends with it
+        base_out = input_dir.replace('input', 'output')
+        if os.path.basename(os.path.normpath(input_dir)) == era:
+            output_dir = os.path.normpath(base_out)
+        else:
+            output_dir = os.path.join(os.path.normpath(base_out), era)
     # convert to absolute path & create it to prevent nested directories when changing cwd
     output_dir = os.path.abspath(output_dir)
     os.makedirs(output_dir, exist_ok=True)
@@ -523,6 +528,7 @@ def plotScan(setup, setup_mumu, option, **kwargs):
     era          = kwargs.get('era',          ""        )
     config       = kwargs.get('config',       ""        )
     indir        = kwargs.get('indir', "")
+    plot_dir     = kwargs.get('plot_dir', None) # None: plot2DScan_MultiDimFit.py derives it from indir
     # Plot 
 
     if option == '2' or option == '4'  :
@@ -539,9 +545,11 @@ def plotScan(setup, setup_mumu, option, **kwargs):
     elif option == '3':
         print(">>> Plot 1D scans for each POI in each region (from 2D fit output)")
         # Then create individual 2D plots for each region (optional, for detailed view)
+        script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "plot2DScan_MultiDimFit.py") # BUGS F15
+        outopt = f" --outdir {plot_dir}" if plot_dir else ""
         for r in setup["observables"]["m_vis"]["scanRegions"]:
-            print(f"python3 TauES_ID/plot2DScan_MultiDimFit.py --poi1 tes_{r} --poi2 tid_SF_{r} -y {era} -c {config} -i {indir} -t multidimfit")
-            os.system(f"python3 TauES_ID/plot2DScan_MultiDimFit.py --poi1 tes_{r} --poi2 tid_SF_{r} -y {era} -c {config} -i {indir} -t multidimfit")
+            print(f"python3 {script} --poi1 tes_{r} --poi2 tid_SF_{r} -y {era} -c {config} -i {indir} -t multidimfit{outopt}")
+            os.system(f"python3 {script} --poi1 tes_{r} --poi2 tid_SF_{r} -y {era} -c {config} -i {indir} -t multidimfit{outopt}")
         # for r in setup["observables"]["m_vis"]["scanRegions"]:
         #     # Plot TES
         #     os.system(f"python3 TauES_ID/plotParabola_POI_region.py -p tes -y {era} -e {extratag} -r {min(setup['TESvariations']['values'])},{max(setup['TESvariations']['values'])} -s -a -c {config} -i {indir}")
@@ -570,12 +578,14 @@ def main(args):
     # Always set extratag to a non-empty default value
     extratag = "_DeepTau"
     input_dir = args.input_dir
-    # build output_dir from input_dir but avoid duplicating the era if input_dir already ends with it
-    base_out = input_dir.replace('input', 'output')
-    if os.path.basename(os.path.normpath(input_dir)) == era:
-        output_dir = os.path.normpath(base_out)
-    else:
-        output_dir = os.path.join(os.path.normpath(base_out), era)
+    output_dir = args.output_dir
+    if output_dir is None:  # derived from input_dir (BUGS F18); --output_dir gives it when the input is elsewhere
+        # build output_dir from input_dir but avoid duplicating the era if input_dir already ends with it
+        base_out = input_dir.replace('input', 'output')
+        if os.path.basename(os.path.normpath(input_dir)) == era:
+            output_dir = os.path.normpath(base_out)
+        else:
+            output_dir = os.path.join(os.path.normpath(base_out), era)
     # convert to absolute path & create it to prevent nested directories when changing cwd
     output_dir = os.path.abspath(output_dir)
     os.makedirs(output_dir, exist_ok=True)
@@ -594,7 +604,8 @@ def main(args):
         setup_mumu = 0
 
     # Generating the datacards for mutau channel
-    generate_datacards_mutau(era=era, config=config, extratag=extratag, input_dir=input_dir)
+    generate_datacards_mutau(era=era, config=config, extratag=extratag, input_dir=input_dir,
+                             output_dir=output_dir if args.output_dir else None)
 
     # Generating the datacards for mumu channel (commented out, use provided file instead)
     # if str(config_mumu) != 'None':
@@ -607,10 +618,11 @@ def main(args):
 
     # Run the fit using combine with the different options 
     # FIX: Pass mumu_input_file explicitly in the kwargs
-    run_combined_fit(setup, setup_mumu, era=era, input_dir=input_dir, config=config, config_mumu=config_mumu, option=option, extratag=extratag, mumu_input_file=args.mumu_datacard_file)
+    run_combined_fit(setup, setup_mumu, era=era, input_dir=input_dir, output_dir=output_dir, config=config, config_mumu=config_mumu, option=option, extratag=extratag, mumu_input_file=args.mumu_datacard_file)
 
     # Plots
-    plotScan(setup, setup_mumu, era=era, config=config, config_mumu=config_mumu, option=option, indir=output_dir, extratag=extratag)
+    plot_dir = os.path.abspath(args.plot_dir) if args.plot_dir else None
+    plotScan(setup, setup_mumu, era=era, config=config, config_mumu=config_mumu, option=option, indir=output_dir, extratag=extratag, plot_dir=plot_dir)
 
 
 ###
@@ -628,6 +640,8 @@ if __name__ == '__main__':
     parser.add_argument('-cmm', '--config_mumu', dest='config_mumu', type=str, default='None', action='store', help="set config file containing sample & fit setup")
     parser.add_argument('--mumu_datacard_file', dest='mumu_datacard_file', type=str, default=None, help="Path to the mumu datacard file to use (if not generating)")
     parser.add_argument('-i', '--input_dir', dest='input_dir', type=str, help="inputdir containing root files for datacard")
+    parser.add_argument('--output_dir', dest='output_dir', type=str, default=None, help="directory of the cards and fit results (default: input_dir with 'input' -> 'output', plus the era)")
+    parser.add_argument('--plot_dir', dest='plot_dir', type=str, default=None, help="directory of the 2D scan plots (default: output_dir with 'output' -> 'plots')")
     # BUGS F04: --input_file (required, but never used) was removed
     args = parser.parse_args()
 

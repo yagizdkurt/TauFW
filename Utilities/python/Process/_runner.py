@@ -82,8 +82,9 @@ class CommandResult:
 
 @dataclass(frozen=True)
 class CommandPlan:
-    """What would run: the commands, all with the same working directory,
-    the artifacts they would make, and notes (problems found while planning)."""
+    """What would run: the commands, the working directory they share (a
+    command may run in a subdirectory of it, see Command.cwd), the artifacts
+    they would make, and notes (problems found while planning)."""
     cwd: str
     commands: Tuple[Command, ...]
     artifacts: Tuple[dict, ...] = ()

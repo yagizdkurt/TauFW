@@ -9,7 +9,8 @@ It runs what Fitter/run_inputs.sh runs: TauES/createinputsTES.py for every era, 
               LTF and JTF variations need their own tuples (e.g. <sample>_mutau_TES0p950.root).
     options:  HistogramSpec (eras, configs, jet and electron working points)
     outputs:  one shapes artifact per shape file: {kind: 'shapes', path, era, channel, config, jet_wp, ele_wp,
-              observable}; the files are in Fitter/input_pt_less_region/againstjet_<J>/againstelectron_<E>/
+              observable}; the scripts run in the stage's directory, so the files are in
+              <run_dir>/stages/<id>/input_pt_less_region/againstjet_<J>/againstelectron_<E>/
 
 The stage runs locally and finishes in one advance() call (see stages/local.py).
 
@@ -48,7 +49,8 @@ class HistogramStage(LocalStage):
     # Spec = HistogramSpec: set at the bottom of this file.
 
     def request(self, spec, context):
-        return self.api.shapes_request(pico_config=context.pico_config, **spec.request_dict())
+        return self.api.shapes_request(pico_config=context.pico_config, outdir=self.output_dir(context),
+                                       **spec.request_dict())
 
     def plan_commands(self, request):
         return self.api.plan_shapes(request)

@@ -131,13 +131,17 @@ def main():
                   help="output JSON (default: data/tau/TauCorrections_<year>[_<variant>]_with_uncorrelated_systs.json)")
   ap.add_argument('-c', '--config', default=None,
                   help="fit config with a 'tagger' block (PNet/UParT). If omitted, DeepTau defaults are used.")
+  ap.add_argument('--sf-dir', dest='sf_dir', default=None,
+                  help="directory of the per-WP input JSONs (default: tau_sf/ next to this script)")
   args = ap.parse_args()
 
   year    = args.year
   variant = args.variant
 
   # Tagger-aware: derive label / id / VSjet WPs / DM list from the config (DeepTau default)
-  global VSJET_WPS, DMS, LABEL, TID_LABEL
+  global VSJET_WPS, DMS, LABEL, TID_LABEL, SF_DIR
+  if args.sf_dir: # BUGS F17: was always tau_sf/ next to this script
+    SF_DIR = args.sf_dir
   if args.config:
     import yaml
     with open(args.config) as _f:
@@ -183,12 +187,12 @@ def main():
     pt_bins     = tes_pt_bins,
   )
 
-  outdir = os.path.join(HERE, 'data', 'tau')
-  os.makedirs(outdir, exist_ok=True)
   if args.out is None:
+    outdir = os.path.join(HERE, 'data', 'tau')
     suffix = {'corr': '_corrTES', 'fullcorr': '_fullcorr'}.get(variant, '')
     label_tag = '' if LABEL == 'DeepTau2018v2p5' else f'_{LABEL}'  # keep DeepTau name unchanged
     args.out = os.path.join(outdir, f'TauCorrections{label_tag}_{year}{suffix}_with_uncorrelated_systs.json')
+  os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
   cset = schema.CorrectionSet(
     schema_version = schema.VERSION,
     description    = f"Tau ES + ID SFs for {year} with per-(DM, pT-bin) uncorrelated systematic variations ({variant} variant)",

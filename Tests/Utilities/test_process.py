@@ -11,7 +11,7 @@ import unittest
 
 import checkout  # noqa: F401  (must precede TauFW.Utilities imports)
 from multiprocessing import get_all_start_methods, get_start_method
-from TauFW.Utilities.Process import Command, ParallelProcessor, ProcessRunner
+from TauFW.Utilities.Process import Command, ParallelProcessor, ProcessRunner, output_dir_problems
 
 
 def python(code):
@@ -144,6 +144,22 @@ def listed(value, seen=None):
 # Children of a 'spawn' process cannot import TauFW.Utilities from this checkout
 # (see checkout.py), so the parallel cases need 'fork' (Linux, e.g. lxplus).
 FORK = "fork" in get_all_start_methods() and get_start_method(allow_none=True) in (None, "fork")
+
+
+class OutputDirectoryTests(unittest.TestCase):
+    def test_problems(self):
+        with tempfile.TemporaryDirectory() as directory:
+            outdir, pico = os.path.join(directory, "out"), os.path.join(directory, "pico.json")
+            self.assertEqual(output_dir_problems(outdir), [])  # not made yet: fine
+            os.makedirs(outdir)
+            self.assertEqual(output_dir_problems(outdir, pico), [])  # empty; config unreadable: not checked
+            for picodir, relative in (("analysis/$ERA", True), ("/eos/user/x/$ERA", False), ("$PICODIR", False),
+                                      ("root://eosuser.cern.ch//eos/x", False)):
+                with open(pico, "w") as stream:
+                    stream.write('{"picodir": "%s"}' % (picodir))
+                self.assertEqual(bool(output_dir_problems(outdir, pico)), relative, picodir)
+            open(os.path.join(outdir, "left.root"), "w").close()
+            self.assertIn("is not empty", output_dir_problems(outdir)[0])
 
 
 class ParallelProcessorTests(unittest.TestCase):

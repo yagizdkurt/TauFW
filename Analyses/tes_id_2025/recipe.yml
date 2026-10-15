@@ -10,15 +10,15 @@
 # directory to hand over the analysis.
 # Needs cmsenv in a CMSSW area with combine and CombineHarvester (FastSetup.sh). The scripts read the pico tuples
 # through $PICODIR of the PicoProducer configuration (pico.config below), including the variation tuples
-# (<sample>_mutau_TES0p950.root, ..._LTF1p030, ..._JTF0p900, ...). Their outputs go to Plotter/plots/ and Fitter/
-# (shared by all runs); each command's log goes to taufw_runs/<run>/<stage>/.
+# (<sample>_mutau_TES0p950.root, ..._LTF1p030, ..._JTF0p900, ...). Each stage's scripts run in, and write to,
+# taufw_runs/<run>/stages/<id>/ (the fit: stages/fit/<era>/); each command's log goes to taufw_runs/<run>/logs/<id>/.
 name: tes_id_2025
 
 pico:
   config: null              # null: PicoProducer/config/config.json; or a file of this bundle, e.g. pico.json
 
 stages:
-  - stage: plots            # data/MC control plots (Plotter/plot.py, run in Plotter/)
+  - stage: plots            # data/MC control plots (Plotter/plot.py, run in stages/plots/)
     id: plots
     description: data/MC control plots of the mutau and mumu selections
     inputs: {tuples: null}  # null: the existing tuples in $PICODIR of pico.config (no production stage here)
@@ -28,7 +28,7 @@ stages:
     selections: [baseline]  # plot.py -S; []: baseline and every region
     pdf: false
 
-  - stage: histograms       # input shapes (Fitter/TauES/createinputsTES.py, run in Fitter/)
+  - stage: histograms       # input shapes (Fitter/TauES/createinputsTES.py, run in stages/histograms/)
     id: histograms
     description: TES and tau ID shapes, mutau and the mumu control region
     inputs: {tuples: null}  # null: the existing tuples, as for the plots
@@ -38,7 +38,7 @@ stages:
     configs: [config_coarse_TT.yml, FitSetup_mumu.yml]   # mutau fit, mumu CR (copies of Fitter/TauES*/config/)
     serial: false           # createinputsTES.py -s
 
-  - stage: fit              # Fitter/run_workflow_zmm.sh steps, run in Fitter/
+  - stage: fit              # Fitter/run_workflow_zmm.sh steps, run in stages/fit/<era>/
     id: fit
     description: 2D scan of tes and tid_SF per decay mode and pt region
     inputs: {shapes: histograms}   # the shapes of the histograms stage above

@@ -4,5 +4,7 @@ and Python functions run in parallel processes."""
 
 from ._parallel import ParallelProcessor
 from ._runner import Command, CommandResult, CommandPlan, RunReport, ProcessRunner
+from ._outdir import output_dir_problems
 
-__all__ = ["Command", "CommandResult", "CommandPlan", "RunReport", "ProcessRunner", "ParallelProcessor"]
+__all__ = ["Command", "CommandResult", "CommandPlan", "RunReport", "ProcessRunner", "ParallelProcessor",
+           "output_dir_problems"]

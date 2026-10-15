@@ -170,8 +170,8 @@ The local stages (`plots`, `histograms`, `fit`, `python`) take one step, `NEW` โ
 
 Each command's output goes to `<run dir>/logs/<stage id>/NN_<label>.log`, and `run.json` lists every command with its exit
 code and duration (`last_status.commands`). The expected outputs must be written by the command itself (modified
-after it started): the Fitter scripts run `combine` through `os.system` and exit with 0 even when it fails, and the
-output folders are shared by all runs, so neither the exit code nor an old file is trusted.
+after it started): the Fitter scripts run `combine` through `os.system` and exit with 0 even when it fails, so
+neither the exit code nor an old file is trusted.
 
 A stage that is not implemented yet (none at the moment) reports `NOT_IMPLEMENTED`; the run then stops in state
 `BLOCKED`, and the earlier stages keep their results.
@@ -205,10 +205,17 @@ taufw_runs/<name>_<YYYYmmdd-HHMMSS>/
               with cwd and command line, the command's output, footer with exit code, duration and missing
               outputs); a python step also has context.json (its input) and result.json (its output)
   stages/<stage id>/
-              the stage's output and nothing else: a python step's own files (ctx.stage_dir); manifest.json once the
-              stage is DONE. Plots, shapes and fit results still go to Plotter/ and Fitter/ (TODO ยง6 C), so these
-              stages hold only the manifest for now; production's tuples stay in PicoProducer's storage.
+              the stage's output and nothing else, and manifest.json once the stage is DONE. The scripts of the
+              plots, histograms and fit stages run in it (the fit: in stages/<id>/<era>/), so their plots, shapes
+              and fit results are here; a python step's own files (ctx.stage_dir); production's tuples stay in
+              PicoProducer's storage.
 ```
+
+The Framework decides where a stage writes: it gives each module API the stage's directory as its output directory
+(`LocalStage.output_dir`) and the inputs the recipe connects (the artifacts of the input stages, e.g. the fit gets
+the directory of each point's shapes from the shapes artifacts). The API only uses them; there are no links or
+copies. Before the scripts start, the API refuses an output directory that is not empty (an interrupted attempt;
+remove it or start a new run) and a PicoProducer configuration with a relative `picodir`.
 
 `manifest.json` is written when a stage becomes `DONE` (never for a failed stage), before `run.json` is saved:
 `{"manifest": 1, "run_id", "stage_id", "stage", "description", "inputs", "finished", "artifacts"}`. It is a copy of the

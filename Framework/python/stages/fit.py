@@ -5,14 +5,17 @@ It runs what Fitter/run_workflow_zmm.sh runs for every (era, jet WP, electron WP
 datacards, the 2D MultiDimFit of tes and tid_SF per region (makecombinedfitTES_SF.py -o 3), FitDiagnostics and
 post-fit shapes, the plots, the correction files, and once per era the summary (grids, merged JSON).
 
-    inputs:   shapes: the shapes in Fitter/input_pt_less_region/..., made by the histograms stage the slot
-              names (null, a temporary exception: the shapes already there, made outside this run). The points come from the recipe (eras x jet_wps x
-              ele_wps), or, if jet_wps and ele_wps are empty, from the shapes artifacts of that stage (every
-              era and working point pair that has shapes of both configs).
+    inputs:   shapes: the shapes made by the histograms stage the slot names; the directory of each point's
+              shapes is taken from that stage's shapes artifacts (null, a temporary exception: the shapes
+              already in Fitter/input_pt_less_region/..., made outside this run). The points come from the
+              recipe (eras x jet_wps x ele_wps; each must have shapes in the input stage), or, if jet_wps and
+              ele_wps are empty, from the shapes artifacts of that stage (every era and working point pair that
+              has shapes of both configs).
     options:  FitSpec (configs, points, steps, impacts)
-    outputs:  one fit artifact per point: {kind: 'fit', era, jet_wp, ele_wp, output_dir, postfit_dir, values,
-              corrections}, where values are the fitted {region, poi, value, low, high}; one corrections
-              artifact per era (the merged JSON) if the summary step runs.
+    outputs:  in <run_dir>/stages/<id>/<era>/ (the scripts of one era run there): one fit artifact per point:
+              {kind: 'fit', era, jet_wp, ele_wp, output_dir, postfit_dir, values, corrections}, where values
+              are the fitted {region, poi, value, low, high}; if the summary step runs, two corrections artifacts
+              per era (the merged JSON, and the combined TES + tau ID file with combined: true).
 
 The stage runs locally and finishes in one advance() call (see stages/local.py). A full scan of many working points
 takes hours.
@@ -20,6 +23,7 @@ takes hours.
 Public API:
   FitStage(fitter), FitSpec, STEPS
 """
+import os
 from dataclasses import dataclass
 from itertools import product
 from typing import Optional, Tuple
@@ -64,7 +68,8 @@ class FitStage(LocalStage):
                              "to a histograms stage")
         return self.api.fit_request(points=points, config=spec.config, config_mumu=spec.config_mumu,
                                     steps=spec.steps, impacts=spec.impacts, timeout=spec.timeout,
-                                    pico_config=context.pico_config)
+                                    pico_config=context.pico_config, outdir=self.output_dir(context),
+                                    shapes_dirs=self.shapes_dirs(points, context))
 
     def plan_commands(self, request):
         return self.api.plan_fit(request)
@@ -84,6 +89,26 @@ class FitStage(LocalStage):
         return [dict(value, era=artifact['era'], jet_wp=artifact['jet_wp'], ele_wp=artifact['ele_wp'])
                 for artifact in stage_record.artifacts if artifact.get('kind') == 'fit'
                 for value in artifact.get('values', [])] or None
+
+    def shapes_dirs(self, points, context):
+        """(era, jet WP, electron WP, directory) of every point, from the shapes artifacts of the input stage;
+        empty if the slot is null (the scripts then read Fitter/). Raises ValueError if a point has no shapes in
+        the input stage, or shapes in more than one directory."""
+        if not context.inputs.get('shapes'):
+            return ()
+        found = {}
+        for shape in context.input_artifacts('shapes', kind='shapes'):
+            found.setdefault((shape['era'], shape['jet_wp'], shape['ele_wp']), set()).add(
+                os.path.dirname(shape['path']))
+        missing = ["%s %s/%s" % point for point in points if point not in found]
+        if missing:
+            raise ValueError("no shapes of %s in stage %r (its points: %s)" % (', '.join(missing),
+                             context.inputs['shapes'], ', '.join("%s %s/%s" % p for p in found) or 'none'))
+        for point in points:
+            if len(found[point]) > 1:
+                raise ValueError("the shapes of %s %s/%s are in more than one directory: %s"
+                                 % (point + (', '.join(sorted(found[point])),)))
+        return tuple(point + (next(iter(found[point])),) for point in points)
 
     def points(self, spec, context):
         """The (era, jet WP, electron WP) points: from the recipe, or from the shapes of the input stage."""

@@ -25,12 +25,10 @@ Public API:
 """
 import glob
 import importlib.util
-import json
 import os
-import posixpath
 import sys
 
-from TauFW.Utilities.Process import Command, CommandPlan, ProcessRunner, RunReport
+from TauFW.Utilities.Process import Command, CommandPlan, ProcessRunner, RunReport, output_dir_problems
 from TauFW.Plotter.api.types import PlotsRequest
 
 __all__ = ['ControlPlots']
@@ -95,7 +93,7 @@ class ControlPlots:
         problems.extend("channel setup %s not found in %s" % (_setup_file(config), self.basedir)
                         for config in request.configs if not os.path.isfile(self._path(_setup_file(config))))
         if request.outdir is not None:
-            problems.extend(_outdir_problems(request.outdir, source))
+            problems.extend(output_dir_problems(request.outdir, source))
         return tuple(problems)
 
     def request(self, **fields):
@@ -197,31 +195,6 @@ def _plot_glob(channel, era, tag):
     """The png files of one channel and era: <var>_<channel short>-<selection>-<era><tag>.png (plot.py), where
     tag is the setup's tag plus -t."""
     return "*_%s-*-%s%s.png" % (channel.replace('mu', 'm').replace('tau', 't'), era, tag)
-
-
-def _outdir_problems(outdir, pico_config):
-    """Problems of running plot.py in an output directory: the directory has files already (an interrupted
-    attempt; the plots would mix), or the PicoProducer config has a relative picodir (it would be read relative to
-    the output directory)."""
-    problems = []
-    if os.path.isdir(outdir) and os.listdir(outdir):
-        problems.append("output directory %s is not empty (an interrupted attempt?): remove it, or start a new run"
-                        % (outdir))
-    picodir = _picodir(pico_config)
-    if picodir and not (posixpath.isabs(picodir) or os.path.isabs(picodir) or picodir.startswith('$')
-                        or '://' in picodir):
-        problems.append("picodir %r of %s is relative: plot.py would look for the tuples relative to %s"
-                        % (picodir, pico_config, outdir))
-    return problems
-
-
-def _picodir(pico_config):
-    """The picodir of a PicoProducer configuration (JSON), or None if it cannot be read."""
-    try:
-        with open(pico_config) as stream:
-            return json.load(stream).get('picodir')
-    except (OSError, ValueError, AttributeError):
-        return None
 
 
 # =============================================================================

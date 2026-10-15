@@ -163,6 +163,11 @@ def _inputs_line(stage_spec, stage):
 def _show_commands(reporter, plan):
     """The commands of a local stage, as they would be typed in its working directory."""
     reporter.message("Working directory: %s" % (plan.cwd))
+    subdirs = [os.path.relpath(command.cwd, plan.cwd) for command in plan.commands
+               if getattr(command, 'cwd', plan.cwd) != plan.cwd]
+    if subdirs:  # e.g. the fit: the scripts of each era run in <stage dir>/<era>/
+        reporter.message("Commands run in: %s (relative to the working directory)"
+                         % (', '.join(dict.fromkeys(subdirs))))
     reporter.table(["#", "step", "command"],
                    [(index, command.label, _command_line(command))
                     for index, command in enumerate(plan.commands, 1)])

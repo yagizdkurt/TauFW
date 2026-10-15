@@ -8,7 +8,8 @@
 Artifacts are plain dicts (JSON-ready), so a caller such as the TauFW Framework can store them in run.json:
   shapes:       {kind, path, era, channel, config, jet_wp, ele_wp, observable}
   fit:          {kind, era, jet_wp, ele_wp, output_dir, postfit_dir, values, corrections}
-  corrections:  {kind, era, path}
+  corrections:  {kind, era, path}; path is the merged JSON of the working points, or (combined: true) the
+                TES + tau ID file of make_tid_2025.py
 
 Public API: the records above, FIT_STEPS.
 """
@@ -39,7 +40,8 @@ FIT_STEPS = ('fit', 'postfit', 'plots', 'corrections', 'summary')
 class ShapesRequest:
     """Input histograms: one createinputsTES.py run per era, working point pair and config.
     configs: config files, relative to Fitter/ or absolute (the mutau fit config and the mumu control-region
-    config). pico_config: the PicoProducer configuration the scripts read $PICODIR from (None: its default)."""
+    config). pico_config: the PicoProducer configuration the scripts read $PICODIR from (None: its default).
+    outdir: the directory the scripts run in and write input_pt_less_region/ to (None: Fitter/)."""
     eras:    Tuple[str, ...]
     configs: Tuple[str, ...]
     jet_wps: Tuple[str, ...]
@@ -47,6 +49,7 @@ class ShapesRequest:
     serial:  bool = False             # createinputsTES.py -s: no parallel histogramming
     timeout: Optional[float] = None   # seconds per command
     pico_config: Optional[str] = None # $TAUFW_PICO_CONFIG of the commands
+    outdir:  Optional[str] = None     # working directory of the scripts (None: Fitter/)
 
     def __post_init__(self):
         for name in ('eras', 'configs', 'jet_wps', 'ele_wps'):
@@ -59,7 +62,10 @@ class ShapesRequest:
 class FitRequest:
     """The fit: Fitter/run_workflow_zmm.sh for every (era, jet WP, electron WP) point.
     config: the mutau fit config; config_mumu: the mumu control-region config (both relative to Fitter/, or
-    absolute). pico_config: the PicoProducer configuration the scripts read $PICODIR from (None: its default)."""
+    absolute). pico_config: the PicoProducer configuration the scripts read $PICODIR from (None: its default).
+    outdir: the directory the fit writes to; the scripts of one era run in <outdir>/<era>/ (None: all in Fitter/).
+    shapes_dirs: (era, jet WP, electron WP, directory) of the shape files of each point (absolute); a point without
+    one reads Fitter/input_pt_less_region/... (the shapes made outside the Framework)."""
     points:      Tuple[Tuple[str, str, str], ...]
     config:      str
     config_mumu: str
@@ -67,8 +73,14 @@ class FitRequest:
     impacts:     bool = True             # run the impacts in the postfit step (slow)
     timeout:     Optional[float] = None  # seconds per command
     pico_config: Optional[str] = None    # $TAUFW_PICO_CONFIG of the commands
+    outdir:      Optional[str] = None    # where the fit writes (None: Fitter/)
+    shapes_dirs: Tuple[Tuple[str, str, str, str], ...] = ()  # (era, jet WP, electron WP, directory)
 
     def __post_init__(self):
+        object.__setattr__(self, 'shapes_dirs', tuple(tuple(str(value) for value in entry)
+                                                      for entry in self.shapes_dirs))
+        if any(len(entry) != 4 for entry in self.shapes_dirs):
+            raise ValueError("FitRequest: shapes_dirs must be (era, jet WP, electron WP, directory)")
         points = tuple(tuple(str(value) for value in point) for point in self.points)
         if not points or any(len(point) != 3 for point in points):
             raise ValueError("FitRequest: points must be a non-empty list of (era, jet WP, electron WP)")

@@ -5,7 +5,7 @@
 import os
 import sys
 from collections import OrderedDict
-sys.path.append("../Plotter/") # for config.samples
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)),"..","..","Plotter")) # for config.samples; BUGS F16: found from this file, not the working directory
 # from config.samples import *
 from config.samples_v15 import *
 from TauFW.Utilities.Drawing import LOG as PLOG

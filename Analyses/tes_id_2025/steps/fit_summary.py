@@ -10,7 +10,7 @@ Recipe (recipe.yml):
 
 Inputs:  fit: the fit artifacts of the stage connected to the `fit` input: {kind: 'fit', era, jet_wp, ele_wp,
          values: [{region, poi, value, low, high}]}.
-Outputs: <run_dir>/fit_summary/summary.txt (a table) and summary.json (the rows), and one 'table' artifact.
+Outputs: <run_dir>/stages/fit_summary/summary.txt (a table) and summary.json (the rows), and one 'table' artifact.
 """
 import json
 import os

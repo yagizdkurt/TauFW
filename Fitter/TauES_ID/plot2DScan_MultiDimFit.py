@@ -599,7 +599,7 @@ def plot_2d_scan(setup, region, year, scan_data, **kwargs):
     print(f">>> Plotting 2D scan for {region}")
     
     indir = kwargs.get('indir', f"output_{year}")
-    outdir = indir.replace('output', 'plots')
+    outdir = kwargs.get('outdir') or indir.replace('output', 'plots') # derived from indir unless given (BUGS F18)
     tag = kwargs.get('tag', "")
     plottag = kwargs.get('plottag', "")
     poi1_name = scan_data['poi1_name']
@@ -1270,10 +1270,10 @@ def main(args):
         
         # Create individual 2D plot
         plot_2d_scan(setup, region, era, scan_data, 
-                     indir=indir, tag=tag, plottag=args.plottag)
+                     indir=indir, tag=tag, plottag=args.plottag, outdir=args.outdir)
         
         # Write individual text results for this region (use asymmetric errors if available)
-        outdir = indir.replace('output', 'plots')
+        outdir = args.outdir or indir.replace('output', 'plots')
         poi1_val = scan_data['best_poi1']
         poi2_val = scan_data['best_poi2']
         correlation = scan_data.get('correlation', 0.0)
@@ -1325,6 +1325,8 @@ if __name__ == '__main__':
     parser.add_argument('-i', '--indir', dest='indir', type=str, 
                        help='input directory')
     
+    parser.add_argument('--outdir', dest='outdir', type=str, default=None,
+                       help="output directory of the plots (default: indir with 'output' -> 'plots')")
     parser.add_argument('-t', '--plottag', dest='plottag', type=str, 
                        default="", help='extra tag for plot filename')
     

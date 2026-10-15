@@ -57,8 +57,10 @@ def harvest(setup, year, obs, **kwargs):
     era         = kwargs.get('era',        '%s-13TeV'%year  )
     analysis    = kwargs.get('analysis',   'ztt'            )
     indir       = kwargs.get('indir',      'input_%s'%year  )
-    outdir      = indir.replace('input', 'output') #kwargs.get('outdir',     'output_%s'%year )
-    outdir      = os.path.join(outdir, year)
+    outdir      = kwargs.get('outdir',     None             ) # None: derived from indir (BUGS F18)
+    if not outdir:
+        outdir      = indir.replace('input', 'output') #kwargs.get('outdir',     'output_%s'%year )
+        outdir      = os.path.join(outdir, year)
     multiDimFit = kwargs.get('multiDimFit')
     verbosity   = kwargs.get('verbosity')
     outtag      = tag+extratag
@@ -356,7 +358,7 @@ def main(args):
     print("producing datacards for %s" % (args.year))
     for obs in observables:
         print("producing datacards for %s" % (obs))
-        harvest(setup,args.year,obs,tag=tag,extratag=args.extratag,indir=indir,multiDimFit=args.multiDimFit,verbosity=verbosity)
+        harvest(setup,args.year,obs,tag=tag,extratag=args.extratag,indir=indir,outdir=args.output_dir,multiDimFit=args.multiDimFit,verbosity=verbosity)
     
 
 
@@ -373,6 +375,7 @@ if __name__ == '__main__':
   parser.add_argument('-M', '--multiDimFit', dest='multiDimFit', default=False, action='store_true', help="assume multidimensional fit with a POI for each DM")
   parser.add_argument('-v', '--verbose', dest='verbose', default=False, action='store_true', help="set verbose")
   parser.add_argument('-i', '--input_dir', dest='input_dir', type=str, help='input_dir for datacard root file')
+  parser.add_argument('--output_dir', dest='output_dir', type=str, default=None, help="directory of the cards (default: input_dir with 'input' -> 'output', plus the year)")
   args = parser.parse_args()
 
   main(args)

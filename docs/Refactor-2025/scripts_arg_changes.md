@@ -1,7 +1,7 @@
 # Script option changes for per-run output directories (R3)
 
-**Status:** planned (October 2026); this file is filled in as each step lands. See TODO §6 C and the changelog
-section of R3 in [Refactor-2025.md](Refactor-2025.md).
+**Status:** implemented (October 2026, CL §17 of [Refactor-2025.md](Refactor-2025.md)); the lxplus comparison
+with the shell scripts (below) is pending.
 
 Since R3 the Framework runs the Plotter and Fitter scripts with the stage's output directory
 (`taufw_runs/<run>/stages/<id>/`, for the fit `<...>/stages/<id>/<era>/`) as working directory. The Framework gives
@@ -27,12 +27,12 @@ the scripts. There are no links or copies.
 
 | Script | Option | Default (unchanged behaviour) | Why (rule) | Passed by | Status |
 |---|---|---|---|---|---|
-| `Fitter/TauES_ID/makecombinedfitTES_SF.py` | `--output_dir DIR` | `input_dir.replace('input', 'output')` + era | 2 (F18) | `api/tes_id.py` fit step | planned |
-| | `--plot_dir DIR` | `output_dir.replace('output', 'plots')` in `plot2DScan_MultiDimFit.py` | 3 (F18) | same | planned |
-| | (passes them on) | `harvestDatacards_TES_idSF_MCStat.py --output_dir`, `plot2DScan_MultiDimFit.py --outdir` | | | planned |
-| `Fitter/TauES_ID/harvestDatacards_TES_idSF_MCStat.py` | `--output_dir DIR` | `input_dir.replace('input', 'output')/<era>` | 2 (F18) | `makecombinedfitTES_SF.py` | planned |
-| `Fitter/TauES_ID/plot2DScan_MultiDimFit.py` | `--outdir DIR` | `indir.replace('output', 'plots')` | 3 (F18) | `makecombinedfitTES_SF.py` | planned |
-| `Fitter/make_tid_2025.py` | `--sf-dir DIR` | `<module dir>/tau_sf` | 1 (F17) | `api/tes_id.py` summary step | planned |
+| `Fitter/TauES_ID/makecombinedfitTES_SF.py` | `--output_dir DIR` | `input_dir.replace('input', 'output')` + era | 2 (F18) | `api/tes_id.py` fit step | done |
+| | `--plot_dir DIR` | `output_dir.replace('output', 'plots')` in `plot2DScan_MultiDimFit.py` | 3 (F18) | same | done |
+| | (passes them on) | `harvestDatacards_TES_idSF_MCStat.py --output_dir`, `plot2DScan_MultiDimFit.py --outdir` | | | done |
+| `Fitter/TauES_ID/harvestDatacards_TES_idSF_MCStat.py` | `--output_dir DIR` | `input_dir.replace('input', 'output')/<era>` | 2 (F18) | `makecombinedfitTES_SF.py` | done |
+| `Fitter/TauES_ID/plot2DScan_MultiDimFit.py` | `--outdir DIR` | `indir.replace('output', 'plots')` | 3 (F18) | `makecombinedfitTES_SF.py` | done |
+| `Fitter/make_tid_2025.py` | `--sf-dir DIR` | `<module dir>/tau_sf` | 1 (F17) | `api/tes_id.py` summary step | done |
 
 ## Existing options the API starts to pass
 
@@ -42,6 +42,11 @@ the scripts. There are no links or copies.
 | `Fitter/make_measurements_grid.py` | `--dir Measurements` (relative to the working directory) | rule 1 (F21) |
 | `Fitter/make_tid_2025.py` | `--out data/tau/TauCorrections_<era>_with_uncorrelated_systs.json` | rule 1 |
 
+The API passes all of these only with an output directory; without one it runs the scripts exactly as the shell
+scripts do. With one it also gives every script and config as an absolute path, keeps the directories inside the
+working directory relative (`--indir`, `--scan_dir`, `--root`, `-o tau_sf/...`, as in the shell script), and makes
+`make_tid_2025.py --out` its directory first (it no longer makes `data/tau/` next to itself when `--out` is given).
+
 ## Path fixes (no option)
 
 | Script | Change | Bug |
@@ -49,6 +54,7 @@ the scripts. There are no links or copies.
 | `Plotter/plot.py` | `mapDecayModes.C` found from `__file__` | L11 |
 | `Fitter/TauES/createinputsTES.py` | `../Plotter` found from `__file__` | F16 |
 | `Fitter/TauES_ID/makecombinedfitTES_SF.py` | the two `python3 TauES_ID/<script>.py` calls use the script's own directory | F15 |
+| `Fitter/TauES_ID/harvestDatacards_zmm.py` | without `-o`, the default output directory applies again | F14 |
 
 ## Scripts that need nothing
 

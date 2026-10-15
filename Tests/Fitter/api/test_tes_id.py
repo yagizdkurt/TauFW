@@ -177,6 +177,25 @@ class ShapesTests(TauESIDTestCase):
         self.assertEqual(self.fitter.config_file(TT), os.path.join(self.fitter_dir, os.path.normpath(TT)))
 
 
+    def test_shapes_in_output_directory(self):
+        outdir = os.path.join(self.base, "run", "stages", "histograms")
+        request = self.shapes(outdir=outdir, pico_config="pico.json")
+        plan = self.fitter.plan_shapes(request)
+        self.assertEqual(plan.commands[0].argv[:6], ("python3", os.path.join(self.fitter_dir, "TauES", "createinputsTES.py"),
+                                                     "-y", "2025", "-c", os.path.join(self.fitter_dir, os.path.normpath(TT))))
+        self.assertEqual({plan.cwd} | {c.cwd for c in plan.commands}, {outdir})
+        self.assertEqual(plan.commands[0].expects, (IN + "/ztt_mt_tes_m_vis.inputs-2025-13TeV_mutau.root",))
+        self.assertEqual(plan.commands[0].env, (("TAUFW_PICO_CONFIG", os.path.abspath("pico.json")),))
+        self.planned = plan.commands
+        report = self.fitter.make_shapes(request, os.path.join(self.base, "logs"))  # makes outdir
+        self.assertTrue(report.ok, report.failed)
+        self.assertEqual(report.artifacts[0]["path"],
+                         os.path.join(outdir, os.path.normpath(IN), "ztt_mt_tes_m_vis.inputs-2025-13TeV_mutau.root"))
+        self.assertTrue(all(os.path.isfile(a["path"]) for a in report.artifacts))
+        self.assertFalse(os.path.exists(os.path.join(self.fitter_dir, "input_pt_less_region")))
+        self.assertIn("output directory %s is not empty" % (outdir), " ".join(self.fitter.preflight_shapes(request)))
+
+
 class FitTests(TauESIDTestCase):
     def test_commands_equal_run_workflow(self):
         plan = self.fitter.plan_fit(self.fit_request())
@@ -188,7 +207,9 @@ class FitTests(TauESIDTestCase):
                       multidimfit)
         self.assertIn(OUT + "/2025/FitparameterValues__mutau_DeepTau_2025-13TeV_DM11_pt3.txt", multidimfit)
         self.assertEqual(plan.commands[0].expects, (MMCARD,))
-        self.assertEqual([a["kind"] for a in plan.artifacts], ["fit", "corrections"])
+        self.assertEqual([a["kind"] for a in plan.artifacts], ["fit", "corrections", "corrections"])
+        self.assertEqual([a.get("combined") for a in plan.artifacts[1:]], [None, True])  # merged JSON, make_tid
+        self.assertEqual(plan.commands[-1].expects, ("data/tau/TauCorrections_2025_with_uncorrelated_systs.json",))
 
     def test_steps_and_impacts(self):
         plan = self.fitter.plan_fit(self.fit_request(steps=["corrections", "fit"], impacts=False))
@@ -215,8 +236,9 @@ class FitTests(TauESIDTestCase):
         self.assertEqual(fit["values"][:2], [
             {"region": "DM0_pt1", "poi": "tes", "value": 0.987, "low": 0.981, "high": 0.993},
             {"region": "DM0_pt1", "poi": "tid_SF", "value": 0.912, "low": None, "high": None}])
-        self.assertEqual([os.path.basename(p) for p in fit["corrections"]],
-                         ["x_2025_VSjetVTight_VSeleTight.json", "x_2025_VSjetVTight_VSeleTight.root"])
+        self.assertEqual([os.path.basename(p) for p in fit["corrections"]],  # DeepTau files only (BUGS F22)
+                         ["x_SF_dm_DeepTaux_2025_VSjetVTight_VSeleTight.json",
+                          "x_SF_dm_DeepTaux_2025_VSjetVTight_VSeleTight.root"])
 
     def test_failed_command_stops_the_fit(self):
         self.execute.fail = "TauES_ID/makecombinedfitTES_SF.py"
@@ -243,6 +265,56 @@ class FitTests(TauESIDTestCase):
         os.makedirs(os.path.join(self.fitter_dir, IN))
         open(os.path.join(self.fitter_dir, IN, "ztt_mt_tes_m_vis.inputs-2025-13TeV_mutau.root"), "w").close()
         self.assertNotIn("no shapes", " | ".join(self.fitter.preflight_fit(self.fit_request())))
+
+
+    def test_fit_in_output_directory(self):
+        outdir = os.path.join(self.base, "run", "stages", "fit")
+        shapes = os.path.join(self.base, "run", "stages", "histograms", "shapes_VTight_Tight")
+        request = self.fit_request(outdir=outdir, shapes_dirs=[("2025", "VTight", "Tight", shapes)])
+        plan = self.fitter.plan_fit(request)
+        era = os.path.join(outdir, "2025")
+        self.assertEqual(plan.cwd, outdir)
+        self.assertEqual({c.cwd for c in plan.commands}, {era})  # one era: its own directory
+        argv = {c.label.split(" 2025")[0]: c.argv for c in plan.commands}
+        self.assertEqual(argv["fit datacards mumu"][1:],
+                         (os.path.join(self.fitter_dir, "TauES_ID", "harvestDatacards_zmm.py"), "-y", "2025",
+                          "-c", os.path.join(self.fitter_dir, os.path.normpath(MM)), "-i", shapes + "/",
+                          "-o", OUT + "/2025/"))
+        self.assertEqual(argv["fit multidimfit"][-8:],  # the shapes are elsewhere: the outputs are given
+                         ("-o", "3", "--mumu_datacard_file", MMCARD, "--output_dir", OUT + "/2025",
+                          "--plot_dir", PLOTS + "/2025"))
+        self.assertEqual(argv["postfit fitdiagnostics"][6:8], ("--indir", OUT + "/"))  # relative: str.replace
+        self.assertEqual(argv["summary measurements grid"][2:], ("--dir", "Measurements"))
+        self.assertEqual(argv["summary tes and id"][2:],
+                         ("-y", "2025", "--sf-dir", "tau_sf", "--out",
+                          "data/tau/TauCorrections_2025_with_uncorrelated_systs.json"))
+        self.assertTrue(all(os.path.isabs(a[1]) for a in argv.values()))  # every script by its absolute path
+        self.assertEqual(plan.artifacts[0]["output_dir"], os.path.join(era, os.path.normpath(OUT), "2025"))
+        self.assertEqual(plan.artifacts[1]["path"], os.path.join(era, "tau_sf", "TauCorrections_2025.json"))
+        request = self.fit_request(outdir=outdir, shapes_dirs=[("2025", "VTight", "Tight", shapes)],
+                                   steps=["fit", "corrections"])
+        self.planned = self.fitter.plan_fit(request).commands
+        report = self.fitter.fit(request, os.path.join(self.base, "logs"))  # makes <outdir>/2025
+        self.assertTrue(report.ok, report.failed)
+        self.assertEqual(len(report.artifacts[0]["values"]), 2)
+        self.assertTrue(all(p.startswith(os.path.join(era, "tau_sf")) for p in report.artifacts[0]["corrections"]))
+        self.assertFalse(os.path.exists(os.path.join(self.fitter_dir, "output_pt_less_region")))
+
+    def test_fit_output_directory_per_era_and_shapes_outside_the_run(self):
+        outdir = os.path.join(self.base, "fit")
+        request = self.fit_request(points=[("2025", "VTight", "Tight"), ("2024", "VTight", "Tight")], outdir=outdir)
+        plan = self.fitter.plan_fit(request)
+        self.assertEqual(list(dict.fromkeys(c.cwd for c in plan.commands)),
+                         [os.path.join(outdir, "2025"), os.path.join(outdir, "2024")])
+        mumu = next(c for c in plan.commands if c.label.startswith("fit datacards mumu"))
+        self.assertEqual(mumu.argv[mumu.argv.index("-i") + 1],  # no shapes_dirs: Fitter/'s shapes (null input)
+                         os.path.join(self.fitter_dir, os.path.normpath(IN)) + "/")
+        os.makedirs(outdir)
+        open(os.path.join(outdir, "stale.root"), "w").close()
+        self.assertIn("output directory %s is not empty" % (outdir),
+                      " | ".join(self.fitter.preflight_fit(request, check_shapes=False)))
+        with self.assertRaises(ValueError):
+            self.fit_request(shapes_dirs=[("2025", "VTight", "Tight")])
 
 
 class ResultsTests(unittest.TestCase):

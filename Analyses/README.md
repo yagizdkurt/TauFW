@@ -377,8 +377,9 @@ The lists form a Cartesian product. Two eras, two jet WPs, one electron WP,
 and two configs produce eight shape-creation commands. Each command can write
 multiple shape files according to its config's observables.
 
-Shapes go under
-`Fitter/input_pt_less_region/againstjet_<J>/againstelectron_<E>/`.
+The scripts run in the stage's directory, so the shapes go under
+`taufw_runs/<run>/stages/<id>/input_pt_less_region/againstjet_<J>/againstelectron_<E>/`
+(nothing is written to `Fitter/`).
 The fit configs define the observables, regions, processes, and systematic
 variations. Required TES, lepton-to-tau fake (LTF), and jet-to-tau fake (JTF)
 variation tuples must already be available; this stage does not produce them.
@@ -400,6 +401,19 @@ and transverse-momentum region, with the Z→μμ control region.
 | `steps` | `[fit, postfit, plots, corrections, summary]` | Non-empty selection of workflow steps, described below. |
 | `impacts` | `true` | Include impact calculations in the `postfit` step; these can be slow. |
 | `timeout` | `null` | Seconds per command, not per working point or entire stage. |
+
+The fit reads each point's shapes from the directory recorded in the shapes
+artifacts of the histograms stage that `inputs.shapes` names; a point of the
+recipe without shapes there makes the stage fail before anything runs. With
+`inputs: {shapes: null}` (the temporary exception, see above) it reads
+`Fitter/input_pt_less_region/`. The scripts of one era run in
+`taufw_runs/<run>/stages/<id>/<era>/`, because several of their outputs
+(`FitDiagnosticsValues/`, `impacts/`, `output_plots/`, `Measurements/`) have no
+era in their names; everything the fit writes is there, including `tau_sf/`
+and the combined `data/tau/TauCorrections_<era>_with_uncorrelated_systs.json`.
+Copying the correction files to their final place is not done by the
+Framework. The few script options this needs are listed in
+[docs/Refactor-2025/scripts_arg_changes.md](../docs/Refactor-2025/scripts_arg_changes.md).
 
 ### `python`
 
@@ -613,8 +627,8 @@ results.
 | --- | --- | --- |
 | `production` | PicoProducer's configured tuple paths | Merged tuple path, sample/group, era, channel, tag, data type, event count, tree, cutflow. |
 | `plots` | `taufw_runs/<run>/stages/<id>/plots/<era>/` | `kind: plots`, era, config, channel, directory, matching file count. |
-| `histograms` | `Fitter/input_pt_less_region/againstjet_<J>/againstelectron_<E>/` | `kind: shapes`, path, era, channel, config, WP pair, observable. |
-| `fit` | Fitter's `output_*`, `postfit_*`, plot directories, and `tau_sf/` | `kind: fit` per point, output/postfit directories, fitted values, correction paths; `kind: corrections` per era when summary runs. |
+| `histograms` | `taufw_runs/<run>/stages/<id>/input_pt_less_region/againstjet_<J>/againstelectron_<E>/` | `kind: shapes`, path, era, channel, config, WP pair, observable. |
+| `fit` | `taufw_runs/<run>/stages/<id>/<era>/` (`output_*`, `postfit_*`, plot directories, `tau_sf/`, `data/tau/`) | `kind: fit` per point, output/postfit directories, fitted values, correction paths; when summary runs, two `kind: corrections` per era: the merged JSON, and the combined TES + ID file (`combined: true`). |
 | `python` | `taufw_runs/<run>/stages/<id>/` (`ctx.stage_dir`) | What the step returns. |
 
 Fit values include the region, parameter of interest, central value, and lower
