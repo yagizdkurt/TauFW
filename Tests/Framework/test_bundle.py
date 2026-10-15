@@ -223,6 +223,17 @@ class StageIdTests(BundleTestCase):
         self.assertIn("stages[0] (plots).inputs: plots reads tuples: write inputs: {tuples: <stage id or null>}",
                       self.error(dict(PLOTS, inputs=None)))
 
+    def test_null_only_where_the_stage_allows_it(self):
+        self.assertEqual(Recipe.from_dict({"name": "x", "stages": [dict(FIT, inputs={"shapes": None})]})
+                         .stages[0].inputs, {"shapes": None})  # the fit's temporary exception
+        with mock.patch.object(FitStage, "null_inputs", {}):  # a slot that must name a stage
+            self.assertIn("stages[0] (fit).inputs.shapes: must name an earlier stage that makes shapes (null is "
+                          "not allowed for this input)", self.error(dict(FIT, inputs={"shapes": None})))
+            self.assertIn("stages[0] (fit).inputs: missing (write inputs: {shapes: <stage id>})",
+                          self.error({"stage": "fit", "id": "fit"}))
+            self.assertIn("stages[0] (fit).inputs.shapes: missing (the id of an earlier stage)",
+                          self.error({"stage": "fit", "id": "fit", "inputs": {"shape": None}}))
+
 
 class MakeBundleTests(BundleTestCase):
     def setUp(self):

@@ -168,13 +168,23 @@ that makes that kind of data, or to `null` when the data does not come from this
 run. Nothing is connected implicitly: a stage sees only the artifacts of the
 stages its inputs name.
 
+A slot may be `null` only if its stage allows it (`Stage.null_inputs` in
+`Framework/python/stages/`, which also says what `null` means for the slot);
+`null` anywhere else is a recipe error. `taufw.py plan` shows the meaning on the
+`Inputs:` line, e.g. `tuples <- outside this run (the tuples in $PICODIR ...)`.
+
 | Stage | `inputs` | `null` means | Makes |
 | --- | --- | --- | --- |
 | `production` | `null` (no slots) | - | `tuples` |
 | `plots` | `{tuples: <id or null>}` | the tuples already in `$PICODIR` of `pico.config` | `plots` |
 | `histograms` | `{tuples: <id or null>}` | the same | `shapes` |
-| `fit` | `{shapes: <id or null>}` | the shapes already in `Fitter/input_pt_less_region/` (made before) | `fit`, `corrections` |
-| `python` | `null`, or `{<any name>: <id>, ...}` | no inputs (a named input must name a stage) | anything |
+| `fit` | `{shapes: <id or null>}` | **temporary exception:** the shapes already in `Fitter/input_pt_less_region/`, made outside the Framework | `fit`, `corrections` |
+| `python` | `null`, or `{<any name>: <id>, ...}` | no inputs (a named input must name a stage; `null` is not allowed) | anything |
+
+The fit's `null` is the only place where a stage reads a module directory
+instead of the output of a stage of the run. It stays until an input can name
+another run's stage directory (TODO §6 C); then `{shapes: null}` becomes an
+error. Prefer a histograms stage in the same recipe.
 
 Stage options sit directly beside these keys; there is no `options:` wrapper.
 `split` and `merge` are nested mappings inside `production`.

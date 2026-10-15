@@ -186,9 +186,12 @@ Next-work proposals (not designed in detail yet):
       a stage's output is `<run_dir>/stages/<stage_id>/` (logs in `<run_dir>/logs/<stage_id>/`, a `manifest.json` per
       stage), the scripts run with that directory as working directory, and the Framework links each input slot
       (CL §15) to the output of the stage it names. R2 (layout `logs/<id>/` + `stages/<id>/`, manifests) is done
-      (CL §16). Next: R3 (read inventory of the
-      scripts' cwd-relative paths, API `outdir`/`inputs`, lxplus comparison with the shell scripts). Later: an input
-      may also be a path (another run's stage directory), and a built-in stage may repeat.
+      (CL §16). R3 in progress: no links or copies; the Framework gives each API its output directory and inputs
+      (from the input stages' artifacts), the scripts run in the output directory; the few script options this
+      needs are listed in [scripts_arg_changes.md](scripts_arg_changes.md); bugs found on the way: Fitter BUGS
+      F11-F24, Plotter BUGS L08-L11. Done: input slots declare whether `null` is allowed (`Stage.null_inputs`).
+      Later: an input may also be a path (another run's stage directory), which also removes the fit's temporary
+      `{shapes: null}` exception (the shapes in `Fitter/`); a built-in stage may repeat.
 - [ ] D: condor for the local stages, and resume. Local stages cannot resume partway; Ctrl+C leaves a stage `NEW`
       with partial output.
 - [ ] E: a weights stage.

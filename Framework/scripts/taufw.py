@@ -71,7 +71,7 @@ def cmd_plan(args):
         reporter.header("Stage %s (%s)" % (stage_spec.id, stage_spec.stage))
         if stage_spec.description:
             reporter.message(stage_spec.description)
-        reporter.message("Inputs: %s" % (_inputs_line(stage_spec)))
+        reporter.message("Inputs: %s" % (_inputs_line(stage_spec, framework.stages[stage_spec.id])))
         if stage_plan.paths:  # the files the stage reads: from the bundle, from its module, or absolute
             reporter.table(["option", "file", "from"],
                            [(option, resolved, where) for option, _, resolved, where in stage_plan.paths])
@@ -151,11 +151,12 @@ def cmd_init(args):
     return 0
 
 
-def _inputs_line(stage_spec):
-    """The stage's inputs as written: 'none', or 'slot <- stage id' (null: 'slot <- outside this run')."""
+def _inputs_line(stage_spec, stage):
+    """The stage's inputs as written: 'none', or 'slot <- stage id' (null: 'slot <- outside this run (what null
+    means for the slot, Stage.null_inputs)')."""
     if stage_spec.inputs is None:
         return "none"
-    return ", ".join("%s <- %s" % (slot, stage_id or "outside this run")
+    return ", ".join("%s <- %s" % (slot, stage_id or "outside this run (%s)" % (stage.null_inputs.get(slot, '?')))
                      for slot, stage_id in stage_spec.inputs.items())
 
 

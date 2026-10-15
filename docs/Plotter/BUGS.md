@@ -18,6 +18,10 @@ fixed with `# BUGS <ID>` comments at the changed lines; others are registered on
 | L05 | `python/plot/string.py` `joinweights` (line ~29; now `Utilities/python/Expressions/_expressions.py`) | a numeric weight `0` should only warn, but the warning formats two values with one `%r`, so the call raises `TypeError`. `Sample.getrdframe` passes the sample scale as a weight, so a sample scaled to exactly 0 would crash histogram filling | latent | registered only; recorded in `Tests/Utilities/test_expressions.py`. Fix the format string (`%r`, `%r`) in its own commit | a zero weight warns and gives `"0*..."` instead of raising |
 | L06 | `python/plot/string.py` `replacepattern` (line ~79; now `Utilities/python/Expressions/_expressions.py`) | with several patterns every replacement starts again from the original string, so only the last pattern is applied (`[("w1","a"),("w3","b")]` on `"w1*w2*w3"` gives `"w1*w2*b"`) | latent | registered only: the one caller (`Sample.getrdframe`, `replaceweight=`) passes a single tuple. Recorded in `test_expressions.py` | none for the existing caller |
 | L07 | `python/plot/string.py` `joincuts` (line ~48; now `Utilities/python/Expressions/_expressions.py`) | a cut with `\|\|` is bracketed only if it has no parentheses at all, so `"(x)\|\|y"` is joined as `"a>1 && (x)\|\|y"`, where `&&` binds first and the selection is wider than meant | latent | registered only: the `\|\|` selections in `Plotter/config/samples*.py` (`GML`, `GMJ`, `GMF`) are fully bracketed; selections built in Fitter configs and recipes were not checked. Recorded in `test_expressions.py`. A fix needs a bracket-depth check | selections of that form change |
+| L08 | `python/api/control_plots.py` `_plot_glob`, `_command` (expects) | the expected plots use only `request.tag`, but `plot.py` names its files with the setup's YAML `tag` plus `-t`, so for a setup with a non-empty `tag` the expected outputs are always missing and the plots stage fails (and `nfiles` is 0) | wrong | registered only; R3 | |
+| L09 | `python/api/control_plots.py` `make` (`nfiles`) | the plot count globs `Plotter/plots/<era>/`, which is shared by all runs, so it also counts plots of earlier runs | wrong | registered only; R3 (each run has its own directory) | |
+| L10 | `config/setup_mutau.yml` vs `config/setup_mutau_inclusive.yml` | both have `channel: mutau` and `tag: ""`, so they write the same file names into `plots/<era>/` and the second run overwrites the first | wrong | registered only | |
+| L11 | `plot.py` (line ~65) + `common/python/tools/root.py` `loadmacro` | `loadmacro("python/macros/mapDecayModes.C")` is relative to the working directory and its result is ignored; outside `Plotter/` the macro is not loaded and the run fails much later, when RDataFrame compiles `mapRecoDM(dm_2)` (only for channels with `tau`) | latent; crash outside `Plotter/` | registered only; R3 (path from `__file__`) | none in `Plotter/` |
 
 ## How old
 
@@ -37,3 +41,9 @@ Open bugs only; fixed ones are left out.
   with `estimatelen` in commit `38f7be3` (2020-07-18, "add Selection; improve gethist unwrapping"), and that one had
   the same problem. The helper has always taken exactly one argument, all the way back to 2020, so passing several
   strings has always crashed. It never showed because the only caller passes one list.
+- **L08, L09** `_plot_glob` and the `nfiles` count came with the Plotter API, `c27abb7` (2026-10-13, Part G).
+- **L10** `setup_mutau_inclusive.yml` was added in `a6cd524` (2025-04-14, "my setups") as a copy of
+  `setup_mutau.yml` with the same channel and tag.
+- **L11** `loadmacro("python/macros/mapDecayModes.C")` is from `25ec87c` (2021-07-15, "add DM; implement DM mapping;
+  add loadmacro; ..."); `loadmacro` moved to `common/python/tools/root.py` in `e2b48d4` (2024-01-24) and has always
+  ignored the result of `ProcessLine`. Correct as long as `plot.py` runs in `Plotter/`.

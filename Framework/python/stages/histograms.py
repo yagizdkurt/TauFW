@@ -41,7 +41,8 @@ class HistogramStage(LocalStage):
     """Input histograms with the Fitter API.
     fitter: a TauFW.Fitter.api.TauESID, or any object with the same methods (tests pass a fake one)."""
     name = 'histograms'
-    inputs = {'tuples': 'tuples'}   # null: the tuples in $PICODIR of the run's PicoProducer config
+    inputs = {'tuples': 'tuples'}
+    null_inputs = {'tuples': "the tuples in $PICODIR of the run's PicoProducer config"}
     outputs = ('shapes',)
     group = 'fitter'  # taufw.py init names a copied config <group>_<name> if its name is taken
     # Spec = HistogramSpec: set at the bottom of this file.

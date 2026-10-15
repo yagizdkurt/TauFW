@@ -291,7 +291,8 @@ class CommandLineTests(LocalStageTestCase):
         self.assertIn("combine is not on PATH", self.warnings())
         messages = [t for k, t in self.reporter.messages if k == "message"]
         self.assertIn("Inputs: shapes <- histograms", messages)
-        self.assertIn("Inputs: tuples <- outside this run", messages)
+        self.assertIn("Inputs: tuples <- outside this run (the tuples in $PICODIR of the run's PicoProducer "
+                      "config)", messages)
 
     def test_check_lists_every_problem(self):
         path = os.path.join(self.root, "r.json")

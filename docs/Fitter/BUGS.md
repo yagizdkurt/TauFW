@@ -31,6 +31,31 @@ only. The Fitter has no BBB case, so **Output impact** describes the change for 
 | F09 | `TauES_ID/makecombinedfitTES_SF.py` `merge_datacards_regions` | `hasattr(setup, 'mumu_datacard_file')` on the setup dict is always false, so the Zmm card is never added | latent (options 4-6) | registered only | |
 | F10 | `TauES_ID/makecombinedfitTES_SF.py` `merge_datacards_regions` | the combined card is written to `output_{era}/` instead of the output directory | wrong (options 4-6) | registered only | |
 
+## Paths and working directory (R3 inventory)
+
+Found while preparing R3 (October 2026): the Framework will run the scripts with the stage's output directory
+(`taufw_runs/<run>/stages/<id>/`) as working directory instead of `Fitter/`, so every path that depends on the
+working directory or on the module directory was read. **R3** in the Fix column: fixed by R3 without changing what
+the shell scripts produce. **After R3**: on the Framework path, but the fix changes the output of the shell scripts,
+so it comes in its own commit after the shell/Framework comparison of R3.
+
+| ID | Location | Symptom | Severity | Fix | Output impact |
+|---|---|---|---|---|---|
+| F11 | `TauES_ID/makecombinedfitTES_SF.py` (end of `run_combined_fit`, lines ~512-515) | `mv higgsCombine*root`, `mv *.root` and `mv *.png` move every such file of the working directory into the output directory of the current working point. The post-fit step leaves `higgsCombine.<label>.FitDiagnostics.mH90.root` and the impact fits `higgsCombine_*Fit_Test*.root` in the working directory, so the fit of the **next** working point moves them into its own output directory | wrong | registered only; after R3 | |
+| F12 | `TauES_ID/makecombinedfitTES_SF_postfit.py` (`FitDiagnosticsValues/`, lines ~366-367) -> `plot_measurements.py` (line ~384) | `FitDiagnosticsValues/VSjet<J>_VSele<E>/` has no era, so with two eras in one working directory the measurement plots of one era show the post-fit values of the other. `impacts/`, `impacts_<r>.json`, `output_plots/`, `combined_pre_post/` and `Measurements/` have no era either | wrong | registered only; R3 runs each era in its own directory, which avoids it; script fix after R3 | |
+| F13 | `TauES_ID/makecombinedfitTES_SF.py` `merge_datacards_ZmmCR` (line ~158), `TauES_ID/makecombinedfitTES_SF_postfit.py` (line ~69) | the combined card `ztt_mt_m_vis-<region>_zmmCR.txt` has no config tag, so two configs fitted into the same working point directory overwrite each other's card | latent | registered only; after R3 | |
+| F14 | `TauES_ID/harvestDatacards_zmm.py` `harvest` / `main` (lines ~32, ~208) | without `-o`, `main` passes `outdir=None` explicitly, so the default `output_pt_less_region/<year>` of `kwargs.get` never applies and the cards are written with an output directory `None` | crash (standalone use) | registered only; R3 | none for the callers, which always pass `-o` |
+| F15 | `TauES_ID/makecombinedfitTES_SF.py` (lines ~90, ~544) | the datacard script and the 2D scan plotter are started as `python3 TauES_ID/<script>.py`, relative to the working directory, through `os.system`, whose exit code is ignored. Outside `Fitter/` both fail with "can't open file" and the fit goes on without new cards or scan plots | wrong (outside `Fitter/`) | registered only; R3 (paths from `__file__`); exit codes: TODO §6 B | none in `Fitter/` |
+| F16 | `TauES/createinputsTES.py` (line 8) | `sys.path.append("../Plotter/")` is relative to the working directory; outside `Fitter/` `from config.samples_v15 import *` raises `ModuleNotFoundError` | crash (outside `Fitter/`) | registered only; R3 (path from `__file__`) | none in `Fitter/` |
+| F17 | `make_tid_2025.py` (`SF_DIR`, line 19) | the per-working-point correction files are always read from `Fitter/tau_sf/` (the module directory), with no option, while `createroot_TES.py` writes them to `tau_sf/` of the working directory | wrong (outside `Fitter/`) | registered only; R3 (`--sf-dir`, default unchanged) | none in `Fitter/` |
+| F18 | `TauES_ID/makecombinedfitTES_SF.py` (lines ~178, ~574), `TauES_ID/harvestDatacards_TES_idSF_MCStat.py` (line ~59), `TauES_ID/plot2DScan_MultiDimFit.py` (lines ~602, ~999, ~1276), `TauES_ID/makecombinedfitTES_SF_postfit.py` (lines ~92, ~266) | output directories are derived from input directories with `str.replace('input', 'output')`, `('output', 'plots')`, `('output', 'postfit')` and `('postfit', 'output')` on the **whole** path. `plot2DScan_MultiDimFit.py` already gets an absolute path (`os.path.abspath` in `makecombinedfitTES_SF.py`), so any `output` elsewhere in that path (a user or run directory) sends the scan plots to a different, newly created tree | latent | registered only; R3 adds explicit output directory options; the derivation stays for calls without them | |
+| F19 | `createroot_TES.py` (lines ~197-206, ~460-464, ~545-548) | if no `FitparameterValues_*` file is found, the correction files are written with every scale factor 1.0, and the script exits 0 | wrong | registered only; after R3 | |
+| F20 | `merge_tau_jsons.py` (lines ~148-150, ~212), `plot_measurements.py` (lines ~711-713) | when nothing is found the scripts print a message and exit 0 without writing their output | wrong | registered only; after R3 | |
+| F21 | `make_measurements_grid.py` (`--dir`, line ~50) vs `plot_measurements.py` (line ~707) | the grid reads `Measurements/` next to the script (module directory), `plot_measurements.py` writes it in the working directory; consistent only when the working directory is `Fitter/` | latent | registered only; R3 (the API passes `--dir`) | |
+| F22 | `python/api/tes_id.py` `_correction_glob` | `tau_sf/*_<era>_VSjet<J>_VSele<E>.<form>` also matches the files of other taggers (PNet, UParT), so they are listed in the fit artifact | wrong (artifact list) | registered only; R3 | |
+| F23 | `python/plot/runpostfit.py` (line ~45) | the post-fit file name has `__mutau_` hard-coded instead of the config's tag, so a config with another tag fails to open its post-fit shapes | latent | registered only | |
+| F24 | `tau_tid_2024.py` `makecorr_tid` (lines ~395-421), through `make_tid_2025.py` | if no per-working-point file is found, `makecorr_tid` takes its "test format with dummy values" branch (Loose/Medium, SF 1.0 +- 0.2) instead of failing; what it writes then is not yet checked on lxplus | wrong | registered only; after R3 | |
+
 ## How old
 
 Open bugs only; fixed ones are left out.
@@ -55,3 +80,31 @@ Open bugs only; fixed ones are left out.
   `output_<era>/`. `5a08f58` (2025-09-26) moved the regions-only card to `output_dir` but kept the combined card in
   `output_{era}/`. Nobody noticed because the line sits behind the always-false F09 check, and options 4-6 crash
   first anyway (F08).
+- **F11** `9ebb7a0` (2024-06-19, "introduce input and output directory separate for different wps of against jet and
+  against electron") added the `mv` lines when the output directory per working point came in. The stray files they
+  now pick up came later: `FitDiagnostics` and the impacts in the working directory with the post-fit script of
+  `5a08f58` (2025-09-26, "2D parabola") and `7360158` (2025-10-03, "Fitter upgrade 2D").
+- **F12** `FitDiagnosticsValues/VSjet<J>_VSele<E>/` was introduced in `f66a886` (2025-12-04, "Full Fitter +
+  Plotter, ..."), already without the era. Every driver runs one era at a time in `Fitter/`, so it never showed.
+- **F13** The `_zmmCR` card name is from `6dc9a0a` (2023-07-06, "update of the combined fit script, option to include
+  Zmm CR"), when there was one config.
+- **F14** `outdir=args.output_dir` is from `9ebb7a0` (2024-06-19); every caller since passes `-o`.
+- **F15** The relative `TauES_ID/harvestDatacards_TES_idSF...` call is in the first commit of the folder, `2c8819e`
+  (2022-11-09); the `python3 TauES_ID/plot2DScan_MultiDimFit.py` call came with `7360158` (2025-10-03). Correct as
+  long as everything runs in `Fitter/`.
+- **F16** `sys.path.append("../Plotter/")` came with `007966c` (2022-01-14, "Some local changes and bug fixes (?)
+  ..."); correct as long as the script runs in `Fitter/`.
+- **F17** `SF_DIR` next to the script is from `7589a86` (2026-05-19, "1D plotting and corrlib file maker"), which
+  also brought the dummy branch of F24.
+- **F18** `input_dir.replace('input', 'output')` is from `9ebb7a0` (2024-06-19); `indir.replace('output', 'plots')`
+  and `fit_outdir.replace("output", "postfit")` from `5a08f58` (2025-09-26); `param_file.replace("postfit",
+  "output")` from `7360158` (2025-10-03). All assume a relative path whose only `input`/`output` is the first
+  component.
+- **F19** The glob of `FitparameterValues_*_DeepTau_*` with its 1.0 default came with `feb8ebd` (2025-12-05, "update
+  to new file structure").
+- **F20** `plot_measurements.py`'s "No measurements found!" return is from `aa0b1a1` (2025-10-29, "plotter").
+- **F21** `make_measurements_grid.py` came with `7a2875c` (2026-05-15, "Refactor workflow scripts and add grid
+  generation ..."), with the module directory as default.
+- **F22** `_correction_glob` came with the Fitter API, `c27abb7` (2026-10-13, Part G).
+- **F23** `__mutau_` is from `27f31c6` (2025-10-20, "postfit Zmm plots").
+- **F24** see F17: `7589a86` (2026-05-19).

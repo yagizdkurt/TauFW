@@ -32,7 +32,8 @@ class PlotStage(LocalStage):
     """Control plots with the Plotter API.
     plotter: a TauFW.Plotter.api.ControlPlots, or any object with the same methods (tests pass a fake one)."""
     name = 'plots'
-    inputs = {'tuples': 'tuples'}   # null: the tuples in $PICODIR of the run's PicoProducer config
+    inputs = {'tuples': 'tuples'}
+    null_inputs = {'tuples': "the tuples in $PICODIR of the run's PicoProducer config"}
     outputs = ('plots',)
     group = 'plotter'  # taufw.py init names a copied config <group>_<name> if its name is taken
     # Spec = PlotSpec: set at the bottom of this file.

@@ -27,10 +27,11 @@ Every stage has the keys `stage`, `id` and `inputs`, and may have `description`;
                 production    no slots                     inputs: null
                 plots         tuples   <- tuples           null: the tuples in $PICODIR of the PicoProducer config
                 histograms    tuples   <- tuples           null: the same
-                fit           shapes   <- shapes           null: the shapes already in Fitter/ (made before)
+                fit           shapes   <- shapes           null: the shapes already in Fitter/ (temporary exception)
                 python        any names <- any stage       null: no inputs; a mapping names stages, never null
               A slot names a stage that comes earlier in the recipe and makes that kind of data
-              (Stage.outputs). Nothing is connected implicitly: a stage sees only the artifacts of its inputs.
+              (Stage.outputs). A slot may be null (data from outside the run) only if its stage lists it in
+              Stage.null_inputs. Nothing is connected implicitly: a stage sees only the artifacts of its inputs.
     order:    the built-in stages at most once each, in the order of ORDER (production, plots, histograms, fit);
               python steps anywhere, any number of times.
 
@@ -293,18 +294,19 @@ def _check_id(entry, where, issues):
 def _check_inputs(entry, name, where, issues):
     """The stage's inputs as written (None for `inputs: null`), checked against the slots of its type.
     Which stages they name is checked by _check_graph."""
-    slots = STAGES[name].inputs
+    slots, nullable = STAGES[name].inputs, STAGES[name].null_inputs
     where = where + ".inputs"
     if 'inputs' not in entry:
-        issues.append(Issue(where, "missing (%s)" % (_inputs_hint(name, slots))))
+        issues.append(Issue(where, "missing (%s)" % (_inputs_hint(name, slots, nullable))))
         return None
     inputs = entry['inputs']
     if inputs is None:
         if slots:  # a built-in stage with slots lists all of them
-            issues.append(Issue(where, "%s reads %s: %s" % (name, ', '.join(slots), _inputs_hint(name, slots))))
+            issues.append(Issue(where, "%s reads %s: %s" % (name, ', '.join(slots),
+                                                            _inputs_hint(name, slots, nullable))))
         return None
     if not isinstance(inputs, dict):
-        issues.append(Issue(where, "must be a mapping or null (%s)" % (_inputs_hint(name, slots))))
+        issues.append(Issue(where, "must be a mapping or null (%s)" % (_inputs_hint(name, slots, nullable))))
         return None
     if not inputs:
         issues.append(Issue(where, "is empty: write inputs: null if the stage reads no other stage's output"))
@@ -321,20 +323,25 @@ def _check_inputs(entry, name, where, issues):
         elif value is None and slots is None:
             issues.append(Issue("%s.%s" % (where, slot), "must name an earlier stage (leave the input out if "
                                                          "it has none)"))
+        elif value is None and slot not in nullable:
+            issues.append(Issue("%s.%s" % (where, slot), "must name an earlier stage that makes %s (null is not "
+                                                         "allowed for this input)" % (slots[slot])))
         elif value is not None and not isinstance(value, str):
             issues.append(Issue("%s.%s" % (where, slot), "must be a stage id or null (got %r)" % (value,)))
     for slot in (slots or {}):
         if slot not in inputs:
-            issues.append(Issue("%s.%s" % (where, slot), "missing (the id of an earlier stage, or null)"))
+            issues.append(Issue("%s.%s" % (where, slot), "missing (the id of an earlier stage%s)"
+                                % (", or null" if slot in nullable else "")))
     return dict(inputs)
 
 
-def _inputs_hint(name, slots):
+def _inputs_hint(name, slots, nullable):
     if slots is None:
         return "write inputs: null, or a mapping of names to the ids of earlier stages"
     if not slots:
         return "write inputs: null"
-    return "write inputs: {%s}" % (', '.join("%s: <stage id or null>" % (slot) for slot in slots))
+    return "write inputs: {%s}" % (', '.join("%s: <stage id%s>" % (slot, " or null" if slot in nullable else "")
+                                             for slot in slots))
 
 
 def _check_graph(entries, issues):

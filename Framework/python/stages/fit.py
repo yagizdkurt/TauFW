@@ -6,7 +6,7 @@ datacards, the 2D MultiDimFit of tes and tid_SF per region (makecombinedfitTES_S
 post-fit shapes, the plots, the correction files, and once per era the summary (grids, merged JSON).
 
     inputs:   shapes: the shapes in Fitter/input_pt_less_region/..., made by the histograms stage the slot
-              names (null: made before, outside this run). The points come from the recipe (eras x jet_wps x
+              names (null, a temporary exception: the shapes already there, made outside this run). The points come from the recipe (eras x jet_wps x
               ele_wps), or, if jet_wps and ele_wps are empty, from the shapes artifacts of that stage (every
               era and working point pair that has shapes of both configs).
     options:  FitSpec (configs, points, steps, impacts)
@@ -47,7 +47,10 @@ class FitStage(LocalStage):
     """The TES + tau ID fit with the Fitter API.
     fitter: a TauFW.Fitter.api.TauESID, or any object with the same methods (tests pass a fake one)."""
     name = 'fit'
-    inputs = {'shapes': 'shapes'}   # null: the shapes already in Fitter/input_pt_less_region/
+    inputs = {'shapes': 'shapes'}
+    # Temporary exception: null reads the shapes the Fitter scripts made outside the Framework. To be removed when
+    # an input can name another run's stage directory (TODO 6 C).
+    null_inputs = {'shapes': "the shapes already in Fitter/input_pt_less_region/ (temporary)"}
     outputs = ('fit', 'corrections')
     group = 'fitter'  # taufw.py init names a copied config <group>_<name> if its name is taken
     # Spec = FitSpec: set at the bottom of this file.

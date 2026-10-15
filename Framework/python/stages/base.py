@@ -17,7 +17,8 @@ The states of one stage:
 
 A stage declares what it reads and makes: `inputs` maps each of its input slots to the kind of data the slot
 takes (the fit: {'shapes': 'shapes'}), `outputs` lists the kinds it makes (histograms: ('shapes',)). A recipe
-connects every slot to an earlier stage that makes that kind, or to null (see recipe.py).
+connects every slot to an earlier stage that makes that kind. Only the slots in `null_inputs` may be null instead
+(data from outside the run); `null_inputs` also says what null means for each of them (see recipe.py).
 
 A stage also gets a StageContext: the run directory (for its log files), the artifacts of the stages its inputs
 name (so the fit stage knows which shapes exist), and the bundle directory that its path options are resolved
@@ -158,6 +159,7 @@ class Stage:
     name = None     # the stage's name, as written in recipes ('stage:')
     Spec = None     # frozen dataclass with the stage's recipe options; built by spec_from_dict()
     inputs = {}     # input slot -> kind of data it takes; None: any slot names, any kind (python steps)
+    null_inputs = {}  # input slot -> what null means for it; the other slots must name an earlier stage
     outputs = ()    # kinds of data the stage makes; None: any kind (python steps)
 
     def plan(self, spec, context=None):
