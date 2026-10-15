@@ -66,6 +66,8 @@ class PipelineTests(LocalStageTestCase):
         # each stage logs to <run_dir>/logs/<stage id>, and gets a manifest in <run_dir>/stages/<stage id> when DONE
         logs = os.path.join(record.run_dir, "logs")
         self.assertEqual(self.plotter.logdirs, [os.path.join(logs, "plots")])
+        # the Framework decides where a stage writes: its scripts run in <run_dir>/stages/<stage id>
+        self.assertEqual(self.plotter.call("make")[0]["outdir"], os.path.join(record.run_dir, "stages", "plots"))
         self.assertEqual(self.fitter.logdirs, [os.path.join(logs, "histograms"), os.path.join(logs, "fit")])
         self.assertEqual(sorted(os.listdir(os.path.join(record.run_dir, "stages"))),
                          ["fit", "histograms", "plots", "production"])
@@ -231,6 +233,10 @@ class ContextTests(LocalStageTestCase):
         context = fw._context(record, fw.recipe.stage("plots"))
         self.assertEqual((context.upstream, context.input_artifacts("tuples")), ({}, ()))
         self.assertNotIn("inputs", record.stage("plots").last_status)  # no production tuples recorded
+
+    def test_output_dir_in_a_plan(self):  # no run yet: a placeholder, as for python steps
+        self.framework(PLOTS).plan()
+        self.assertEqual(self.plotter.call("plan")[0]["outdir"], os.path.join("<run_dir>", "stages", "plots"))
 
     def test_stage_dir(self):
         context = StageContext(run_dir="runs/x", stage_id="plots")

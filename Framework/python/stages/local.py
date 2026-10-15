@@ -21,9 +21,14 @@ A subclass sets `name` and `Spec`, and implements:
     config_file(value)              -> the module file of a path option (for taufw.py init; default: None)
 A stage with a `tuples` input slot records the tuples of the stage connected to it as its inputs.
 
+The scripts of a stage run in its output directory, output_dir(context) = <run_dir>/stages/<id>/ (the Framework
+decides where; the module API only uses it). Before a run exists (plan), it is the placeholder
+'<run_dir>/stages/<id>'.
+
 Public API:
   LocalStage, LOG_TAIL
 """
+import os
 from collections import deque
 from dataclasses import replace
 
@@ -104,6 +109,14 @@ class LocalStage(Stage):
 
     # =========================================================================
     # ================================ HELPERS ================================
+
+    def output_dir(self, context):
+        """The directory the stage's scripts run in and write to: <run_dir>/stages/<id> (absolute); in a plan
+        before the run exists, the placeholder '<run_dir>/stages/<id>'."""
+        stage_id = context.stage_id or self.name
+        if context.run_dir:
+            return os.path.abspath(context.stage_dir(stage_id))
+        return StageContext(run_dir='<run_dir>', stage_id=stage_id).stage_dir()
 
     def _failed(self, report, status, reporter):
         """FAILED: show the end of the failed command's log, and say where the full log is."""

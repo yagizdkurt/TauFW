@@ -7,7 +7,7 @@
     options:  PlotSpec (eras, channel setups (bundle files or Plotter's), variable and selection filters, plot.py
               options)
     outputs:  one plots artifact per channel setup and era: {kind: 'plots', era, config, channel, directory,
-              nfiles}; the plots are in Plotter/plots/<era>/
+              nfiles}; plot.py runs in the stage's directory, so the plots are in <run_dir>/stages/<id>/plots/<era>/
 
 The stage runs locally and finishes in one advance() call (see stages/local.py). It comes right after production,
 so the tuples can be checked by eye before the long histogram and fit stages.
@@ -39,7 +39,8 @@ class PlotStage(LocalStage):
     # Spec = PlotSpec: set at the bottom of this file.
 
     def request(self, spec, context):
-        return self.api.request(pico_config=context.pico_config, **spec.request_dict())
+        return self.api.request(pico_config=context.pico_config, outdir=self.output_dir(context),
+                                **spec.request_dict())
 
     def plan_commands(self, request):
         return self.api.plan(request)

@@ -23,7 +23,8 @@ class PlotsRequest:
     """Control plots: one plot.py run per channel setup and era.
     configs: channel names (config/setup_<channel>.yml) or .yml files (relative to Plotter/, or absolute).
     variables, selections: plot.py -V and -S filters (glob patterns); empty: all.
-    pico_config: the PicoProducer configuration plot.py reads $PICODIR from (None: its default)."""
+    pico_config: the PicoProducer configuration plot.py reads $PICODIR from (None: its default).
+    outdir: the directory plot.py runs in and writes plots/<era>/ to (None: Plotter/, as a user runs it)."""
     eras:       Tuple[str, ...]
     configs:    Tuple[str, ...] = ('mutau',)
     variables:  Tuple[str, ...] = ()
@@ -36,6 +37,7 @@ class PlotsRequest:
     text:       str = ""                 # -T: extra text on the plots
     timeout:    Optional[float] = None   # seconds per command
     pico_config: Optional[str] = None    # $TAUFW_PICO_CONFIG of the commands
+    outdir:     Optional[str] = None     # working directory of plot.py (None: Plotter/)
 
     def __post_init__(self):
         for name in ('eras', 'configs', 'variables', 'selections'):

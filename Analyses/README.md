@@ -348,8 +348,13 @@ the `plots` entry in `fit.steps` instead makes plots of fit results.
 | `text` | `""` | Additional plot text; `-T`. |
 | `timeout` | `null` | Seconds allowed per command; unset means no time limit. |
 
-Plots are written under `Plotter/plots/<era>/`. The run records one artifact
-per channel setup and era, including the directory and matching file count.
+`plot.py` runs in the stage's directory, so the plots are written under
+`taufw_runs/<run>/stages/<id>/plots/<era>/` (nothing is written to
+`Plotter/plots/`). The run records one artifact per channel setup and era,
+including the directory and the number of plots this run made. File names carry
+the setup's `tag` plus `tag` of the stage; two setups with the same channel and
+tag (e.g. `setup_mutau.yml` and `setup_mutau_inclusive.yml`) write the same
+names, and `plan` says so.
 The selected setup controls the physics samples and regions; a production
 sample filter does not automatically restrict the Plotter's sample collection.
 
@@ -607,7 +612,7 @@ results.
 | Stage | Output location | Recorded artifacts |
 | --- | --- | --- |
 | `production` | PicoProducer's configured tuple paths | Merged tuple path, sample/group, era, channel, tag, data type, event count, tree, cutflow. |
-| `plots` | `Plotter/plots/<era>/` | `kind: plots`, era, config, channel, directory, matching file count. |
+| `plots` | `taufw_runs/<run>/stages/<id>/plots/<era>/` | `kind: plots`, era, config, channel, directory, matching file count. |
 | `histograms` | `Fitter/input_pt_less_region/againstjet_<J>/againstelectron_<E>/` | `kind: shapes`, path, era, channel, config, WP pair, observable. |
 | `fit` | Fitter's `output_*`, `postfit_*`, plot directories, and `tau_sf/` | `kind: fit` per point, output/postfit directories, fitted values, correction paths; `kind: corrections` per era when summary runs. |
 | `python` | `taufw_runs/<run>/stages/<id>/` (`ctx.stage_dir`) | What the step returns. |

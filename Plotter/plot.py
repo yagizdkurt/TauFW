@@ -9,6 +9,7 @@
 #>>>>Run with --serial option if using py3:
 #   ./plot.py -y 2018 -c mutau --serial
 
+import os
 from config.samples_v15 import *
 from TauFW.Plotter.plot.string import filtervars
 from TauFW.Utilities.Drawing import LOG as PLOG
@@ -62,7 +63,8 @@ def plot(sampleset,setup,parallel=True,tag="",extratext="",outdir="plots",era=""
     Var('dzeta',  56, -180, 100, pos='L;y=0.87',units='GeV',cbins={"nbtag\w*>":(35,-220,130)}),
   ]
   if 'tau' in channel: # mutau, etau, tautau
-    loadmacro("python/macros/mapDecayModes.C") # for mapRecoDM
+    # BUGS L11: found next to this script, not in the working directory (which may be any output directory)
+    loadmacro(os.path.join(os.path.dirname(os.path.abspath(__file__)),"python/macros/mapDecayModes.C")) # for mapRecoDM
     dmlabels  = ["h^{#pm}","h^{#pm}h^{0}","h^{#pm}h^{#mp}h^{#pm}","h^{#pm}h^{#mp}h^{#pm}h^{0}","Other"]
     variables += [
       Var('m_vis',          40,  0, 200, fname="mvis",ctitle={'mumu':"m_mumu",'emu':"m_emu"},cbins={"pt_\d>":(50,0,250),"nbtag\w*>":(60,0,300)},cpos={"pt_\d>[1678]0":'LL;y=0.88'}),
