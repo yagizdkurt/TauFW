@@ -867,7 +867,7 @@ differ by a grid step in the fitted POIs (the fit amplifies the 1e-13 difference
 
 ## 18. Framework: tuples as an input, production writes into the run, run_root
 
-**Date:** 2026-10-17 (in progress: steps 1-2 of 8)
+**Date:** 2026-10-17 (in progress: steps 1-3 of 8)
 **Details:** [Framework](../../Framework/README.md) "Concepts" and "Run directory", [Analyses](../../Analyses/README.md)
 "Where the runs go (`run_root`)", [scripts_arg_changes.md](scripts_arg_changes.md) "Tuple location", Framework BUGS
 K04, K05, Plotter BUGS L12
@@ -910,3 +910,15 @@ warnings), Utilities menu 28 (warnings in the preview). Plotter API and Fitter A
 - `Analyses/README.md`: the statements that Plotter/Fitter outputs are shared between runs, that `--run-root` does
   not isolate them, that an interrupted stage simply reruns and that the summary picks up other runs' working
   points were left over from before R3 (CL §17) and are corrected.
+
+### Step 3: `tuples` in the Plotter and Fitter APIs
+
+- `PlotsRequest.tuples`, `ShapesRequest.tuples` (default `None`: unchanged). With a pattern every `plot.py` /
+  `createinputsTES.py` command gets `--tuples PATTERN`, no `$TAUFW_PICO_CONFIG`, and preflight does not look for a
+  PicoProducer configuration. `FitRequest` has no field: the fit reads no tuples.
+- Preflight of a pattern (`TauFW.Utilities.Process`): `output_dir_problems(outdir, pico_config, tuples=)` checks the
+  pattern instead of the configuration's `picodir` (relative: a problem); `tuple_pattern_problems(tuples)` refuses
+  `$KEYS` the scripts do not fill (e.g. `$DAS`).
+
+Tests (Windows): Plotter API 12, Fitter API 19, Utilities 104 (2 skipped), Framework 104; the existing API tests are
+unchanged. `Tests/Plotter/testTupleLocation.py` passes on lxplus.

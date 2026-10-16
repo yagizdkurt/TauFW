@@ -3,6 +3,7 @@ import os
 import shutil
 import tempfile
 import unittest
+from unittest import mock
 
 import checkout  # noqa: F401  (must precede TauFW imports)
 from TauFW.Plotter.api import ControlPlots, PlotsRequest
@@ -143,6 +144,24 @@ class ControlPlotsTests(unittest.TestCase):
         self.assertIn("output directory %s is not empty" % (outdir), problems)
         self.assertNotIn("picodir", problems)
         self.assertNotIn("not empty", " ".join(self.plotter.preflight(PlotsRequest(eras=["2025"]))))
+
+    def test_tuple_pattern(self):
+        pattern = "/eos/cms/store/group/phys_tau/TauFW/pico2024/TES_variations/$ERA/$GROUP"
+        request = PlotsRequest(eras=["2025"], tuples=pattern, pico_config="/run/bundle/pico.json",
+                               outdir=os.path.join(self.base, "out"))
+        command = self.plotter.plan(request).commands[0]
+        self.assertEqual(command.argv[-2:], ("--tuples", pattern))
+        self.assertEqual(command.env, ())  # the PicoProducer configuration is not used
+        with mock.patch.dict(os.environ, {"CMSSW_BASE": "/cmssw"}):  # only the tuple checks below
+            self.assertEqual(self.plotter.preflight(request), ())  # nor checked
+            problems = self.plotter.preflight(PlotsRequest(eras=["2025"], tuples="/eos/x/$ERA/$DAS"))
+            self.assertEqual(problems, ("tuple pattern /eos/x/$ERA/$DAS has $DAS, which the scripts do not fill "
+                                        "(they fill $ERA, $GROUP, $SAMPLE, $CHANNEL, $TAG)",))
+            problems = self.plotter.preflight(PlotsRequest(eras=["2025"], tuples="pico/$ERA/$GROUP",
+                                                           outdir=os.path.join(self.base, "out")))
+        self.assertEqual(problems, ("tuple pattern 'pico/$ERA/$GROUP' is relative: the scripts would look for the "
+                                    "tuples relative to %s" % (os.path.join(self.base, "out")),))
+        self.assertNotIn("--tuples", self.plotter.plan(PlotsRequest(eras=["2025"])).commands[0].argv)
 
     def test_request_checks(self):
         with self.assertRaises(ValueError):

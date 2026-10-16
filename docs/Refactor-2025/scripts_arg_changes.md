@@ -95,8 +95,9 @@ TES/LTF/JTF variations). Baseline commit: `f951dc0` (the last one with the scrip
 
 ## Tuple location (CL §18)
 
-**Status:** step 2 of the tuple-location work (`LocalR/architecture/12-tuples-plan.md`): the options exist; the APIs
-do not pass them yet (step 3). Not yet checked on lxplus.
+**Status:** steps 2-3 of the tuple-location work (`LocalR/architecture/12-tuples-plan.md`): the options exist and
+the APIs pass them (`PlotsRequest.tuples`, `ShapesRequest.tuples`); the Framework does not give them yet (step 6).
+`Tests/Plotter/testTupleLocation.py` passes on lxplus.
 
 The scripts found the tuples through `$PICODIR` of the PicoProducer configuration (`$TAUFW_PICO_CONFIG` or
 `PicoProducer/config/config.json`). With these options the caller gives the directory instead (rule 1: the tuples
@@ -114,6 +115,9 @@ same directory.
   `--tuples '/eos/cms/store/group/phys_tau/TauFW/pico2024/TES_variations/$ERA/$GROUP'` (single quotes: the shell
   must not expand the `$`).
 - With the option, the PicoProducer configuration is not read at all (no `TauFW.PicoProducer` import there).
+  The APIs then pass no `$TAUFW_PICO_CONFIG` and do not check the configuration; their preflight refuses a
+  relative pattern (with an output directory) and `$KEYS` other than `$ERA`, `$GROUP`, `$SAMPLE`, `$CHANNEL`,
+  `$TAG`, e.g. `$DAS`, which only PicoProducer fills (`TauFW.Utilities.Process.tuple_pattern_problems`).
 - Not through `fname` / the YAML `samples.filename`: those are ignored today (Plotter BUGS L02), and stay so.
 - Every sample config that passes `**kwargs` on to `getsampleset` (`samples_v15.py`, `samples.py`, ...) supports
   the keyword without a change. `getmcsample` (L12) is not changed.

@@ -18,8 +18,9 @@ Each command must exit with 0 AND write its expected outputs (see TauFW.Utilitie
 through os.system and ignore its exit code, so a zero exit code alone proves nothing. A run stops at the first
 command that fails.
 
-Inputs:  pico tuples, found by the scripts through $PICODIR of the request's PicoProducer config (passed as
-         $TAUFW_PICO_CONFIG; default PicoProducer/config/config.json); the YAML configs.
+Inputs:  pico tuples in the shapes request's tuple pattern (createinputsTES.py --tuples), or else found by the
+         scripts through $PICODIR of the request's PicoProducer config (passed as $TAUFW_PICO_CONFIG; default
+         PicoProducer/config/config.json); the YAML configs.
 Outputs: written by the scripts in the output directory (shapes) or <outdir>/<era>/ (fit); without one in Fitter/
          (shared by all runs):
            input_pt_less_region/againstjet_<J>/againstelectron_<E>/      shapes
@@ -42,7 +43,8 @@ import posixpath
 import shutil
 import sys
 
-from TauFW.Utilities.Process import Command, CommandPlan, ProcessRunner, RunReport, output_dir_problems
+from TauFW.Utilities.Process import (Command, CommandPlan, ProcessRunner, RunReport, output_dir_problems,
+                                     tuple_pattern_problems)
 from TauFW.Fitter.api.types import ShapesRequest, FitRequest
 from TauFW.Fitter.api.results import read_fit_values
 
@@ -104,14 +106,17 @@ class TauESID:
         return RunReport(results=report.results, total=report.total, artifacts=plan.artifacts if report.ok else ())
 
     def preflight_shapes(self, request):
-        """What is missing to make the shapes: CMSSW, ROOT, the PicoProducer config, the config files."""
+        """What is missing to make the shapes: CMSSW, ROOT, the tuple pattern's keys or else the PicoProducer
+        config, the config files."""
         problems = self._environment(root=True)
-        source = self.pico_config_source(request)
-        if not os.path.isfile(source):
+        source = None if request.tuples else self.pico_config_source(request)
+        if request.tuples:
+            problems.extend(tuple_pattern_problems(request.tuples))
+        elif not os.path.isfile(source):
             problems.append("no PicoProducer configuration %s: the scripts read $PICODIR from it" % (source))
         problems.extend(self._missing_configs(request.configs))
         if request.outdir is not None:
-            problems.extend(output_dir_problems(request.outdir, source))
+            problems.extend(output_dir_problems(request.outdir, source, tuples=request.tuples))
         return tuple(problems)
 
     def plan_fit(self, request):
@@ -201,6 +206,8 @@ class TauESID:
                 '-c', self._config(request, config), '-j', jet_wp, '-e', ele_wp]
         if request.serial:
             argv.append('-s')
+        if request.tuples:
+            argv += ['--tuples', request.tuples]
         files = _shape_files(setup, era, jet_wp, ele_wp) if setup is not None else []
         channel = setup.get('channel', config) if setup is not None else config
         shapes = [{'kind': 'shapes', 'path': os.path.normpath(os.path.join(cwd, path)), 'era': era,
@@ -397,9 +404,10 @@ class TauESID:
 
 
 def _pico_env(request):
-    """$TAUFW_PICO_CONFIG for the scripts, if the request names a PicoProducer config (read by getconfig());
-    absolute with an output directory, since the scripts then run elsewhere than the caller."""
-    if not request.pico_config:
+    """$TAUFW_PICO_CONFIG for the scripts, if the request names a PicoProducer config (read by getconfig()) and no
+    tuple pattern (a FitRequest has none); absolute with an output directory, since the scripts then run elsewhere
+    than the caller."""
+    if not request.pico_config or getattr(request, 'tuples', None):
         return ()
     return (('TAUFW_PICO_CONFIG', request.pico_config if request.outdir is None else
              os.path.abspath(request.pico_config)),)

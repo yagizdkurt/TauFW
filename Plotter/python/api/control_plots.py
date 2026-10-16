@@ -9,8 +9,9 @@ directory (outdir; the TauFW Framework gives <run_dir>/stages/<id>/), or in Plot
                     CommandPlan  RunReport (one plots artifact per config and era)
     preflight(): what is missing in the environment (empty: ready)
 
-Inputs:  pico tuples, found by plot.py through $PICODIR of the request's PicoProducer config (passed to plot.py
-         as $TAUFW_PICO_CONFIG; default PicoProducer/config/config.json); the channel setups
+Inputs:  pico tuples in the request's tuple pattern (plot.py --tuples), or else found by plot.py through $PICODIR
+         of the request's PicoProducer config (passed to plot.py as $TAUFW_PICO_CONFIG; default
+         PicoProducer/config/config.json); the channel setups
          Plotter/config/setup_<channel>.yml (or any .yml, relative to Plotter/ or absolute).
 Outputs: <outdir>/plots/<era>/<variable>_<channel>-<selection>-<era><tag>.png, where <tag> is the setup's tag
          plus request.tag (without outdir: Plotter/plots/<era>/, shared by all runs; pdf on request), and one log
@@ -21,14 +22,15 @@ Public API:
   plan, make, preflight         pipelines
   request(**fields)             a PlotsRequest
   config_file(config)           the setup file of a channel name or .yml config
-  pico_config_source(request)   where $PICODIR is read from
+  pico_config_source(request)   where $PICODIR is read from (a request without tuples)
 """
 import glob
 import importlib.util
 import os
 import sys
 
-from TauFW.Utilities.Process import Command, CommandPlan, ProcessRunner, RunReport, output_dir_problems
+from TauFW.Utilities.Process import (Command, CommandPlan, ProcessRunner, RunReport, output_dir_problems,
+                                     tuple_pattern_problems)
 from TauFW.Plotter.api.types import PlotsRequest
 
 __all__ = ['ControlPlots']
@@ -81,19 +83,22 @@ class ControlPlots:
         return RunReport(results=report.results, total=report.total, artifacts=artifacts)
 
     def preflight(self, request):
-        """What is missing to plot: CMSSW, ROOT, the PicoProducer config, the channel setups."""
+        """What is missing to plot: CMSSW, ROOT, the tuple pattern's keys or else the PicoProducer config, the
+        channel setups."""
         problems = []
         if 'CMSSW_BASE' not in os.environ:
             problems.append("CMSSW_BASE is not set (run cmsenv first)")
         if not self.find_module('ROOT'):
             problems.append("python cannot import ROOT")
-        source = self.pico_config_source(request)
-        if not os.path.isfile(source):
+        source = None if request.tuples else self.pico_config_source(request)
+        if request.tuples:
+            problems.extend(tuple_pattern_problems(request.tuples))
+        elif not os.path.isfile(source):
             problems.append("no PicoProducer configuration %s: plot.py reads $PICODIR from it" % (source))
         problems.extend("channel setup %s not found in %s" % (_setup_file(config), self.basedir)
                         for config in request.configs if not os.path.isfile(self._path(_setup_file(config))))
         if request.outdir is not None:
-            problems.extend(output_dir_problems(request.outdir, source))
+            problems.extend(output_dir_problems(request.outdir, source, tuples=request.tuples))
         return tuple(problems)
 
     def request(self, **fields):
@@ -130,6 +135,8 @@ class ControlPlots:
             argv += ['-t', request.tag]
         if request.text:
             argv += ['-T', request.text]
+        if request.tuples:
+            argv += ['--tuples', request.tuples]
         return Command("plots %s %s" % (channel, era), tuple(argv), cwd,
                        expects=("plots/%s/%s" % (era, _plot_glob(channel, era, tag)),),
                        timeout=request.timeout, env=_pico_env(request))
@@ -184,9 +191,9 @@ def _setup_file(config):
 
 
 def _pico_env(request):
-    """$TAUFW_PICO_CONFIG for plot.py, if the request names a PicoProducer config (read by getconfig()); absolute
-    with an output directory, since plot.py then runs elsewhere than the caller."""
-    if not request.pico_config:
+    """$TAUFW_PICO_CONFIG for plot.py, if the request names a PicoProducer config (read by getconfig()) and no
+    tuple pattern; absolute with an output directory, since plot.py then runs elsewhere than the caller."""
+    if not request.pico_config or request.tuples:
         return ()
     return (('TAUFW_PICO_CONFIG', request.pico_config if request.outdir is None else
              os.path.abspath(request.pico_config)),)

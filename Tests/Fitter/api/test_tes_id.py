@@ -177,6 +177,21 @@ class ShapesTests(TauESIDTestCase):
         self.assertEqual(self.fitter.config_file(TT), os.path.join(self.fitter_dir, os.path.normpath(TT)))
 
 
+    def test_tuple_pattern(self):
+        pattern = "/eos/cms/store/group/phys_tau/TauFW/pico2024/TES_variations/$ERA/$GROUP"
+        request = self.shapes(tuples=pattern, pico_config="/run/bundle/pico.json")
+        commands = self.fitter.plan_shapes(request).commands
+        self.assertEqual(self.lines(commands), [line + " --tuples '%s'" % (pattern) for line in RUN_INPUTS])
+        self.assertTrue(all(c.env == () for c in commands))  # the PicoProducer configuration is not used
+        self.assertNotIn("PicoProducer configuration", " ".join(self.fitter.preflight_shapes(request)))
+        self.assertIn("has $DAS, which the scripts do not fill",
+                      " ".join(self.fitter.preflight_shapes(self.shapes(tuples="/eos/x/$DAS"))))
+        outdir = os.path.join(self.base, "out")
+        self.assertIn("tuple pattern 'pico/$ERA' is relative",
+                      " ".join(self.fitter.preflight_shapes(self.shapes(tuples="pico/$ERA", outdir=outdir))))
+        fit = self.fit_request(pico_config="/run/bundle/pico.json")  # the fit reads no tuples: unchanged
+        self.assertTrue(all(c.env for c in self.fitter.plan_fit(fit).commands))
+
     def test_shapes_in_output_directory(self):
         outdir = os.path.join(self.base, "run", "stages", "histograms")
         request = self.shapes(outdir=outdir, pico_config="pico.json")

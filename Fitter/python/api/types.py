@@ -40,7 +40,9 @@ FIT_STEPS = ('fit', 'postfit', 'plots', 'corrections', 'summary')
 class ShapesRequest:
     """Input histograms: one createinputsTES.py run per era, working point pair and config.
     configs: config files, relative to Fitter/ or absolute (the mutau fit config and the mumu control-region
-    config). pico_config: the PicoProducer configuration the scripts read $PICODIR from (None: its default).
+    config). tuples: the directory pattern of the tuples (with $ERA, $GROUP), given to createinputsTES.py as
+    --tuples; then the PicoProducer configuration is not used. pico_config: the PicoProducer configuration the
+    scripts read $PICODIR from without tuples (None: its default).
     outdir: the directory the scripts run in and write input_pt_less_region/ to (None: Fitter/)."""
     eras:    Tuple[str, ...]
     configs: Tuple[str, ...]
@@ -48,7 +50,8 @@ class ShapesRequest:
     ele_wps: Tuple[str, ...]
     serial:  bool = False             # createinputsTES.py -s: no parallel histogramming
     timeout: Optional[float] = None   # seconds per command
-    pico_config: Optional[str] = None # $TAUFW_PICO_CONFIG of the commands
+    tuples:  Optional[str] = None     # --tuples of the commands
+    pico_config: Optional[str] = None # $TAUFW_PICO_CONFIG of the commands (without tuples)
     outdir:  Optional[str] = None     # working directory of the scripts (None: Fitter/)
 
     def __post_init__(self):

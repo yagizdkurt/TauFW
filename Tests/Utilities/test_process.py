@@ -11,7 +11,8 @@ import unittest
 
 import checkout  # noqa: F401  (must precede TauFW.Utilities imports)
 from multiprocessing import get_all_start_methods, get_start_method
-from TauFW.Utilities.Process import Command, ParallelProcessor, ProcessRunner, output_dir_problems
+from TauFW.Utilities.Process import (Command, ParallelProcessor, ProcessRunner, output_dir_problems,
+                                     tuple_pattern_problems)
 
 
 def python(code):
@@ -160,6 +161,20 @@ class OutputDirectoryTests(unittest.TestCase):
                 self.assertEqual(bool(output_dir_problems(outdir, pico)), relative, picodir)
             open(os.path.join(outdir, "left.root"), "w").close()
             self.assertIn("is not empty", output_dir_problems(outdir)[0])
+            os.remove(os.path.join(outdir, "left.root"))
+            with open(pico, "w") as stream:
+                stream.write('{"picodir": "analysis/$ERA"}')  # relative, but not read with a tuple pattern
+            for tuples, relative in (("/eos/x/$ERA/$GROUP", False), ("root://eosuser.cern.ch//eos/x", False),
+                                     ("pico/$ERA/$GROUP", True), ("$ERA/$GROUP", True)):
+                problems = output_dir_problems(outdir, pico, tuples=tuples)
+                self.assertEqual(bool(problems), relative, tuples)
+                self.assertFalse(any("picodir" in p for p in problems))
+
+    def test_tuple_pattern_problems(self):
+        self.assertEqual(tuple_pattern_problems("/eos/x/$ERA/$GROUP/$SAMPLE_$CHANNEL$TAG"), [])
+        self.assertEqual(tuple_pattern_problems("/eos/x/$ERA/$DAS/$DAS/$NAME"), [
+            "tuple pattern /eos/x/$ERA/$DAS/$DAS/$NAME has $DAS, $NAME, which the scripts do not fill (they fill "
+            "$ERA, $GROUP, $SAMPLE, $CHANNEL, $TAG)"])
 
 
 class ParallelProcessorTests(unittest.TestCase):
