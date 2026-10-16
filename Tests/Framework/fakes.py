@@ -1,4 +1,5 @@
 """A fake PicoProducer with canned results, shaped like TauFW.PicoProducer.api records."""
+import os
 from dataclasses import dataclass, asdict, field
 from typing import Tuple
 
@@ -101,10 +102,17 @@ class FakePicoProducer:
     merge_report: MergeReport = None
     calls: list = field(default_factory=list)
     jobid: int = 1000
+    TUPLE_LAYOUT = "$ERA/$GROUP"
 
     @staticmethod
     def request(**fields):
         return dict(fields)
+
+    def tuple_pattern(self, request):
+        """Like PicoProducer.tuple_pattern: below the request's tupledir, else the configuration's picodir."""
+        if request.get('tupledir'):
+            return os.path.join(request['tupledir'], "$ERA", "$GROUP")
+        return "/pico/$ERA/$GROUP"
 
     def plan(self, request):
         self.calls.append(("plan", request))

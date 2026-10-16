@@ -210,10 +210,10 @@ Next-work proposals (not designed in detail yet):
       stage reads only earlier stages). `production` keeps the old rule "at most once", on purpose:
       - *Why we want to remove it:* one rule for all stages; one recipe could, for example, produce the nominal
         tuples and the TES/LTF/JTF variation tuples (item F) with different settings in two stages.
-      - *Why it cannot be removed yet:* (1) production's output is not in the run: the merged tuples stay in
-        PicoProducer's storage (`$PICODIR`) and its job configs in `PicoProducer/output/`, keyed by era, channel,
-        sample and tag, not by stage id, so two production stages of one run share (and may overwrite) the same
-        jobs and tuples; the Framework cannot isolate them as it does `stages/<id>/` for the local stages.
+      - *Why it cannot be removed yet:* (1) production's job files are not in the run: since CL §18 step 5 the
+        merged tuples go to `stages/<id>/`, but the job configs, logs and job output stay in `PicoProducer/output/`
+        (`jobdir`, `outdir`), keyed by era, channel, sample and tag, not by stage id, so two production stages of
+        one run share (and may overwrite) the same jobs.
         (2) The `tuples` input slot selects nothing: plots and histograms always read the tuples through
         `$PICODIR` of the run's PicoProducer config, and `inputs.tuples` is only recorded
         (`Framework/python/stages/local.py`, `last_status.inputs`), so a stage connected to a second production

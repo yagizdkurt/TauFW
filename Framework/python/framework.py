@@ -8,8 +8,9 @@ Purpose:  run the stages of an analysis (production -> histograms -> fit) one af
 Inputs:   a recipe (a Recipe, an analysis bundle directory, or a .yml/.json file) and the files it names.
 Outputs:  a run directory <run_root>/<name>_<YYYYmmdd-HHMMSS>/ (run_root: the recipe's, default taufw_runs/)
           with run.json (the state), run.log (the messages), bundle/ (a copy of the bundle files the run uses),
-          logs/<stage id>/ (the Framework's files of each stage) and stages/<stage id>/ (what the stage makes, and its manifest.json once it is DONE; production's
-          merged pico tuples stay in PicoProducer's storage and are listed in run.json and the manifest).
+          logs/<stage id>/ (the Framework's files of each stage) and stages/<stage id>/ (what the stage makes,
+          and its manifest.json once it is DONE; production: its merged pico tuples,
+          <era>/<group>/<sample>_<channel>.root, with their pattern on the artifacts).
 
 Pipeline map:
 
@@ -100,9 +101,12 @@ class Framework:
                                    stage_id=stage_spec.id)
             paths = path_rows(stage_spec.spec, recipe.bundle_dir)
             try:
-                stage_plan = self._stage_for(stage_spec.id).plan(stage_spec.spec, context)
+                stage = self._stage_for(stage_spec.id)
+                stage_plan = stage.plan(stage_spec.spec, context)
                 plans.append(StagePlan(stage=stage_spec.id, plan=stage_plan, paths=paths))
-                planned[stage_spec.id] = tuple(getattr(stage_plan, 'artifacts', ()) or ())
+                planned[stage_spec.id] = (stage.planned_artifacts(stage_spec.spec, stage_plan, context)
+                                          if hasattr(stage, 'planned_artifacts') else
+                                          tuple(getattr(stage_plan, 'artifacts', ()) or ()))
             except (StageNotImplemented, PreflightError) as err:  # placeholder, or cannot be planned yet
                 plans.append(StagePlan(stage=stage_spec.id, plan=None, note=str(err), paths=paths))
         return RunPlan(name=recipe.name, stages=tuple(plans), pico_config=recipe.pico_config_path,

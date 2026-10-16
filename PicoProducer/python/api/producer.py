@@ -49,6 +49,7 @@ __all__ = ['PicoProducer']
 
 class PicoProducer(object):
   """Production of pico tuples with one configuration.
+  TUPLE_LAYOUT: where the merged tuples go below JobRequest.tupledir ("$ERA/$GROUP").
 
   Pipelines:     plan(request)                         -> JobPlan        reads only
                  submit(request, on_existing, confirm)  -> Submission     writes job files, submits
@@ -242,6 +243,8 @@ class PicoProducer(object):
     elif isinstance(config,dict):
       config = Config(dict(config),"<dict>")
     return cls(config,reporter=reporter,basedir=basedir)
+
+  TUPLE_LAYOUT = TUPLE_LAYOUT
 
   def __init__(self,config,reporter=None,basedir=None):
     self.config   = config

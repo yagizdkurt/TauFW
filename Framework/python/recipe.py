@@ -469,7 +469,18 @@ def recipe_warnings(data):
     if not isinstance(data, dict):
         return warnings
     value = data.get('run_root')
-    if value is None:
+    stages = data.get('stages') if isinstance(data.get('stages'), list) else []
+    production = [entry.get('id', 'production') for entry in stages
+                  if isinstance(entry, dict) and entry.get('stage') == 'production']
+    if value is None and production:
+        warnings.append(Issue('run_root', "not set: the runs go to %s/ in the directory taufw.py is started from, "
+                                          "and production stage %r writes its merged tuples into the run "
+                                          "directory (often tens of GB). On lxplus that is your AFS space: the home "
+                                          "directory holds only a few GB, and a full quota stops the run midway. "
+                                          "Set run_root: <absolute directory with enough space> in the recipe "
+                                          "(e.g. under /afs/cern.ch/work/), or start with --run-root"
+                            % (DEFAULT_RUN_ROOT, production[0])))
+    elif value is None:
         warnings.append(Issue('run_root', "not set: the runs go to %s/ in the directory taufw.py is started from. "
                                           "Set run_root: <absolute directory> in the recipe, or start with "
                                           "--run-root" % (DEFAULT_RUN_ROOT)))

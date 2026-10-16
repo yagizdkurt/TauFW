@@ -211,8 +211,9 @@ working directory; see [Analyses/README.md](../Analyses/README.md#where-the-runs
   stages/<stage id>/
               the stage's output and nothing else, and manifest.json once the stage is DONE. The scripts of the
               plots, histograms and fit stages run in it (the fit: in stages/<id>/<era>/), so their plots, shapes
-              and fit results are here; a python step's own files (ctx.stage_dir); production's tuples stay in
-              PicoProducer's storage.
+              and fit results are here; a python step's own files (ctx.stage_dir); production's merged tuples,
+              <era>/<group>/<sample>_<channel><tag>.root (JobRequest.tupledir; PicoProducer's layout), with the
+              pattern .../stages/<id>/$ERA/$GROUP on every tuple artifact. Its job files stay in PicoProducer/output/.
 ```
 
 The Framework decides where a stage writes: it gives each module API the stage's directory as its output directory

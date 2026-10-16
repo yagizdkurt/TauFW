@@ -867,7 +867,7 @@ differ by a grid step in the fitted POIs (the fit amplifies the 1e-13 difference
 
 ## 18. Framework: tuples as an input, production writes into the run, run_root
 
-**Date:** 2026-10-17 (in progress: steps 1-4 of 8)
+**Date:** 2026-10-17 (in progress: steps 1-5 of 8)
 **Details:** [Framework](../../Framework/README.md) "Concepts" and "Run directory", [Analyses](../../Analyses/README.md)
 "Where the runs go (`run_root`)", [scripts_arg_changes.md](scripts_arg_changes.md) "Tuple location", Framework BUGS
 K04, K05, Plotter BUGS L12
@@ -937,3 +937,21 @@ unchanged. `Tests/Plotter/testTupleLocation.py` passes on lxplus.
 - New test `Tests/PicoProducer/testTupleDir.py` (lxplus; no batch system, no files): `tuple_pattern` for a
   tupledir and for absolute, relative, `$` and URL picodirs; `merge_target` below a tupledir; `merge_sample` merges
   into the given pattern, else into the configuration's.
+
+### Step 5: production writes its tuples into the run
+
+- `ProductionStage.request(spec, context)` sets `tupledir` to the stage's directory `<run_dir>/stages/<id>/`
+  (absolute) whenever there is a run; the merged tuples go to `<era>/<group>/<sample>_<channel><tag>.root` below it.
+  `plan` (no run yet), `status` and `plan --local` set nothing. `run.json` keeps the recipe's request as before.
+- Every tuple artifact (`run.json`, `manifest.json`) gets `pattern`: `PicoProducer.tuple_pattern(request)`, i.e.
+  `<run_dir>/stages/<id>/$ERA/$GROUP`. `kind` is still missing (K04, not fixed).
+- `Stage.planned_artifacts(spec, plan, context)`: what the later stages see in a plan (default: the plan's
+  `artifacts`). Production gives one `{pattern: '<run_dir>/stages/<id>/$ERA/$GROUP'}`, from the layout PicoProducer
+  publishes (`PicoProducer.TUPLE_LAYOUT`).
+- The `run_root` warning of a recipe with a production stage says that its tuples fill the run directory.
+- Not yet connected: plots and histograms still read `$PICODIR` (step 6), so a production stage followed by plots
+  in one run reads the wrong place until then. A run started before this step merges into the stage directory too.
+- BBB `framework.production` changes (tuple paths in the run, `pattern`): re-lock.
+
+Tests (Windows): Framework 107 (new: tupledir in every request of a run and none without, artifacts and manifest with
+the pattern, planned pattern seen by a later stage, production warning text).

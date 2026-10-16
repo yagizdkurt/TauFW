@@ -11,11 +11,17 @@ Each call of ProductionStage.advance() takes one step, starting from the state s
                                              fail      ─▶ FAILED
     MERGING    ─▶ merge(clean=merge.clean)             ─▶ DONE        (one TupleArtifact per sample)
 
+Where the tuples go is the Framework's choice, not the PicoProducer configuration's: the stage's directory
+<run_dir>/stages/<id>/ (JobRequest.tupledir). Below it PicoProducer chooses the layout ($ERA/$GROUP/<sample>_<channel>
+<tag>.root) and tells it (PicoProducer.tuple_pattern); every tuple artifact records it as `pattern`, which the stages
+that read the tuples are given. The job files stay in PicoProducer's job directories (jobdir and outdir of the
+configuration).
+
 The policy is set in the recipe: max_tries (default 3), merge.clean (default false), merge.force (default false).
 decide_next() only looks at numbers and changes nothing, so the policy is tested without a batch system.
 
 Inputs:  ProductionSpec (the recipe options), the stage's record (state, attempt), a PicoProducer.
-Outputs: a StageOutcome. Through PicoProducer: job files, batch jobs and merged tuples.
+Outputs: a StageOutcome. Through PicoProducer: job files, batch jobs, and the merged tuples in <run_dir>/stages/<id>/.
 
 Public API:
   ProductionStage(pico)                  the stage
@@ -23,10 +29,11 @@ Public API:
   decide_next(counts, attempt, max_tries) -> (Action, reason)
   Action, StatusCounts, counts(status)
 """
+import os
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import NamedTuple, Optional, Tuple
-from TauFW.Framework.stages.base import Stage, StageState, StageOutcome
+from TauFW.Framework.stages.base import Stage, StageState, StageOutcome, StageContext
 
 __all__ = ['ProductionStage', 'ProductionSpec', 'SplitSpec', 'MergeSpec', 'decide_next', 'Action', 'StatusCounts',
            'counts']
@@ -99,10 +106,10 @@ class ProductionStage(Stage):
     # =============================== PIPELINE ================================
 
     def advance(self, spec, stage_record, reporter, context=None):
-        """One step, starting from stage_record.state (see the table at the top of this file). The context is not
-        needed: PicoProducer keeps its own job directories."""
+        """One step, starting from stage_record.state (see the table at the top of this file). The context gives
+        where the tuples go (the stage's directory); PicoProducer keeps its own job directories."""
         state = StageState(stage_record.state)
-        request = self.request(spec)
+        request = self.request(spec, context)
         if state is StageState.NEW:
             return self._submit(request)
         if state.waiting:
@@ -113,7 +120,18 @@ class ProductionStage(Stage):
 
     def plan(self, spec, context=None):
         """The JobPlan of the first submission (nothing is written)."""
-        return self.pico.plan(self.request(spec))
+        return self.pico.plan(self.request(spec, context))
+
+    def planned_artifacts(self, spec, plan, context=None):
+        """What the later stages see of the tuples before they exist: one artifact with their pattern,
+        <stage dir>/$ERA/$GROUP (in a plan before the run exists, under the placeholder '<run_dir>/stages/<id>')."""
+        context = context or StageContext()
+        if context.run_dir:
+            pattern = self.pico.tuple_pattern(self.request(spec, context))
+        else:  # the layout PicoProducer publishes; tuple_pattern() would make the placeholder absolute
+            placeholder = StageContext(run_dir='<run_dir>', stage_id=context.stage_id or self.name).stage_dir()
+            pattern = os.path.join(placeholder, *self.pico.TUPLE_LAYOUT.split('/'))
+        return ({'pattern': pattern},)
 
     def status(self, spec, stage_record):
         """The live StageStatus of the jobs (read-only), or None before the first submission."""
@@ -155,7 +173,8 @@ class ProductionStage(Stage):
     def _merge(self, spec, request):
         """MERGING: merge the job outputs of each sample into one tuple, and record the tuples as artifacts."""
         report = self.pico.merge(request, clean=spec.merge.clean, force=spec.merge.force)
-        artifacts = tuple(a.to_dict() for a in report.artifacts)
+        pattern = self.pico.tuple_pattern(request)  # where they were written: what the readers are given
+        artifacts = tuple(dict(a.to_dict(), pattern=pattern) for a in report.artifacts)
         if report.invalid:
             reasons = "; ".join("%s: %s" % (name, reason) for name, reason in report.invalid)
             return StageOutcome(StageState.FAILED, "merged tuple(s) failed validation: %s" % (reasons), "failed",
@@ -169,9 +188,13 @@ class ProductionStage(Stage):
     # =========================================================================
     # ============================= CONSTRUCTION ==============================
 
-    def request(self, spec, **overrides):
-        """The PicoProducer request (JobRequest) built from the recipe options, with optional overrides."""
-        return self.pico.request(**dict(spec.request_dict(), **overrides))
+    def request(self, spec, context=None, **overrides):
+        """The PicoProducer request (JobRequest) built from the recipe options, with optional overrides. With a
+        run (context.run_dir), the tuples go to the stage's directory (tupledir, absolute)."""
+        fields = dict(spec.request_dict(), **overrides)
+        if context is not None and context.run_dir:
+            fields['tupledir'] = os.path.abspath(context.stage_dir())
+        return self.pico.request(**fields)
 
     def __init__(self, pico):
         self.pico = pico

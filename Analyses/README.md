@@ -249,7 +249,7 @@ Other paths:
 | CLI recipe/bundle path, run-directory path, `--run-root` | Relative to the directory where you launch `taufw.py`. |
 | `run_root` | Absolute; `~` and `$VARIABLES` are expanded where `taufw.py` runs. See [Where the runs go](#where-the-runs-go-run_root). |
 | Relative `pico.config` | A file of the bundle (the recipe's directory), e.g. `pico.json`; a path above it (`../`) is made absolute when the recipe is loaded and is not copied into runs. |
-| Plotter/Fitter outputs | In the run: `<run_root>/<run>/stages/<id>/` (see [Outputs and logs](#outputs-and-logs)); nothing is written to `Plotter/` or `Fitter/`. Production's merged tuples still go to `$PICODIR` of the PicoProducer configuration. |
+| Plotter/Fitter outputs | In the run: `<run_root>/<run>/stages/<id>/` (see [Outputs and logs](#outputs-and-logs)); nothing is written to `Plotter/` or `Fitter/`. Production's merged tuples too: `stages/<id>/<era>/<group>/`, not `$PICODIR` of the PicoProducer configuration. |
 
 ### Where the runs go (`run_root`)
 
@@ -274,6 +274,8 @@ run_root: /afs/cern.ch/work/u/user/taufw_runs
 - It must be outside the bundle directory: every run copies its bundle, so a
   run root inside it would copy the earlier runs too (for a loose recipe file,
   whose directory is not copied, this does not apply).
+- A production stage writes its merged tuples into the run directory (often
+  tens of GB); its warning without `run_root` says so.
 - Before a run starts, and before every `advance`, `taufw.py` writes and removes
   a small file in the run root (or in the run directory). If that fails
   (permissions, an expired AFS token: `kinit; aklog`), nothing is started or
@@ -309,6 +311,14 @@ instead of `PicoProducer/config/config.json` (read-only; a missing file is an
 error). `plan` shows the variable in front of each command. A production output
 tag does not automatically become a plotting input tag; check the configs when
 selecting tagged or variation tuples.
+
+**Production writes its tuples into the run** (since CL §18 step 5):
+`<run_root>/<run>/stages/<id>/<era>/<group>/<sample>_<channel><tag>.root`, not
+to `$PICODIR` of the PicoProducer configuration, so they need the space of
+[`run_root`](#where-the-runs-go-run_root). Every tuple artifact records the
+pattern (`.../stages/<id>/$ERA/$GROUP`). Until the plots and histograms stages
+are given that pattern (step 6), they still read `$PICODIR`: a production
+stage followed by plots in the same run reads the wrong place in between.
 
 ## Stage options
 
@@ -658,7 +668,7 @@ results.
 
 | Stage | Output location | Recorded artifacts |
 | --- | --- | --- |
-| `production` | PicoProducer's configured tuple paths | Merged tuple path, sample/group, era, channel, tag, data type, event count, tree, cutflow. |
+| `production` | `taufw_runs/<run>/stages/<id>/<era>/<group>/` | Merged tuple path, sample/group, era, channel, tag, data type, event count, tree, cutflow, and `pattern` (`.../stages/<id>/$ERA/$GROUP`, where the readers look). |
 | `plots` | `taufw_runs/<run>/stages/<id>/plots/<era>/` | `kind: plots`, era, config, channel, directory, matching file count. |
 | `histograms` | `taufw_runs/<run>/stages/<id>/input_pt_less_region/againstjet_<J>/againstelectron_<E>/` | `kind: shapes`, path, era, channel, config, WP pair, observable. |
 | `fit` | `taufw_runs/<run>/stages/<id>/<era>/` (`output_*`, `postfit_*`, plot directories, `tau_sf/`, `data/tau/`) | `kind: fit` per point, output/postfit directories, fitted values, correction paths; when summary runs, two `kind: corrections` per era: the merged JSON, and the combined TES + ID file (`combined: true`). |
@@ -706,9 +716,9 @@ an unfinished run.
 
 ## Current limitations
 
-- Production's merged tuples are not in the run: they go to `$PICODIR` of the
-  PicoProducer configuration, and its job files to `PicoProducer/output/`, so two
-  runs with the same era, channel and tag share them.
+- Production's job files are not in the run: they go to `PicoProducer/output/`
+  (`jobdir` and `outdir` of the PicoProducer configuration), so two runs with
+  the same era, channel and tag share them. Its merged tuples are in the run.
 - The sample lists are not part of a bundle yet: `plot.py` and
   `createinputsTES.py` import `Plotter/config/samples_v15.py`, and the
   PicoProducer configuration names its own sample catalogs

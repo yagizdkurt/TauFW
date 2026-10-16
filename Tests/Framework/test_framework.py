@@ -232,6 +232,50 @@ class RecoveryTests(FrameworkTestCase):
         self.assertEqual(RunRecord.load(record.run_dir).to_dict()["stages"], saved["stages"])
 
 
+class ProductionTuplesTests(FrameworkTestCase):
+    """The tuples go to the production stage's directory in the run, and their pattern is on the artifacts."""
+
+    def test_tuples_in_the_stage_directory(self):
+        pico = fakes.FakePicoProducer(statuses=[fakes.complete("DY", "TT")])
+        fw = framework(pico)
+        record = fw.advance(fw.start(run_root=self.root))
+        stage_dir = os.path.join(record.run_dir, "stages", "production")
+        requests = [call[1] for call in pico.calls]
+        self.assertTrue(all(request["tupledir"] == stage_dir for request in requests))  # plan, submit, ...
+        pattern = os.path.join(stage_dir, "$ERA", "$GROUP")
+        stage = record.stage("production")
+        self.assertEqual([(a["sample"], a["pattern"]) for a in stage.artifacts], [("DY", pattern), ("TT", pattern)])
+        with open(os.path.join(stage_dir, "manifest.json")) as stream:
+            self.assertEqual([a["pattern"] for a in json.load(stream)["artifacts"]], [pattern, pattern])
+        self.assertNotIn("tupledir", stage.request)  # run.json keeps the recipe's request, as before
+
+    def test_plan_and_status_without_a_run(self):
+        pico = fakes.FakePicoProducer()
+        fw = framework(pico)
+        plan = fw.plan()
+        self.assertNotIn("tupledir", pico.calls[0][1])  # no run yet: nothing to put there
+        stage = fw.stages["production"]
+        self.assertEqual(stage.planned_artifacts(fw.recipe.stage("production").spec, plan.stages[0].plan),
+                         ({"pattern": os.path.join("<run_dir>", "stages", "production", "$ERA", "$GROUP")},))
+        self.assertNotIn("tupledir", stage.request(fw.recipe.stage("production").spec))  # status, run_local
+
+    def test_later_stages_see_the_planned_pattern(self):
+        seen = []
+
+        class Reader(NotImplementedStage):
+            name = 'python'
+
+            def plan(self, spec, context=None):
+                seen.append(context.artifacts("production"))
+                return super().plan(spec, context)
+
+        recipe = dict(RECIPE, stages=RECIPE["stages"] + [
+            {"stage": "python", "id": "look", "inputs": {"tuples": "production"}, "file": "look.py"}])
+        framework(fakes.FakePicoProducer(), recipe, stages={"look": Reader()}).plan()
+        self.assertEqual(seen, [({"pattern": os.path.join("<run_dir>", "stages", "production", "$ERA",
+                                                          "$GROUP")},)])
+
+
 class RunRootTests(FrameworkTestCase):
     def runs(self, directory):
         return [name for name in os.listdir(directory) if name.startswith("test_mutau_")]
@@ -443,7 +487,10 @@ class CommandLineTests(FrameworkTestCase):
             json.dump(RECIPE, stream)  # no run_root
         real = Framework.from_recipe
         warning = ("Warning: run_root: not set: the runs go to taufw_runs/ in the directory taufw.py is started "
-                   "from. Set run_root: <absolute directory> in the recipe, or start with --run-root")
+                   "from, and production stage 'production' writes its merged tuples into the run directory (often "
+                   "tens of GB). On lxplus that is your AFS space: the home directory holds only a few GB, and a "
+                   "full quota stops the run midway. Set run_root: <absolute directory with enough space> in the "
+                   "recipe (e.g. under /afs/cern.ch/work/), or start with --run-root")
         with mock.patch.object(self.cli.Framework, "from_recipe",
                                side_effect=lambda r, reporter=None, fake=pico, **kw: real(r, reporter=reporter, pico=fake)):
             self.assertEqual(self.cli.main(["check", recipe]), 0)  # a warning is not a problem

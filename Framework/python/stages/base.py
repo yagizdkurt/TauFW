@@ -150,6 +150,7 @@ class Stage:
                                                                      never sleeps or loops
     status(spec, stage_record)                      -> object        live status, read-only (None if there is
                                                                      nothing to check)
+    planned_artifacts(spec, plan, context)          -> tuple         what the later stages see in a plan
 
     `spec` is always the stage's Spec: the validated options of the stage from the recipe (for example a
     ProductionSpec). `stage_record` is the StageRecord of this stage in run.json. `context` is a StageContext
@@ -170,6 +171,10 @@ class Stage:
 
     def status(self, spec, stage_record):
         return None
+
+    def planned_artifacts(self, spec, plan, context=None):
+        """The artifacts the later stages see in their plans: by default the plan's `artifacts` (none)."""
+        return tuple(getattr(plan, 'artifacts', ()) or ())
 
     def __repr__(self):
         return "<%s %r>" % (self.__class__.__name__, self.name)
