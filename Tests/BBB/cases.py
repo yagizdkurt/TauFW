@@ -372,6 +372,11 @@ def framework_production(workspace):
          "merge": {"clean": True}}]}), encoding="utf-8")  # Part G: the local stages run scripts; not in BBB
     runs = ws.root / "runs"
 
+    def masked(value):
+        """The run ID ends with the start time (and is part of the tuple paths): mask it, so the snapshot is
+        repeatable."""
+        return json.loads(re.sub(r"bbb_\d{8}-\d{6}(?:-\d+)?", "bbb_<time>", json.dumps(value)))
+
     def record():
         """run.json without times and run IDs; workspace paths as $WS."""
         (run_dir,) = list(runs.iterdir())
@@ -381,7 +386,7 @@ def framework_production(workspace):
         for stage in data["stages"]:
             for entry in stage["history"]:
                 entry.pop("time")
-        return ws.normalize(data)
+        return masked(ws.normalize(data))
 
     result = {"plan": ws.execute(taufw, "plan", recipe)["lines"]}
     ws.execute(taufw, "start", recipe, "--run-root", runs)  # submits DY (2 chunks) and TT (2 chunks)
@@ -395,12 +400,12 @@ def framework_production(workspace):
     ws.write_pico(out / "TTTo2L2Nu" / "pico_mutau_1.root")
     ws.execute(taufw, "advance", run_dir)  # complete: merged and cleaned; the run is DONE
     result["done"] = record()
-    # The run ID ends with the start time; mask it so the snapshot is repeatable.
-    result["status"] = [re.sub(r"bbb_\d{8}-\d{6}(?:-\d+)?", "bbb_<time>", line)
-                        for line in ws.execute(taufw, "status", run_dir)["lines"]]
-    result["merged"] = {name: file_snapshot(ws.root / "pico" / "2018" / group / name)
+    result["status"] = masked(ws.execute(taufw, "status", run_dir)["lines"])
+    # CL §18 step 5: the merged tuples are in the production stage's directory of the run, not in picodir
+    tuples = run_dir / "stages" / "production"
+    result["merged"] = {name: file_snapshot(tuples / "2018" / group / name)
                         for group, name in (("DY", "DYJetsToLL_M-50_mutau.root"), ("TT", "TTTo2L2Nu_mutau.root"))}
-    result["files"] = ws.tree(ws.basedir / "output", ws.root / "jobout", ws.root / "pico")
+    result["files"] = masked(ws.tree(ws.basedir / "output", ws.root / "jobout", ws.root / "pico", tuples))
     return result
 
 

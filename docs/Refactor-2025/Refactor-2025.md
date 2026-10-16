@@ -984,3 +984,7 @@ On lxplus (2026-10-17): `check` and `plan` of tes_id_2025 as expected (`--tuples
 `$TAUFW_PICO_CONFIG` for plots and histograms). `plan` of example_mutau stops in the plots preflight: the APIs' module
 lookup `importlib.util.find_spec('ROOT')` raises when production has already imported CMSSW's ROOT (Plotter BUGS L13,
 Fitter BUGS F25; registered, older than this work). The warnings were printed as "Warning: Warning: ..." (fixed).
+The plots run with `{external: ...}` (mutau 284 s, mumu 1133 s) made the same 8 plots as the R3 check and recorded
+the pattern; a read-only `--run-root` stopped before anything was made. BBB `framework.production`: the case now
+snapshots the merged tuples in `stages/production/` and masks the run ID (part of the tuple paths) in `run.json`;
+re-lock pending.
