@@ -864,3 +864,34 @@ part passes for VTight/Tight: the shell scripts with the new code and their defa
 correction files; nothing is written to `Fitter/` or `Plotter/`. Two runs of shapes + fit from the same tuples can
 differ by a grid step in the fitted POIs (the fit amplifies the 1e-13 differences; TODO §6 C). Details in
 [scripts_arg_changes.md](scripts_arg_changes.md).
+
+## 18. Framework: tuples as an input, production writes into the run, run_root
+
+**Date:** 2026-10-17 (in progress: step 1 of 8)
+**Details:** [Framework](../../Framework/README.md) "Concepts" and "Run directory", [Analyses](../../Analyses/README.md)
+"Where the runs go (`run_root`)", Framework BUGS K04, K05, Plotter BUGS L12
+
+The Framework, not the global `$PICODIR`, decides where the pico tuples are read and written, and everything is
+visible in the recipe. Plan, decisions D1-D13 and steps: `LocalR/architecture/12-tuples-plan.md`.
+
+### Step 1: recipe warnings and `run_root`
+
+- **Warnings.** A recipe can have warnings besides its problems: what it should change, though it runs
+  (`recipe_warnings`, `Recipe.warnings`, `RecipeCheck.warnings`). `taufw.py check` prints them and still exits 0;
+  `plan` and `start` print them first (`start --run-root` skips the `run_root` ones); the menu preview lists them
+  under the problems, and the recipe is not red.
+- **`run_root`** (new top-level key): the parent directory of the runs. `start --run-root` takes precedence; without
+  both the runs go to `taufw_runs/` in the working directory, as before, with a warning. It must be absolute (also
+  `/afs/...` on Windows, K05) and not a URL; `~` and `$VARIABLES` are expanded where `taufw.py` runs, with a
+  warning (an undefined variable is a problem); it must be outside the bundle directory, which every run copies.
+  `plan` and `start` print the directory they use and where it comes from. `run.json` keeps it as written.
+- **Write check.** Before `start` with a given run root (recipe or `--run-root`), and before every `advance`, the
+  Framework writes and removes a small file in the run root (in its nearest existing parent if it does not exist yet)
+  or in the run directory; if that fails, `RunDirectoryError` and nothing is started or moved (`taufw.py` prints
+  the reason, exit 1).
+- **Menu:** "Continue an existing run" also lists the runs in the `run_root` of every recipe in `Analyses/`.
+- The example recipes explain `run_root` in a comment and leave it unset (they warn).
+
+Tests (Windows): Framework 104 (new: run_root accepted, expanded, refused in seven ways, not set; precedence and
+default; write check at start and advance, nothing left behind; `check`/`plan`/`start` output; menu run roots and
+warnings), Utilities menu 28 (warnings in the preview). Plotter API and Fitter API unchanged.

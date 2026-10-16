@@ -471,6 +471,17 @@ ConsoleUI(None)
         cards = [line.strip()[2:-2].strip() for line in lines if line.strip().startswith("| ")]
         self.assertEqual(cards, ["1. prod", "mutau tuples", "2. summary", ""])
 
+    def test_warnings_in_the_pipeline(self):
+        ui = ConsoleUI(mock.Mock())
+        view = dict(name="ok", stages=(("prod", "production", ""),), warnings=("run_root: not set",))
+        lines = ui._pipeline_lines(view, 40)
+        self.assertEqual(lines[lines.index("1 warning(s):") + 1], "- run_root: not set")
+        text = "|".join(lines)
+        self.assertLess(text.index("warning(s)"), text.index("1. prod"))
+        view["problems"] = ("stages[0]: missing 'id'",)
+        text = "|".join(ui._pipeline_lines(view, 40))
+        self.assertLess(text.index("problem(s)"), text.index("warning(s)"))
+
     def test_broken_recipes_are_red_in_the_list(self):
         ui = ConsoleUI(mock.Mock())
         with mock.patch.object(ui, "_pipeline_choice", return_value=None) as choice:

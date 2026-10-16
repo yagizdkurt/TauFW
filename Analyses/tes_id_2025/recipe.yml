@@ -13,6 +13,11 @@
 # (<sample>_mutau_TES0p950.root, ..._LTF1p030, ..._JTF0p900, ...). Each stage's scripts run in, and write to,
 # taufw_runs/<run>/stages/<id>/ (the fit: stages/fit/<era>/); each command's log goes to taufw_runs/<run>/logs/<id>/.
 name: tes_id_2025
+# run_root: the parent directory of the runs (<run_root>/<name>_<time>/). It is not set here, so taufw.py warns and
+# the runs go to taufw_runs/ in the directory it is started from. On lxplus, set it to a directory with enough
+# space; the home directory's AFS quota is small:
+#   run_root: /afs/cern.ch/work/u/user/taufw_runs     # absolute; ~ and $VARIABLES ($HOME, $USER) are expanded
+# (start --run-root DIR takes precedence). EOS as run_root is not tested yet.
 
 pico:
   config: null              # null: PicoProducer/config/config.json; or a file of this bundle, e.g. pico.json

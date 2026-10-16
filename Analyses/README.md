@@ -135,6 +135,7 @@ Only these top-level keys are supported:
 | Key | Required/default | Meaning |
 | --- | --- | --- |
 | `name` | Required | Non-empty string containing only ASCII letters, digits, `_`, `.`, and `-`. Used as the run-directory prefix, independently of the recipe filename. |
+| `run_root` | Optional, with a warning | The parent directory of the runs: a run is `<run_root>/<name>_<time>/`. See [Where the runs go](#where-the-runs-go-run_root). |
 | `pico` | Optional | Mapping with only `config`; omitting it uses PicoProducer's default configuration. |
 | `pico.config` | `null` | PicoProducer configuration file path. See the path rules below. |
 | `stages` | Required | Non-empty list of stage mappings. Each entry needs `stage`, `id` and `inputs`, may have `description`, and has that stage's options. |
@@ -246,8 +247,39 @@ Other paths:
 | Value | Resolution |
 | --- | --- |
 | CLI recipe/bundle path, run-directory path, `--run-root` | Relative to the directory where you launch `taufw.py`. |
+| `run_root` | Absolute; `~` and `$VARIABLES` are expanded where `taufw.py` runs. See [Where the runs go](#where-the-runs-go-run_root). |
 | Relative `pico.config` | A file of the bundle (the recipe's directory), e.g. `pico.json`; a path above it (`../`) is made absolute when the recipe is loaded and is not copied into runs. |
 | Plotter/Fitter outputs | Written in the package directories, regardless of `--run-root`. |
+
+### Where the runs go (`run_root`)
+
+```yaml
+name: tes_id_2025
+run_root: /afs/cern.ch/work/u/user/taufw_runs
+```
+
+- A run is `<run_root>/<name>_<YYYYmmdd-HHMMSS>/`. `start --run-root DIR` takes
+  precedence over the recipe; without both, the runs go to `taufw_runs/` in the
+  directory where you launch `taufw.py`.
+- Without `run_root` (or with `run_root: null`) the recipe is valid, but
+  `check`, `plan`, `start` and the menu warn. Runs can be large; on lxplus the
+  default place is usually your AFS area, and the home directory's quota is
+  small. A full quota stops a run midway. Choose a directory with enough space
+  (e.g. under `/afs/cern.ch/work/`).
+- The value must be an absolute path on a mounted file system: a URL
+  (`root://...`) and a relative path are problems. `~` and `$VARIABLES` (e.g.
+  `$HOME/taufw_runs`) are expanded where `taufw.py` runs, with a warning, since
+  someone else or another machine gets another directory; an undefined variable
+  is a problem. `plan` and `start` print the directory they use.
+- It must be outside the bundle directory: every run copies its bundle, so a
+  run root inside it would copy the earlier runs too (for a loose recipe file,
+  whose directory is not copied, this does not apply).
+- Before a run starts, and before every `advance`, `taufw.py` writes and removes
+  a small file in the run root (or in the run directory). If that fails
+  (permissions, an expired AFS token: `kinit; aklog`), nothing is started or
+  moved. It shows that the directory can be written, not that there is space
+  for what the run will write.
+- EOS as `run_root` is not tested yet.
 
 **A run reads its own copy of the bundle.** `start` copies the bundle (every
 file of the directory, without hidden files, `__pycache__` and `taufw_runs/`) to
@@ -567,7 +599,8 @@ python3 taufw.py advance taufw_runs/mutau_2022_postEE_20261013-120000 --wait --p
 
 The example timestamp above is illustrative; substitute the path printed by
 your `start` command. `--wait` and `--poll` also work on `start`.
-`start --run-root /path/to/runs` changes where run records and command logs live.
+`start --run-root /path/to/runs` puts the run there instead of the recipe's
+[`run_root`](#where-the-runs-go-run_root).
 `status` reads recorded and live state without submitting jobs or saving changes.
 CLI `-v`/`--verbose [N]` controls reporter verbosity; production `verbosity` is
 a separate recipe option passed in the PicoProducer request.
@@ -646,6 +679,8 @@ prints the last 20 lines of its log.
 | Symptom | What to check or do |
 | --- | --- |
 | A recipe is red in the menu, or `RecipeError` | Run `taufw.py check <bundle>`: it lists every problem with its location. |
+| `Warning: run_root: not set` | The recipe runs, in `taufw_runs/` where you launch `taufw.py`. Set [`run_root`](#where-the-runs-go-run_root) to a directory with enough space. |
+| `cannot write in the run root` / `run directory` | The directory cannot be written: check its permissions and your AFS token (`kinit; aklog`), or choose another `run_root` / `--run-root`. Nothing was started or moved. |
 | Unknown key or missing required option | Check indentation and the option tables. Put options beside `stage`; use `split`/`merge` mappings only under production. |
 | Missing `id` or `inputs` | Every stage needs both. A stage without inputs says `inputs: null`; a slot whose data was made before this run says `null` (`inputs: {tuples: null}`). |
 | `no stage 'x' in the recipe` / `comes after this one` / `makes ..., not ...` | An input names a stage **id** (not a type or description) of an **earlier** stage that makes that kind of data (fit `shapes` ← a histograms stage). |

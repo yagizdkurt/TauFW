@@ -4,7 +4,8 @@
 #
 # Inspect without running anything (after setting up the TauFW environment):
 #   python3 taufw.py check Analyses/example_broken
-# Expected: four problems, with exit code 1 because this recipe is invalid.
+# Expected: four problems, with exit code 1 because this recipe is invalid (and the warning that run_root is not
+# set, which alone would not fail).
 #
 # Menu: python3 taufw.py -> select example_broken in the recipe list.
 # The menu discovers Analyses/*/recipe.yml automatically, even invalid recipes;

@@ -320,6 +320,8 @@ class CommandLineTests(LocalStageTestCase):
             json.dump({"name": "tes", "stages": [dict(HISTOGRAMS, id="a/b"), dict(FIT, inputs=None)]}, stream)
         self.assertEqual(self.cli.main(["check", path]), 1)
         self.assertEqual(self.warnings(), [
+            "Warning: run_root: not set: the runs go to taufw_runs/ in the directory taufw.py is started from. "
+            "Set run_root: <absolute directory> in the recipe, or start with --run-root",
             "Recipe tes: 2 problem(s)",
             "  stages[0] (histograms).id: must be a word of letters, digits, '_', '.' or '-' (got 'a/b')",
             "  stages[1] (fit).inputs: fit reads shapes: write inputs: {shapes: <stage id or null>}"])

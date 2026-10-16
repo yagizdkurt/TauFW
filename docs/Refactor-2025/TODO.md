@@ -142,6 +142,16 @@ Each changes logs, so do each in its own commit, with a BBB re-lock where a base
 - [ ] L03: `sumhists` adds to an undefined `sighist` (now `Utilities/python/Drawing/hist_tools.py`); the fix changes
       the `drawing.canvas` baseline (`$.tools.sumhists`), so re-lock.
 - [ ] L04: `estimatelen` with several arguments raises `TypeError` (now `Utilities/python/Drawing/labels.py`).
+- [ ] L12: `getmcsample` ignores its `pico=` keyword (`python/sample/utils.py:119-120`; no callers, latent).
+
+**Framework** ([BUGS.md](../Framework/BUGS.md)), registered only:
+
+- [ ] K01: a moved or copied run reads the artifacts of its `DONE` stages at the old location (latent).
+- [ ] K02: a crash between `manifest.json` and `run.json` leaves the stage `NEW` with a non-empty output directory
+      (latent).
+- [ ] K03: the `tuples` input slot selects no data; the scripts read `$PICODIR` (design limit).
+- [ ] K04: production's tuple artifacts have no `kind`, so a filter by `kind='tuples'` finds none (latent).
+- [ ] K05: on Windows (Python 3.13) `/afs/...` is not absolute for `os.path.isabs`; an lxplus `pico.config` is joined to the bundle directory (latent, Windows only).
 
 **Jobs/workers audit follow-ups** ([JobsWorkersAudit.md](JobsWorkersAudit.md) §7; none needed for correctness):
 
@@ -190,10 +200,33 @@ Next-work proposals (not designed in detail yet):
       directory and inputs (from the input stages' artifacts), the scripts run in the output directory (the fit
       per era); the script options this needs: [scripts_arg_changes.md](scripts_arg_changes.md); checked on lxplus
       against the shell scripts (Plotter, histograms, fit) and `bbb check`. **Open:** the bugs that change the shell
-      output (Fitter BUGS F11, F13, F19, F20, F24, F12's script side), each in its own commit. Comparisons of fit
+      output (Fitter BUGS F11, F13, F19, F20, F24, F12's script side), each in its own commit, after the refactor is
+      finished (no bug fixing before that). Comparisons of fit
       results need a tolerance: shapes made twice from the same tuples differ by 1e-13 (multithreaded RDataFrame),
       which moves the fitted POIs by up to one grid step and flat nuisance parameters a lot. Later: an input may also be a path (another run's stage directory), which also removes the fit's temporary
       `{shapes: null}` exception (the shapes in `Fitter/`); a built-in stage may repeat.
+- [ ] **Production stage at most once per recipe (look at again later).** R4 (planned) lets `plots`, `histograms`
+      and `fit` appear any number of times and drops the fixed stage order (the inputs already require that a
+      stage reads only earlier stages). `production` keeps the old rule "at most once", on purpose:
+      - *Why we want to remove it:* one rule for all stages; one recipe could, for example, produce the nominal
+        tuples and the TES/LTF/JTF variation tuples (item F) with different settings in two stages.
+      - *Why it cannot be removed yet:* (1) production's output is not in the run: the merged tuples stay in
+        PicoProducer's storage (`$PICODIR`) and its job configs in `PicoProducer/output/`, keyed by era, channel,
+        sample and tag, not by stage id, so two production stages of one run share (and may overwrite) the same
+        jobs and tuples; the Framework cannot isolate them as it does `stages/<id>/` for the local stages.
+        (2) The `tuples` input slot selects nothing: plots and histograms always read the tuples through
+        `$PICODIR` of the run's PicoProducer config, and `inputs.tuples` is only recorded
+        (`Framework/python/stages/local.py`, `last_status.inputs`), so a stage connected to a second production
+        stage would still read the same tuples as one connected to the first. (3) The run has one PicoProducer
+        configuration (`pico.config`); `Framework._pico_config` and `taufw.py plan --local` take the first
+        production stage (`recipe.first('production')`).
+      - *What would make it possible:* production writing to (or recording a per-stage place in) its own stage
+        directory, or a per-stage tag/storage, and plots/histograms reading the tuples their `tuples` input names
+        instead of `$PICODIR` (see A, tuple-manifest preflight). Until then one production stage takes several
+        eras and channels in its lists, and separate production settings need separate recipes.
+- [ ] **Warning for `null` inputs** (separate session). `null` in a recipe's inputs (e.g. `tuples: null`) is accepted
+      only so that old recipes keep working; the standard Framework usage names every input explicitly. `check`,
+      `plan` and the menu should warn when a recipe uses it.
 - [ ] D: condor for the local stages, and resume. Local stages cannot resume partway; Ctrl+C leaves a stage `NEW`
       with partial output.
 - [ ] E: a weights stage.

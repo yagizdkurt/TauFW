@@ -4,8 +4,8 @@
 The injected operations object supplies launch_dir, recipes(), runs(),
 resolve_path(value), load_run(path), can_advance(record), validate_poll(value),
 recipe_preview(path), prepare_review(path), and execute(command, **values).
-Recipe views contain name, path, ordered (stage id, type, description) triples, notes, and problems (a recipe with
-problems is shown in red and cannot start).
+Recipe views contain name, path, ordered (stage id, type, description) triples, notes, problems (a recipe with
+problems is shown in red and cannot start) and warnings (shown; the recipe can still start).
 Records expose run_id, run_dir, and state;
 run rows are (created, path, (run_id, state, updated)). Only operations reads
 files, validates values, or invokes commands. This class owns screen transitions.

@@ -285,6 +285,32 @@ class MenuTests(unittest.TestCase):
         self.assertEqual(view["problems"], ())
         self.framework.assert_not_called()
 
+    def test_runs_of_the_recipes_run_roots_are_listed(self):
+        elsewhere = self.root / "elsewhere"
+        (self.recipes / "a.json").write_text(json.dumps(dict(name="a", run_root=str(elsewhere), stages=[FIT])),
+                                             encoding="utf-8")
+        (self.recipes / "b.json").write_text(json.dumps(dict(name="b", run_root=str(elsewhere), stages=[FIT])),
+                                             encoding="utf-8")  # the same root: listed once
+        (self.recipes / "c.json").write_text("{not json", encoding="utf-8")  # unreadable: skipped
+        here = self.record("here", day=1)
+        recipe = Recipe.from_dict({"name": "there", "stages": [FIT]})
+        there = RunRecord.create(recipe, str(elsewhere), now=datetime(2026, 10, 2))
+        Path(there.run_dir).mkdir(parents=True)
+        there.save(now="2026-10-02 00:00:00")
+        operations = self.menu(FakeUI()).operations
+        self.assertEqual(operations.run_roots(), [(self.root / "taufw_runs").resolve(), elsewhere.resolve()])
+        self.assertEqual([row[1] for row in operations.runs()], [there.run_dir, here.run_dir])
+
+    def test_recipe_warnings_are_shown_but_do_not_break(self):
+        self.recipe_file(self.recipes / "a.json")  # no run_root
+        ui = FakeUI([2])  # Back
+        self.menu(ui).start()
+        self.assertEqual(ui.broken, [False])
+        view = self.menu(FakeUI()).operations.recipe_preview(self.recipes / "a.json")
+        self.assertEqual(view["problems"], ())
+        self.assertEqual(len(view["warnings"]), 1)
+        self.assertTrue(view["warnings"][0].startswith("run_root: not set"))
+
     def test_broken_recipes_are_marked_and_list_every_problem(self):
         self.recipe_file(self.recipes / "a_good.json")
         self.recipe_file(self.recipes / "b_bad.json", stages=[

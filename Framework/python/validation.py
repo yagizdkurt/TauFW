@@ -4,7 +4,7 @@
     check_recipe(path) ─▶ read the file ─┬─ cannot read ─▶ one issue
                                          └─▶ Recipe.parse() ─▶ structure, ids, inputs, order (recipe.py)
                                                 └─▶ files ─▶ pico.config, absolute path options, python step files
-                                                       ─▶ RecipeCheck(recipe or None, stages, issues)
+                                                       ─▶ RecipeCheck(recipe or None, stages, issues, warnings)
 
 What is checked here and what is not:
     checked:      everything Recipe.load() checks, plus the files the recipe names that do not depend on a module:
@@ -19,14 +19,14 @@ Outputs: a RecipeCheck. Nothing is written.
 Public API:
   check_recipe(path, files=None) -> RecipeCheck
   RecipeCheck   name, path, recipe (None if invalid), stages ((stage id, type, description) of every stage whose
-                options are valid), issues (Issue), ok
+                options are valid), issues (Issue), warnings (Issue: the recipe can run with them), ok
 """
 import os
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
 from TauFW.Framework.bundle import path_rows
-from TauFW.Framework.recipe import Recipe, RecipeError, Issue, read_recipe
+from TauFW.Framework.recipe import Recipe, RecipeError, Issue, read_recipe, recipe_warnings
 
 __all__ = ['check_recipe', 'RecipeCheck']
 
@@ -52,7 +52,7 @@ def check_recipe(path, files=None):
     name = data.get('name') if isinstance(data, dict) and isinstance(data.get('name'), str) else source
     return RecipeCheck(name=name, path=path, recipe=None if issues else recipe,
                        stages=tuple((s.id, s.stage, s.description) for _, s in stage_specs),
-                       issues=tuple(issues))
+                       issues=tuple(issues), warnings=tuple(recipe_warnings(data)))
 
 
 # =============================================================================
@@ -83,12 +83,14 @@ def _file_issues(pico_config, stage_specs, bundle_dir):
 
 @dataclass(frozen=True)
 class RecipeCheck:
-    """The result of check_recipe(). recipe: the Recipe if there is no issue, else None."""
-    name:   str
-    path:   str
-    recipe: Optional[Recipe] = None
-    stages: Tuple[Tuple[str, str, str], ...] = ()
-    issues: Tuple[Issue, ...] = ()
+    """The result of check_recipe(). recipe: the Recipe if there is no issue, else None.
+    warnings: what the recipe should change, though it can run (they never make it not ok)."""
+    name:     str
+    path:     str
+    recipe:   Optional[Recipe] = None
+    stages:   Tuple[Tuple[str, str, str], ...] = ()
+    issues:   Tuple[Issue, ...] = ()
+    warnings: Tuple[Issue, ...] = ()
 
     @property
     def ok(self):

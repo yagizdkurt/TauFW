@@ -32,13 +32,13 @@ The words below are used everywhere in the code and in this README.
 | **stage id** | The name of a stage in a run, required for every stage (`id:`): `run.json` records, the stage's directories (`stages/<id>/`, `logs/<id>/`) and upstream artifacts are keyed by it, and `inputs:` refer to it. Unique; letters, digits, `_`, `.`, `-` (not `.` or `..`). Any stage may have any id. | `StageSpec.id` |
 | **inputs** | Required for every stage: which earlier stage's output each input slot reads (`inputs: {shapes: histograms}`), or `null` for a stage without slots. A slot is connected to the id of an earlier stage that makes that kind of data, or to `null` (not from this run: the tuples in `$PICODIR`, the shapes already in `Fitter/`). Nothing is connected implicitly. | `Stage.inputs`, `Stage.outputs`, `StageSpec.inputs` |
 | **description** | Optional free text of a stage, shown by `plan` and in the menu; nothing depends on it. | `StageSpec.description` |
-| **validation** | Every problem of a recipe at once (structure, ids, inputs, order, the files it names), before anything runs: `taufw.py check`, the menu's recipe list (red) and preview. `Recipe.load` raises one `RecipeError` that lists all of them. | `check_recipe` (`validation.py`), `Recipe.parse` |
+| **validation** | Every problem of a recipe at once (structure, ids, inputs, order, the files it names), before anything runs: `taufw.py check`, the menu's recipe list (red) and preview. `Recipe.load` raises one `RecipeError` that lists all of them. A **warning** (e.g. no `run_root`) is not a problem: the recipe runs; `check`, `plan`, `start` and the menu preview show it. | `check_recipe` (`validation.py`), `Recipe.parse`, `recipe_warnings` |
 | **local stage** | A stage that runs commands on this machine, one after the other, and finishes in one `advance` (`plots`, `histograms`, `fit`: the package's scripts; `python`: the step runner). | `LocalStage` (`stages/local.py`) |
 | **stage context** | What a stage may know about its run: the run directory (for its logs), its inputs and the artifacts of those input stages that are `DONE`, the run's PicoProducer config and its bundle copy. | `StageContext` (`stages/base.py`) |
 | **preflight** | The check, before a local stage runs, that its environment is ready (`cmsenv`, ROOT, `combine`, configs). A problem leaves the stage `NEW`. | `PreflightError` |
 | **spec** | The options of one stage after checking, as a typed, read-only object. For example, `ProductionSpec` holds `eras`, `channels`, `max_tries`, ... | `ProductionSpec`, ... |
 | **stage spec** | One entry of the recipe's `stages:` list: the stage type, id, inputs, description and spec. | `StageSpec` (`recipe.py`) |
-| **run** | One execution of a recipe. Each run gets its own directory, `taufw_runs/<name>_<time>/`. | `RunRecord.create` |
+| **run** | One execution of a recipe. Each run gets its own directory, `<run_root>/<name>_<time>/` (`run_root` from the recipe or `--run-root`, default `taufw_runs/`). | `RunRecord.create` |
 | **run record** | The saved state of a run, `run.json`. It is updated after every step, so a run can be continued later, even from another session. | `RunRecord` (`run_record.py`) |
 | **stage record** | The part of `run.json` that belongs to one stage: its state, attempt, submissions, last status, artifacts and history. | `StageRecord` |
 | **step** | One call of `Stage.advance()`: it moves a stage from one state to the next (for example `NEW` → `SUBMITTED`). | `StageOutcome` |
@@ -85,7 +85,8 @@ Use Up/Down to move, Enter to select, and Esc to go back or exit the main menu.
   Selecting a recipe reloads it and prepares its read-only plan silently before showing the review screen,
   including any nonfatal planning notes. **View detailed plan** displays the existing textual plan and
   returns to the same review after Enter. **Start run** launches the run; **Back** returns to the picker.
-- **Continue an existing run** lists saved runs in `taufw_runs/` (newest first)
+- **Continue an existing run** lists saved runs in `taufw_runs/` and in the
+  `run_root` of every recipe in `Analyses/` (newest first)
   or accepts another run directory. Choose one advance or repeated checking;
   polling defaults to 600 seconds. Terminal runs offer status inspection instead.
 - **Inspect run status** shows the existing read-only status output, with Refresh
@@ -195,8 +196,11 @@ troubleshooting, and current workflow limitations.
 
 ## Run directory
 
+The run directory is in the recipe's `run_root` (`start --run-root` takes precedence; default `taufw_runs/` in the
+working directory; see [Analyses/README.md](../Analyses/README.md#where-the-runs-go-run_root)).
+
 ```
-taufw_runs/<name>_<YYYYmmdd-HHMMSS>/
+<run_root>/<name>_<YYYYmmdd-HHMMSS>/
   run.json    the run record (below)
   run.log     plain-text copy of the messages of every start/advance
   bundle/     the run's copy of the bundle: the stages read their bundle files from here, never from the source

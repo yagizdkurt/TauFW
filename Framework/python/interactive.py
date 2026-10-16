@@ -15,7 +15,7 @@ from pathlib import Path
 from TauFW.Framework.defaults import (ANALYSES_DIR, DEFAULT_POLL_SECONDS, DEFAULT_RUN_ROOT, RECIPE_NAME,
                                       RUN_RECORD_NAME)
 from TauFW.Framework.run_record import RunRecord, RunState
-from TauFW.Framework.recipe import Recipe
+from TauFW.Framework.recipe import Recipe, read_recipe, run_root_dir
 from TauFW.Framework.validation import check_recipe
 from TauFW.Framework.framework import Framework
 from TauFW.Framework.reporting import SilentReporter
@@ -52,13 +52,14 @@ class _Operations:
         """Plain presentation data; Utilities never needs Framework objects."""
         return dict(name=recipe.name, path=str(path),
                     stages=tuple((stage.id, stage.stage, stage.description) for stage in recipe.stages),
-                    notes=(), problems=())
+                    notes=(), problems=(), warnings=tuple(str(warning) for warning in recipe.warnings))
 
     def recipe_preview(self, path):
         """Check the recipe (validation.py) without constructing stage APIs: its stages and every problem."""
         check = check_recipe(str(path))
         return dict(name=check.name, path=str(path), stages=check.stages, notes=(),
-                    problems=tuple(str(issue) for issue in check.issues))
+                    problems=tuple(str(issue) for issue in check.issues),
+                    warnings=tuple(str(warning) for warning in check.warnings))
 
     def prepare_review(self, path):
         """Reload and dry-plan the selected recipe without terminal output or writes."""
@@ -76,10 +77,26 @@ class _Operations:
         view["notes"] = tuple(notes)
         return view
 
+    def run_roots(self):
+        """Where runs are looked for: taufw_runs/ in the launch directory, and the run_root of every recipe in the
+        recipes directory (also of a recipe with problems, if its run_root can be read)."""
+        roots = [self.launch_dir / DEFAULT_RUN_ROOT]
+        for path in self.recipes():
+            try:
+                data = read_recipe(str(path))[0]
+                value = data.get('run_root') if isinstance(data, dict) else None
+                if isinstance(value, str) and value.strip():
+                    roots.append(Path(run_root_dir(value)))
+            except Exception:
+                continue  # an unreadable recipe: its problems are shown with the recipe
+        return list(dict.fromkeys(root.resolve() if root.is_absolute() else self.launch_dir / root
+                                  for root in roots))
+
     def runs(self):
-        root = self.launch_dir / DEFAULT_RUN_ROOT
         runs = []
-        if root.is_dir():
+        for root in self.run_roots():
+            if not root.is_dir():
+                continue
             for directory in root.iterdir():
                 if directory.is_dir() and (directory / RUN_RECORD_NAME).is_file():
                     try:

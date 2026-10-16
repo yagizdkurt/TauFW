@@ -4,7 +4,7 @@
 
   taufw.py                                              interactive Linux console menu
   taufw.py check   RECIPE                                every problem of a recipe (structure, ids, inputs,
-                                                          the files it names); nothing is written
+                                                          the files it names) and its warnings; nothing is written
   taufw.py plan    RECIPE [--local [-m N]]                show each stage's plan and the files it reads;
                                                           nothing is written
                                                           (--local: quick local test of the production stage)
@@ -17,7 +17,10 @@
 
 RECIPE is an analysis bundle directory (Analyses/<name>, with recipe.yml) or a recipe file.
 
-Exit code: 1 if the run failed or the recipe is invalid, otherwise 0. See Framework/README.md.
+The runs go to the recipe's run_root (start --run-root DIR takes precedence; without both: taufw_runs/ here).
+
+Exit code: 1 if the run failed or the recipe is invalid (warnings do not count), otherwise 0. See
+Framework/README.md.
 """
 import os
 import shlex
@@ -25,7 +28,7 @@ import sys
 from argparse import ArgumentParser
 try:
     from TauFW.Framework import (Framework, Recipe, RecipeError, load_run, FrameworkReporter, RunState,
-                                 check_recipe)
+                                 check_recipe, RunDirectoryError)
     from TauFW.Framework.bundle import BundleError, make_bundle
     from TauFW.Framework.defaults import DEFAULT_RUN_ROOT, DEFAULT_POLL_SECONDS, ANALYSES_DIR, default_file_io
 except ImportError as err:
@@ -38,9 +41,10 @@ except ImportError as err:
 
 
 def cmd_check(args):
-    """List every problem of a recipe."""
+    """List every problem and warning of a recipe."""
     reporter = FrameworkReporter(verbosity=args.verbose)
     check = check_recipe(args.recipe)
+    _show_warnings(reporter, check.warnings)
     if check.ok:
         reporter.message("Recipe %s: no problems (%d stage(s): %s)"
                          % (check.name, len(check.stages), ', '.join(stage_id for stage_id, _, _ in check.stages)))
@@ -63,8 +67,10 @@ def cmd_plan(args):
         results = framework.stages[stage_spec.id].run_local(stage_spec.spec, maxevts=args.maxevts)
         return 1 if any(r.exitcode for r in results) else 0
     plan = framework.plan()
+    _show_warnings(reporter, framework.recipe.warnings)
     if plan.bundle_dir:
         reporter.message("Bundle: %s" % (plan.bundle_dir))
+    reporter.message("Run root: %s" % (_run_root_line(framework.recipe)))
     reporter.message("PicoProducer config: %s" % (plan.pico_config or "PicoProducer/config/config.json (default)"))
     for stage_plan in plan.stages:
         stage_spec = framework.recipe.stage(stage_plan.stage)
@@ -93,6 +99,9 @@ def cmd_start(args):
     """Start a new run."""
     reporter = FrameworkReporter(verbosity=args.verbose)
     framework = Framework.from_recipe(args.recipe, reporter=reporter)
+    if not args.run_root:  # --run-root chooses the place, so the recipe's run_root warnings do not apply
+        _show_warnings(reporter, framework.recipe.warnings)
+    reporter.message("Run root: %s" % (_run_root_line(framework.recipe, args.run_root)))
     record = framework.run(run_root=args.run_root, wait=args.wait, poll=args.poll)
     return _finish(reporter, record)
 
@@ -149,6 +158,23 @@ def cmd_init(args):
         reporter.message("  %s" % (path))
     reporter.message("Edit %s, then: taufw.py plan %s" % (os.path.join(target, 'recipe.yml'), target))
     return 0
+
+
+def _show_warnings(reporter, warnings):
+    """A recipe's warnings (Issue): the recipe can run, but should change."""
+    for warning in warnings:
+        reporter.warning("Warning: %s" % (warning))
+
+
+def _run_root_line(recipe, given=None):
+    """Where the runs go, and why: --run-root, the recipe's run_root (with ~ and $VARIABLES expanded), or the
+    default."""
+    if given:
+        return "%s (--run-root)" % (os.path.abspath(given))
+    if recipe.run_root:
+        expanded = recipe.run_root_dir
+        return "%s (recipe%s)" % (expanded, "" if expanded == recipe.run_root else ": %s" % (recipe.run_root))
+    return "%s (default: no run_root in the recipe)" % (os.path.abspath(DEFAULT_RUN_ROOT))
 
 
 def _inputs_line(stage_spec, stage):
@@ -225,7 +251,8 @@ def build_parser():
     start = subparsers.add_parser('start', parents=[common, waiter], help="start a new run")
     start.add_argument('recipe', help="analysis bundle directory, or recipe file (.yml or .json)")
     start.add_argument('--run-root', dest='run_root', default=None, metavar='DIR',
-                       help="parent of the run directory, default=%s" % (DEFAULT_RUN_ROOT))
+                       help="parent of the run directory, instead of the recipe's run_root "
+                            "(default: run_root, else %s)" % (DEFAULT_RUN_ROOT))
     advance = subparsers.add_parser('advance', parents=[common, waiter], help="continue a run")
     advance.add_argument('run_dir', help="run directory (with run.json)")
     status = subparsers.add_parser('status', parents=[common], help="state of a run (read-only)")
@@ -252,7 +279,7 @@ def main(argv=None):
     args = build_parser().parse_args(argv)
     try:
         return COMMANDS[args.command](args)
-    except RecipeError as error:  # every problem of the recipe, without a traceback
+    except (RecipeError, RunDirectoryError) as error:  # every problem of the recipe, without a traceback
         FrameworkReporter().warning(str(error))
         return 1
 

@@ -6,9 +6,9 @@ Purpose:  run the stages of an analysis (production -> histograms -> fit) one af
           to wait for the batch system or to move on. What a stage really does stays in its own package (the
           production stage, for example, calls the PicoProducer API).
 Inputs:   a recipe (a Recipe, an analysis bundle directory, or a .yml/.json file) and the files it names.
-Outputs:  a run directory taufw_runs/<name>_<YYYYmmdd-HHMMSS>/ with run.json (the state), run.log (the messages),
-          bundle/ (a copy of the bundle files the run uses), logs/<stage id>/ (the Framework's files of each
-          stage) and stages/<stage id>/ (what the stage makes, and its manifest.json once it is DONE; production's
+Outputs:  a run directory <run_root>/<name>_<YYYYmmdd-HHMMSS>/ (run_root: the recipe's, default taufw_runs/)
+          with run.json (the state), run.log (the messages), bundle/ (a copy of the bundle files the run uses),
+          logs/<stage id>/ (the Framework's files of each stage) and stages/<stage id>/ (what the stage makes, and its manifest.json once it is DONE; production's
           merged pico tuples stay in PicoProducer's storage and are listed in run.json and the manifest).
 
 Pipeline map:
@@ -39,6 +39,7 @@ Public API:
   plan, start, advance, run, status           pipelines
   make_bundle(target)                         a new analysis bundle with copies of the module configs used
   load_run(run_dir)                           the RunRecord of a run directory
+  check_writable(directory, what)             write and remove a small file (RunDirectoryError if it fails)
   RunPlan, RunSummary, StageSummary           records (bottom of this file)
 """
 import os, json, time
@@ -54,8 +55,8 @@ from TauFW.Framework.reporting import FrameworkReporter
 from TauFW.Framework.stages import (STAGES, StageState, StageContext, StageNotImplemented, PreflightError,
                                     ProductionStage, PlotStage, HistogramStage, FitStage, PythonStage)
 
-__all__ = ['Framework', 'RunPlan', 'StagePlan', 'RunSummary', 'StageSummary', 'load_run',
-           'RUN_LOG_NAME', 'DEFAULT_RUN_ROOT']
+__all__ = ['Framework', 'RunPlan', 'StagePlan', 'RunSummary', 'StageSummary', 'load_run', 'check_writable',
+           'RunDirectoryError', 'RUN_LOG_NAME', 'DEFAULT_RUN_ROOT']
 
 
 # =============================================================================
@@ -109,9 +110,15 @@ class Framework:
 
     def start(self, recipe=None, run_root=None):
         """Create the run directory, copy the bundle files and write run.json, then call advance() once.
+        run_root: the parent of the run directory; it takes precedence over the recipe's run_root, and without
+        both it is taufw_runs/ (in the working directory). A run_root that is given (here or in the recipe) is
+        first tried with a small file written and removed: if that fails, RunDirectoryError and nothing is made.
         Side effects: creates <run_root>/<name>_<time>/ with run.json, run.log and bundle/, and runs the first
         stage steps (the production stage, for example, submits its jobs)."""
         recipe = recipe or self.recipe
+        run_root = run_root or recipe.run_root_dir
+        if run_root:
+            check_writable(run_root, "run root")
         record = RunRecord.create(recipe, run_root or DEFAULT_RUN_ROOT, pico_config=self._pico_config(recipe),
                                   now=self.clock())
         if recipe.bundle_dir:  # first: a bundle that is too large stops here, before the run directory exists
@@ -126,7 +133,10 @@ class Framework:
     def advance(self, record, wait=False, poll=DEFAULT_POLL_SECONDS):
         """Step the stages in order until one waits for the batch system, fails or is not implemented. run.json is
         saved after every step. With wait=True, this is repeated every `poll` seconds while the run is waiting.
+        The run directory is first tried with a small file written and removed (RunDirectoryError if that fails,
+        e.g. an expired AFS token), before any stage moves.
         Side effects: whatever the stages do (production: submit, resubmit, merge); run.json and run.log."""
+        check_writable(record.run_dir, "run directory")
         self.reporter.attach_log(os.path.join(record.run_dir, RUN_LOG_NAME))
         while True:
             self._advance_stages(record)
@@ -419,6 +429,28 @@ class RunSummary:
 def load_run(run_dir):
     """The RunRecord of a run directory."""
     return RunRecord.load(run_dir)
+
+
+class RunDirectoryError(OSError):
+    """The run root or run directory cannot be written (see check_writable)."""
+
+
+def check_writable(directory, what):
+    """Write and remove a small file in `directory`, or, if it does not exist yet, in its nearest existing parent
+    (where it would be made); nothing is left behind. It shows that the directory can be written now, not that
+    there is space for what the run will write. Raises RunDirectoryError."""
+    existing = os.path.abspath(directory)
+    while not os.path.isdir(existing) and os.path.dirname(existing) != existing:
+        existing = os.path.dirname(existing)
+    probe = os.path.join(existing, ".taufw_write_test_%d" % (os.getpid()))
+    try:
+        with open(probe, 'w') as stream:
+            stream.write("TauFW write test\n")
+        os.remove(probe)
+    except OSError as err:
+        raise RunDirectoryError("cannot write in the %s %s: %s. Choose another directory (run_root in the recipe, "
+                                "or --run-root), or check your permissions (on lxplus: kinit; aklog)"
+                                % (what, directory, err)) from err
 
 
 def _run_recipe(record):

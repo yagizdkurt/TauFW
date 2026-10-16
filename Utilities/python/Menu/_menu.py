@@ -135,6 +135,12 @@ class ConsoleUI:
             for problem in problems:
                 lines += self._wrap("- " + problem, width)
             lines += [""]
+        warnings = view.get("warnings", ())
+        if warnings:  # the recipe can run, but should change
+            lines += ["", "%d warning(s):" % len(warnings)] if not problems else ["%d warning(s):" % len(warnings)]
+            for warning in warnings:
+                lines += self._wrap("- " + warning, width)
+            lines += [""]
         stages = view.get("stages", ())
         if not compact:
             lines += ["%d stage(s)" % len(stages), ""]

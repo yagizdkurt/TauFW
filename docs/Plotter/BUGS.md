@@ -22,6 +22,7 @@ fixed with `# BUGS <ID>` comments at the changed lines; others are registered on
 | L09 | `python/api/control_plots.py` `make` (`nfiles`) | the plot count globs `Plotter/plots/<era>/`, which is shared by all runs, so it also counts plots of earlier runs | wrong | R3 (CL §17), checked on lxplus: each run has its own directory, and the count uses the command's own pattern | |
 | L10 | `config/setup_mutau.yml` vs `config/setup_mutau_inclusive.yml` | both have `channel: mutau` and `tag: ""`, so they write the same file names into `plots/<era>/` and the second run overwrites the first | wrong | registered only; `plan` notes it | |
 | L11 | `plot.py` (line ~65) + `common/python/tools/root.py` `loadmacro` | `loadmacro("python/macros/mapDecayModes.C")` is relative to the working directory and its result is ignored; outside `Plotter/` the macro is not loaded and the run fails much later, when RDataFrame compiles `mapRecoDM(dm_2)` (only for channels with `tau`) | latent; crash outside `Plotter/` | R3 (CL §17), checked on lxplus: path from `__file__` (the ignored result of `ProcessLine` stays) | none in `Plotter/` |
+| L12 | `python/sample/utils.py:119-120` (`getmcsample`) | the `pico=` keyword (a picodir to use instead of the PicoProducer configuration's) is read and overwritten with `""` on the next line, so it is ignored and `$PICODIR` always comes from the configuration | latent | registered only: `getmcsample` has no callers | |
 
 ## How old
 
@@ -47,3 +48,5 @@ Open bugs only; fixed ones are left out.
 - **L11** `loadmacro("python/macros/mapDecayModes.C")` is from `25ec87c` (2021-07-15, "add DM; implement DM mapping;
   add loadmacro; ..."); `loadmacro` moved to `common/python/tools/root.py` in `e2b48d4` (2024-01-24) and has always
   ignored the result of `ProcessLine`. Correct as long as `plot.py` runs in `Plotter/`.
+- **L12** both lines of `getmcsample` (`picodir = kwargs.get('pico', "")`, then `picodir = ""`) came in together
+  with the function in `4ad2351` (2022-05-28, "add stitch plotting").

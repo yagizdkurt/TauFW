@@ -2,6 +2,7 @@
 """Recipe: what a run should do. It is read from a YAML (or JSON) file and checked before anything runs.
 
     name: mutau_2022_postEE
+    run_root: /afs/cern.ch/work/u/user/taufw_runs   # where the runs go (see run_root below)
     pico: {config: null}              # PicoProducer configuration; null -> PicoProducer/config/config.json
     stages:
       - stage: production             # the stage type; options: see ProductionSpec (stages/production.py)
@@ -35,6 +36,12 @@ Every stage has the keys `stage`, `id` and `inputs`, and may have `description`;
     order:    the built-in stages at most once each, in the order of ORDER (production, plots, histograms, fit);
               python steps anywhere, any number of times.
 
+run_root is the parent directory of the runs: a run is <run_root>/<name>_<YYYYmmdd-HHMMSS>/. It must be absolute, on
+a mounted file system (not a URL), and outside the bundle directory (every run copies its bundle, so it would copy
+the earlier runs too; a loose recipe file's directory is not copied). ~ and $VARIABLES are expanded where taufw.py runs (a warning says so; an undefined variable is a
+problem). Without run_root (or with run_root: null) the runs go to taufw_runs/ in the directory taufw.py is started
+from, with a warning. `taufw.py start --run-root DIR` takes precedence over the recipe.
+
 A recipe is usually the recipe.yml of an analysis bundle (Analyses/<name>/, see bundle.py): Recipe.load() takes
 the bundle directory or the file, and the path options of the stages are resolved against that directory.
 
@@ -44,34 +51,39 @@ Recipe.from_dict() / Recipe.load() raise one RecipeError that lists them all, e.
       stages[0] (production): unknown option 'samplez' (known: ...)
       stages[2] (fit).inputs.shapes: no stage 'histo' in the recipe
 validation.py adds the checks of the files a recipe names (for the menu and `taufw.py check`).
+A warning is not a problem: the recipe can run. recipe_warnings() lists them (Recipe.warnings for a valid recipe);
+`taufw.py check`, `plan`, `start` and the menu show them.
 
 Inputs:  a recipe file or bundle directory, or a dict (e.g. the copy of the recipe saved in run.json).
 Outputs: Recipe and StageSpec records (frozen), Issues. Nothing is written.
 
 Public API:
   Recipe.load(path) / Recipe.from_dict(data, source, bundle_dir) / Recipe.parse(...) / recipe.to_dict()
+  recipe_warnings(data) -> [Issue]   what a recipe dict should change, though it can run (e.g. no run_root)
+  run_root_dir(value)   -> str       run_root with ~ and $VARIABLES expanded (None: not set)
   StageSpec            one stage of the recipe: its type, id, inputs, typed options (Spec), options as written
-  Issue                one problem of a recipe: where it is and what is wrong
+  Issue                one problem (or warning) of a recipe: where it is and what is wrong
   RecipeError          invalid recipe (its .issues list every problem)
 """
-import os, re, copy
+import os, re, copy, posixpath
 from dataclasses import dataclass, field, replace
 from typing import Optional, Tuple
-from TauFW.Framework.bundle import leaves_bundle
-from TauFW.Framework.defaults import RECIPE_NAME, default_file_io
+from TauFW.Framework.bundle import leaves_bundle, is_bundle
+from TauFW.Framework.defaults import RECIPE_NAME, DEFAULT_RUN_ROOT, default_file_io
 from TauFW.Framework.stages import STAGES, ORDER, SpecError, spec_from_dict
 
-__all__ = ['Recipe', 'StageSpec', 'Issue', 'RecipeError']
+__all__ = ['Recipe', 'StageSpec', 'Issue', 'RecipeError', 'recipe_warnings', 'run_root_dir']
 
 
 # =============================================================================
 # ================================= CONSTANTS =================================
 
 
-TOP_KEYS   = ('name', 'pico', 'stages')                  # allowed keys at the top of a recipe
+TOP_KEYS   = ('name', 'run_root', 'pico', 'stages')      # allowed keys at the top of a recipe
 PICO_KEYS  = ('config',)                                 # allowed keys under 'pico:'
 STAGE_KEYS = ('stage', 'id', 'description', 'inputs')    # keys of every stage that are not its options
 NAMEEXP    = re.compile(r"^[A-Za-z0-9_.-]+$")  # allowed run names, stage ids and input names (directory names)
+URLEXP     = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://")  # a URL, e.g. root://eosuser.cern.ch//eos/...
 
 
 # =============================================================================
@@ -104,7 +116,8 @@ class StageSpec:
 
 @dataclass(frozen=True)
 class Issue:
-    """One problem of a recipe. where: the key, e.g. "stages[2] (fit).inputs.shapes" ("" for the whole file)."""
+    """One problem (or warning) of a recipe. where: the key, e.g. "stages[2] (fit).inputs.shapes" ("" for the
+    whole file)."""
     where:   str
     message: str
 
@@ -116,12 +129,16 @@ class Issue:
 class Recipe:
     """A checked recipe.
     pico_config: the PicoProducer configuration as written (None: PicoProducer's default); see pico_config_path.
-    bundle_dir:  the directory the path options are resolved against (the bundle; None: none)."""
+    bundle_dir:  the directory the path options are resolved against (the bundle; None: none).
+    run_root:    the parent directory of the runs as written (None: not set); see run_root_dir.
+    warnings:    what the recipe should change, though it can run (recipe_warnings)."""
     name:        str
     stages:      Tuple[StageSpec, ...]
     pico_config: Optional[str] = None
     source:      str = "<recipe>"
     bundle_dir:  Optional[str] = None
+    run_root:    Optional[str] = None
+    warnings:    Tuple[Issue, ...] = field(default=(), compare=False)
 
     def stage(self, stage_id):
         """The StageSpec with this id, or None."""
@@ -141,6 +158,11 @@ class Recipe:
     def pico_config_path(self):
         """The path of the PicoProducer configuration (relative paths are in the bundle), or None."""
         return _pico_config_path(self.pico_config, self.bundle_dir)
+
+    @property
+    def run_root_dir(self):
+        """The parent directory of the runs, with ~ and $VARIABLES expanded, or None if the recipe sets none."""
+        return run_root_dir(self.run_root)
 
     # =========================================================================
     # ================================ LOADING ================================
@@ -177,6 +199,7 @@ class Recipe:
         name = data.get('name')
         if not isinstance(name, str) or not NAMEEXP.match(name):
             issues.append(Issue('name', "must be a word of letters, digits, '_', '.' or '-' (got %r)" % (name,)))
+        run_root = _check_run_root(data.get('run_root'), bundle_dir, issues)
         pico = data.get('pico') or {}
         if not isinstance(pico, dict):
             issues.append(Issue('pico', "must be a mapping, e.g. {config: null}"))
@@ -192,7 +215,8 @@ class Recipe:
         if issues:
             return None, stage_specs, issues
         recipe = cls(name=name, stages=tuple(s for _, s in stage_specs), pico_config=pico.get('config'),
-                     source=source, bundle_dir=bundle_dir)
+                     source=source, bundle_dir=bundle_dir, run_root=run_root,
+                     warnings=tuple(recipe_warnings(data)))
         return recipe, stage_specs, issues
 
     def to_dict(self):
@@ -204,7 +228,8 @@ class Recipe:
                 entry.append(('description', s.description))
             entry.append(('inputs', copy.deepcopy(s.inputs)))
             stages.append(dict(entry + list(copy.deepcopy(s.options).items())))
-        return {'name': self.name, 'pico': {'config': self.pico_config}, 'stages': stages}
+        top = [('name', self.name)] + ([('run_root', self.run_root)] if self.run_root is not None else [])
+        return dict(top + [('pico', {'config': self.pico_config}), ('stages', stages)])
 
 
 # =============================================================================
@@ -398,6 +423,75 @@ def _pico_config_path(value, bundle_dir):
     if not value or os.path.isabs(value) or not bundle_dir:
         return value
     return os.path.normpath(os.path.join(bundle_dir, value))
+
+
+# =============================================================================
+# ================================= RUN ROOT ==================================
+
+
+def run_root_dir(value):
+    """run_root with ~ and $VARIABLES expanded (where taufw.py runs), or None if it is not set."""
+    if value is None:
+        return None
+    return os.path.expandvars(os.path.expanduser(value))
+
+
+def _check_run_root(value, bundle_dir, issues):
+    """run_root as written, or None if it is not set (a warning, see recipe_warnings) or not allowed (an issue)."""
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        issues.append(Issue('run_root', "must be an absolute directory, e.g. run_root: "
+                                        "/afs/cern.ch/work/u/user/taufw_runs (got %r)" % (value,)))
+        return None
+    if URLEXP.match(value):
+        issues.append(Issue('run_root', "must be a directory on a mounted file system, not a URL (got %s)" % (value)))
+        return None
+    expanded = run_root_dir(value)
+    if '$' in expanded:
+        issues.append(Issue('run_root', "%s: undefined environment variable (expanded: %s)" % (value, expanded)))
+        return None
+    if not _is_absolute(expanded):
+        issues.append(Issue('run_root', "must be an absolute path (got %s)" % (value)))
+        return None
+    if is_bundle(bundle_dir) and _inside(expanded, bundle_dir):  # a bundle is copied whole (bundle.snapshot)
+        issues.append(Issue('run_root', "%s is inside the bundle %s: every run copies its bundle, so it would copy "
+                                        "the earlier runs too. Choose a directory outside the bundle"
+                            % (expanded, bundle_dir)))
+        return None
+    return value
+
+
+def recipe_warnings(data):
+    """The warnings of a recipe dict: what it should change, though it can run. Not problems: the recipe is valid
+    with them (and nothing here is checked twice: a run_root that is a problem gets no warning)."""
+    warnings = []
+    if not isinstance(data, dict):
+        return warnings
+    value = data.get('run_root')
+    if value is None:
+        warnings.append(Issue('run_root', "not set: the runs go to %s/ in the directory taufw.py is started from. "
+                                          "Set run_root: <absolute directory> in the recipe, or start with "
+                                          "--run-root" % (DEFAULT_RUN_ROOT)))
+    elif isinstance(value, str) and run_root_dir(value) != value and '$' not in run_root_dir(value):
+        warnings.append(Issue('run_root', "%s is expanded where taufw.py runs (here: %s); someone else, or another "
+                                          "machine, gets another directory" % (value, run_root_dir(value))))
+    return warnings
+
+
+def _is_absolute(path):
+    """An absolute path on lxplus (/afs/..., /eos/...) or on this machine. posixpath: on Windows os.path.isabs
+    says False for /afs/... (K05)."""
+    return posixpath.isabs(path) or os.path.isabs(path)
+
+
+def _inside(path, directory):
+    """True if `path` is `directory` or below it."""
+    path, directory = os.path.normcase(os.path.normpath(path)), os.path.normcase(os.path.normpath(directory))
+    try:
+        return os.path.commonpath([path, directory]) == directory
+    except ValueError:  # different drives (Windows)
+        return False
 
 
 # =============================================================================

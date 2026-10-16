@@ -4,6 +4,7 @@ import os
 import shutil
 import tempfile
 import unittest
+from unittest import mock
 
 import checkout
 from TauFW.Framework import check_recipe
@@ -31,6 +32,71 @@ class CheckRecipeTests(unittest.TestCase):
 
     def messages(self, check):
         return [str(issue) for issue in check.issues]
+
+    def check_root(self, run_root):
+        self.write("recipe.yml", json.dumps({"name": "tes", "run_root": run_root, "stages": [FIT]}))
+        return check_recipe(self.bundle)
+
+    def test_run_root(self):
+        check = self.check_root("/afs/cern.ch/work/u/user/taufw_runs")  # absolute on lxplus (also on Windows)
+        self.assertEqual((self.messages(check), check.warnings), ([], ()))
+        self.assertEqual(check.recipe.run_root_dir, "/afs/cern.ch/work/u/user/taufw_runs")
+        self.assertEqual(check.recipe.to_dict()["run_root"], "/afs/cern.ch/work/u/user/taufw_runs")
+        for value in (None, "missing"):  # not set: a warning, not a problem
+            with self.subTest(run_root=value):
+                if value is None:
+                    check = self.check_root(None)
+                else:
+                    check = self.check(FIT)
+                self.assertTrue(check.ok)
+                self.assertEqual([str(w) for w in check.warnings], [
+                    "run_root: not set: the runs go to taufw_runs/ in the directory taufw.py is started from. "
+                    "Set run_root: <absolute directory> in the recipe, or start with --run-root"])
+                self.assertIsNone(check.recipe.run_root)
+                self.assertNotIn("run_root", check.recipe.to_dict())
+
+    def test_run_root_with_variables_is_expanded_with_a_warning(self):
+        with mock.patch.dict(os.environ, {"TAUFW_TEST_ROOT": self.root}):
+            check = self.check_root("$TAUFW_TEST_ROOT/runs")
+            self.assertTrue(check.ok)
+            expanded = self.root + "/runs"
+            self.assertEqual(check.recipe.run_root_dir, expanded)
+            self.assertEqual(check.recipe.run_root, "$TAUFW_TEST_ROOT/runs")  # as written (saved in run.json)
+            self.assertEqual([str(w) for w in check.warnings], [
+                "run_root: $TAUFW_TEST_ROOT/runs is expanded where taufw.py runs (here: %s); someone else, or "
+                "another machine, gets another directory" % (expanded)])
+        check = self.check_root("~/taufw_runs")
+        self.assertTrue(check.ok)
+        self.assertEqual(check.recipe.run_root_dir, os.path.expanduser("~/taufw_runs"))
+        self.assertIn("is expanded where taufw.py runs", str(check.warnings[0]))
+
+    def test_run_root_problems(self):
+        inside = os.path.join(self.bundle, "runs")
+        cases = [
+            ("runs", "run_root: must be an absolute path (got runs)"),
+            ("", "run_root: must be an absolute directory, e.g. run_root: /afs/cern.ch/work/u/user/taufw_runs "
+                 "(got '')"),
+            (5, "run_root: must be an absolute directory, e.g. run_root: /afs/cern.ch/work/u/user/taufw_runs "
+                "(got 5)"),
+            ("root://eosuser.cern.ch//eos/user/u/user/runs",
+             "run_root: must be a directory on a mounted file system, not a URL "
+             "(got root://eosuser.cern.ch//eos/user/u/user/runs)"),
+            ("$TAUFW_UNDEFINED_VARIABLE/runs",
+             "run_root: $TAUFW_UNDEFINED_VARIABLE/runs: undefined environment variable "
+             "(expanded: $TAUFW_UNDEFINED_VARIABLE/runs)"),
+            (inside, "run_root: %s is inside the bundle %s: every run copies its bundle, so it would copy the "
+                     "earlier runs too. Choose a directory outside the bundle" % (inside, self.bundle)),
+            (self.bundle, "run_root: %s is inside the bundle %s: every run copies its bundle, so it would copy the "
+                          "earlier runs too. Choose a directory outside the bundle" % (self.bundle, self.bundle)),
+        ]
+        for value, message in cases:
+            with self.subTest(run_root=value):
+                check = self.check_root(value)
+                self.assertEqual(self.messages(check), [message])
+                self.assertEqual(check.warnings, ())  # a run_root that is a problem gets no warning
+                self.assertIsNone(check.recipe)
+        check = self.check_root(os.path.join(self.root, "tes_runs"))  # next to the bundle, not inside it
+        self.assertTrue(check.ok)
 
     def test_the_bundled_analyses_have_no_problems(self):
         for bundle in ("example_mutau", "tes_id_2025"):
@@ -77,7 +143,7 @@ class CheckRecipeTests(unittest.TestCase):
         self.assertEqual(self.messages(check), ["a recipe must be a bundle directory or a .yml, .yaml or .json file"])
         self.write("empty/recipe.yml", "")
         check = check_recipe(os.path.join(self.bundle, "empty"))
-        self.assertEqual(self.messages(check), ["a recipe is a mapping with keys name, pico, stages"])
+        self.assertEqual(self.messages(check), ["a recipe is a mapping with keys name, run_root, pico, stages"])
 
 
 if __name__ == "__main__":

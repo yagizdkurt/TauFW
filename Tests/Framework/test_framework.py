@@ -10,7 +10,8 @@ from unittest import mock
 
 import checkout  # noqa: F401  (must precede TauFW imports)
 import fakes
-from TauFW.Framework import Framework, Recipe, RecipeError, RunRecord, SilentReporter, StageState
+from TauFW.Framework import (Framework, Recipe, RecipeError, RunRecord, SilentReporter, StageState,
+                             RunDirectoryError)
 from TauFW.Framework.stages import ProductionStage, StageOutcome, decide_next, Action
 from TauFW.Framework.stages.production import StatusCounts
 
@@ -231,6 +232,62 @@ class RecoveryTests(FrameworkTestCase):
         self.assertEqual(RunRecord.load(record.run_dir).to_dict()["stages"], saved["stages"])
 
 
+class RunRootTests(FrameworkTestCase):
+    def runs(self, directory):
+        return [name for name in os.listdir(directory) if name.startswith("test_mutau_")]
+
+    def test_recipe_run_root_and_precedence(self):
+        recipe_root = os.path.join(self.root, "recipe_runs")
+        recipe = dict(RECIPE, run_root=recipe_root)
+        record = framework(fakes.FakePicoProducer(statuses=[fakes.pending("DY")]), recipe).start()
+        self.assertEqual(os.path.dirname(record.run_dir), recipe_root)  # the recipe's run_root
+        self.assertEqual(record.recipe["run_root"], recipe_root)  # run.json keeps it as written
+        given = os.path.join(self.root, "given")
+        record = framework(fakes.FakePicoProducer(statuses=[fakes.pending("DY")]), recipe).start(run_root=given)
+        self.assertEqual(os.path.dirname(record.run_dir), given)  # start(run_root) takes precedence
+        self.assertEqual(len(self.runs(recipe_root)), 1)
+        here = os.getcwd()
+        os.chdir(self.root)
+        self.addCleanup(os.chdir, here)
+        record = framework(fakes.FakePicoProducer(statuses=[fakes.pending("DY")])).start()  # neither: taufw_runs/
+        self.assertEqual(os.path.dirname(record.run_dir), os.path.join(os.path.realpath(self.root), "taufw_runs"))
+
+    def test_write_check_leaves_nothing_behind(self):
+        root = os.path.join(self.root, "a", "b")  # made by the run, below the directory that is tried
+        record = framework(fakes.FakePicoProducer(statuses=[fakes.pending("DY")])).start(run_root=root)
+        self.assertEqual(os.listdir(self.root), ["a"])
+        for directory in (self.root, root, record.run_dir):
+            self.assertFalse([n for n in os.listdir(directory) if n.startswith(".taufw_write_test")])
+
+    def test_run_root_that_cannot_be_written_stops_before_anything(self):
+        pico = fakes.FakePicoProducer(statuses=[fakes.pending("DY")])
+        root = os.path.join(self.root, "runs")
+        with mock.patch("TauFW.Framework.framework.open", side_effect=PermissionError("Permission denied"),
+                        create=True):
+            with self.assertRaises(RunDirectoryError) as context:
+                framework(pico).start(run_root=root)
+        self.assertIn("cannot write in the run root %s: Permission denied" % (root), str(context.exception))
+        self.assertIn("kinit; aklog", str(context.exception))
+        self.assertFalse(os.path.exists(root))  # no run directory, no run.json
+        self.assertEqual(pico.calls, [])  # nothing submitted
+
+    def test_advance_tries_the_run_directory_first(self):
+        pico = fakes.FakePicoProducer(statuses=[fakes.pending("DY"), fakes.complete("DY", "TT")])
+        fw = framework(pico)
+        record = fw.start(run_root=self.root)
+        with open(record.path, "rb") as stream:
+            before = stream.read()
+        calls = len(pico.calls)
+        with mock.patch("TauFW.Framework.framework.open", side_effect=PermissionError("Permission denied"),
+                        create=True):
+            with self.assertRaises(RunDirectoryError) as context:
+                fw.advance(record)
+        self.assertIn("cannot write in the run directory %s" % (record.run_dir), str(context.exception))
+        with open(record.path, "rb") as stream:
+            self.assertEqual(stream.read(), before)  # nothing moved
+        self.assertEqual(len(pico.calls), calls)
+
+
 class DecisionTests(unittest.TestCase):
     def test_decide_next_truth_table(self):
         cases = [
@@ -376,6 +433,42 @@ class CommandLineTests(FrameworkTestCase):
             self.assertEqual(RunRecord.load(run_dir).state, "DONE")
             self.assertEqual(self.cli.main(["status", run_dir]), 0)
             self.assertEqual(self.cli.main(["plan", recipe]), 0)
+
+    def test_check_plan_and_start_show_the_run_root(self):
+        reporter = SilentReporter()
+        self.cli.FrameworkReporter = lambda verbosity=0: reporter
+        pico = fakes.FakePicoProducer(statuses=[fakes.pending("DY")])
+        recipe = os.path.join(self.root, "r.json")
+        with open(recipe, "w") as stream:
+            json.dump(RECIPE, stream)  # no run_root
+        real = Framework.from_recipe
+        warning = ("Warning: run_root: not set: the runs go to taufw_runs/ in the directory taufw.py is started "
+                   "from. Set run_root: <absolute directory> in the recipe, or start with --run-root")
+        with mock.patch.object(self.cli.Framework, "from_recipe",
+                               side_effect=lambda r, reporter=None, fake=pico, **kw: real(r, reporter=reporter, pico=fake)):
+            self.assertEqual(self.cli.main(["check", recipe]), 0)  # a warning is not a problem
+            self.assertEqual([t for k, t in reporter.messages if k == "warning"], [warning])
+            reporter.messages.clear()
+            self.assertEqual(self.cli.main(["plan", recipe]), 0)
+            self.assertIn(warning, [t for k, t in reporter.messages if k == "warning"])
+            self.assertIn("Run root: %s (default: no run_root in the recipe)" % (os.path.abspath("taufw_runs")),
+                          [t for k, t in reporter.messages if k == "message"])
+            reporter.messages.clear()
+            self.assertEqual(self.cli.main(["start", recipe, "--run-root", self.root]), 0)
+            self.assertNotIn(warning, [t for k, t in reporter.messages if k == "warning"])  # --run-root chose
+            self.assertIn("Run root: %s (--run-root)" % (self.root), [t for k, t in reporter.messages])
+            with open(recipe, "w") as stream:
+                json.dump(dict(RECIPE, run_root=os.path.join(self.root, "runs")), stream)
+            reporter.messages.clear()
+            self.assertEqual(self.cli.main(["check", recipe]), 0)
+            self.assertEqual([t for k, t in reporter.messages if k == "warning"], [])
+            self.assertEqual(self.cli.main(["plan", recipe]), 0)
+            self.assertIn("Run root: %s (recipe)" % (os.path.join(self.root, "runs")),
+                          [t for k, t in reporter.messages if k == "message"])
+            with mock.patch("TauFW.Framework.framework.open", side_effect=PermissionError("Permission denied"),
+                            create=True):
+                self.assertEqual(self.cli.main(["start", recipe]), 1)  # the reason, no traceback
+            self.assertIn("cannot write in the run root", [t for k, t in reporter.messages if k == "warning"][-1])
 
     def test_parser(self):
         parser = self.cli.build_parser()
