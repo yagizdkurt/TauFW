@@ -135,6 +135,7 @@ Each changes logs, so do each in its own commit, with a BBB re-lock where a base
 - [ ] F08: `merge_datacards_regions` called with 7 arguments, takes 6 (crash).
 - [ ] F09: `hasattr` on a dict is always false, so the Zmm card is never added (latent).
 - [ ] F10: the combined card is written to `output_{era}/` (wrong).
+- [ ] F25: `find_spec('ROOT')` raises when ROOT is already imported (`api/tes_id.py`, default `find_module`; crash, like L13).
 
 **Plotter** ([BUGS.md](../Plotter/BUGS.md)):
 
@@ -143,6 +144,7 @@ Each changes logs, so do each in its own commit, with a BBB re-lock where a base
       the `drawing.canvas` baseline (`$.tools.sumhists`), so re-lock.
 - [ ] L04: `estimatelen` with several arguments raises `TypeError` (now `Utilities/python/Drawing/labels.py`).
 - [ ] L12: `getmcsample` ignores its `pico=` keyword (`python/sample/utils.py:119-120`; no callers, latent).
+- [ ] L13: `find_spec('ROOT')` raises `ValueError` when ROOT is already imported (`python/api/control_plots.py`, default `find_module`): `plan`/`advance` of production + plots crash on lxplus.
 
 **Framework** ([BUGS.md](../Framework/BUGS.md)), registered only:
 
@@ -152,6 +154,7 @@ Each changes logs, so do each in its own commit, with a BBB re-lock where a base
 - [x] K03: the `tuples` input slot selects no data; the scripts read `$PICODIR` (design limit). Fixed by CL §18 step 6.
 - [ ] K04: production's tuple artifacts have no `kind`, so a filter by `kind='tuples'` finds none (latent).
 - [ ] K05: on Windows (Python 3.13) `/afs/...` is not absolute for `os.path.isabs`; an lxplus `pico.config` is joined to the bundle directory (latent, Windows only).
+- [ ] K06: `taufw.py plan`/`start` with a recipe path that does not exist ends with a traceback, not one line (`taufw.py check` reports it).
 
 **Jobs/workers audit follow-ups** ([JobsWorkersAudit.md](JobsWorkersAudit.md) §7; none needed for correctness):
 

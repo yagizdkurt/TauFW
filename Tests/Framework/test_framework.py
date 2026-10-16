@@ -486,7 +486,7 @@ class CommandLineTests(FrameworkTestCase):
         with open(recipe, "w") as stream:
             json.dump(RECIPE, stream)  # no run_root
         real = Framework.from_recipe
-        warning = ("Warning: run_root: not set: the runs go to taufw_runs/ in the directory taufw.py is started "
+        warning = ("run_root: not set: the runs go to taufw_runs/ in the directory taufw.py is started "
                    "from, and production stage 'production' writes its merged tuples into the run directory (often "
                    "tens of GB). On lxplus that is your AFS space: the home directory holds only a few GB, and a "
                    "full quota stops the run midway. Set run_root: <absolute directory with enough space> in the "

@@ -163,7 +163,7 @@ def cmd_init(args):
 def _show_warnings(reporter, warnings):
     """A recipe's warnings (Issue): the recipe can run, but should change."""
     for warning in warnings:
-        reporter.warning("Warning: %s" % (warning))
+        reporter.warning(str(warning))  # the reporter marks it as a warning
 
 
 def _run_root_line(recipe, given=None):

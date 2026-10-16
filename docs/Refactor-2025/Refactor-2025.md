@@ -979,3 +979,8 @@ Tests (Windows): Framework 114 (new: external accepted and refused in eight ways
 pattern reaching both APIs without `pico_config`, a missing external directory leaving the stage NEW, `null`
 unchanged, the planned pattern in a plan, artifacts without or with several patterns, missing tuple files,
 `fixed_directory`, the `Inputs:` line; the production tuples now exist in the fake run), Utilities 104.
+
+On lxplus (2026-10-17): `check` and `plan` of tes_id_2025 as expected (`--tuples` with the external pattern, no
+`$TAUFW_PICO_CONFIG` for plots and histograms). `plan` of example_mutau stops in the plots preflight: the APIs' module
+lookup `importlib.util.find_spec('ROOT')` raises when production has already imported CMSSW's ROOT (Plotter BUGS L13,
+Fitter BUGS F25; registered, older than this work). The warnings were printed as "Warning: Warning: ..." (fixed).
