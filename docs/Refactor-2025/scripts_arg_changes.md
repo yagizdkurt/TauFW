@@ -1,7 +1,7 @@
 # Script option changes for per-run output directories (R3)
 
-**Status:** implemented (October 2026, CL §17 of [Refactor-2025.md](Refactor-2025.md)); the lxplus comparison
-with the shell scripts (below) is pending.
+**Status:** implemented and checked on lxplus against the shell scripts (October 2026, CL §17 of
+[Refactor-2025.md](Refactor-2025.md); results below).
 
 Since R3 the Framework runs the Plotter and Fitter scripts with the stage's output directory
 (`taufw_runs/<run>/stages/<id>/`, for the fit `<...>/stages/<id>/<era>/`) as working directory. The Framework gives
@@ -67,3 +67,28 @@ They run in the stage's directory and only use paths inside it: `Plotter/plot.py
 
 For every changed script: the shell scripts run with the defaults before and after the change give the same
 files, and the Framework run gives the same results as the shell scripts. Results are recorded here per step.
+Tuples: `/eos/cms/store/group/phys_tau/TauFW/pico2024/TES_variations/$ERA/$GROUP` (2025, mutau and mumu, with the
+TES/LTF/JTF variations). Baseline commit: `f951dc0` (the last one with the scripts unchanged).
+
+- **Plotter (2026-10-15):** `plot.py -y 2025 -c mutau|mumu -V m_vis pt_2 -S baseline` in `Plotter/`: the same 8 files
+  before and after (mutau rerun only; the macro is loaded for tau channels only). Framework run of a plots stage with
+  `variables: [m_vis, pt_2, dm_2_label]`: the same files in `stages/plots/plots/2025/` plus
+  `dm_2_label_mt-baseline-2025.png` (`mapRecoDM`, so the macro loads outside `Plotter/`, L11); `nfiles` 5 (mutau) and
+  4 (mumu) equal the files; nothing written to `Plotter/plots/`; no errors in the logs. `bbb check`: 20 cases, 0
+  failed.
+- **Fitter (2026-10-15/16), VTight/Tight, 2025:**
+  - Baseline at `f951dc0`: `run_inputs.sh` (2 h 48 min) and `run_workflow_zmm.sh` restricted to VTight/Tight (18 min).
+  - New code, shell scripts with the defaults, on the baseline shapes: all 12 `FitparameterValues__mutau_*`, the two
+    `tau_sf/*VSjetVTight_VSeleTight*.json`, `tau_sf/TauCorrections_2025.json` and
+    `data/tau/TauCorrections_2025_with_uncorrelated_systs.json` identical to the baseline.
+  - Framework run (histograms + fit, `inputs: {shapes: histograms}`): every command ok. The shapes equal the baseline
+    up to a relative 1e-13 (RDataFrame with 16 threads adds weighted histograms in a different order on every run;
+    unweighted ones such as `data_obs` are identical), and the tuples did not change in between.
+  - The fit is very sensitive to that: the fitted POIs move by at most one grid step (0.00125 in tes), most only in
+    the 4th-6th decimal, while nuisance parameters along flat directions move a lot. So the Framework fit was also
+    compared with the shell scripts run on the **Framework's** shapes: all 12 `FitparameterValues__mutau_*` and the
+    merged and combined JSONs are identical. The fit commands of the API do what the shell script does.
+  - Isolation: nothing written to `Fitter/` or `Plotter/`; nothing in the histograms stage changed after its
+    manifest (the fit reads the shapes in place); `stages/fit/` holds `2025/` and `manifest.json`; the impacts of
+    DM11_pt2 failed in the baseline (initial fit did not converge, `combineTool.py` traceback inside `os.system`,
+    the script still exits 0) and succeeded in the Framework run, again because of the 1e-13 shape differences.

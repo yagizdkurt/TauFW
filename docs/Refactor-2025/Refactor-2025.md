@@ -855,6 +855,12 @@ points of other runs. Plan and inventory of what the scripts read and write: `Lo
 On Windows: Framework 94, Plotter API 11, Fitter API 18, Utilities process 17 pass. New cases: the commands, working
 directories, artifacts and preflight problems with an output directory (both APIs), two eras in two directories, a
 point without shapes in the input stage, null shapes reading `Fitter/`, a slot that does not allow null, the
-output-directory check. **Not yet run on lxplus:** there are no 2025 pico tuples there yet. The comparison with
-the shell scripts (shell before/after with the defaults, then the Framework run; `FitparameterValues__mutau_*`,
-`tau_sf/*VSjetVTight_VSeleTight*`) and `bbb check` (no baseline should change) are open (TODO §6 C).
+output-directory check. On lxplus (2026-10-15, the 2025 tuples of the TauFW group area): the Plotter part passes
+(the same plots as `plot.py` in `Plotter/` before and after the change, `dm_2_label` drawn outside `Plotter/`,
+`nfiles` equal to the files, nothing in `Plotter/plots/`), and `bbb check` passes unchanged (20 cases). The Fitter
+part passes for VTight/Tight: the shell scripts with the new code and their defaults give the baseline's
+`FitparameterValues__mutau_*` and correction files exactly; the Framework's shapes equal the baseline's up to 1e-13
+(multithreaded RDataFrame); on the same shapes the Framework fit and the shell scripts give identical fit values and
+correction files; nothing is written to `Fitter/` or `Plotter/`. Two runs of shapes + fit from the same tuples can
+differ by a grid step in the fitted POIs (the fit amplifies the 1e-13 differences; TODO §6 C). Details in
+[scripts_arg_changes.md](scripts_arg_changes.md).

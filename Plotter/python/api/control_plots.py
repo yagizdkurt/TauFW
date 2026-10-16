@@ -135,8 +135,9 @@ class ControlPlots:
                        timeout=request.timeout, env=_pico_env(request))
 
     def _cwd(self, request):
-        """Where plot.py runs: the request's output directory, else Plotter/."""
-        return os.path.abspath(request.outdir) if request.outdir is not None else self.basedir
+        """Where plot.py runs: the request's output directory as given (the Framework gives an absolute one, or the
+        placeholder '<run_dir>/stages/<id>' in a plan), else Plotter/."""
+        return os.path.normpath(request.outdir) if request.outdir is not None else self.basedir
 
     def _setup(self, setup_file, notes):
         path = self._path(setup_file)

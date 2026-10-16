@@ -184,14 +184,15 @@ Next-work proposals (not designed in detail yet):
 - [ ] C: one output base per run. Plotter and Fitter outputs are shared between runs and overwritten; `--run-root`
       does not isolate them, and the summary scripts pick up working points of other runs. Agreed design (2026-10-14):
       a stage's output is `<run_dir>/stages/<stage_id>/` (logs in `<run_dir>/logs/<stage_id>/`, a `manifest.json` per
-      stage), the scripts run with that directory as working directory, and the Framework links each input slot
-      (CL §15) to the output of the stage it names. R2 (layout `logs/<id>/` + `stages/<id>/`, manifests) is done
+      stage), the scripts run with that directory as working directory, and the Framework gives each input slot
+      (CL §15) the artifacts of the stage it names. R2 (layout `logs/<id>/` + `stages/<id>/`, manifests) is done
       (CL §16). R3 is implemented (CL §17): no links or copies; the Framework gives each API its output
       directory and inputs (from the input stages' artifacts), the scripts run in the output directory (the fit
-      per era); the script options this needs: [scripts_arg_changes.md](scripts_arg_changes.md). **Open:** the
-      lxplus comparison with the shell scripts (no 2025 pico tuples on lxplus yet: find or produce them), and the
-      bugs that change the shell output (Fitter BUGS F11, F13, F19, F20, F24, F12's script side) in their own
-      commits after it. Later: an input may also be a path (another run's stage directory), which also removes the fit's temporary
+      per era); the script options this needs: [scripts_arg_changes.md](scripts_arg_changes.md); checked on lxplus
+      against the shell scripts (Plotter, histograms, fit) and `bbb check`. **Open:** the bugs that change the shell
+      output (Fitter BUGS F11, F13, F19, F20, F24, F12's script side), each in its own commit. Comparisons of fit
+      results need a tolerance: shapes made twice from the same tuples differ by 1e-13 (multithreaded RDataFrame),
+      which moves the fitted POIs by up to one grid step and flat nuisance parameters a lot. Later: an input may also be a path (another run's stage directory), which also removes the fit's temporary
       `{shapes: null}` exception (the shapes in `Fitter/`); a built-in stage may repeat.
 - [ ] D: condor for the local stages, and resume. Local stages cannot resume partway; Ctrl+C leaves a stage `NEW`
       with partial output.

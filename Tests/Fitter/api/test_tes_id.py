@@ -194,6 +194,8 @@ class ShapesTests(TauESIDTestCase):
         self.assertTrue(all(os.path.isfile(a["path"]) for a in report.artifacts))
         self.assertFalse(os.path.exists(os.path.join(self.fitter_dir, "input_pt_less_region")))
         self.assertIn("output directory %s is not empty" % (outdir), " ".join(self.fitter.preflight_shapes(request)))
+        placeholder = os.path.join("<run_dir>", "stages", "histograms")  # a plan before the run exists: kept as given
+        self.assertEqual(self.fitter.plan_shapes(self.shapes(outdir=placeholder)).cwd, placeholder)
 
 
 class FitTests(TauESIDTestCase):

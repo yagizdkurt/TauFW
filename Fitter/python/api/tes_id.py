@@ -343,8 +343,9 @@ class TauESID:
         return os.path.normpath(os.path.join(self.basedir, relative))
 
     def _cwd(self, request):
-        """The request's output directory (absolute), else Fitter/."""
-        return os.path.abspath(request.outdir) if request.outdir is not None else self.basedir
+        """The request's output directory as given (the Framework gives an absolute one, or the placeholder
+        '<run_dir>/stages/<id>' in a plan), else Fitter/."""
+        return os.path.normpath(request.outdir) if request.outdir is not None else self.basedir
 
     def _era_dir(self, request, era):
         """Where the fit scripts of one era run: <outdir>/<era>/ (many of their outputs have no era in the
