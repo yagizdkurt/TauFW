@@ -117,7 +117,8 @@ class HarnessChecks(unittest.TestCase):
         moved = json.loads((TESTS / "migration.json").read_text())["files"]
         expected = {record["moved"][6:] for record in moved if Path(record["moved"]).name.startswith(("test", "Test"))}
         expected |= {"Plotter/plotPico.py", "Plotter/WstarplotPico.py",
-                     "PicoProducer/testChunking.py", "Plotter/testHistogramCorrectness.py"}
+                     "PicoProducer/testChunking.py", "Plotter/testHistogramCorrectness.py",
+                     "Plotter/testTupleLocation.py"}
         self.assertEqual(expected, {case["path"] for case in cases})
         for case in cases:
             self.assertIn(TESTS.resolve(), (TESTS / case["path"]).resolve().parents)

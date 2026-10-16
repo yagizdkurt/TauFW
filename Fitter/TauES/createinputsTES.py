@@ -82,7 +82,7 @@ def main(args):
       
     # GET SAMPLESET
     sname     = setup["samples"]["filename"]
-    sampleset = getsampleset(channel,era,fname=sname,join=setup["samples"]["join"],split=[],table=False,rmsf=setup["samples"].get("removeSFs",[]),addsf=setup["samples"].get("addSFs",[]))
+    sampleset = getsampleset(channel,era,fname=sname,join=setup["samples"]["join"],split=[],table=False,rmsf=setup["samples"].get("removeSFs",[]),addsf=setup["samples"].get("addSFs",[]),tuples=args.tuples)
 
     # Potentially split up samples in several processes
     if "split" in setup["samples"]:
@@ -339,6 +339,7 @@ if __name__ == "__main__":
   parser.add_argument('-j', '--jet', dest='againstjet', default='Medium', help="against jet cut")
   parser.add_argument('-e', '--electron', dest='againstelectron', default='VVLoose', help="against electron cut")
   parser.add_argument('-O', '--outbase', dest='outbase', default='input_pt_less_region', help="base dir for input histograms (use a separate tree per tagger, e.g. input_pt_less_region_pnet)")
+  parser.add_argument('--tuples', dest='tuples', default=None, metavar='PATTERN', help="directory pattern of the input tuples, e.g. /eos/.../$ERA/$GROUP (files <sample>_<channel>.root, variations <sample>_<channel>_<shift>.root in the same directory), instead of $PICODIR of the PicoProducer configuration")
   args = parser.parse_args()
   # LOG.verbosity = args.verbosity
   PLOG.verbosity = args.verbosity

@@ -249,7 +249,7 @@ Other paths:
 | CLI recipe/bundle path, run-directory path, `--run-root` | Relative to the directory where you launch `taufw.py`. |
 | `run_root` | Absolute; `~` and `$VARIABLES` are expanded where `taufw.py` runs. See [Where the runs go](#where-the-runs-go-run_root). |
 | Relative `pico.config` | A file of the bundle (the recipe's directory), e.g. `pico.json`; a path above it (`../`) is made absolute when the recipe is loaded and is not copied into runs. |
-| Plotter/Fitter outputs | Written in the package directories, regardless of `--run-root`. |
+| Plotter/Fitter outputs | In the run: `<run_root>/<run>/stages/<id>/` (see [Outputs and logs](#outputs-and-logs)); nothing is written to `Plotter/` or `Fitter/`. Production's merged tuples still go to `$PICODIR` of the PicoProducer configuration. |
 
 ### Where the runs go (`run_root`)
 
@@ -706,10 +706,9 @@ an unfinished run.
 
 ## Current limitations
 
-- Plotter and Fitter outputs are shared between runs in the same package
-  directories. Concurrent runs can clash and later runs can overwrite earlier
-  outputs. Run records contain paths, not independent copies of those results;
-  `--run-root` does not isolate them.
+- Production's merged tuples are not in the run: they go to `$PICODIR` of the
+  PicoProducer configuration, and its job files to `PicoProducer/output/`, so two
+  runs with the same era, channel and tag share them.
 - The sample lists are not part of a bundle yet: `plot.py` and
   `createinputsTES.py` import `Plotter/config/samples_v15.py`, and the
   PicoProducer configuration names its own sample catalogs
@@ -718,10 +717,10 @@ an unfinished run.
   example `mutau_TES0p950`) and currently their own production runs. A nominal
   production stage alone does not prepare all histogram inputs.
 - Local stages do not resume partway through their commands. A failed stage is
-  final; Ctrl+C can leave a local stage `NEW` with partial output, and advancing
-  again reruns that stage. Interrupting the CLI does not cancel submitted batch
-  jobs; keep the saved run directory for continuation.
+  final; Ctrl+C can leave a local stage `NEW` with partial output in
+  `stages/<id>/`, and the next `advance` stops in preflight ("output directory
+  ... is not empty") until you remove that directory; then it reruns the stage.
+  Interrupting the CLI does not cancel submitted batch jobs; keep the saved run
+  directory for continuation.
 - The wrapped fit supports the uncorrelated DeepTau option-3 workflow. `corrTES`,
   `fullcorr`, PNet, and UParT variants are not exposed as recipe options.
-- Summary scripts consider working points already on disk, including outputs
-  from other runs. Review the output area before producing a summary.

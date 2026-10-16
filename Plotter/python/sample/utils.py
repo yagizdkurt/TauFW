@@ -31,13 +31,17 @@ def getsampleset(datasample,expsamples,sigsamples=[ ],**kwargs):
   dataweight = kwargs.pop('dataweight', ""    ) # weight for data samples
   url        = kwargs.pop('url',        ""    ) # XRootD url
   tag        = kwargs.pop('tag',        ""    ) # extra tag for file name
+  tuples     = kwargs.pop('tuples',     None  ) # directory pattern of the tuples, e.g. /eos/.../$ERA/$GROUP,
+                                                # instead of $PICODIR of the PicoProducer configuration (--tuples)
   
   if not fpattern:
     fpattern = "$PICODIR/$SAMPLE_$CHANNEL$TAG.root"
   if '$PICODIR' in fpattern:
-    from TauFW.PicoProducer.settings import getconfig
-    CONFIG   = getconfig(verb=0)
-    picodir  = CONFIG['picodir']
+    picodir = tuples
+    if not picodir: # the PicoProducer configuration's
+      from TauFW.PicoProducer.settings import getconfig
+      CONFIG   = getconfig(verb=0)
+      picodir  = CONFIG['picodir']
     fpattern = repkey(fpattern,PICODIR=picodir)
   if url:
     fpattern = "%s/%s"%(fpattern,url)

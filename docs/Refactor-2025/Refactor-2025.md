@@ -867,9 +867,10 @@ differ by a grid step in the fitted POIs (the fit amplifies the 1e-13 difference
 
 ## 18. Framework: tuples as an input, production writes into the run, run_root
 
-**Date:** 2026-10-17 (in progress: step 1 of 8)
+**Date:** 2026-10-17 (in progress: steps 1-2 of 8)
 **Details:** [Framework](../../Framework/README.md) "Concepts" and "Run directory", [Analyses](../../Analyses/README.md)
-"Where the runs go (`run_root`)", Framework BUGS K04, K05, Plotter BUGS L12
+"Where the runs go (`run_root`)", [scripts_arg_changes.md](scripts_arg_changes.md) "Tuple location", Framework BUGS
+K04, K05, Plotter BUGS L12
 
 The Framework, not the global `$PICODIR`, decides where the pico tuples are read and written, and everything is
 visible in the recipe. Plan, decisions D1-D13 and steps: `LocalR/architecture/12-tuples-plan.md`.
@@ -895,3 +896,17 @@ visible in the recipe. Plan, decisions D1-D13 and steps: `LocalR/architecture/12
 Tests (Windows): Framework 104 (new: run_root accepted, expanded, refused in seven ways, not set; precedence and
 default; write check at start and advance, nothing left behind; `check`/`plan`/`start` output; menu run roots and
 warnings), Utilities menu 28 (warnings in the preview). Plotter API and Fitter API unchanged.
+
+### Step 2: `--tuples` for the scripts
+
+- `getsampleset(..., tuples=PATTERN)` (`Plotter/python/sample/utils.py`): the directory pattern of the tuples
+  (`$ERA`, `$GROUP`) instead of `$PICODIR` of the PicoProducer configuration, which is then not read. Without it,
+  unchanged.
+- `plot.py --tuples PATTERN` and `createinputsTES.py --tuples PATTERN` pass it on; without the option both behave as
+  before (shell scripts, standalone use). The APIs do not pass it yet (step 3).
+- New test `Tests/Plotter/testTupleLocation.py` (ROOT, lxplus): MC, the merged data glob and a variation are found in
+  the given directory without reading the configuration; the default still reads it. Listed in
+  `Tests/inventory.json` and `check_harness.py`.
+- `Analyses/README.md`: the statements that Plotter/Fitter outputs are shared between runs, that `--run-root` does
+  not isolate them, that an interrupted stage simply reruns and that the summary picks up other runs' working
+  points were left over from before R3 (CL §17) and are corrected.

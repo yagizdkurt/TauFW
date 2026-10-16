@@ -92,3 +92,30 @@ TES/LTF/JTF variations). Baseline commit: `f951dc0` (the last one with the scrip
     manifest (the fit reads the shapes in place); `stages/fit/` holds `2025/` and `manifest.json`; the impacts of
     DM11_pt2 failed in the baseline (initial fit did not converge, `combineTool.py` traceback inside `os.system`,
     the script still exits 0) and succeeded in the Framework run, again because of the 1e-13 shape differences.
+
+## Tuple location (CL §18)
+
+**Status:** step 2 of the tuple-location work (`LocalR/architecture/12-tuples-plan.md`): the options exist; the APIs
+do not pass them yet (step 3). Not yet checked on lxplus.
+
+The scripts found the tuples through `$PICODIR` of the PicoProducer configuration (`$TAUFW_PICO_CONFIG` or
+`PicoProducer/config/config.json`). With these options the caller gives the directory instead (rule 1: the tuples
+are another stage's output, or made outside TauFW). The file names inside it stay the library's convention:
+`<sample>_<channel>.root`, the data a glob of sample names, the variations `<sample>_<channel>_<shift>.root` in the
+same directory.
+
+| Script / function | Option | Default (unchanged behaviour) | Status |
+|---|---|---|---|
+| `Plotter/python/sample/utils.py` `getsampleset` | `tuples=PATTERN` (keyword) | `$PICODIR` of the PicoProducer configuration (`getconfig()['picodir']`) | done |
+| `Plotter/plot.py` | `--tuples PATTERN` | same (passes `tuples=None`) | done |
+| `Fitter/TauES/createinputsTES.py` | `--tuples PATTERN` | same | done |
+
+- `PATTERN` is a directory pattern with `$ERA` and `$GROUP`, e.g.
+  `--tuples '/eos/cms/store/group/phys_tau/TauFW/pico2024/TES_variations/$ERA/$GROUP'` (single quotes: the shell
+  must not expand the `$`).
+- With the option, the PicoProducer configuration is not read at all (no `TauFW.PicoProducer` import there).
+- Not through `fname` / the YAML `samples.filename`: those are ignored today (Plotter BUGS L02), and stay so.
+- Every sample config that passes `**kwargs` on to `getsampleset` (`samples_v15.py`, `samples.py`, ...) supports
+  the keyword without a change. `getmcsample` (L12) is not changed.
+- Test: `Tests/Plotter/testTupleLocation.py` (ROOT; tiny local tuples: MC, merged data glob, a variation, and the
+  default through a mocked configuration).

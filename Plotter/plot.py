@@ -126,6 +126,7 @@ def main(args):
   pdf       = args.pdf
   outdir    = "plots/$ERA"
   fname     = "$PICODIR/$SAMPLE_$CHANNEL$TAG.root"
+  tuples    = args.tuples # None: $PICODIR of the PicoProducer configuration
   
   # LOOP over configs / channels
   for config in configs:
@@ -141,7 +142,7 @@ def main(args):
       addsfs = [ ] #"getTauIDSF(dm_2,genmatch_2)"]
       rmsfs  = [ ] if (setup['channel']=='mumu' or not notauidsf) else ['idweight_2','ltfweight_2'] # remove tau ID SFs
       split  = ['DY'] if 'tau' in setup['channel'] else [ ] # split these backgrounds into tau components
-      sampleset = getsampleset(setup['channel'],era,fname=fname,rmsf=rmsfs,addsf=addsfs,split=split)
+      sampleset = getsampleset(setup['channel'],era,fname=fname,rmsf=rmsfs,addsf=addsfs,split=split,tuples=tuples)
       plot(sampleset,setup,parallel=parallel,tag=tag,extratext=extratext,outdir=outdir,era=era,
            varfilter=varfilter,selfilter=selfilter,fraction=fraction,pdf=pdf)
       #sampleset.close()
@@ -171,6 +172,10 @@ if __name__ == "__main__":
                                          help="remove DeepTau ID SF" )
   parser.add_argument('-t', '--tag',     default="", help="extra tag for output" )
   parser.add_argument('-T', '--text',    default="", help="extra text on plot" )
+  parser.add_argument('--tuples',        default=None, metavar='PATTERN',
+                                         help="directory pattern of the input tuples, e.g. /eos/.../$ERA/$GROUP "
+                                              "(files <sample>_<channel>.root), instead of $PICODIR of the "
+                                              "PicoProducer configuration" )
   parser.add_argument('-v', '--verbose', dest='verbosity', type=int, nargs='?', const=1, default=0, action='store',
                                          help="set verbosity" )
   args = parser.parse_args()

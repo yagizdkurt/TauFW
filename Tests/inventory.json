@@ -17,6 +17,14 @@
       "dependencies": ["ROOT", "numpy", "past"]
     },
     {
+      "id": "plotter.tuple_location",
+      "path": "Plotter/testTupleLocation.py",
+      "package": "Plotter",
+      "group": "local",
+      "reason": "Assert getsampleset finds MC, merged data and variation tuples in the directory given by tuples=, without reading the PicoProducer configuration.",
+      "dependencies": ["ROOT", "numpy", "past"]
+    },
+    {
       "id": "plotter.cmsstyle",
       "path": "Plotter/testCMSStyle.py",
       "package": "Plotter",
