@@ -97,8 +97,8 @@ class Framework:
         plans, planned = [], {}
         for stage_spec in recipe.stages:
             context = StageContext(upstream=_inputs_of(stage_spec, planned), inputs=stage_spec.connections,
-                                   pico_config=recipe.pico_config_path, bundle_dir=recipe.bundle_dir,
-                                   stage_id=stage_spec.id)
+                                   external=stage_spec.external, pico_config=recipe.pico_config_path,
+                                   bundle_dir=recipe.bundle_dir, stage_id=stage_spec.id)
             paths = path_rows(stage_spec.spec, recipe.bundle_dir)
             try:
                 stage = self._stage_for(stage_spec.id)
@@ -294,7 +294,7 @@ class Framework:
             if StageState(earlier_record.state) is StageState.DONE:
                 done[earlier.id] = tuple(earlier_record.artifacts)
         return StageContext(run_dir=record.run_dir, upstream=_inputs_of(stage_spec, done),
-                            inputs=stage_spec.connections,
+                            inputs=stage_spec.connections, external=stage_spec.external,
                             pico_config=recipe.pico_config_path or (record.pico_config or {}).get('path'),
                             bundle_dir=recipe.bundle_dir, stage_id=stage_spec.id)
 

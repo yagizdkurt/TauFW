@@ -8,7 +8,8 @@
 
 What is checked here and what is not:
     checked:      everything Recipe.load() checks, plus the files the recipe names that do not depend on a module:
-                  pico.config, absolute path options, and the `file` of python steps (always a bundle file).
+                  pico.config, absolute path options, the `file` of python steps (always a bundle file), and the
+                  directory of an {external: <pattern>} input (its part before the first $KEY).
     not checked:  path options a module resolves (e.g. Fitter/TauES_ID/config/...), and the environment (CMSSW,
                   ROOT, combine, tuples on disk): they are the machine's state, not the recipe's. The stages' plan
                   notes and preflight report them.
@@ -26,7 +27,8 @@ from dataclasses import dataclass
 from typing import Optional, Tuple
 
 from TauFW.Framework.bundle import path_rows
-from TauFW.Framework.recipe import Recipe, RecipeError, Issue, read_recipe, recipe_warnings
+from TauFW.Framework.stages.local import fixed_directory
+from TauFW.Framework.recipe import Recipe, RecipeError, Issue, read_recipe, recipe_warnings, _external_problem
 
 __all__ = ['check_recipe', 'RecipeCheck']
 
@@ -74,6 +76,12 @@ def _file_issues(pico_config, stage_specs, bundle_dir):
             elif kind == 'module' and stage_spec.stage == 'python':
                 issues.append(Issue("%s.%s" % (where, option), "%s is not a file of the bundle (%s)"
                                     % (value, bundle_dir)))
+        for slot, pattern in stage_spec.external.items():
+            if _external_problem({'external': pattern}, 'tuples'):
+                continue  # not a valid pattern: Recipe.parse reported it
+            if not os.path.isdir(fixed_directory(pattern)):
+                issues.append(Issue("%s.inputs.%s" % (where, slot), "tuple directory %s not found (external: %s)"
+                                    % (fixed_directory(pattern), pattern)))
     return issues
 
 

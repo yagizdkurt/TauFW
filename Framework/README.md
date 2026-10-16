@@ -30,7 +30,7 @@ The words below are used everywhere in the code and in this README.
 | **recipe** | A YAML file that says what to run: a name, the PicoProducer configuration and a list of stages with their options. You write it; the Framework checks it before anything runs. | `Recipe` (`recipe.py`) |
 | **stage** | One step of the analysis: `production` (NanoAOD → pico tuples), `plots` (control plots), `histograms` (fit input shapes), `fit` (TES + tau ID fit), `python` (a Python file of the bundle). Each stage calls the API of its own package. | `Stage` subclasses (`stages/`) |
 | **stage id** | The name of a stage in a run, required for every stage (`id:`): `run.json` records, the stage's directories (`stages/<id>/`, `logs/<id>/`) and upstream artifacts are keyed by it, and `inputs:` refer to it. Unique; letters, digits, `_`, `.`, `-` (not `.` or `..`). Any stage may have any id. | `StageSpec.id` |
-| **inputs** | Required for every stage: which earlier stage's output each input slot reads (`inputs: {shapes: histograms}`), or `null` for a stage without slots. A slot is connected to the id of an earlier stage that makes that kind of data, or to `null` (not from this run: the tuples in `$PICODIR`, the shapes already in `Fitter/`). Nothing is connected implicitly. | `Stage.inputs`, `Stage.outputs`, `StageSpec.inputs` |
+| **inputs** | Required for every stage: which earlier stage's output each input slot reads (`inputs: {shapes: histograms}`), or `null` for a stage without slots. A slot is connected to the id of an earlier stage that makes that kind of data; a `tuples` slot may name tuples made outside TauFW (`{external: <pattern>}`); `null` is for old recipes only (the tuples in `$PICODIR`, the shapes already in `Fitter/`). Nothing is connected implicitly. | `Stage.inputs`, `Stage.outputs`, `StageSpec.inputs` |
 | **description** | Optional free text of a stage, shown by `plan` and in the menu; nothing depends on it. | `StageSpec.description` |
 | **validation** | Every problem of a recipe at once (structure, ids, inputs, order, the files it names), before anything runs: `taufw.py check`, the menu's recipe list (red) and preview. `Recipe.load` raises one `RecipeError` that lists all of them. A **warning** (e.g. no `run_root`) is not a problem: the recipe runs; `check`, `plan`, `start` and the menu preview show it. | `check_recipe` (`validation.py`), `Recipe.parse`, `recipe_warnings` |
 | **local stage** | A stage that runs commands on this machine, one after the other, and finishes in one `advance` (`plots`, `histograms`, `fit`: the package's scripts; `python`: the step runner). | `LocalStage` (`stages/local.py`) |
@@ -184,9 +184,12 @@ Run states (`RunState`): `NEW`, `RUNNING` (e.g. a local stage is not ready yet),
 If a stage raises an error (for example, the batch system cannot be reached), the error is recorded in the stage's
 history, the state is unchanged, and the command fails; run `advance` again when the problem is solved.
 
-The local stages pass the run's PicoProducer configuration to every command as `$TAUFW_PICO_CONFIG`; PicoProducer's
-`getconfig()` reads that file instead of `PicoProducer/config/config.json`, so the scripts find the tuples through the
-run's `$PICODIR`.
+Plots and histograms give their scripts the tuples their input names as `--tuples <pattern>`: the pattern on the
+artifacts of the production stage (`LocalStage.tuples_pattern`), or the recipe's `{external: <pattern>}`; preflight
+checks that the production tuple files, or the directory of the external pattern, exist. Only with `null` (old
+recipes), and for the fit and python steps, the run's PicoProducer configuration is passed as `$TAUFW_PICO_CONFIG`
+(PicoProducer's `getconfig()` reads it instead of `PicoProducer/config/config.json`); with `null` the scripts find the
+tuples through its `$PICODIR`.
 
 ## Recipe reference
 
@@ -220,7 +223,7 @@ The Framework decides where a stage writes: it gives each module API the stage's
 (`LocalStage.output_dir`) and the inputs the recipe connects (the artifacts of the input stages, e.g. the fit gets
 the directory of each point's shapes from the shapes artifacts). The API only uses them; there are no links or
 copies. Before the scripts start, the API refuses an output directory that is not empty (an interrupted attempt;
-remove it or start a new run) and a PicoProducer configuration with a relative `picodir`.
+remove it or start a new run), a relative tuple pattern, or a PicoProducer configuration with a relative `picodir`.
 
 `manifest.json` is written when a stage becomes `DONE` (never for a failed stage), before `run.json` is saved:
 `{"manifest": 1, "run_id", "stage_id", "stage", "description", "inputs", "finished", "artifacts"}`. It is a copy of the

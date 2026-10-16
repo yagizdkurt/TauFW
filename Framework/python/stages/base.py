@@ -104,6 +104,7 @@ class StageContext:
     upstream:    stage id -> artifacts (dicts) of the stages this one's inputs name. In advance() these are the
                  recorded artifacts of DONE stages; in plan() the artifacts the earlier stages plan to make.
     inputs:      input slot -> the stage id the recipe connects it to (None: not from this run)
+    external:    input slot -> the pattern of the data made outside TauFW ({external: <pattern>} in the recipe)
     pico_config: the PicoProducer configuration of the run (path), or None (PicoProducer's default)
     bundle_dir:  the bundle directory the path options are resolved against (a run: its copy, <run_dir>/bundle)
     stage_id:    the id of the stage this context is for
@@ -111,6 +112,7 @@ class StageContext:
     run_dir:     str = ""
     upstream:    Mapping[str, Tuple[dict, ...]] = field(default_factory=dict)
     inputs:      Mapping[str, Optional[str]] = field(default_factory=dict)
+    external:    Mapping[str, str] = field(default_factory=dict)
     pico_config: Optional[str] = None
     bundle_dir:  Optional[str] = None
     stage_id:    str = ""

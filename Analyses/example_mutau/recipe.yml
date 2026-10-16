@@ -39,7 +39,7 @@ stages:                     # every stage: stage (type), id (unique), inputs (re
     id: plots
     description: control plots of the new tuples
     inputs: {tuples: production}   # the tuples of the production stage above
-    eras: [2022_postEE]     # plot.py -y; the tuples are found through $PICODIR of the PicoProducer configuration
+    eras: [2022_postEE]     # plot.py -y; the tuples come from the production stage (plot.py --tuples)
     configs: [setup_mutau.yml]  # bundle files, channel names (Plotter/config/setup_<channel>.yml)
                             # or .yml files relative to Plotter/
     variables: [m_vis, pt_1, pt_2]  # plot.py -V filters (glob patterns); []: all variables of plot.py

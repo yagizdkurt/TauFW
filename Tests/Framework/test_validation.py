@@ -70,6 +70,41 @@ class CheckRecipeTests(unittest.TestCase):
         self.assertEqual(check.recipe.run_root_dir, os.path.expanduser("~/taufw_runs"))
         self.assertIn("is expanded where taufw.py runs", str(check.warnings[0]))
 
+    def test_external_tuples(self):
+        os.makedirs(os.path.join(self.root, "tuples", "2025"))
+        pattern = os.path.join(self.root, "tuples", "$ERA", "$GROUP")
+        plots = {"stage": "plots", "id": "plots", "inputs": {"tuples": {"external": pattern}}, "eras": [2025]}
+        check = self.check(plots)
+        self.assertEqual(self.messages(check), [])
+        self.assertEqual(check.recipe.stage("plots").external, {"tuples": pattern})
+        missing = os.path.join(self.root, "missing", "$ERA")
+        check = self.check(dict(plots, inputs={"tuples": {"external": missing}}))
+        self.assertEqual(self.messages(check), ["stages[0] (plots).inputs.tuples: tuple directory %s not found "
+                                                "(external: %s)" % (os.path.join(self.root, "missing"), missing)])
+        where = "stages[0] (plots).inputs.tuples: "
+        for value, message in (
+                ({"external": "tuples/$ERA"}, "external must be an absolute directory pattern (got tuples/$ERA; ~ "
+                                              "and $VARIABLES at the start are not expanded)"),
+                ({"external": "$PICODIR/$ERA"}, "external must be an absolute directory pattern (got "
+                                                "$PICODIR/$ERA; ~ and $VARIABLES at the start are not expanded)"),
+                ({"external": "root://eoscms.cern.ch//eos/x/$ERA"},
+                 "external must be a directory on a mounted file system, not a URL (got "
+                 "root://eoscms.cern.ch//eos/x/$ERA)"),
+                ({"external": ""}, "external must be an absolute directory pattern, e.g. /eos/.../$ERA/$GROUP "
+                                   "(got '')"),
+                ({"external": pattern, "path": "x"}, "a mapping is {external: <absolute pattern>} (got keys "
+                                                     "external, path)"),
+                ({"path": "x"}, "a mapping is {external: <absolute pattern>} (got keys path)")):
+            with self.subTest(value=value):
+                self.assertEqual(self.messages(self.check(dict(plots, inputs={"tuples": value}))),
+                                 [where + message])
+        self.assertEqual(self.messages(self.check(dict(FIT, inputs={"shapes": {"external": pattern}}))),
+                         ["stages[0] (fit).inputs.shapes: {external: ...} is only for a tuples input (plots, "
+                          "histograms); name an earlier stage"])
+        step = dict(STEP, inputs={"tuples": {"external": pattern}})
+        self.write("steps/check.py", "def run(ctx):\n    pass\n")
+        self.assertIn("{external: ...} is only for a tuples input", self.messages(self.check(step))[0])
+
     def test_run_root_problems(self):
         inside = os.path.join(self.bundle, "runs")
         cases = [
@@ -102,9 +137,13 @@ class CheckRecipeTests(unittest.TestCase):
         for bundle in ("example_mutau", "tes_id_2025"):
             with self.subTest(bundle=bundle):
                 check = check_recipe(os.path.join(checkout.REPO, "Analyses", bundle))
-                self.assertEqual(self.messages(check), [])
-                self.assertTrue(check.ok)
-                self.assertIsNotNone(check.recipe)
+                # the tuples of tes_id_2025 are on EOS: missing on a machine without it (e.g. Windows)
+                messages = [m for m in self.messages(check) if not (" tuple directory /eos/" in m
+                                                                    and not os.path.isdir("/eos/cms"))]
+                self.assertEqual(messages, [])
+                self.assertEqual(check.ok, len(messages) == len(check.issues))
+                if check.ok:
+                    self.assertIsNotNone(check.recipe)
 
     def test_valid_recipe(self):
         self.write("steps/check.py", "def run(ctx):\n    pass\n")

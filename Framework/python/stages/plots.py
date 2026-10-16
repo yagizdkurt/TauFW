@@ -1,9 +1,9 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Plots stage: data/MC control plots of the pico tuples, through the Plotter API (Plotter/plot.py).
 
-    inputs:   tuples: pico tuples, read by plot.py through $PICODIR of the run's PicoProducer config (passed
-              as $TAUFW_PICO_CONFIG); if the slot names a production stage, its tuples are recorded as the
-              stage's inputs
+    inputs:   tuples: pico tuples, given to plot.py as --tuples <pattern>: those of the production stage the slot
+              names (the pattern on its artifacts), or {external: <pattern>}; with null (old recipes) plot.py reads
+              $PICODIR of the run's PicoProducer config (passed as $TAUFW_PICO_CONFIG)
     options:  PlotSpec (eras, channel setups (bundle files or Plotter's), variable and selection filters, plot.py
               options)
     outputs:  one plots artifact per channel setup and era: {kind: 'plots', era, config, channel, directory,
@@ -39,8 +39,9 @@ class PlotStage(LocalStage):
     # Spec = PlotSpec: set at the bottom of this file.
 
     def request(self, spec, context):
-        return self.api.request(pico_config=context.pico_config, outdir=self.output_dir(context),
-                                **spec.request_dict())
+        tuples = self.tuples_pattern(context)[0]
+        return self.api.request(tuples=tuples, pico_config=None if tuples else context.pico_config,
+                                outdir=self.output_dir(context), **spec.request_dict())
 
     def plan_commands(self, request):
         return self.api.plan(request)

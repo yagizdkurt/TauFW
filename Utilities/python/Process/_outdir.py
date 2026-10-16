@@ -31,7 +31,8 @@ def output_dir_problems(outdir, pico_config=None, tuples=None):
         problems.append("output directory %s is not empty (an interrupted attempt?): remove it, or start a new run"
                         % (outdir))
     if tuples:
-        if not _absolute(tuples, variable=False):  # no $PICODIR here: $ERA/... would be relative
+        if not (_absolute(tuples, variable=False) or tuples.startswith('<')):  # $ERA/... would be relative;
+            # '<...>' is a placeholder of a plan before the run exists (e.g. '<run_dir>/stages/production/$ERA')
             problems.append("tuple pattern %r is relative: the scripts would look for the tuples relative to %s"
                             % (tuples, outdir))
         return problems

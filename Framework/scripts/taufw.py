@@ -178,12 +178,13 @@ def _run_root_line(recipe, given=None):
 
 
 def _inputs_line(stage_spec, stage):
-    """The stage's inputs as written: 'none', or 'slot <- stage id' (null: 'slot <- outside this run (what null
-    means for the slot, Stage.null_inputs)')."""
+    """The stage's inputs as written: 'none', or 'slot <- stage id', 'slot <- external <pattern>' (data made outside
+    TauFW), or for null 'slot <- outside this run (what null means for the slot, Stage.null_inputs)'."""
     if stage_spec.inputs is None:
         return "none"
-    return ", ".join("%s <- %s" % (slot, stage_id or "outside this run (%s)" % (stage.null_inputs.get(slot, '?')))
-                     for slot, stage_id in stage_spec.inputs.items())
+    return ", ".join("%s <- %s" % (slot, "external %s" % (value['external']) if isinstance(value, dict) else
+                                   value or "outside this run (%s)" % (stage.null_inputs.get(slot, '?')))
+                     for slot, value in stage_spec.inputs.items())
 
 
 def _show_commands(reporter, plan):

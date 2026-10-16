@@ -95,8 +95,9 @@ TES/LTF/JTF variations). Baseline commit: `f951dc0` (the last one with the scrip
 
 ## Tuple location (CL §18)
 
-**Status:** steps 2-3 of the tuple-location work (`LocalR/architecture/12-tuples-plan.md`): the options exist and
-the APIs pass them (`PlotsRequest.tuples`, `ShapesRequest.tuples`); the Framework does not give them yet (step 6).
+**Status:** steps 2, 3 and 6 of the tuple-location work (`LocalR/architecture/12-tuples-plan.md`): the options
+exist, the APIs pass them (`PlotsRequest.tuples`, `ShapesRequest.tuples`) and the Framework gives them (plots and
+histograms: the pattern of the production stage their input names, or `{external: <pattern>}`).
 `Tests/Plotter/testTupleLocation.py` passes on lxplus.
 
 The scripts found the tuples through `$PICODIR` of the PicoProducer configuration (`$TAUFW_PICO_CONFIG` or

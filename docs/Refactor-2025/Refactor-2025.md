@@ -867,7 +867,7 @@ differ by a grid step in the fitted POIs (the fit amplifies the 1e-13 difference
 
 ## 18. Framework: tuples as an input, production writes into the run, run_root
 
-**Date:** 2026-10-17 (in progress: steps 1-5 of 8)
+**Date:** 2026-10-17 (in progress: steps 1-6 of 8)
 **Details:** [Framework](../../Framework/README.md) "Concepts" and "Run directory", [Analyses](../../Analyses/README.md)
 "Where the runs go (`run_root`)", [scripts_arg_changes.md](scripts_arg_changes.md) "Tuple location", Framework BUGS
 K04, K05, Plotter BUGS L12
@@ -955,3 +955,27 @@ unchanged. `Tests/Plotter/testTupleLocation.py` passes on lxplus.
 
 Tests (Windows): Framework 107 (new: tupledir in every request of a run and none without, artifacts and manifest with
 the pattern, planned pattern seen by a later stage, production warning text).
+
+### Step 6: plots and histograms read the tuples their input names
+
+- A `tuples` input may name tuples made outside TauFW: `{tuples: {external: <pattern>}}` (absolute, not a URL, no
+  `~` or `$VARIABLE` at the start; only for tuples slots). `StageSpec.external` holds the patterns,
+  `StageSpec.connections` gives `None` for them (the graph checks are unchanged), `StageContext.external` passes
+  them to the stage. `check` reports a missing directory (the pattern's part before its first `$`).
+- `LocalStage.tuples_pattern(context)`: the external pattern, or the one `pattern` on the artifacts of the production
+  stage the input names (in a plan: the planned `<run_dir>/stages/<id>/$ERA/$GROUP`); artifacts without a pattern (a
+  production finished before step 5) or with several are a preflight problem. `null` gives none.
+- Plots and histograms pass it to their API (`tuples=`, so the scripts get `--tuples`) and then no
+  `pico_config`; preflight (`input_problems`) checks that the production tuple files exist, or the external
+  directory. `last_status` records `tuples` (the pattern). `null` is unchanged (old recipes: `$PICODIR` of the
+  PicoProducer configuration, `$TAUFW_PICO_CONFIG`).
+- `taufw.py plan`: `Inputs: tuples <- external <pattern>`; the commands show `--tuples`. The plan's placeholder
+  pattern (`<run_dir>/...`) is not a "relative pattern" problem (`TauFW.Utilities.Process.output_dir_problems`).
+- `Analyses/tes_id_2025` names the TauFW group's 2025 tuples with `{external: ...}` (one YAML anchor, two inputs).
+- K03 is fixed. The TODO item "production at most once" is updated: its remaining reasons are the shared job files,
+  the run's single PicoProducer configuration, and a slot that names one stage.
+
+Tests (Windows): Framework 114 (new: external accepted and refused in eight ways, `check` of its directory, the
+pattern reaching both APIs without `pico_config`, a missing external directory leaving the stage NEW, `null`
+unchanged, the planned pattern in a plan, artifacts without or with several patterns, missing tuple files,
+`fixed_directory`, the `Inputs:` line; the production tuples now exist in the fake run), Utilities 104.

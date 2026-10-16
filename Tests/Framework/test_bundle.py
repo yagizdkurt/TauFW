@@ -220,7 +220,8 @@ class StageIdTests(BundleTestCase):
                       self.error({"stage": "fit", "id": "fit"}))
         self.assertIn("stages[0] (fit).inputs.shapes: missing (the id of an earlier stage, or null)",
                       self.error({"stage": "fit", "id": "fit", "inputs": {"shape": None}}))
-        self.assertIn("stages[0] (plots).inputs: plots reads tuples: write inputs: {tuples: <stage id or null>}",
+        self.assertIn("stages[0] (plots).inputs: plots reads tuples: write inputs: {tuples: <stage id or {external: <pattern>} "
+                      "or null>}",
                       self.error(dict(PLOTS, inputs=None)))
 
     def test_null_only_where_the_stage_allows_it(self):

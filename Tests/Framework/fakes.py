@@ -134,7 +134,15 @@ class FakePicoProducer:
         self.calls.append(("merge", request, clean, force))
         if self.merge_report is not None:
             return self.merge_report
-        return MergeReport(tuple(Artifact("/pico/%s_mutau.root" % n, n) for n in self.samples))
+        if not request.get('tupledir'):
+            return MergeReport(tuple(Artifact("/pico/%s_mutau.root" % n, n) for n in self.samples))
+        artifacts = []
+        for name in self.samples:  # like PicoProducer: <tupledir>/<era>/<group>/<sample>_<channel>.root
+            path = os.path.join(request['tupledir'], "2018", name, "%s_mutau.root" % (name))
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            open(path, "w").close()
+            artifacts.append(Artifact(path, name))
+        return MergeReport(tuple(artifacts))
 
     def run_local(self, request):
         self.calls.append(("run_local", request))

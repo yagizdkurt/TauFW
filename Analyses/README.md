@@ -114,8 +114,9 @@ Each stage has its own options. Setting `eras` on production does not set the
 eras for plots or histograms. Likewise, production `channels: [mutau]` and plot
 `configs: [mutau]` belong to different packages and serve different purposes.
 
-For plots of tuples you already have, omit the production entry and write
-`inputs: {tuples: null}` (null: the tuples already in `$PICODIR`). For
+For plots of tuples you already have, omit the production entry and name
+them: `inputs: {tuples: {external: /eos/.../$ERA/$GROUP}}` (see
+[Tuples made outside TauFW](#tuples-made-outside-taufw)). For
 shape creation and a fit on existing tuples, use
 [tes_id_2025](tes_id_2025/recipe.yml). For a fit on existing shapes, use the
 explicit working-point example [below](#choosing-fit-working-points-and-steps).
@@ -165,20 +166,23 @@ Every stage has these keys besides its options:
 | `description` | No | Free text, shown by `plan` and in the menu. Nothing depends on it. |
 
 `inputs` connects each **input slot** of the stage to the id of an earlier stage
-that makes that kind of data, or to `null` when the data does not come from this
-run. Nothing is connected implicitly: a stage sees only the artifacts of the
-stages its inputs name.
+that makes that kind of data; a `tuples` slot may instead name tuples made
+outside TauFW (`{external: <pattern>}`). Nothing is connected implicitly: a
+stage sees only the artifacts of the stages its inputs name.
 
 A slot may be `null` only if its stage allows it (`Stage.null_inputs` in
 `Framework/python/stages/`, which also says what `null` means for the slot);
-`null` anywhere else is a recipe error. `taufw.py plan` shows the meaning on the
-`Inputs:` line, e.g. `tuples <- outside this run (the tuples in $PICODIR ...)`.
+`null` anywhere else is a recipe error. `null` is kept only so that old recipes
+keep working (the module then finds its data as it did without the Framework);
+a new recipe names every input. `taufw.py plan` shows each input on the
+`Inputs:` line, e.g. `tuples <- production`, `tuples <- external /eos/...` or
+`tuples <- outside this run (the tuples in $PICODIR ...)`.
 
-| Stage | `inputs` | `null` means | Makes |
+| Stage | `inputs` | `null` means (old recipes) | Makes |
 | --- | --- | --- | --- |
 | `production` | `null` (no slots) | - | `tuples` |
-| `plots` | `{tuples: <id or null>}` | the tuples already in `$PICODIR` of `pico.config` | `plots` |
-| `histograms` | `{tuples: <id or null>}` | the same | `shapes` |
+| `plots` | `{tuples: <id, {external: <pattern>} or null>}` | the tuples in `$PICODIR` of `pico.config` | `plots` |
+| `histograms` | `{tuples: <id, {external: <pattern>} or null>}` | the same | `shapes` |
 | `fit` | `{shapes: <id or null>}` | **temporary exception:** the shapes already in `Fitter/input_pt_less_region/`, made outside the Framework | `fit`, `corrections` |
 | `python` | `null`, or `{<any name>: <id>, ...}` | no inputs (a named input must name a stage; `null` is not allowed) | anything |
 
@@ -303,22 +307,51 @@ pico:
   config: pico.json   # a file of this bundle
 ```
 
-**The local stages read the tuples through the run's PicoProducer
-configuration.** The Plotter and histogram scripts find tuples through
-`$PICODIR`. The Framework passes the run's configuration to every command (and
-python step) as `$TAUFW_PICO_CONFIG`, which PicoProducer's `getconfig()` reads
-instead of `PicoProducer/config/config.json` (read-only; a missing file is an
-error). `plan` shows the variable in front of each command. A production output
-tag does not automatically become a plotting input tag; check the configs when
-selecting tagged or variation tuples.
+### Where the tuples are
 
-**Production writes its tuples into the run** (since CL §18 step 5):
+**Production writes its tuples into the run:**
 `<run_root>/<run>/stages/<id>/<era>/<group>/<sample>_<channel><tag>.root`, not
 to `$PICODIR` of the PicoProducer configuration, so they need the space of
-[`run_root`](#where-the-runs-go-run_root). Every tuple artifact records the
-pattern (`.../stages/<id>/$ERA/$GROUP`). Until the plots and histograms stages
-are given that pattern (step 6), they still read `$PICODIR`: a production
-stage followed by plots in the same run reads the wrong place in between.
+[`run_root`](#where-the-runs-go-run_root). Every tuple artifact records where
+they are as a pattern, `.../stages/<id>/$ERA/$GROUP`.
+
+**Plots and histograms read the tuples their input names.** The Framework gives
+the scripts the pattern as `--tuples <pattern>` (`plot.py`,
+`createinputsTES.py`): with `{tuples: <production id>}` the pattern on that
+stage's artifacts (in `plan`: `<run_dir>/stages/<id>/$ERA/$GROUP`), with
+`{tuples: {external: <pattern>}}` that pattern. The PicoProducer configuration
+is then not used for the tuples (no `$TAUFW_PICO_CONFIG` for these commands).
+Before a stage runs, its preflight checks that the production tuple files exist,
+or that the directory of an external pattern exists. A production output tag
+does not reach the readers: they look for `<sample>_<channel>.root`.
+
+#### Tuples made outside TauFW
+
+```yaml
+  - stage: plots
+    id: plots
+    inputs:
+      tuples: {external: /eos/cms/store/group/phys_tau/TauFW/pico2024/TES_variations/$ERA/$GROUP}
+```
+
+- The pattern is an absolute directory with `$ERA` and `$GROUP`; the files in it
+  are `<sample>_<channel>.root` (the data a glob of sample names), the TES/LTF/JTF
+  variations `<sample>_<channel>_<shift>.root` in the same directory. The scripts
+  fill only `$ERA`, `$GROUP`, `$SAMPLE`, `$CHANNEL`, `$TAG`; a pattern with
+  another key (e.g. `$DAS`) is refused before the stage runs.
+- Not allowed: a relative path, a URL (`root://...`), `~` or a `$VARIABLE` at the
+  start. `check` reports a missing directory (the part of the pattern before the
+  first `$`).
+- To name the same tuples in several stages, use a YAML anchor and alias, as in
+  [tes_id_2025](tes_id_2025/recipe.yml).
+- Which samples are read is still decided by the sample list of the scripts
+  (`Plotter/config/samples_v15.py`), not by the recipe.
+
+**`null` (old recipes):** the scripts find the tuples through `$PICODIR` of the
+run's PicoProducer configuration, passed to every command as
+`$TAUFW_PICO_CONFIG` (read by PicoProducer's `getconfig()` instead of
+`PicoProducer/config/config.json`). `plan` shows the variable in front of each
+command.
 
 ## Stage options
 
@@ -692,7 +725,7 @@ prints the last 20 lines of its log.
 | `Warning: run_root: not set` | The recipe runs, in `taufw_runs/` where you launch `taufw.py`. Set [`run_root`](#where-the-runs-go-run_root) to a directory with enough space. |
 | `cannot write in the run root` / `run directory` | The directory cannot be written: check its permissions and your AFS token (`kinit; aklog`), or choose another `run_root` / `--run-root`. Nothing was started or moved. |
 | Unknown key or missing required option | Check indentation and the option tables. Put options beside `stage`; use `split`/`merge` mappings only under production. |
-| Missing `id` or `inputs` | Every stage needs both. A stage without inputs says `inputs: null`; a slot whose data was made before this run says `null` (`inputs: {tuples: null}`). |
+| Missing `id` or `inputs` | Every stage needs both. A stage without inputs says `inputs: null`; tuples made outside TauFW are named with `{tuples: {external: <pattern>}}`. |
 | `no stage 'x' in the recipe` / `comes after this one` / `makes ..., not ...` | An input names a stage **id** (not a type or description) of an **earlier** stage that makes that kind of data (fit `shapes` ← a histograms stage). |
 | Invalid stage order or duplicate stage | Keep the supported order and combine selections into the stage's lists, or use separate recipes. Every stage needs its own unique `id`. |
 | A config change has no effect | Run `plan` and check the `from` column: `module` means the file is not in the bundle (typo in the path), so the module's own config is used. |
@@ -703,7 +736,9 @@ prints the last 20 lines of its log.
 | Production fails after the allowed tries | Inspect PicoProducer job logs and fix the cause. The failed run cannot be restarted by editing its recipe; start a new run with the corrected setup. |
 | Local stage stays `NEW` with a preflight message | Fix the named missing environment/tool/config/input, then call `advance` on the same run. |
 | No working points to fit | Connect `inputs: {shapes: <histograms id>}` to a histograms stage with both matching configs, or explicitly set eras and both WP lists for existing shapes (`shapes: null`). |
-| Plots/histograms read unexpected or missing tuples | Check `$PICODIR` in the run's PicoProducer configuration (`pico.config`, shown by `plan`), channel/setup naming, tags, and required variation tuples. |
+| Plots/histograms read unexpected or missing tuples | Check the `Inputs:` line and the `--tuples` pattern of the commands in `plan` (with `null`: `$PICODIR` in the run's PicoProducer configuration), then channel/setup naming, tags, and required variation tuples. |
+| `the tuples of stage 'production' do not record where they are` | The run's production finished before the Framework chose the tuples' place (CL §18). Start a new run, or name the tuples with `{external: <pattern>}`. |
+| `tuple directory ... not found` | The fixed part of an `{external: ...}` pattern does not exist on this machine (EOS not mounted, a typo). |
 | Exit code zero but the local stage fails | Read the command log for missing/stale expected outputs and nested ROOT/Combine failures. |
 | Editing YAML or a bundle file does not affect `advance` | The run uses the recipe stored in `run.json` and its bundle copy; start a new run to use edited settings. |
 

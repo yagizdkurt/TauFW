@@ -77,10 +77,18 @@ class PipelineTests(LocalStageTestCase):
                          {"manifest": 1, "run_id": record.run_id, "stage_id": "histograms", "stage": "histograms",
                           "inputs": {"tuples": "production"}})
         self.assertEqual(manifest["artifacts"], record.stage("histograms").artifacts)
-        self.assertEqual(os.listdir(os.path.join(record.run_dir, "stages", "production")), ["manifest.json"])
+        production_dir = os.path.join(record.run_dir, "stages", "production")  # the tuples, below <era>/<group>
+        self.assertEqual(sorted(os.listdir(production_dir)), ["2018", "manifest.json"])
+        dy = os.path.join(production_dir, "2018", "DY", "DY_mutau.root")
+        # plots and histograms read the production stage's tuples, through the pattern on its artifacts
+        pattern = os.path.join(production_dir, "$ERA", "$GROUP")
+        self.assertEqual(self.plotter.call("make")[0]["tuples"], pattern)
+        self.assertIsNone(self.plotter.call("make")[0]["pico_config"])
+        self.assertEqual(self.fitter.call("make_shapes")[0]["tuples"], pattern)
+        self.assertEqual(record.stage("plots").last_status["tuples"], pattern)
         # the histograms record the production tuples as inputs, and their shapes as artifacts
         histograms = record.stage("histograms")
-        self.assertEqual(histograms.last_status["inputs"], ["/pico/DY_mutau.root"])
+        self.assertEqual(histograms.last_status["inputs"], [dy])
         self.assertEqual(len(histograms.artifacts), 4)  # 2 jet WPs x 1 ele WP x 2 configs
         self.assertEqual(histograms.request["eras"], ["2025"])
         # the fit points come from the shapes of both configs
@@ -175,7 +183,8 @@ class RecoveryTests(LocalStageTestCase):
         loaded = RunRecord.load(record.run_dir)
         self.assertEqual([s.state for s in loaded.stages], ["DONE", "DONE", "NEW", "NEW"])
         upstream = loaded.to_dict()["stages"][:2]
-        self.assertEqual(loaded.stage("production").artifacts[0]["path"], "/pico/DY_mutau.root")
+        dy = os.path.join(record.run_dir, "stages", "production", "2018", "DY", "DY_mutau.root")
+        self.assertEqual(loaded.stage("production").artifacts[0]["path"], dy)
 
         pico = fakes.FakePicoProducer()
         plotter = fakes.FakePlotter()
@@ -189,7 +198,7 @@ class RecoveryTests(LocalStageTestCase):
         self.assertEqual(saved.to_dict()["stages"][:2], upstream)
         self.assertEqual(pico.calls, [])
         self.assertEqual(plotter.calls, [])
-        self.assertEqual(saved.stage("histograms").last_status["inputs"], ["/pico/DY_mutau.root"])
+        self.assertEqual(saved.stage("histograms").last_status["inputs"], [dy])
         self.assertEqual(len(saved.stage("histograms").artifacts), 4)
         self.assertEqual(fitter.call("fit")[0]["points"],
                          (("2025", "VTight", "Tight"), ("2025", "Tight", "Tight")))
@@ -226,6 +235,78 @@ class PlanTests(LocalStageTestCase):
             FitStage(self.fitter).plan(recipe(FIT).stage("fit").spec, StageContext())
 
 
+class TupleInputTests(LocalStageTestCase):
+    """Where plots and histograms read their tuples: the pattern of the production stage their input names,
+    {external: <pattern>}, or (null, old recipes) $PICODIR of the PicoProducer configuration."""
+
+    def external(self, stage, pattern):
+        return dict(stage, inputs={"tuples": {"external": pattern}})
+
+    def test_external_pattern(self):
+        os.makedirs(os.path.join(self.root, "tuples", "2025"))
+        pattern = os.path.join(self.root, "tuples", "$ERA", "$GROUP")
+        fw = self.framework(self.external(PLOTS, pattern), self.external(HISTOGRAMS, pattern))
+        self.assertEqual(fw.recipe.stage("plots").connections, {"tuples": None})
+        self.assertEqual(fw.recipe.stage("plots").external, {"tuples": pattern})
+        record = fw.start(run_root=os.path.join(self.root, "runs"))
+        self.assertEqual([record.stage(s).state for s in ("plots", "histograms")], ["DONE", "DONE"])
+        request = self.plotter.call("make")[0]
+        self.assertEqual((request["tuples"], request["pico_config"]), (pattern, None))
+        self.assertEqual(self.fitter.call("make_shapes")[0]["tuples"], pattern)
+        self.assertEqual(record.stage("plots").last_status["tuples"], pattern)
+        self.assertNotIn("inputs", record.stage("plots").last_status)  # no tuple files are known
+        self.assertEqual(record.recipe["stages"][0]["inputs"], {"tuples": {"external": pattern}})  # as written
+
+    def test_external_directory_must_exist(self):
+        pattern = os.path.join(self.root, "missing", "$ERA", "$GROUP")
+        record = self.framework(self.external(PLOTS, pattern)).start(run_root=os.path.join(self.root, "runs"))
+        stage = record.stage("plots")
+        self.assertEqual(stage.state, "NEW")
+        self.assertEqual(stage.message, "not ready: tuple directory %s (of {external: %s}) not found"
+                         % (os.path.join(self.root, "missing"), pattern))
+        self.assertNotIn("make", self.plotter.names())
+
+    def test_null_reads_the_pico_configuration(self):
+        record = self.framework(PLOTS).start(run_root=self.root)
+        request = self.plotter.call("make")[0]
+        self.assertIsNone(request["tuples"])
+        self.assertIn("pico_config", request)
+        self.assertNotIn("tuples", record.stage("plots").last_status)
+
+    def test_plan_gives_the_planned_pattern(self):
+        plan = self.framework(PRODUCTION, connected(PLOTS, tuples="production")).plan()
+        self.assertEqual(self.plotter.call("plan")[0]["tuples"],
+                         os.path.join("<run_dir>", "stages", "production", "$ERA", "$GROUP"))
+        self.assertEqual(plan.stages[1].plan.notes, ())  # no problem with the planned pattern
+
+    def test_pattern_problems(self):
+        stage = PlotStage(self.plotter)
+
+        def context(*artifacts):
+            return StageContext(inputs={"tuples": "production"}, upstream={"production": artifacts})
+
+        self.assertEqual(stage.tuples_pattern(context()), (None, ()))  # nothing planned yet
+        self.assertEqual(stage.tuples_pattern(context({"path": "x"}, {"path": "y"}))[1],
+                         ("the tuples of stage 'production' do not record where they are (made before the Framework "
+                          "chose their place, CL §18); start a new run, or name them with "
+                          "{external: <pattern>}",))
+        self.assertIn("are in several places", stage.tuples_pattern(context({"pattern": "/a/$ERA"},
+                                                                            {"pattern": "/b/$ERA"}))[1][0])
+        here = os.path.join(self.root, "DY_mutau.root")
+        open(here, "w").close()
+        missing = os.path.join(self.root, "TT_mutau.root")
+        problems = stage.input_problems(context({"pattern": "/p/$ERA", "path": here},
+                                                {"pattern": "/p/$ERA", "path": missing}))
+        self.assertEqual(problems, ("1 tuple file(s) of stage 'production' not found, e.g. %s" % (missing),))
+        self.assertEqual(stage.input_problems(context({"pattern": "/p/$ERA", "path": missing}), files=False), ())
+
+    def test_fixed_directory(self):
+        from TauFW.Framework.stages.local import fixed_directory
+        self.assertEqual(fixed_directory("/eos/tes/TES_variations/$ERA/$GROUP"), "/eos/tes/TES_variations")
+        self.assertEqual(fixed_directory("/eos/tes/tuples_$ERA/$GROUP"), "/eos/tes")
+        self.assertEqual(fixed_directory("/eos/tes"), "/eos/tes")
+
+
 class ContextTests(LocalStageTestCase):
     def test_only_done_upstream_stages_are_passed(self):
         plots = connected(PLOTS, tuples="production")
@@ -236,7 +317,8 @@ class ContextTests(LocalStageTestCase):
         self.assertEqual(context.run_dir, record.run_dir)
         record = fw.advance(record)
         context = fw._context(record, recipe(PRODUCTION, plots).stage("plots"))
-        self.assertEqual([a["path"] for a in context.artifacts("production")], ["/pico/DY_mutau.root"])
+        self.assertEqual([a["path"] for a in context.artifacts("production")],
+                         [os.path.join(record.run_dir, "stages", "production", "2018", "DY", "DY_mutau.root")])
         self.assertEqual(context.input_artifacts("tuples"), context.artifacts("production"))
         self.assertEqual(context.artifacts(kind="shapes"), ())
 
@@ -313,6 +395,19 @@ class CommandLineTests(LocalStageTestCase):
         self.assertIn("Inputs: shapes <- histograms", messages)
         self.assertIn("Inputs: tuples <- outside this run (the tuples in $PICODIR of the run's PicoProducer "
                       "config)", messages)
+        path = os.path.join(self.root, "external.json")
+        os.makedirs(os.path.join(self.root, "tuples"))
+        pattern = os.path.join(self.root, "tuples", "$ERA", "$GROUP")
+        with open(path, "w") as stream:
+            json.dump({"name": "tes", "stages": [dict(PLOTS, inputs={"tuples": {"external": pattern}})]}, stream)
+        self.cli.Framework.from_recipe = lambda r, reporter=None, **kw: real(r, reporter=reporter,
+                                                                              plotter=self.plotter)
+        try:
+            self.assertEqual(self.cli.main(["plan", path]), 0)
+        finally:
+            self.cli.Framework.from_recipe = real
+        self.assertIn("Inputs: tuples <- external %s" % (pattern),
+                      [t for k, t in self.reporter.messages if k == "message"])
 
     def test_check_lists_every_problem(self):
         path = os.path.join(self.root, "r.json")

@@ -3,10 +3,11 @@
 
 It runs what Fitter/run_inputs.sh runs: TauES/createinputsTES.py for every era, working point pair and config.
 
-    inputs:   tuples: pico tuples, read by the scripts through $PICODIR of the run's PicoProducer config
-              (passed as $TAUFW_PICO_CONFIG); if the slot names a production stage, its tuples are recorded as
-              the stage's inputs. The TES,
-              LTF and JTF variations need their own tuples (e.g. <sample>_mutau_TES0p950.root).
+    inputs:   tuples: pico tuples, given to createinputsTES.py as --tuples <pattern>: those of the production
+              stage the slot names (the pattern on its artifacts), or {external: <pattern>}; with null (old
+              recipes) the scripts read $PICODIR of the run's PicoProducer config (as $TAUFW_PICO_CONFIG). The TES,
+              LTF and JTF variations need their own tuples in the same directory (e.g.
+              <sample>_mutau_TES0p950.root).
     options:  HistogramSpec (eras, configs, jet and electron working points)
     outputs:  one shapes artifact per shape file: {kind: 'shapes', path, era, channel, config, jet_wp, ele_wp,
               observable}; the scripts run in the stage's directory, so the files are in
@@ -49,8 +50,9 @@ class HistogramStage(LocalStage):
     # Spec = HistogramSpec: set at the bottom of this file.
 
     def request(self, spec, context):
-        return self.api.shapes_request(pico_config=context.pico_config, outdir=self.output_dir(context),
-                                       **spec.request_dict())
+        tuples = self.tuples_pattern(context)[0]
+        return self.api.shapes_request(tuples=tuples, pico_config=None if tuples else context.pico_config,
+                                       outdir=self.output_dir(context), **spec.request_dict())
 
     def plan_commands(self, request):
         return self.api.plan_shapes(request)

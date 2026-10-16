@@ -149,7 +149,7 @@ Each changes logs, so do each in its own commit, with a BBB re-lock where a base
 - [ ] K01: a moved or copied run reads the artifacts of its `DONE` stages at the old location (latent).
 - [ ] K02: a crash between `manifest.json` and `run.json` leaves the stage `NEW` with a non-empty output directory
       (latent).
-- [ ] K03: the `tuples` input slot selects no data; the scripts read `$PICODIR` (design limit).
+- [x] K03: the `tuples` input slot selects no data; the scripts read `$PICODIR` (design limit). Fixed by CL §18 step 6.
 - [ ] K04: production's tuple artifacts have no `kind`, so a filter by `kind='tuples'` finds none (latent).
 - [ ] K05: on Windows (Python 3.13) `/afs/...` is not absolute for `os.path.isabs`; an lxplus `pico.config` is joined to the bundle directory (latent, Windows only).
 
@@ -214,16 +214,16 @@ Next-work proposals (not designed in detail yet):
         merged tuples go to `stages/<id>/`, but the job configs, logs and job output stay in `PicoProducer/output/`
         (`jobdir`, `outdir`), keyed by era, channel, sample and tag, not by stage id, so two production stages of
         one run share (and may overwrite) the same jobs.
-        (2) The `tuples` input slot selects nothing: plots and histograms always read the tuples through
-        `$PICODIR` of the run's PicoProducer config, and `inputs.tuples` is only recorded
-        (`Framework/python/stages/local.py`, `last_status.inputs`), so a stage connected to a second production
-        stage would still read the same tuples as one connected to the first. (3) The run has one PicoProducer
+        (2) Since CL §18 step 6 the `tuples` slot selects the tuples (the pattern of the production stage it
+        names), but one slot names one stage, while histograms read the nominal and the variation tuples together
+        (from one directory): two production stages (nominal, variations) cannot feed one histograms stage.
+        (3) The run has one PicoProducer
         configuration (`pico.config`); `Framework._pico_config` and `taufw.py plan --local` take the first
         production stage (`recipe.first('production')`).
-      - *What would make it possible:* production writing to (or recording a per-stage place in) its own stage
-        directory, or a per-stage tag/storage, and plots/histograms reading the tuples their `tuples` input names
-        instead of `$PICODIR` (see A, tuple-manifest preflight). Until then one production stage takes several
-        eras and channels in its lists, and separate production settings need separate recipes.
+      - *What would make it possible:* the job files in the stage's directory (jobdir/outdir per stage), a
+        PicoProducer configuration per production stage, and list-valued input slots (or one directory for the
+        tuples of several production stages). Until then one production stage takes several eras and channels in
+        its lists, and separate production settings need separate recipes.
 - [ ] **Warning for `null` inputs** (separate session). `null` in a recipe's inputs (e.g. `tuples: null`) is accepted
       only so that old recipes keep working; the standard Framework usage names every input explicitly. `check`,
       `plan` and the menu should warn when a recipe uses it.

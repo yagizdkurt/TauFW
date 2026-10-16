@@ -165,7 +165,8 @@ class OutputDirectoryTests(unittest.TestCase):
             with open(pico, "w") as stream:
                 stream.write('{"picodir": "analysis/$ERA"}')  # relative, but not read with a tuple pattern
             for tuples, relative in (("/eos/x/$ERA/$GROUP", False), ("root://eosuser.cern.ch//eos/x", False),
-                                     ("pico/$ERA/$GROUP", True), ("$ERA/$GROUP", True)):
+                                     ("pico/$ERA/$GROUP", True), ("$ERA/$GROUP", True),
+                                     ("<run_dir>/stages/production/$ERA/$GROUP", False)):  # a plan's placeholder
                 problems = output_dir_problems(outdir, pico, tuples=tuples)
                 self.assertEqual(bool(problems), relative, tuples)
                 self.assertFalse(any("picodir" in p for p in problems))

@@ -31,7 +31,10 @@ Every stage has the keys `stage`, `id` and `inputs`, and may have `description`;
                 fit           shapes   <- shapes           null: the shapes already in Fitter/ (temporary exception)
                 python        any names <- any stage       null: no inputs; a mapping names stages, never null
               A slot names a stage that comes earlier in the recipe and makes that kind of data
-              (Stage.outputs). A slot may be null (data from outside the run) only if its stage lists it in
+              (Stage.outputs). A tuples slot may instead name tuples made outside TauFW:
+                tuples: {external: /eos/.../TES_variations/$ERA/$GROUP}
+              (an absolute directory pattern with $ERA and $GROUP, the files <sample>_<channel>.root in it).
+              A slot may be null (only for old recipes: the module's own default) only if its stage lists it in
               Stage.null_inputs. Nothing is connected implicitly: a stage sees only the artifacts of its inputs.
     order:    the built-in stages at most once each, in the order of ORDER (production, plots, histograms, fit);
               python steps anywhere, any number of times.
@@ -98,7 +101,7 @@ class StageSpec:
     id:          the stage's id in the run (unique; run.json and the run directory use it)
     spec:        the stage's typed options, a Spec dataclass (e.g. ProductionSpec); this is what the stage reads
     options:     the options exactly as written in the recipe (without the keys of STAGE_KEYS); saved to run.json
-    inputs:      input slot -> stage id or None, as written; None: `inputs: null`
+    inputs:      input slot -> stage id, None or {external: pattern}, as written; None: `inputs: null`
     description: free text from the recipe ("" if none); shown, never used for anything else
     """
     stage:       str
@@ -110,8 +113,14 @@ class StageSpec:
 
     @property
     def connections(self):
-        """input slot -> stage id (None: not from this run); {} for `inputs: null`."""
-        return dict(self.inputs or {})
+        """input slot -> stage id (None: not from this run: null, or external); {} for `inputs: null`."""
+        return {slot: value if isinstance(value, str) else None for slot, value in (self.inputs or {}).items()}
+
+    @property
+    def external(self):
+        """input slot -> the pattern of {external: <pattern>} (data made outside TauFW); {} if none."""
+        return {slot: value.get('external') for slot, value in (self.inputs or {}).items()
+                if isinstance(value, dict) and isinstance(value.get('external'), str)}
 
 
 @dataclass(frozen=True)
@@ -351,6 +360,10 @@ def _check_inputs(entry, name, where, issues):
         elif value is None and slot not in nullable:
             issues.append(Issue("%s.%s" % (where, slot), "must name an earlier stage that makes %s (null is not "
                                                          "allowed for this input)" % (slots[slot])))
+        elif isinstance(value, dict):
+            problem = _external_problem(value, slots.get(slot) if slots else None)
+            if problem:
+                issues.append(Issue("%s.%s" % (where, slot), problem))
         elif value is not None and not isinstance(value, str):
             issues.append(Issue("%s.%s" % (where, slot), "must be a stage id or null (got %r)" % (value,)))
     for slot in (slots or {}):
@@ -365,8 +378,28 @@ def _inputs_hint(name, slots, nullable):
         return "write inputs: null, or a mapping of names to the ids of earlier stages"
     if not slots:
         return "write inputs: null"
-    return "write inputs: {%s}" % (', '.join("%s: <stage id%s>" % (slot, " or null" if slot in nullable else "")
+    return "write inputs: {%s}" % (', '.join("%s: <stage id%s%s>" % (slot,
+                                                                      " or {external: <pattern>}"
+                                                                      if slots[slot] == 'tuples' else "",
+                                                                      " or null" if slot in nullable else "")
                                              for slot in slots))
+
+
+def _external_problem(value, kind):
+    """What is wrong with an input written as a mapping, {external: <pattern>} (None: nothing)."""
+    if kind != 'tuples':
+        return "{external: ...} is only for a tuples input (plots, histograms); name an earlier stage"
+    if set(value) != {'external'}:
+        return "a mapping is {external: <absolute pattern>} (got keys %s)" % (', '.join(sorted(map(str, value))))
+    pattern = value['external']
+    if not isinstance(pattern, str) or not pattern.strip():
+        return "external must be an absolute directory pattern, e.g. /eos/.../$ERA/$GROUP (got %r)" % (pattern,)
+    if URLEXP.match(pattern):
+        return "external must be a directory on a mounted file system, not a URL (got %s)" % (pattern)
+    if not _is_absolute(pattern):
+        return ("external must be an absolute directory pattern (got %s; ~ and $VARIABLES at the start are not "
+                "expanded)" % (pattern))
+    return None
 
 
 def _check_graph(entries, issues):

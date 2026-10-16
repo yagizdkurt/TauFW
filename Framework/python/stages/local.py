@@ -19,7 +19,10 @@ A subclass sets `name` and `Spec`, and implements:
     execute(request, logdir, progress) -> RunReport
     summary(report)                 -> the stage's message when it is DONE (default: counts)
     config_file(value)              -> the module file of a path option (for taufw.py init; default: None)
-A stage with a `tuples` input slot records the tuples of the stage connected to it as its inputs.
+A stage with a `tuples` input slot reads the tuples its input names (tuples_pattern): the pattern recorded on the
+artifacts of the production stage it names, or the recipe's {external: <pattern>}; with `null` (old recipes) none,
+and the scripts read $PICODIR of the PicoProducer configuration as before. The pattern, and the tuple paths of a
+production stage, are recorded in the stage's last_status; input_problems() are added to the preflight.
 
 The scripts of a stage run in its output directory, output_dir(context) = <run_dir>/stages/<id>/ (the Framework
 decides where; the module API only uses it). Before a run exists (plan), it is the placeholder
@@ -27,6 +30,7 @@ decides where; the module API only uses it). Before a run exists (plan), it is t
 
 Public API:
   LocalStage, LOG_TAIL
+  fixed_directory(pattern)   the part of a directory pattern before its first $KEY
 """
 import os
 from collections import deque
@@ -35,7 +39,7 @@ from dataclasses import replace
 from TauFW.Framework.bundle import resolve_spec
 from TauFW.Framework.stages.base import Stage, StageState, StageOutcome, StageContext, PreflightError
 
-__all__ = ['LocalStage', 'LOG_TAIL']
+__all__ = ['LocalStage', 'LOG_TAIL', 'fixed_directory']
 
 
 # =============================================================================
@@ -62,7 +66,7 @@ class LocalStage(Stage):
             request = self.request(resolve_spec(spec, context.bundle_dir), context)
         except ValueError as error:
             return StageOutcome(StageState.FAILED, str(error), 'failed')
-        problems = self.preflight(request, context)
+        problems = tuple(self.input_problems(context, files=True)) + tuple(self.preflight(request, context))
         if problems:
             raise PreflightError("; ".join(problems))
         stage_id = context.stage_id or self.name
@@ -70,6 +74,8 @@ class LocalStage(Stage):
         status = {'commands': [result.to_dict() for result in report.results]}
         if context.input_artifacts('tuples'):
             status['inputs'] = [artifact.get('path') for artifact in context.input_artifacts('tuples')]
+        if 'tuples' in (self.inputs or {}) and self.tuples_pattern(context)[0]:
+            status['tuples'] = self.tuples_pattern(context)[0]
         if not report.ok:
             return self._failed(report, status, reporter)
         return StageOutcome(StageState.DONE, self.summary(report), 'done', status=status,
@@ -84,7 +90,8 @@ class LocalStage(Stage):
         except ValueError as error:
             raise PreflightError(str(error))
         plan = self.plan_commands(request)
-        return replace(plan, notes=tuple(plan.notes) + tuple(self.preflight(request, context)))
+        return replace(plan, notes=tuple(plan.notes) + tuple(self.input_problems(context, files=False))
+                       + tuple(self.preflight(request, context)))
 
     # =========================================================================
     # ============================ SUBCLASS HOOKS =============================
@@ -106,6 +113,49 @@ class LocalStage(Stage):
 
     def config_file(self, value):
         return None
+
+    # =========================================================================
+    # ================================ INPUTS =================================
+
+    def tuples_pattern(self, context, slot='tuples'):
+        """(pattern or None, problems): where the stage's tuples are, as a directory pattern ($ERA, $GROUP).
+          {external: <pattern>}  -> that pattern
+          a production stage     -> the pattern recorded on its tuple artifacts (in a plan: the planned one);
+                                    none yet (not planned) -> None
+          null                   -> None (the scripts read $PICODIR of the PicoProducer configuration)"""
+        if slot in context.external:
+            return context.external[slot], ()
+        stage_id = context.inputs.get(slot)
+        artifacts = context.input_artifacts(slot)
+        if not stage_id or not artifacts:
+            return None, ()
+        patterns = list(dict.fromkeys(artifact.get('pattern') for artifact in artifacts))
+        if None in patterns:
+            return None, ("the tuples of stage %r do not record where they are (made before the Framework chose "
+                          "their place, CL §18); start a new run, or name them with {external: <pattern>}"
+                          % (stage_id),)
+        if len(patterns) > 1:
+            return None, ("the tuples of stage %r are in several places (%s)" % (stage_id, ', '.join(patterns)),)
+        return patterns[0], ()
+
+    def input_problems(self, context, files=True):
+        """Problems of the stage's tuples input (empty: none, or no such slot). files: also check that the tuple
+        files of a production stage exist, and the fixed part of an external pattern (before its first $)."""
+        if 'tuples' not in (self.inputs or {}):
+            return ()
+        pattern, problems = self.tuples_pattern(context)
+        if problems or not files:
+            return problems
+        missing = [artifact['path'] for artifact in context.input_artifacts('tuples')
+                   if artifact.get('path') and '://' not in artifact['path'] and not os.path.exists(artifact['path'])]
+        if missing:
+            return ("%d tuple file(s) of stage %r not found, e.g. %s"
+                    % (len(missing), context.inputs.get('tuples'), missing[0]),)
+        if 'tuples' in context.external:
+            directory = fixed_directory(pattern)
+            if not os.path.isdir(directory):
+                return ("tuple directory %s (of {external: %s}) not found" % (directory, pattern),)
+        return ()
 
     # =========================================================================
     # ================================ HELPERS ================================
@@ -150,6 +200,17 @@ class LocalStage(Stage):
     def __init__(self, api):
         """api: the module API object (None for a stage without one, e.g. python)."""
         self.api = api
+
+
+def fixed_directory(pattern):
+    """The part of a directory pattern before its first $KEY, e.g. /eos/.../TES_variations for
+    /eos/.../TES_variations/$ERA/$GROUP."""
+    if '$' not in pattern:
+        return pattern
+    head = pattern.split('$', 1)[0]
+    if head.endswith(('/', os.sep)):  # .../TES_variations/$ERA -> .../TES_variations
+        return head.rstrip('/' + os.sep) or head
+    return os.path.dirname(head)      # .../tuples_$ERA -> ...
 
 
 def _tail(path, lines=LOG_TAIL):

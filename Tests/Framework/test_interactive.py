@@ -3,6 +3,7 @@ import contextlib
 import importlib.util
 import io
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -225,7 +226,16 @@ class MenuTests(unittest.TestCase):
         self.assertEqual(ui.screens[3][0], "Select an existing run")
         self.commands["advance"].assert_not_called()
 
+    def eos(self):
+        """The tuples of tes_id_2025 are on EOS; here (e.g. Windows) /eos/... counts as existing."""
+        isdir = os.path.isdir
+        patcher = mock.patch("TauFW.Framework.validation.os.path.isdir",
+                             side_effect=lambda path: str(path).startswith("/eos/") or isdir(path))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_default_recipes_are_the_analysis_bundles(self):
+        self.eos()
         recipes_dir = checkout.REPO / "Analyses"
         expected = sorted(path.name for path in recipes_dir.iterdir() if (path / "recipe.yml").is_file())
         self.assertIn("tes_id_2025", expected)
@@ -250,6 +260,7 @@ class MenuTests(unittest.TestCase):
         ui.prompt.assert_not_called()
 
     def test_bundled_previews_use_recipe_order_without_planning(self):
+        self.eos()
         operations = self.menu(FakeUI()).operations
         expected = {
             "example_mutau": (("production", "production"), ("plots", "plots")),
