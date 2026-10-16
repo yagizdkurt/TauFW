@@ -72,6 +72,10 @@ class JobRequest:
   ncores:       int       = 4              # validate output files in parallel
   verbosity:    int       = 0
 
+  # Merging (not set by pico.py)
+  tupledir:     Optional[str] = None       # merged tuples go to <tupledir>/$ERA/$GROUP/ (TUPLE_LAYOUT), instead of
+                                           # picodir of the configuration
+
   # ===== Construction =====
 
   @classmethod

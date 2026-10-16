@@ -36,10 +36,11 @@ run_local(): a quick local test of a channel on a few files, without the batch s
 | `submit(request, on_existing=None, confirm=None)` | `Submission` | creates the job, config and log directories, the output directory and the job list; submits (not with `request.dryrun`); writes the job config after a successful submission | `submit` |
 | `resubmit(request, ...)` | `Submission` | as `submit`, for the failed and missing chunks of each sample's last try | `resubmit` |
 | `status(request, showlogs=0)` | `StageStatus` | none: queries the batch queue, lists and validates the job output | `status` |
-| `merge(request, clean=False, force=None, haddcmd=None, maxopenfiles=None)` | `MergeReport` | creates the storage directory (`picodir`) and writes the merged tuples; with `clean`, removes the job files and job output after the merged tuple is validated | `hadd` / `haddclean` |
+| `merge(request, clean=False, force=None, haddcmd=None, maxopenfiles=None)` | `MergeReport` | creates the storage directory (`tuple_pattern(request)`: `picodir` of the configuration, or below `request.tupledir`) and writes the merged tuples; with `clean`, removes the job files and job output after the merged tuple is validated | `hadd` / `haddclean` |
 | `clean(request, force=None)` | `MergeReport` | removes the job files and job output | `clean` |
 | `run_local(request)` | `(LocalResult, ...)` | runs the workers locally (not with `request.dryrun`); they write to `request.outdir` | `run` |
 | `request(**fields)` (static) | `JobRequest` | none; unknown fields raise `KeyError`. Lets callers build requests without importing `jobs/` | |
+| `tuple_pattern(request)` | `str` | none: where `merge` writes the tuples, a pattern with `$ERA`, `$GROUP`. With `request.tupledir`: `<tupledir>/$ERA/$GROUP` (`TUPLE_LAYOUT`, absolute); else `picodir` of the configuration, absolute against `basedir` if relative (a value starting with `$` or a URL as it is) | |
 
 - `on_existing(cfgname)` is called when a sample's job config already exists and `request.force` is not set: return
   `'yes'` (submit), `'no'` (skip), `'force'` (submit this and all further samples), or `None` (skip with a warning,
@@ -70,7 +71,7 @@ All records are frozen dataclasses with `to_dict()` and `from_dict()`, so they c
 
 | Record | Fields |
 |---|---|
-| `JobRequest` | what to produce. Selection: `eras`, `channels`, `samples`, `vetoes`, `dtypes`, `dasfilters`, `dasvetoes`, `tag`. Module and splitting: `extraopts`, `prefetch`, `preselect`, `nfilesperjob`, `maxevts`, `split_nfpj`, `testrun`, `tmpdir`, `dasfiles`. Local runs: `outdir`, `infiles`, `nfiles`, `nsamples`. Batch: `queue`, `time`, `batchopts`, `force`, `dryrun`. Checks: `checkdas`, `checkqueue`, `checkevts`, `checkexpevts`, `ncores`, `verbosity`. `request_to_dict`/`request_from_dict` convert it |
+| `JobRequest` | what to produce. Selection: `eras`, `channels`, `samples`, `vetoes`, `dtypes`, `dasfilters`, `dasvetoes`, `tag`. Module and splitting: `extraopts`, `prefetch`, `preselect`, `nfilesperjob`, `maxevts`, `split_nfpj`, `testrun`, `tmpdir`, `dasfiles`. Local runs: `outdir`, `infiles`, `nfiles`, `nsamples`. Batch: `queue`, `time`, `batchopts`, `force`, `dryrun`. Checks: `checkdas`, `checkqueue`, `checkevts`, `checkexpevts`, `ncores`, `verbosity`. Merging: `tupledir` (the merged tuples go to `<tupledir>/$ERA/$GROUP/<sample>_<channel><tag>.root` instead of `picodir`; `pico.py` never sets it). `request_to_dict`/`request_from_dict` convert it |
 | `JobPlan` | `request`, `samples` (`PlannedSample`); `nchunks`, `conflicts` |
 | `PlannedSample` | `era`, `channel`, `name`, `group`, `dtype`, `paths`, `subtry`, `jobname`, `cfgname`, `joblist`, `outdir`, `nfiles`, `nchunks`, `nevents`, `commands` (one worker command per chunk), `conflict` |
 | `Submission` | `samples` (`SubmittedSample`); `jobids`, `nsubmitted` |

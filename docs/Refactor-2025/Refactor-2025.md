@@ -867,7 +867,7 @@ differ by a grid step in the fitted POIs (the fit amplifies the 1e-13 difference
 
 ## 18. Framework: tuples as an input, production writes into the run, run_root
 
-**Date:** 2026-10-17 (in progress: steps 1-3 of 8)
+**Date:** 2026-10-17 (in progress: steps 1-4 of 8)
 **Details:** [Framework](../../Framework/README.md) "Concepts" and "Run directory", [Analyses](../../Analyses/README.md)
 "Where the runs go (`run_root`)", [scripts_arg_changes.md](scripts_arg_changes.md) "Tuple location", Framework BUGS
 K04, K05, Plotter BUGS L12
@@ -922,3 +922,18 @@ warnings), Utilities menu 28 (warnings in the preview). Plotter API and Fitter A
 
 Tests (Windows): Plotter API 12, Fitter API 19, Utilities 104 (2 skipped), Framework 104; the existing API tests are
 unchanged. `Tests/Plotter/testTupleLocation.py` passes on lxplus.
+
+### Step 4: PicoProducer writes where the request says
+
+- `JobRequest.tupledir` (default `None`; `pico.py` never sets it): `merge` writes the tuples to
+  `<tupledir>/$ERA/$GROUP/<sample>_<channel><tag>.root` instead of `picodir` of the configuration. The layout below
+  the directory is PicoProducer's (`TUPLE_LAYOUT = "$ERA/$GROUP"` in `jobs/merge.py`); the caller gives only the
+  directory.
+- `PicoProducer.tuple_pattern(request)`: where `merge` writes, as a pattern with `$ERA`, `$GROUP` (the tupledir
+  layout, absolute; or the configuration's `picodir`, made absolute against the PicoProducer directory if relative).
+  Reads nothing. The Framework will record it on the tuple artifacts (step 5).
+- `merge_sample(..., picodir=None)`: the pattern to merge into (None: the configuration's, as before).
+- `pico.py` and the `pico.*` BBB cases are unchanged; `docs/PicoProducer/API.md` lists the field and the method.
+- New test `Tests/PicoProducer/testTupleDir.py` (lxplus; no batch system, no files): `tuple_pattern` for a
+  tupledir and for absolute, relative, `$` and URL picodirs; `merge_target` below a tupledir; `merge_sample` merges
+  into the given pattern, else into the configuration's.

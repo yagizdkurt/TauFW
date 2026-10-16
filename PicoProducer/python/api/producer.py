@@ -17,14 +17,15 @@ directory (all configured paths are relative to it): the working directory is ch
 call and always restored. That makes the API not thread-safe; see docs/PicoProducer/API.md.
 
 Inputs:  a configuration (config/config.json, another JSON file, a dict or a Config), JobRequests.
-Outputs: job directories, job lists and job configs (output/...), batch jobs, merged tuples in storage;
-         the records of api/types.py.
+Outputs: job directories, job lists and job configs (output/...), batch jobs, merged tuples in storage (picodir
+         of the configuration, or <request.tupledir>/$ERA/$GROUP: see tuple_pattern); the records of api/types.py.
 
 Public API:
   PicoProducer.from_config(config, reporter, basedir)
   plan, submit, resubmit, status, merge, clean, run_local    pipelines
   iter_plan                                                  plan() as a stream, one PlannedSample at a time
   request(**fields)                                          build a JobRequest
+  tuple_pattern(request)                                     where merge() writes the tuples
 """
 
 # ===== Imports =====
@@ -38,7 +39,7 @@ from TauFW.PicoProducer.settings.store import loadconfig
 from TauFW.PicoProducer.jobs.reporting import Reporter
 from TauFW.PicoProducer.jobs.pipeline import iter_plans, submit_plan, record_submission, iter_submitted
 from TauFW.PicoProducer.jobs.status import check_sample
-from TauFW.PicoProducer.jobs.merge import merge_sample, MERGE_ACTIONS
+from TauFW.PicoProducer.jobs.merge import merge_sample, MERGE_ACTIONS, TUPLE_LAYOUT
 from TauFW.PicoProducer.jobs.local import iter_local_runs, execute_run
 from TauFW.PicoProducer.api.types import (JobPlan, PlannedSample, Submission, SubmittedSample, StageStatus,
                                           SampleStatus, MergeReport, TupleArtifact, LocalResult, request_from_dict)
@@ -58,6 +59,7 @@ class PicoProducer(object):
                  run_local(request)                     -> (LocalResult,) runs workers locally
   Streams:       iter_plan(request)                     -> PlannedSample, one at a time
   Requests:      request(**fields)                      -> JobRequest (unknown fields are an error)
+                 tuple_pattern(request)                 -> str            where merge() writes the tuples
   Construction:  from_config(config, reporter, basedir); PicoProducer(config, reporter, basedir)
   """
 
@@ -110,7 +112,8 @@ class PicoProducer(object):
     return StageStatus(samples=tuple(samples))
 
   def merge(self,request,clean=False,force=None,haddcmd=None,maxopenfiles=None,action=None):
-    """Merge (hadd) the job output of each complete sample into one tuple in storage (picodir).
+    """Merge (hadd) the job output of each complete sample into one tuple in storage (tuple_pattern(request):
+    <request.tupledir>/$ERA/$GROUP, or picodir of the configuration).
     clean: afterwards remove the job files and job output, once the merged tuple is validated;
     force: also merge samples with failed, missing or pending chunks (default: request.force);
     haddcmd/maxopenfiles: default from the configuration; action: label in messages ('hadd' or 'haddclean',
@@ -155,6 +158,18 @@ class PicoProducer(object):
     requests without importing the jobs package."""
     return request_from_dict(fields)
 
+  def tuple_pattern(self,request):
+    """Where merge() writes the tuples, as a pattern with $ERA, $GROUP (and whatever else picodir uses):
+    <request.tupledir>/$ERA/$GROUP (TUPLE_LAYOUT, tupledir made absolute), or else picodir of the configuration,
+    made absolute against the PicoProducer directory if it is relative (merge runs there); a picodir that starts
+    with '$' or is a URL is returned as it is. Reads nothing."""
+    if request.tupledir:
+      return os.path.join(os.path.abspath(request.tupledir),*TUPLE_LAYOUT.split('/'))
+    picodir = self.config.picodir
+    if picodir.startswith('$') or '://' in picodir or os.path.isabs(picodir):
+      return picodir
+    return os.path.normpath(os.path.join(self.basedir,picodir))
+
   # ===== Steps =====
 
   def _merge(self,request,action,clean=False,force=None,haddcmd=None,maxopenfiles=None):
@@ -166,6 +181,7 @@ class PicoProducer(object):
     maxopenfiles = (self.config.maxopenfiles if maxopenfiles is None else maxopenfiles) if hadd else 0
     artifacts, refused, invalid, cleaned = [ ], [ ], [ ], [ ]
     jobs = None
+    picodir = self.tuple_pattern(request) if request.tupledir else None # None: merge_sample uses the configuration's
     with self._workdir():
       for era, channel, sample in iter_submitted(self.config,request,self.reporter,action):
         jobs   = self._queue_once(request,jobs)
@@ -173,7 +189,7 @@ class PicoProducer(object):
                               force=force,haddcmd=haddcmd,maxopenfiles=maxopenfiles,jobs=jobs,
                               checkqueue=request.checkqueue,checkevts=request.checkevts,
                               checkexpevts=request.checkexpevts,das=request.checkdas,ncores=request.ncores,
-                              dryrun=request.dryrun,verb=request.verbosity)
+                              dryrun=request.dryrun,verb=request.verbosity,picodir=picodir)
         if result.refused:
           refused.append(sample.name)
           continue

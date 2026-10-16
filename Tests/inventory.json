@@ -9,6 +9,14 @@
       "dependencies": ["ROOT", "numpy", "past"]
     },
     {
+      "id": "pico.tupledir",
+      "path": "PicoProducer/testTupleDir.py",
+      "package": "PicoProducer",
+      "group": "local",
+      "reason": "Assert where merge writes the tuples: picodir of the configuration, or below JobRequest.tupledir, without a batch system or files.",
+      "dependencies": ["ROOT", "numpy", "past"]
+    },
+    {
       "id": "plotter.histogram_correctness",
       "path": "Plotter/testHistogramCorrectness.py",
       "package": "Plotter",

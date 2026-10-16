@@ -5,7 +5,8 @@
     1. target              where the merged tuple goes and which job files belong to the sample (merge_target)
     2. status              check_sample() on the last (re)submission try
     3. gate                merge or clean only if every chunk succeeded, unless forced (merge_gate)
-    4. hadd                storage.hadd(job outputs -> <picodir>/<sample>_<channel><tag>.root)
+    4. hadd                storage.hadd(job outputs -> <picodir>/<sample>_<channel><tag>.root); picodir is the
+                           configuration's, or the one the caller gives (merge_sample(picodir=...))
     5. validate            before cleaning after a merge: the merged tuple must be readable and hold the events
                            of the job output (validated)
     6. clean               remove the job directory, or only this sample's files (cleanup_commands)
@@ -20,6 +21,7 @@ Outputs: the merged tuple in storage (picodir); removed job directories/files; M
 
 Public API:
   merge_sample(sample, config, action, era, channel, tag, reporter, **options)  -> MergeResult
+  TUPLE_LAYOUT                                                                  where the tuples go below a tupledir
   merge_target(sample, picodir, era, channel, tag)                              -> MergeTarget
   merge_gate(status, force)                                                     -> bool
   validated(nevents, status)                                                    -> (ok, reason)
@@ -39,22 +41,25 @@ from TauFW.PicoProducer.storage.factory import getstorage
 from TauFW.PicoProducer.storage.validation import isvalid
 
 __all__ = ['merge_sample', 'merge_target', 'merge_gate', 'validated', 'cleanup_commands',
-           'MergeTarget', 'CleanupPlan', 'MergeResult', 'MERGE_ACTIONS']
+           'MergeTarget', 'CleanupPlan', 'MergeResult', 'MERGE_ACTIONS', 'TUPLE_LAYOUT']
 
 
 # ===== Constants =====
 MERGE_ACTIONS = ('hadd', 'haddclean', 'clean') # pico.py subcommands handled here
+TUPLE_LAYOUT  = "$ERA/$GROUP" # below a directory the caller gives (JobRequest.tupledir), the merged tuples go to
+                              # <tupledir>/<era>/<group>/<sample>_<channel><tag>.root
 
 
 # ===== Pipeline =====
 
 def merge_sample(sample,config,action,era,channel,tag,reporter=None,clean=False,force=False,haddcmd="",
                  maxopenfiles=0,jobs=None,checkqueue=-1,checkevts=True,checkexpevts=False,das=False,ncores=4,
-                 dryrun=False,verb=0):
+                 dryrun=False,verb=0,picodir=None):
   """Merge ('hadd'), merge and clean ('haddclean'), or only clean ('clean') a sample's job output.
   clean: also clean after 'hadd' (pico.py hadd -r); force: ignore failed/missing chunks;
   haddcmd/maxopenfiles: hadd command and its -n option; jobs/checkqueue/checkevts/checkexpevts/das/ncores:
-  passed to check_sample; dryrun: print the hadd and rm commands without executing them.
+  passed to check_sample; dryrun: print the hadd and rm commands without executing them;
+  picodir: where the merged tuple goes (with $ERA, $GROUP, ...; None: picodir of the configuration).
   Side effects: creates the storage directory (picodir), runs hadd and rm unless dryrun."""
   assert action in MERGE_ACTIONS, "merge_sample: action must be one of %s, got %r"%(MERGE_ACTIONS,action)
   reporter  = reporter or Reporter()
@@ -64,7 +69,7 @@ def merge_sample(sample,config,action,era,channel,tag,reporter=None,clean=False,
   cleanup   = action=='clean' or (action=='hadd' and clean) or action=='haddclean'
 
   # 1. TARGET
-  target  = merge_target(sample,config.picodir,era,channel,tag)
+  target  = merge_target(sample,picodir or config.picodir,era,channel,tag)
   storage = getstorage(target.storedir,ensure=True,haddcmd=haddcmd,verb=verbosity)
   if verbosity>=1:
     _report_target(reporter,action,sample,target)
