@@ -21,7 +21,19 @@ STEP = {"stage": "python", "id": "check", "inputs": None, "file": "steps/check.p
 # template.
 READERS = {
     'plotter.samples_': lambda path: load_sample_model(path),  # Configs/Plotter/samples/ (TauFW.Plotter.sample.model)
+    'plotter.setup_': lambda path: read_setup(path),           # Configs/Plotter/setups/ (plot.py: yaml.safe_load)
 }
+
+
+def read_setup(path):
+    """A channel setup as plot.py reads it (yaml.safe_load), with the keys every plot.py run needs."""
+    import yaml
+    with open(path) as stream:
+        setup = yaml.safe_load(stream)
+    missing = [key for key in ('channel', 'baselineCuts') if key not in setup]
+    if missing:
+        raise ValueError("%s: no %s" % (path, ", ".join(missing)))
+    return setup
 
 
 def template(config_id="plotter.samples_test", version=1, body="xsec: 1.5\n", newline="\n", header=None):

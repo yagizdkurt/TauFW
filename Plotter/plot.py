@@ -3,7 +3,7 @@
 # Description: Simple plotting script for pico analysis tuples
 # Instructions:
 #   ./plot.py -y 2018 -c mutau
-#   ./plot.py -y 2018 -c config/setup_mutau.yml
+#   ./plot.py -y 2018 -c ../Configs/Plotter/setups/setup_mutau.yml
 #   ./plot.py -y 2018 -c mutau -S baseline -V m_vis
 #>>>>IMPORTANT!!
 #>>>>Run with --serial option if using py3:
@@ -14,6 +14,7 @@ from config.samples_v15 import *
 from TauFW.Plotter.plot.string import filtervars
 from TauFW.Utilities.Drawing import LOG as PLOG
 import yaml
+SETUPS = os.path.join(os.path.dirname(os.path.abspath(__file__)),"..","Configs","Plotter","setups") # channel setups (CL §22)
 
 
 def plot(sampleset,setup,parallel=True,tag="",extratext="",outdir="plots",era="",
@@ -132,7 +133,7 @@ def main(args):
   # LOOP over configs / channels
   for config in configs:
     if not config.endswith(".yml"): # config = channel name
-      config = "config/setup_%s.yml"%(config) # assume this file name pattern
+      config = os.path.join(SETUPS,"setup_%s.yml"%(config)) # assume this file name pattern
     print(">>> Using configuration file: %s"%config)
     with open(config, 'r') as file:
       setup = yaml.safe_load(file)
@@ -158,7 +159,7 @@ if __name__ == "__main__":
   parser.add_argument('-y', '--era',     dest='eras', nargs='*', choices=eras, default=['2017'],
                                          help="set era" )
   parser.add_argument('-c', '--config', '--channel',
-                                         dest='configs', type=str, nargs='+', default=['config/setup_mutau_inclusive.yml'], action='store',
+                                         dest='configs', type=str, nargs='+', default=['mutau_inclusive'], action='store',
                                          help="config file(s) containing channel setup for samples and selections, default=%(default)r" )
   parser.add_argument('-V', '--var',     dest='varfilter', nargs='+',
                                          help="only plot the variables passing this filter (glob patterns allowed)" )

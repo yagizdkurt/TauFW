@@ -1,3 +1,8 @@
+taufw_config:                     # set by the maintainers: analysts edit the values below, never these lines
+  id: plotter.setup_mutau_inclusive
+  version: 1
+  schema: 1
+  description: plot.py channel setup mutau_inclusive (channel, tag, baseline cuts, regions)
 ##
 ## Config file for default TES fit in mutau channel
 ## contact: saskia.falke@cern.ch

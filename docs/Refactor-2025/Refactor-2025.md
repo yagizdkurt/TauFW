@@ -1337,3 +1337,14 @@ model with the templates. On Windows (stub utils) the snapshot of the case befor
   its `v15_2022_postEE.yml` copy (exact names; the vetoes keep the tribosons out, since a name without `*` matches
   as a prefix) and then makes the plots; `plan` compares the two lists.
 - Tests: `Tests/Framework/test_samples.py` (validation, comparison, start refuses), Plotter and Fitter API tests.
+
+### Channel setups to Configs (S7)
+
+- `Plotter/config/setup_*.yml` (7 files) moved (`git mv`) to `Configs/Plotter/setups/`, each with a `taufw_config`
+  header (`plotter.setup_<name>`, version 1), locked. The scripts read only named keys (`channel`, `baselineCuts`,
+  `regions`, `tag`, `scaleFactors`), so the header changes nothing. The bundle copies (`tes_id_2025` mutau and
+  mumu, `example_mutau_long` mutau) were identical to the templates and got the same header.
+- `plot.py`, `plot_postfit.py`, `plot_postfit_shift.py`, `plot_v10.py`: a channel name reads the setup from
+  `Configs/Plotter/setups/` (from the script's directory); defaults are channel names. The Plotter API resolves a
+  channel name the same way. `Plotter/config/` keeps the Python sample configs (`samples*.py`).
+- `READERS` of `Tests/Framework/test_configs.py`: `plotter.setup_` (yaml, with `channel` and `baselineCuts`).

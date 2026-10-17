@@ -63,7 +63,7 @@ class PlotStage(LocalStage):
 @dataclass(frozen=True)
 class PlotSpec:
     """Recipe options: eras, channel setups (bundle files, .yml files relative to Plotter/, or a channel name for
-    Plotter/config/setup_<channel>.yml), the
+    Configs/Plotter/setups/setup_<channel>.yml), the
     plot.py filters -V (variables) and -S (selections), and its flags."""
     eras:       Tuple[str, ...]
     configs:    Tuple[str, ...] = ('mutau',)

@@ -21,6 +21,10 @@ Items marked **(verify)** may already be done; check before working on them.
       difference. **Lock done 2026-10-17; the switch is made: run `bbb check`.**
 - [ ] **`example_mutau_long` (CL §22):** `taufw.py plan Analyses/example_mutau_long` must list 25 samples (22 MC,
       Muon_Run2022E/F/G) and no sample problem or warning. A full `start` is optional (tens of GB).
+- [ ] **Channel setups from Configs (CL §22, S7).** In `Plotter/`: `python3 plot.py -y 2025 -c mumu -V m_vis -S baseline
+      --tuples '/eos/cms/store/group/phys_tau/TauFW/pico2024/TES_variations/$ERA/$GROUP'` (a channel name now reads
+      `Configs/Plotter/setups/setup_mumu.yml`); `python3 taufw.py init s7_test --from Analyses/tes_id_2025 --root
+      /tmp/$USER` copies the setups with their `taufw_config` header. Only after the running sm_test runs are done.
 - [ ] **Sample model end to end (CL §22, S6).** `taufw.py check Analyses/tes_id_2025` and `plan` (the plots and
       histograms commands get `--samples .../bundle/v15_2025.yml`); then a plots + histograms run with the bundle,
       compared with the same stages without `samples:` (the plots and the shape files; shapes with the 1e-13
@@ -326,8 +330,8 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
         id/version.
       - Moving the existing module configs to `Configs/`. Decided (user, 2026-10-17): each module's YAML configs
         move when the step that touches them is done, not in one separate move:
-        `Plotter/config/setup_*.yml` (and `Plotter/tutorial/config/setup_mutau.yml`) at the end of the sample-model
-        step; the Fitter fit configs (`Fitter/TauES/config/`, `Fitter/TauES_ID/config/`) inside the step that moves
+        `Plotter/config/setup_*.yml` at the end of the sample-model step (**done**, CL §22 S7:
+        `Configs/Plotter/setups/`; `Plotter/tutorial/config/` stays with the tutorial, whose samples are Python); the Fitter fit configs (`Fitter/TauES/config/`, `Fitter/TauES_ID/config/`) inside the step that moves
         histogram filling out of the Fitter (`config_coarse_TT.yml` is likely split there, so it moves once); the
         PicoProducer sample lists (`PicoProducer/samples/*.py`, Python) when they become data. Python configs and
         `PicoProducer/config/` (internal, user/machine settings) never move. For every move: a `taufw_config`

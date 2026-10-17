@@ -147,3 +147,16 @@ templates of `Configs/Plotter/samples/` (one per era, exported from those tables
   `2022_preEE` muon channels.
 - `createinputsTES.py` keeps importing `config.samples_v15` (known import debt): the option goes through that
   function, so the Fitter imports nothing new.
+
+## Channel setups in Configs (CL §22, S7)
+
+The channel setups moved from `Plotter/config/setup_<channel>.yml` to `Configs/Plotter/setups/setup_<channel>.yml`
+(config templates with a `taufw_config` header; the scripts ignore that key).
+
+| Script | Change |
+|---|---|
+| `Plotter/plot.py`, `plot_postfit.py`, `plot_postfit_shift.py`, `plot_v10.py` | `-c <channel>` reads `Configs/Plotter/setups/setup_<channel>.yml` (found from the script's own directory, not the working directory); the default `-c` is the channel name (`mutau_inclusive` for `plot.py`, `mutau` for the others), the same file as before |
+| `TauFW.Plotter.api.ControlPlots` | a channel name resolves to the same file; the "not found" messages give the absolute path |
+
+- Not kept: `-c config/setup_mutau.yml` (an explicit path to the old place) no longer exists. Use the channel name
+  (`-c mutau`) or the new path. `Plotter/tutorial/` keeps its own `config/setup_mutau.yml`.

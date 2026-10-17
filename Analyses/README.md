@@ -286,7 +286,7 @@ follow one rule:
 | Absolute path | Used as is. | `absolute` |
 | Relative path of a file in the bundle | That bundle file, e.g. `config_coarse_TT.yml` next to `recipe.yml`. | `bundle` |
 | Any other relative path | Unchanged: the module resolves it as before, relative to `Fitter/` (e.g. `TauES_ID/config/config_coarse_TT.yml`) or `Plotter/` (e.g. `config/setup_mutau.yml`). | `module` |
-| `plots.configs` channel name | `mutau` selects `Plotter/config/setup_mutau.yml`. | `module` |
+| `plots.configs` channel name | `mutau` selects `Configs/Plotter/setups/setup_mutau.yml` (the template; a bundle copy is better: `taufw.py init --from` makes one). | `module` |
 
 A bundle file **replaces** the module's config as a whole: the script reads the
 bundle's copy instead, nothing is merged. `taufw.py plan` lists every file each

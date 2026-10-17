@@ -14,7 +14,7 @@ directory (outdir; the TauFW Framework gives <run_dir>/stages/<id>/), or in Plot
 Inputs:  pico tuples in the request's tuple pattern (plot.py --tuples), or else found by plot.py through $PICODIR
          of the request's PicoProducer config (passed to plot.py as $TAUFW_PICO_CONFIG; default
          PicoProducer/config/config.json); the channel setups
-         Plotter/config/setup_<channel>.yml (or any .yml, relative to Plotter/ or absolute); the sample model
+         Configs/Plotter/setups/setup_<channel>.yml (or any .yml, relative to Plotter/ or absolute); the sample model
          files (plot.py --samples; without them the tables of config/samples_v15.py).
 Outputs: <outdir>/plots/<era>/<variable>_<channel>-<selection>-<era><tag>.png, where <tag> is the setup's tag
          plus request.tag (without outdir: Plotter/plots/<era>/, shared by all runs; pdf on request), and one log
@@ -41,6 +41,8 @@ from TauFW.Plotter.api.types import PlotsRequest
 from TauFW.Plotter.sample import model as sample_model
 
 __all__ = ['ControlPlots']
+
+SETUPS = ('Configs', 'Plotter', 'setups')  # the channel setups, next to Plotter/ (config templates, Configs/README.md)
 
 
 class ControlPlots:
@@ -103,8 +105,8 @@ class ControlPlots:
             problems.extend(tuple_pattern_problems(request.tuples))
         elif not os.path.isfile(source):
             problems.append("no PicoProducer configuration %s: plot.py reads $PICODIR from it" % (source))
-        problems.extend("channel setup %s not found in %s" % (_setup_file(config), self.basedir)
-                        for config in request.configs if not os.path.isfile(self._path(_setup_file(config))))
+        problems.extend("channel setup %s not found" % (self.config_file(config))
+                        for config in request.configs if not os.path.isfile(self.config_file(config)))
         if request.outdir is not None:
             problems.extend(output_dir_problems(request.outdir, source, tuples=request.tuples))
         if request.samples:
@@ -180,8 +182,8 @@ class ControlPlots:
     # ================================ HELPERS ================================
 
     def _command(self, request, config, era, channel, tag, cwd):
-        """One plot.py run. With an output directory, plot.py and the setup are given as absolute paths (plot.py
-        opens config/setup_<channel>.yml relative to its working directory)."""
+        """One plot.py run. With an output directory, plot.py and the setup are given as absolute paths (a .yml
+        setup is opened relative to plot.py's working directory)."""
         if request.outdir is None:
             argv = [self.python, 'plot.py', '-y', era, '-c', config]
         else:
@@ -213,7 +215,7 @@ class ControlPlots:
     def _setup(self, setup_file, notes):
         path = self._path(setup_file)
         if not os.path.isfile(path):
-            notes.append("channel setup %s not found in %s" % (setup_file, self.basedir))
+            notes.append("channel setup %s not found" % (path))
             return None
         try:
             return self.read_yaml(path) or {}
@@ -250,8 +252,9 @@ class ControlPlots:
 
 
 def _setup_file(config):
-    """plot.py's rule: a name without .yml is a channel, config/setup_<channel>.yml."""
-    return config if config.endswith('.yml') else "config/setup_%s.yml" % (config)
+    """plot.py's rule: a name without .yml is a channel, Configs/Plotter/setups/setup_<channel>.yml (relative to
+    Plotter/; the setups are config templates since CL §22)."""
+    return config if config.endswith('.yml') else os.path.join(os.pardir, *SETUPS, "setup_%s.yml" % (config))
 
 
 def _pico_env(request):

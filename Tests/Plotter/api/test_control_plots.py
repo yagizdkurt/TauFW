@@ -18,9 +18,11 @@ class ControlPlotsTests(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.base, ignore_errors=True)
         self.plotter_dir = os.path.join(self.base, "Plotter")
         os.makedirs(os.path.join(self.plotter_dir, "config"))
+        self.setups = os.path.join(self.base, "Configs", "Plotter", "setups")  # next to Plotter/, as in TauFW
+        os.makedirs(self.setups)
         for channel in ("mutau", "mumu"):
-            shutil.copy(os.path.join(str(checkout.BASEDIR), "config", "setup_%s.yml" % channel),
-                        os.path.join(self.plotter_dir, "config"))
+            shutil.copy(os.path.join(str(checkout.REPO), "Configs", "Plotter", "setups", "setup_%s.yml" % channel),
+                        self.setups)
         self.calls = []
         self.cwds = []
         self.write = True
@@ -66,16 +68,17 @@ class ControlPlotsTests(unittest.TestCase):
 
     def test_missing_setup(self):
         request = PlotsRequest(eras=["2025"], configs=["etau", "config/other.yml"])
+        etau = os.path.join(self.setups, "setup_etau.yml")
         self.assertEqual(self.plotter.plan(request).notes,
-                         ("channel setup config/setup_etau.yml not found in %s" % (self.plotter_dir),
-                          "channel setup config/other.yml not found in %s" % (self.plotter_dir)))
+                         ("channel setup %s not found" % (etau),
+                          "channel setup %s not found" % (os.path.join(self.plotter_dir, "config", "other.yml"))))
         problems = self.plotter.preflight(request)
-        self.assertIn("channel setup config/setup_etau.yml not found in %s" % (self.plotter_dir), problems)
+        self.assertIn("channel setup %s not found" % (etau), problems)
 
     def test_pico_config_and_absolute_setup(self):
         setup = os.path.join(self.base, "bundle", "setup_mutau.yml")  # a setup outside Plotter/ (a bundle file)
         os.makedirs(os.path.dirname(setup))
-        shutil.copy(os.path.join(self.plotter_dir, "config", "setup_mutau.yml"), setup)
+        shutil.copy(os.path.join(self.setups, "setup_mutau.yml"), setup)
         request = PlotsRequest(eras=["2025"], configs=[setup], pico_config="/run/bundle/pico.json")
         plan = self.plotter.plan(request)
         self.assertEqual(plan.notes, ())
@@ -85,7 +88,7 @@ class ControlPlotsTests(unittest.TestCase):
         self.assertIn("no PicoProducer configuration /run/bundle/pico.json", " ".join(self.plotter.preflight(request)))
         self.assertEqual(self.plotter.plan(PlotsRequest(eras=["2025"])).commands[0].env, ())
         self.assertEqual(self.plotter.config_file("mutau"),
-                         os.path.join(self.plotter_dir, "config", "setup_mutau.yml"))
+                         os.path.join(self.setups, "setup_mutau.yml"))
         self.assertEqual(self.plotter.config_file(setup), setup)
 
     def test_output_directory(self):
@@ -93,7 +96,7 @@ class ControlPlotsTests(unittest.TestCase):
         pico = os.path.join(self.base, "pico.json")
         request = PlotsRequest(eras=["2025"], configs=["mutau", "mumu"], outdir=outdir, pico_config=pico)
         plan = self.plotter.plan(request)
-        setup = os.path.join(self.plotter_dir, "config", "setup_mutau.yml")
+        setup = os.path.join(self.setups, "setup_mutau.yml")
         self.assertEqual(plan.commands[0].argv,  # plot.py and the setup as absolute paths: plot.py runs in outdir
                          ("python3", os.path.join(self.plotter_dir, "plot.py"), "-y", "2025", "-c", setup))
         self.assertEqual({plan.cwd} | {c.cwd for c in plan.commands}, {outdir})
@@ -114,7 +117,7 @@ class ControlPlotsTests(unittest.TestCase):
                          [2])
 
     def test_setup_tag(self):  # BUGS L08: plot.py names its files with the setup's tag plus -t
-        setup = os.path.join(self.plotter_dir, "config", "setup_mutau.yml")
+        setup = os.path.join(self.setups, "setup_mutau.yml")
         with open(setup) as stream:
             text = stream.read()
         with open(setup, "w") as stream:
@@ -123,8 +126,8 @@ class ControlPlotsTests(unittest.TestCase):
         self.assertEqual(plan.commands[0].expects, ("plots/2025/*_mt-*-2025_inc_v1.png",))
 
     def test_same_file_names_note(self):  # BUGS L10
-        other = os.path.join(self.plotter_dir, "config", "setup_mutau_copy.yml")
-        shutil.copy(os.path.join(self.plotter_dir, "config", "setup_mutau.yml"), other)
+        other = os.path.join(self.setups, "setup_mutau_copy.yml")
+        shutil.copy(os.path.join(self.setups, "setup_mutau.yml"), other)
         notes = self.plotter.plan(PlotsRequest(eras=["2025"], configs=["mutau", other, "mumu"])).notes
         self.assertEqual(len(notes), 1)
         self.assertIn("configs mutau, %s write the same file names" % (other), notes[0])

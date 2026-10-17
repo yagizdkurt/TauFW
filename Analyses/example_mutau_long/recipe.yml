@@ -68,7 +68,8 @@ stages:                     # every stage: stage (type), id (unique), inputs (re
     description: control plots of the new tuples
     inputs: {tuples: production}   # the tuples of the production stage above
     eras: [2022_postEE]     # plot.py -y; the tuples come from the production stage (plot.py --tuples)
-    configs: [setup_mutau.yml]  # bundle files, channel names (Plotter/config/setup_<channel>.yml)
+    configs: [setup_mutau.yml]  # bundle files (a copy of Configs/Plotter/setups/setup_mutau.yml), channel names
+                            # (Configs/Plotter/setups/setup_<channel>.yml)
                             # or .yml files relative to Plotter/
     samples: [v15_2022_postEE.yml]  # the samples the plots read: a copy of Configs/Plotter/samples/, unchanged;
                             # `plan` and `start` check that the production stage makes all of them

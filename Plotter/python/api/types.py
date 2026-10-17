@@ -21,7 +21,8 @@ __all__ = ['PlotsRequest']
 @dataclass(frozen=True)
 class PlotsRequest:
     """Control plots: one plot.py run per channel setup and era.
-    configs: channel names (config/setup_<channel>.yml) or .yml files (relative to Plotter/, or absolute).
+    configs: channel names (Configs/Plotter/setups/setup_<channel>.yml) or .yml files (relative to Plotter/, or
+    absolute).
     variables, selections: plot.py -V and -S filters (glob patterns); empty: all.
     tuples: the directory pattern of the tuples (with $ERA, $GROUP), given to plot.py as --tuples; then the
     PicoProducer configuration is not used. None: plot.py reads $PICODIR of pico_config (None: its default).
