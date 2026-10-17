@@ -42,8 +42,8 @@ DEFAULT_CONFIGS = ('TauES_ID/config/config_coarse_TT.yml', 'TauES/config/FitSetu
 class HistogramStage(LocalStage):
     """Input histograms with the Fitter API.
     fitter: a TauFW.Fitter.api.TauESID, or any object with the same methods (tests pass a fake one).
-    samples_api: the Plotter API that reads the sample model files of the `samples` option (the Fitter only passes
-    them to createinputsTES.py; their format is the Plotter's)."""
+    samples_api: the Histogrammer API that reads the sample model files of the `samples` option (the Fitter only
+    passes them to createinputsTES.py; their format is the Histogrammer's)."""
     name = 'histograms'
     inputs = {'tuples': 'tuples'}
     null_inputs = {'tuples': "the tuples in $PICODIR of the run's PicoProducer config"}
@@ -92,7 +92,7 @@ class HistogramSpec:
     serial:  bool = False
     timeout: Optional[float] = None   # seconds per createinputsTES.py run; None: no limit
     samples: Tuple[str, ...] = ()     # sample model files (bundle copies of Configs/Plotter/samples/), one per
-                                      # era; empty: the tables of Plotter/config/samples_v15.py
+                                      # era; empty: the tables of Histogrammer/config/samples_v15.py
 
     def __post_init__(self):
         for name in ('eras', 'jet_wps', 'ele_wps', 'configs'):

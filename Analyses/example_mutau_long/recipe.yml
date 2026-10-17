@@ -63,14 +63,14 @@ stages:                     # every stage: stage (type), id (unique), inputs (re
       clean: false          # remove job files and job output after a validated merge
       force: false          # merge samples with failed or missing chunks too
 
-  - stage: plots            # data/MC control plots of the merged tuples (Plotter/plot.py, run locally)
+  - stage: plots            # data/MC control plots of the merged tuples (Histogrammer/fillhists.py, run locally)
     id: plots
     description: control plots of the new tuples
     inputs: {tuples: production}   # the tuples of the production stage above
     eras: [2022_postEE]     # plot.py -y; the tuples come from the production stage (plot.py --tuples)
     configs: [setup_mutau.yml]  # bundle files (a copy of Configs/Plotter/setups/setup_mutau.yml), channel names
                             # (Configs/Plotter/setups/setup_<channel>.yml)
-                            # or .yml files relative to Plotter/
+                            # or .yml files relative to Histogrammer/
     samples: [v15_2022_postEE.yml]  # the samples the plots read: a copy of Configs/Plotter/samples/, unchanged;
                             # `plan` and `start` check that the production stage makes all of them
     variables: [m_vis, pt_1, pt_2]  # plot.py -V filters (glob patterns); []: all variables of plot.py

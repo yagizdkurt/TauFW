@@ -285,7 +285,7 @@ if __name__ == "__main__":
             sigSamples[sigSampleName] = utils.sampleHighPt(basefolder,args.era,"wjets",sigSampleName,
                                                            False)
 
-    fullpathout = os.getenv('CMSSW_BASE') + '/src/TauFW/Plotter/data/ff_HighPT/ff_'+args.wp+"_"+args.era+".root"
+    fullpathout = os.getenv('CMSSW_BASE') + '/src/TauFW/Histogrammer/data/ff_HighPT/ff_'+args.wp+"_"+args.era+".root"
     outputfile = TFile(fullpathout,'recreate')
 
     #   mode of measurement ->

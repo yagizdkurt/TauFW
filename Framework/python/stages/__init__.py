@@ -2,7 +2,7 @@
 """The stages of a pipeline. A recipe lists stages by name; STAGES maps each name to its class.
 
   production   NanoAOD -> pico tuples                    PicoProducer API, batch system (stepwise)
-  plots        pico tuples -> control plots              Plotter API (plot.py), local
+  plots        pico tuples -> control plots              Histogrammer API (fillhists.py), local
   histograms   pico tuples -> shapes of the TES+ID fit    Fitter API (createinputsTES.py), local
   fit          shapes -> fit results, correction files   Fitter API (run_workflow_zmm.sh steps), local
   python       a Python file of the analysis bundle      step_runner.py in its own process, local

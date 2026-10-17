@@ -15,7 +15,7 @@ import warnings
 
 REPO = Path(__file__).resolve().parent.parent
 ALLOWLIST = Path(__file__).with_name("import_boundary_allowlist.json")
-STAGES = ("PicoProducer", "Plotter", "Fitter")
+STAGES = ("PicoProducer", "Histogrammer", "Plotter", "Fitter")  # Histogrammer: the former Plotter (CL §24)
 PACKAGES = STAGES + ("Framework", "Utilities", "common")
 EXCLUDED = {"Legacy", "legacy", "LegacyAnalyses", "Tests", "__pycache__"}
 IMPLICIT_ROOTS = {"config", "plot", "sample"}
@@ -262,6 +262,20 @@ class DetectorTests(unittest.TestCase):
         self.assertEqual([item.module for item in found], ["TauFW.PicoProducer"])
         self.assertEqual(len(self.inspect("import TauFW.Plotter.api")[0]), 1)
         self.assertEqual(len(self.inspect("import TauFW.Plotter.api", "Utilities/example.py")[0]), 1)
+
+    def test_histogrammer_and_plotter_are_separate_stages(self):
+        """CL §24: the Histogrammer (the former Plotter) and the new Plotter never import each other; the Framework
+        may import the Histogrammer's API only; the Fitter takes histogram files, not the Histogrammer."""
+        found, _, _ = self.inspect("import TauFW.Histogrammer.sample.utils as _module",
+                                   "Plotter/python/sample/utils.py")
+        self.assertEqual([(item.module, item.target) for item in found],
+                         [("TauFW.Histogrammer.sample.utils", "Histogrammer")])
+        found, _, _ = self.inspect("from TauFW.Plotter.sample.utils import setera", "Histogrammer/fillhists.py")
+        self.assertEqual([item.target for item in found], ["Plotter"])
+        self.assertEqual(self.inspect("from TauFW.Histogrammer.api import ControlPlots", "Framework/x.py")[0], [])
+        self.assertEqual(len(self.inspect("from TauFW.Histogrammer.sample import model", "Framework/x.py")[0]), 1)
+        self.assertEqual([item.target for item in self.inspect("import TauFW.Histogrammer.spec.Variable")[0]],
+                         ["Histogrammer"])  # the Fitter (default importer) takes files, not the Histogrammer
 
     def test_implicit_and_local_modules(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -22,7 +22,7 @@ from ROOT import gDirectory, gROOT, gStyle, gPad, TH1, TH2, TH1D, TH2D, THStack,
 # ===== LEGACY, CLEAN UP LATER =====
 # Import side effects kept from the Plotter: batch mode for every importer, the repr of named ROOT objects (which the
 # old module got by importing TauFW.common.tools.root; verbose logs print it), and two methods added to ROOT's TGraph
-# (a draw option per graph). Unused helpers kept as they were: sumhists (broken, Plotter BUGS L03), ensurepoisson,
+# (a draw option per graph). Unused helpers kept as they were: sumhists (broken, Histogrammer BUGS L03), ensurepoisson,
 # getbinedges, havesamebins, reducehist2d.
 gROOT.SetBatch(True)
 from ROOT import TNamed
@@ -30,8 +30,8 @@ TNamed.__repr__ = lambda o: "<%s(%r,%r) at %s>"%(o.__class__.__name__,o.GetName(
 
 
 def _is_variable(obj):
-  """Whether obj is a variable object (like TauFW.Plotter.plot.Variable.Variable): the drawing library does not
-  import the Plotter, so a variable is recognized by its attributes."""
+  """Whether obj is a variable object (like TauFW.Histogrammer.spec.Variable.Variable): the drawing library does not
+  import the Histogrammer, so a variable is recognized by its attributes."""
   return hasattr(obj,'getedge') and hasattr(obj,'dividebins') and hasattr(obj,'binlabels')
 
 

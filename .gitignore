@@ -17,7 +17,7 @@ __init__.py
 !PicoProducer/python/**/__init__.py
 !Framework/python/**/__init__.py
 !Fitter/python/api/__init__.py
-!Plotter/python/api/__init__.py
+!Histogrammer/python/api/__init__.py
 !Legacy/**/__init__.py
 taufw_runs/
 */compare
@@ -30,6 +30,8 @@ PicoProducer/output
 PicoProducer/data/jsonpog
 Plotter/plots
 Plotter/tutorial/plots
+Histogrammer/plots
+Histogrammer/tutorial/plots
 Fitter/*/*plots*
 Fitter/*.log
 Fitter/output*

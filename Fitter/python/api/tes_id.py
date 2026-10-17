@@ -107,8 +107,8 @@ class TauESID:
 
     def preflight_shapes(self, request):
         """What is missing to make the shapes: CMSSW, ROOT, the tuple pattern's keys or else the PicoProducer
-        config, the config files, the sample model files (only that they exist: their content is the Plotter's,
-        which the Framework checks through the Plotter API)."""
+        config, the config files, the sample model files (only that they exist: their content is the Histogrammer's,
+        which the Framework checks through the Histogrammer API)."""
         problems = self._environment(root=True)
         source = None if request.tuples else self.pico_config_source(request)
         if request.tuples:
@@ -193,7 +193,7 @@ class TauESID:
         return self._path(config)
 
     def pico_config_source(self, request=None):
-        """The PicoProducer configuration that the scripts read $PICODIR from (through the Plotter samples): the
+        """The PicoProducer configuration that the scripts read $PICODIR from (through the Histogrammer samples): the
         request's, else the default."""
         if request is not None and request.pico_config:
             return request.pico_config

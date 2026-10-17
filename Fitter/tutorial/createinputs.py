@@ -3,7 +3,7 @@
 # Description: Create input histograms for datacards
 #   ./createinputs.py -c mutau -y UL2018
 import sys
-sys.path.append("../../Plotter/tutorial") # for config.samples
+sys.path.append("../../Histogrammer/tutorial") # for config.samples (Plotter/ until CL §24)
 from config.samples import *
 from TauFW.Utilities.Drawing import LOG as PLOG
 from TauFW.Fitter.plot.datacard import createinputs, plotinputs, preparesysts

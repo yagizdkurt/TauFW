@@ -277,8 +277,8 @@ joinweights("puweight", 1, "idweight")                 # "puweight*idweight"
 
 String helpers for the C++ expressions that `TTree::Draw` and RDataFrame `Filter`/`Define` accept. They know the
 syntax (`&&`, `||`, `*` between weights), not TauFW branch names; the helpers that do (`shift`, `shiftjme`,
-`invertcharge`) stay in `TauFW.Plotter.plot.string`. Moved verbatim from there in October 2026 (changelog section 21);
-the Plotter imports these names from here. ROOT is not imported. Warnings go through the drawing logger
+`invertcharge`) stay in `TauFW.Histogrammer.spec.string` (`TauFW.Plotter.plot.string` before changelog section 24).
+Moved verbatim from there in October 2026 (changelog section 21); the Histogrammer imports these names from here. ROOT is not imported. Warnings go through the drawing logger
 (`TauFW.Utilities.Drawing.LOG`), the same object as before.
 
 | Function | Result |
@@ -287,9 +287,9 @@ the Plotter imports these names from here. ROOT is not imported. Warnings go thr
 | `joinweights(*weights)` | Strings and numbers joined with `*`; `1` and empty values are dropped, `*/` becomes `/`. |
 | `replacepattern(string, patterns)` | Replaces `(old, new)` or `(old, new, regexp)` in a product of weights, then removes doubled or outer `*`. |
 | `cleanbool(string)` | Collapses doubled `&&`/`\|\|` to `&&` and strips outer `&&`. |
-| `getselstr(selection)` | `selection.selection` for a Plotter `Selection`, else the argument itself. |
+| `getselstr(selection)` | `selection.selection` for a Histogrammer `Selection`, else the argument itself. |
 
-Known latent bugs, kept as they were (Plotter [BUGS](../docs/Plotter/BUGS.md) L05-L07): `joinweights` with a weight
+Known latent bugs, kept as they were (Histogrammer [BUGS](../docs/Histogrammer/BUGS.md) L05-L07): `joinweights` with a weight
 `0` raises `TypeError` while formatting its warning; `replacepattern` with several patterns applies only the last;
 `joincuts` does not bracket a cut like `(x)||y`, so `&&` binds first.
 
@@ -326,10 +326,10 @@ Unlike the other Utilities packages, Drawing needs ROOT, and it keeps the old be
 importing it sets ROOT batch mode, replaces `TNamed.__repr__` (`<TH1D('name','title') at 0x...>` in logs), adds
 `SetOption`/`GetOption` to ROOT's `TGraph`, and importing `Plot` applies the
 TDR style to `gStyle`. `CMSStyle` and `SampleStyle` hold module-level state (the lumi text, the color tables), so
-import them only from here, never from a copy. `LOG` and `SampleStyle.LOG` are the same objects the Plotter uses
-(`TauFW.Plotter.plot.*` and `TauFW.Plotter.sample.utils` import them), so `LOG.verbosity = 2` in a script sets the
-verbosity of both. The library never imports the Plotter: a plot's variable is a string or any object with the
-attributes of the Plotter's `Variable` (`getedge`, `dividebins`, `binlabels`, ranges, titles). The old logger and five
+import them only from here, never from a copy. `LOG` and `SampleStyle.LOG` are the same objects the Histogrammer
+(the former Plotter) uses (`TauFW.Histogrammer.spec.*` and `TauFW.Histogrammer.sample.utils` import them), so
+`LOG.verbosity = 2` in a script sets the verbosity of both. The library never imports the Histogrammer or the Plotter:
+a plot's variable is a string or any object with the attributes of the Histogrammer's `Variable` (`getedge`, `dividebins`, `binlabels`, ranges, titles). The old logger and five
 small helpers are verbatim copies in `Drawing/_internal/` (Utilities does not import `TauFW.common`).
 
 ## Inventory and validation

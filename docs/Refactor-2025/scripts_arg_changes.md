@@ -21,7 +21,7 @@ the scripts. There are no links or copies.
   default the script behaves exactly as before, so the shell scripts (`run_inputs.sh`, `run_workflow_zmm.sh`) and
   standalone use do not change. When the option is given, the old derivation is not used at all.
 - These are refactorings, not bug fixes. The bugs they make harmless are referenced by ID
-  ([Fitter BUGS](../Fitter/BUGS.md), [Plotter BUGS](../Plotter/BUGS.md)); `# BUGS <ID>` comments mark only real fixes.
+  ([Fitter BUGS](../Fitter/BUGS.md), [Histogrammer BUGS](../Histogrammer/BUGS.md) (the former Plotter BUGS)); `# BUGS <ID>` comments mark only real fixes.
 
 ## New options
 
@@ -160,3 +160,21 @@ The channel setups moved from `Plotter/config/setup_<channel>.yml` to `Configs/P
 
 - Not kept: `-c config/setup_mutau.yml` (an explicit path to the old place) no longer exists. Use the channel name
   (`-c mutau`) or the new path. `Plotter/tutorial/` keeps its own `config/setup_mutau.yml`.
+
+## Plotter becomes Histogrammer (changelog §24, S1)
+
+The module directory `Plotter/` is now `Histogrammer/`; a new `Plotter/` keeps the old names working until the
+migration point (TODO §8). Options, defaults and outputs of every script are unchanged.
+
+| Before | Now | Old name |
+|---|---|---|
+| `python3 Plotter/plot.py ARGS` | `python3 Histogrammer/fillhists.py ARGS` (same options; `prog` in `-h` is `fillhists`) | `Plotter/plot.py` and `Histogrammer/plot.py` print the new command and exit with status 2 (nothing runs) |
+| `Plotter/plot_postfit.py`, `plot_postfit_shift.py`, `plot_v10.py`, `tutorial/plot.py` | the same names in `Histogrammer/` | none |
+| `TauFW.Plotter.sample.*`, `.plot.*`, `.methods.*` | `TauFW.Histogrammer.sample.*`, `.spec.*` (`MultiDraw`: `.sample.MultiDraw`), `.methods.*` | alias modules in `Plotter/python/` (same module objects) |
+| `TauFW.Plotter.api` | `TauFW.Histogrammer.api` | none (only the Framework used it) |
+| `sys.path.append(".../Plotter")` + `from config.samples* import *` | `.../Histogrammer` (the 6 Fitter `createinputs*.py` are updated) | none |
+| `Plotter/python/macros/*.C`, `Unroll.cxx`, `python/corrections/*.C` | `Histogrammer/python/...` (`Fitter/Zpt` updated) | none |
+| `$CMSSW_BASE/src/TauFW/Plotter/data/ff_HighPT/` (written and read by `Fitter/HighPT`) | `.../Histogrammer/data/ff_HighPT/` | none |
+| `docs/Plotter/BUGS.md` | `docs/Histogrammer/BUGS.md` (same IDs) | none |
+
+`Configs/Plotter/` (sample model templates, channel setups) stays until step S2.

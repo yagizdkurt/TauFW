@@ -32,7 +32,7 @@ make
 
 ## Unfolding 2D
 The script `measureZpt.py` can do unfolding for the reconstructed dimuon pT and mass distribution to generator-level Z pT and mass.
-It does so by "unrolling" the 2D histogram to a 1D one using the [`Unroll.cxx` macro](../../Plotter/python/macros/Unroll.cxx).
+It does so by "unrolling" the 2D histogram to a 1D one using the [`Unroll.cxx` macro](../../Histogrammer/python/macros/Unroll.cxx).
 
 
 ## Application

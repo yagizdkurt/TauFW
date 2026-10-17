@@ -37,8 +37,8 @@ def common_chunking(workspace):
 
 
 def plotter_context(workspace):
-    from TauFW.Plotter.plot.Selection import Selection
-    from TauFW.Plotter.plot.Variable import Variable
+    from TauFW.Histogrammer.spec.Selection import Selection
+    from TauFW.Histogrammer.spec.Variable import Variable
     result = []
     for cut in ("q_1*q_2<0 && dm_2==0", "q_1*q_2<0 && dm_2==10", "q_1*q_2<0 && pt_1>20"):
         selection = Selection("baseline", "Baseline", cut)
@@ -56,7 +56,7 @@ def plotter_context(workspace):
 
 def _samples(workspace):
     from support.fixtures import sample_files
-    from TauFW.Plotter.sample.utils import Sample, SampleSet, setera
+    from TauFW.Histogrammer.sample.utils import Sample, SampleSet, setera
     setera(2018, 1.0)
     files = sample_files(Path(workspace) / "inputs")
     data = Sample("Data", "Observed", str(files["Data"]), data=True)
@@ -74,7 +74,7 @@ def _histsets(result):
 
 
 def _sample_state(sample):
-    from TauFW.Plotter.sample.MergedSample import MergedSample
+    from TauFW.Histogrammer.sample.MergedSample import MergedSample
     # A plain Sample sets samples=[self]; only a MergedSample has real children.
     children = sample.samples if isinstance(sample, MergedSample) else []
     return {"name": sample.name, "norm": sample.norm, "scale": sample.scale,
@@ -84,8 +84,8 @@ def _sample_state(sample):
 
 
 def plotter_histograms(workspace):
-    from TauFW.Plotter.plot.Variable import Variable
-    from TauFW.Plotter.plot.Selection import Selection
+    from TauFW.Histogrammer.spec.Variable import Variable
+    from TauFW.Histogrammer.spec.Selection import Selection
     from BBB.snapshot import histogram_snapshot
     samples, files = _samples(workspace)
     variable = Variable("m_vis", [0, 20, 40, 60, 80, 100, 120, 160])
@@ -98,8 +98,8 @@ def plotter_histograms(workspace):
 
 
 def plotter_merge_split(workspace):
-    from TauFW.Plotter.plot.Variable import Variable
-    from TauFW.Plotter.plot.Selection import Selection
+    from TauFW.Histogrammer.spec.Variable import Variable
+    from TauFW.Histogrammer.spec.Selection import Selection
     samples, files = _samples(workspace)
     variables = [Variable("m_vis", 8, 0, 160)]
     selections = [Selection("baseline", "pt_1>20")]
@@ -112,9 +112,9 @@ def plotter_merge_split(workspace):
 
 
 def plotter_stitch(workspace):
-    from TauFW.Plotter.sample.utils import Sample, SampleSet, MergedSample
-    from TauFW.Plotter.plot.Variable import Variable
-    from TauFW.Plotter.plot.Selection import Selection
+    from TauFW.Histogrammer.sample.utils import Sample, SampleSet, MergedSample
+    from TauFW.Histogrammer.spec.Variable import Variable
+    from TauFW.Histogrammer.spec.Selection import Selection
     samples, files = _samples(workspace)
     stitched = SampleSet([Sample(name, name, str(files[name]), xsec, lumi=1.0, weight="weight")
                          for name, xsec in (("DYJetsToLL", 0.01), ("DY1JetsToLL", 0.005),
@@ -128,8 +128,8 @@ def plotter_stitch(workspace):
 
 
 def plotter_qcd(workspace):
-    from TauFW.Plotter.plot.Variable import Variable
-    from TauFW.Plotter.plot.Selection import Selection
+    from TauFW.Histogrammer.spec.Variable import Variable
+    from TauFW.Histogrammer.spec.Selection import Selection
     samples, files = _samples(workspace)
     result = samples.gethists([Variable("m_vis", 8, 0, 160)],
                              [Selection("os", "q_1*q_2<0 && pt_1>20")],
@@ -143,9 +143,9 @@ def plotter_qcd(workspace):
 def _stack_modules():
     """The code under test of plotter.stack. Only this function changes when the Plotter becomes the Histogrammer
     (LocalR/architecture/18, S1) and when the drawing moves to the histogram file (S3)."""
-    from TauFW.Plotter.sample.utils import Sample, SampleSet, setera
-    from TauFW.Plotter.plot.Variable import Variable
-    from TauFW.Plotter.plot.Selection import Selection
+    from TauFW.Histogrammer.sample.utils import Sample, SampleSet, setera
+    from TauFW.Histogrammer.spec.Variable import Variable
+    from TauFW.Histogrammer.spec.Selection import Selection
     return SimpleNamespace(Sample=Sample, SampleSet=SampleSet, setera=setera, Variable=Variable, Selection=Selection)
 
 
@@ -205,7 +205,7 @@ def plotter_unroll(workspace):
     from support.fixtures import rows
     from BBB.snapshot import histogram_snapshot
     # Workers start in the temporary TauFW root, which contains the current copied source.
-    macro = Path("Plotter/python/macros/Unroll.cxx").resolve()
+    macro = Path("Histogrammer/python/macros/Unroll.cxx").resolve()
     ROOT.gROOT.ProcessLine('.L %s+O' % macro.as_posix())
     if not hasattr(ROOT, "Unroll"):
         raise RuntimeError("Unroll macro failed to compile.")
@@ -471,8 +471,8 @@ def framework_production(workspace):
 
 def fitter_shapes(workspace):
     from TauFW.Fitter.plot.datacard import createinputs
-    from TauFW.Plotter.plot.Variable import Variable
-    from TauFW.Plotter.plot.Selection import Selection
+    from TauFW.Histogrammer.spec.Variable import Variable
+    from TauFW.Histogrammer.spec.Selection import Selection
     from BBB.snapshot import file_snapshot
     samples, files = _samples(workspace)
     outdir = Path(workspace) / "shapes"
@@ -507,15 +507,16 @@ def fitter_rebin(workspace):
 # ===== DRAWING (Plot, Stack, Ratio, Plot2D, CMSStyle, SampleStyle, histogram helpers, labels) =====
 
 _ADDRESS = re.compile(r"0x[0-9a-fA-F]+")
-_DRAWING_MODULE = re.compile(r"TauFW\.(?:Plotter\.(?:plot|sample)|Utilities\.Drawing)\.")
+# The old and the new module paths of the code (CL §24) normalise alike.
+_DRAWING_MODULE = re.compile(r"TauFW\.(?:Plotter\.(?:plot|sample)|Histogrammer\.(?:spec|sample)|Utilities\.Drawing)\.")
 
 
 def _sample_model_recorder():
-    """Tests/Plotter/sample_model/recorder.py (records the core calls of a sample-set function)."""
+    """Tests/Histogrammer/sample_model/recorder.py (records the core calls of a sample-set function)."""
     import importlib.util
     import sys
     if "sample_model_recorder" not in sys.modules:
-        path = Path(__file__).resolve().parents[1] / "Plotter" / "sample_model" / "recorder.py"
+        path = Path(__file__).resolve().parents[1] / "Histogrammer" / "sample_model" / "recorder.py"
         spec = importlib.util.spec_from_file_location("sample_model_recorder", str(path))
         module = importlib.util.module_from_spec(spec)
         sys.modules["sample_model_recorder"] = module
@@ -526,10 +527,10 @@ def _sample_model_recorder():
 def _sample_model_function(recorder):
     """The sample-set function under test and the core functions the recorder replaces. Only this function changed
     when the samples moved to Configs/Plotter/samples/: the case was locked with Plotter/config/samples_v15.py
-    (getsampleset, recorder.old_targets) and now runs TauFW.Plotter.sample.model.getsampleset with the templates."""
+    (getsampleset, recorder.old_targets) and now runs TauFW.Histogrammer.sample.model.getsampleset with them."""
     import importlib
-    utils = importlib.import_module("TauFW.Plotter.sample.utils")
-    from TauFW.Plotter.sample import model
+    utils = importlib.import_module("TauFW.Histogrammer.sample.utils")
+    from TauFW.Histogrammer.sample import model
     templates = sorted(str(path) for path in
                        (Path(__file__).resolve().parents[2] / "Configs" / "Plotter" / "samples").glob("v15_*.yml"))
     models = {}
@@ -562,7 +563,7 @@ def _drawing_modules():
     from TauFW.Utilities.Drawing.Plot import Plot
     from TauFW.Utilities.Drawing.Plot2D import Plot2D
     from TauFW.Utilities.Drawing.Stack import Stack
-    from TauFW.Plotter.plot.Variable import Variable
+    from TauFW.Histogrammer.spec.Variable import Variable
     return SimpleNamespace(CMSStyle=CMSStyle, hist_tools=hist_tools, labels=labels, SampleStyle=SampleStyle,
                            LOG=hist_tools.LOG, Plot=Plot, Plot2D=Plot2D, Stack=Stack, Variable=Variable)
 

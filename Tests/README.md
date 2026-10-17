@@ -68,10 +68,11 @@ python3 Tests/run.py all
 ```
 
 This runs the Utilities, Framework, Setup, processor compatibility, Fitter API and
-Plotter API unit tests (`Tests/Fitter/api`, `Tests/Plotter/api`: the commands of the
-Fitter and Plotter scripts, with a fake process runner), the sample model tests
-(`Tests/Plotter/sample_model`: the templates of `Configs/Plotter/samples/` make the same
-core calls as `Plotter/config/samples_v15.py`, no ROOT), the harness and ROOT serializer checks, every normal case, and `bbb check` in
+Histogrammer API unit tests (`Tests/Fitter/api`, `Tests/Histogrammer/api`: the commands of the
+Fitter and Histogrammer scripts, with a fake process runner), the sample model tests
+(`Tests/Histogrammer/sample_model`: the templates of `Configs/Plotter/samples/` make the same
+core calls as `Histogrammer/config/samples_v15.py`, no ROOT), the old Plotter names
+(`Tests/Histogrammer/compat`: every alias shim, changelog §24), the move check (`Tests/tools`), the harness and ROOT serializer checks, every normal case, and `bbb check` in
 quiet mode. Passing output is captured in logs; failures show their output tail
 and rerun command. Use `all --tail N` to change the tail length, or `all -v` for
 full output from every suite. Check logs are in
@@ -234,9 +235,9 @@ production transformations under test. Both the definition and generator are
 fingerprinted, so changing the fixtures invalidates the lock. Coverage includes:
 
 - Common table/loading-bar text, chunking, partitioning, and path/argument formatting.
-- Plotter selection/context metadata, weighted 1D/2D histograms, normalization,
+- Histogrammer (the former Plotter; the case names keep `plotter.`) selection/context metadata, weighted 1D/2D histograms, normalization,
   flow bins, merging, splitting, DY stitching, QCD OS/SS estimation, and C++ unrolling.
-- Plotter sample sets (`plotter.sample_model`): the core calls of `getsampleset` for
+- Histogrammer sample sets (`plotter.sample_model`): the core calls of `getsampleset` for
   every era, channel kind and caller option (recorded, no sample is built).
 - PicoProducer branch schema, defaults, aliases, fixed/variable arrays, 64-bit
   event IDs, cutflow, NanoAODTools selection/range bookkeeping, and synthetic SF lookup.
@@ -306,12 +307,12 @@ python Tests/check_import_boundaries.py DetectorTests -q
 `check_import_boundaries` is included in `checks`, `all`, and the catalog-driven
 testing menu. It uses only the Python standard library and runs on Windows with
 Python 3.9 or newer. It reads source with AST/tokenize; it never imports TauFW or
-ROOT. It scans PicoProducer, Plotter, Fitter, Framework, Utilities, and common,
+ROOT. It scans PicoProducer, Histogrammer, Plotter, Fitter, Framework, Utilities, and common,
 excluding `Legacy/`, `legacy/`, `LegacyAnalyses/`, and `Tests/`. Tau_Trigger_SF
 does not have a registered TauFW package layout in this checkout.
 
 Stages may import themselves and the libraries. Framework may import exactly
-`TauFW.PicoProducer.api`, `TauFW.Plotter.api`, and `TauFW.Fitter.api`; deeper
+`TauFW.PicoProducer.api`, `TauFW.Histogrammer.api`, `TauFW.Plotter.api`, and `TauFW.Fitter.api`; deeper
 Framework imports fail. Absolute `config.*`, `plot.*`, and `sample.*` stage
 imports fail when the complete module has no local match beside the source file.
 The report names the target stage when exactly one other stage contains a match.

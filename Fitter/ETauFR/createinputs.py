@@ -4,7 +4,7 @@
 #   ./createinputs.py -c mutau -y UL2017
 import sys
 from collections import OrderedDict
-sys.path.append("../../Plotter/") # for config.samples
+sys.path.append("../../Histogrammer/") # for config.samples (Plotter/ until CL §24)
 from config.samples_v12 import *
 from TauFW.Utilities.Drawing import LOG as PLOG
 from TauFW.Fitter.plot.datacard import createinputs, plotinputs, preparesysts

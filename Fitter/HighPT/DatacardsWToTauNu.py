@@ -372,7 +372,7 @@ if __name__ == "__main__":
     var = args.variable    
 
     # initializing instance of FF class    
-    fullpathFF = os.getenv('CMSSW_BASE') + '/src/TauFW/Plotter/data/ff_HighPT/ff_'+args.wp+"_"+args.era+".root"
+    fullpathFF = os.getenv('CMSSW_BASE') + '/src/TauFW/Histogrammer/data/ff_HighPT/ff_'+args.wp+"_"+args.era+".root"
     fakeFactor = utils.FakeFactorHighPt(fullpathFF)
 
     # initializing instance of TauNuCuts class

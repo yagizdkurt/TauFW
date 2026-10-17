@@ -53,11 +53,11 @@ FAQ = (
 
     ("Stages",
      "Production runs on the batch system through PicoProducer. Plots, "
-     "histograms and fit run the Plotter and Fitter scripts on this machine "
+     "histograms and fit run the Histogrammer and Fitter scripts on this machine "
      "and finish within one Continue, which can take hours for the fit. "
      "A stage that is not ready (no cmsenv, combine missing) stays NEW with "
      "the reason as its message; fix it and Continue. Logs are in the run "
-     "directory, one folder per stage. Outputs stay in Plotter/ and Fitter/."),
+     "directory, one folder per stage. Outputs stay in Histogrammer/ and Fitter/."),
 
     ("CLI equivalents", 
      "taufw.py plan RECIPE previews; taufw.py start RECIPE "

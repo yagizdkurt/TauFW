@@ -1,14 +1,14 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Checks of an output directory, and of the tuple pattern, before the scripts of a module API run.
 
-The TauFW Framework runs the Plotter and Fitter scripts in a stage's output directory
+The TauFW Framework runs the Histogrammer and Fitter scripts in a stage's output directory
 (<run_dir>/stages/<id>/). Before they start, the API checks:
   - the directory is empty: files left by an interrupted attempt would mix with the new ones (some scripts
     update ROOT files, others glob everything they find);
   - where the tuples are is absolute: the tuple pattern given to the scripts (--tuples), or else the picodir of the
     PicoProducer configuration; a relative one would be read relative to the output directory, not to where the
     tuples are.
-tuple_pattern_problems() checks a tuple pattern on its own: the scripts (Plotter's getsampleset) fill only some
+tuple_pattern_problems() checks a tuple pattern on its own: the scripts (the Histogrammer's getsampleset) fill only some
 $KEYS of it.
 """
 import json
@@ -18,7 +18,7 @@ import re
 
 __all__ = ["output_dir_problems", "tuple_pattern_problems", "TUPLE_PATTERN_KEYS"]
 
-TUPLE_PATTERN_KEYS = ('ERA', 'GROUP', 'SAMPLE', 'CHANNEL', 'TAG')  # what Plotter's getsampleset fills
+TUPLE_PATTERN_KEYS = ('ERA', 'GROUP', 'SAMPLE', 'CHANNEL', 'TAG')  # what the Histogrammer's getsampleset fills
 KEYEXP = re.compile(r"\$([A-Za-z_]\w*)")
 
 

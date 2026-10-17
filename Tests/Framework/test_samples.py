@@ -9,8 +9,8 @@ import unittest
 import checkout
 import fakes
 from TauFW.Framework import Framework, RecipeError, check_recipe
-from TauFW.Plotter.api import ControlPlots
-from TauFW.Plotter.sample.model import pick
+from TauFW.Histogrammer.api import ControlPlots
+from TauFW.Histogrammer.sample.model import pick
 
 TEMPLATES = checkout.REPO / "Configs" / "Plotter" / "samples"
 PRODUCTION = {"stage": "production", "id": "production", "inputs": None, "eras": [2025], "channels": ["mutau"]}
@@ -48,7 +48,7 @@ class SamplesTestCase(unittest.TestCase):
         return self.bundle
 
     def framework(self, made_samples, *stages):
-        plotter = ControlPlots(basedir=str(checkout.REPO / "Plotter"), find_module=lambda name: True)
+        plotter = ControlPlots(basedir=str(checkout.REPO / "Histogrammer"), find_module=lambda name: True)
         return Framework.from_recipe(self.write_recipe(*stages), pico=Pico(made_samples), plotter=plotter)
 
 

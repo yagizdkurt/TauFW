@@ -1,9 +1,12 @@
 # TauFW
 
-Framework for tau analysis using NanoAOD at CMS. Three main packages are
+Framework for tau analysis using NanoAOD at CMS. The main packages are
 1. [`PicoProducer`](PicoProducer): Tools to process nanoAOD and make custom analysis ntuples.
-2. [`Plotter`](Plotter): Tools for further analysis, auxiliary measurements, validation and plotting.
-3. [`Fitter`](Fitter): Tools for measurements and fits in combine. [Under development.]
+2. [`Histogrammer`](Histogrammer): Histograms from the ntuples (samples, normalisation, selections, QCD estimate) and
+   the control plots; called `Plotter` until October 2026.
+3. [`Plotter`](Plotter): Being rebuilt as a small package that only draws plots from histogram files; today it keeps
+   the old `Plotter` names working.
+4. [`Fitter`](Fitter): Tools for measurements and fits in combine. [Under development.]
 
 The [`Framework`](Framework) package runs these steps as one pipeline from a recipe file, see
 [Running a pipeline](#running-a-pipeline).

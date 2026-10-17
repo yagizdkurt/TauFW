@@ -12,7 +12,7 @@ from TauFW.Framework import check_recipe
 from TauFW.Framework.configs import (scan, lock_changes, update, copy_warnings, read_header, content_hash,
                                      ConfigError, LOCK_NAME)
 from TauFW.Framework.defaults import CONFIGS_DIR
-from TauFW.Plotter.sample.model import load_sample_model
+from TauFW.Histogrammer.sample.model import load_sample_model
 
 STEP = {"stage": "python", "id": "check", "inputs": None, "file": "steps/check.py"}
 
@@ -20,7 +20,7 @@ STEP = {"stage": "python", "id": "check", "inputs": None, "file": "steps/check.p
 # file. Every template of Configs/ must have one (RepositoryConfigsTests); add the module's reader with its first
 # template.
 READERS = {
-    'plotter.samples_': lambda path: load_sample_model(path),  # Configs/Plotter/samples/ (TauFW.Plotter.sample.model)
+    'plotter.samples_': lambda path: load_sample_model(path),  # Configs/Plotter/samples/ (TauFW.Histogrammer.sample.model)
     'plotter.setup_': lambda path: read_setup(path),           # Configs/Plotter/setups/ (plot.py: yaml.safe_load)
 }
 

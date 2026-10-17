@@ -1,13 +1,14 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-"""Plots stage: data/MC control plots of the pico tuples, through the Plotter API (Plotter/plot.py).
+"""Plots stage: data/MC control plots of the pico tuples, through the Histogrammer API (Histogrammer/fillhists.py, the
+former Plotter/plot.py; CL §24).
 
-    inputs:   tuples: pico tuples, given to plot.py as --tuples <pattern>: those of the production stage the slot
-              names (the pattern on its artifacts), or {external: <pattern>}; with null (old recipes) plot.py reads
+    inputs:   tuples: pico tuples, given to the script as --tuples <pattern>: those of the production stage the slot
+              names (the pattern on its artifacts), or {external: <pattern>}; with null (old recipes) the script reads
               $PICODIR of the run's PicoProducer config (passed as $TAUFW_PICO_CONFIG)
-    options:  PlotSpec (eras, channel setups (bundle files or Plotter's), variable and selection filters, plot.py
+    options:  PlotSpec (eras, channel setups (bundle files or the Histogrammer's), variable and selection filters, script
               options)
     outputs:  one plots artifact per channel setup and era: {kind: 'plots', era, config, channel, directory,
-              nfiles}; plot.py runs in the stage's directory, so the plots are in <run_dir>/stages/<id>/plots/<era>/
+              nfiles}; the script runs in the stage's directory, so the plots are in <run_dir>/stages/<id>/plots/<era>/
 
 The stage runs locally and finishes in one advance() call (see stages/local.py). It comes right after production,
 so the tuples can be checked by eye before the long histogram and fit stages.
@@ -29,8 +30,8 @@ __all__ = ['PlotStage', 'PlotSpec']
 
 
 class PlotStage(LocalStage):
-    """Control plots with the Plotter API.
-    plotter: a TauFW.Plotter.api.ControlPlots, or any object with the same methods (tests pass a fake one)."""
+    """Control plots with the Histogrammer API.
+    plotter: a TauFW.Histogrammer.api.ControlPlots, or any object with the same methods (tests pass a fake one)."""
     name = 'plots'
     inputs = {'tuples': 'tuples'}
     null_inputs = {'tuples': "the tuples in $PICODIR of the run's PicoProducer config"}
@@ -62,9 +63,9 @@ class PlotStage(LocalStage):
 
 @dataclass(frozen=True)
 class PlotSpec:
-    """Recipe options: eras, channel setups (bundle files, .yml files relative to Plotter/, or a channel name for
+    """Recipe options: eras, channel setups (bundle files, .yml files relative to Histogrammer/, or a channel name for
     Configs/Plotter/setups/setup_<channel>.yml), the
-    plot.py filters -V (variables) and -S (selections), and its flags."""
+    script's filters -V (variables) and -S (selections), and its flags."""
     eras:       Tuple[str, ...]
     configs:    Tuple[str, ...] = ('mutau',)
     variables:  Tuple[str, ...] = ()
@@ -75,9 +76,9 @@ class PlotSpec:
     notauidsf:  bool = False
     tag:        str = ""
     text:       str = ""
-    timeout:    Optional[float] = None   # seconds per plot.py run; None: no limit
+    timeout:    Optional[float] = None   # seconds per script run; None: no limit
     samples:    Tuple[str, ...] = ()     # sample model files (bundle copies of Configs/Plotter/samples/), one per
-                                         # era; empty: the tables of Plotter/config/samples_v15.py
+                                         # era; empty: the tables of Histogrammer/config/samples_v15.py
 
     def __post_init__(self):
         for name in ('eras', 'configs', 'variables', 'selections', 'samples'):
@@ -88,7 +89,7 @@ class PlotSpec:
             raise ValueError("configs must not be empty")
 
     def request_dict(self):
-        """The options as the Plotter PlotsRequest fields (saved in run.json)."""
+        """The options as the Histogrammer PlotsRequest fields (saved in run.json)."""
         return spec_to_dict(self)
 
 

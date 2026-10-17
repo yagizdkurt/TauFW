@@ -21,7 +21,7 @@ Pipeline map:
     stage order: the order of the recipe, e.g. production ─▶ plots ─▶ histograms ─▶ fit (a recipe may leave stages
                  out, and repeat any stage but production); python steps (a Python file of the bundle) too.
                  production runs on the batch system (PicoProducer API); plots, histograms and fit run their
-                 module's scripts locally (Plotter and Fitter APIs), python steps run step_runner.py; these
+                 module's scripts locally (Histogrammer and Fitter APIs), python steps run step_runner.py; these
                  finish inside one advance() call.
     run model:   stepwise. start() and advance() move the run as far as they can (until a stage waits for the
                  batch system, fails, is not ready or is not implemented), save run.json and return.
@@ -372,7 +372,7 @@ class Framework:
         pico:    the PicoProducer to use (default: one built from the recipe's pico.config, reporting through the
                  Framework's reporter).
         fitter:  the Fitter API of the histograms and fit stages (default: TauFW.Fitter.api.TauESID()).
-        plotter: the Plotter API of the plots stage (default: TauFW.Plotter.api.ControlPlots()).
+        plotter: the API of the plots stage (default: TauFW.Histogrammer.api.ControlPlots(); CL §24).
         runner:  the ProcessRunner of the python steps (default: new).
         Only the APIs of the stages in the recipe are built. Only reads files."""
         if isinstance(recipe, str):
@@ -557,6 +557,7 @@ def _fitter():
 
 
 def _plotter():
-    """The Plotter API of the plots stage (imported only here; it does not import ROOT)."""
-    from TauFW.Plotter.api import ControlPlots
+    """The API of the plots stage: the Histogrammer's ControlPlots (the former Plotter API, CL §24; imported only
+    here; it does not import ROOT)."""
+    from TauFW.Histogrammer.api import ControlPlots
     return ControlPlots()

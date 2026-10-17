@@ -1,7 +1,7 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Local stages: stages that run their module's scripts on this machine and finish in one advance() call.
 
-The plots, histograms, fit and python stages all work the same way. Their module API (Plotter, Fitter; the step
+The plots, histograms, fit and python stages all work the same way. Their module API (Histogrammer, Fitter; the step
 runner for python) turns a request into a list of commands, runs them one after the other and reports what they
 made. This base class does the part that is the same for all of them:
 
@@ -54,7 +54,7 @@ LOG_TAIL = 20  # lines of the failed command's log shown in the terminal
 
 class LocalStage(Stage):
     """Base class of the stages that run scripts locally; see the module docstring.
-    api: the module API object (a Fitter TauESID or a Plotter ControlPlots, or a fake one in the tests)."""
+    api: the module API object (a Fitter TauESID or a Histogrammer ControlPlots, or a fake one in the tests)."""
 
     # =========================================================================
     # =============================== PIPELINES ===============================
@@ -119,7 +119,7 @@ class LocalStage(Stage):
 
     def requested_samples(self, spec, context):
         """(era, channel, MC sample names, data pattern) the stage reads, from its `samples` option (sample model
-        files, read through the Plotter API `samples_api`); [] without the option (the module's own tables)."""
+        files, read through the Histogrammer API `samples_api`); [] without the option (the module's own tables)."""
         files = getattr(spec, 'samples', ())
         if not files or not hasattr(self.samples_api, 'sample_names'):
             return []
@@ -221,8 +221,8 @@ class LocalStage(Stage):
 
     def __init__(self, api, samples_api=None):
         """api: the module API object (None for a stage without one, e.g. python).
-        samples_api: what reads the sample model files of the `samples` option (a Plotter ControlPlots: the format
-        is the Plotter's); None: the stage's own api."""
+        samples_api: what reads the sample model files of the `samples` option (a Histogrammer ControlPlots: the
+        format is the Histogrammer's); None: the stage's own api."""
         self.api = api
         self.samples_api = samples_api or api
 

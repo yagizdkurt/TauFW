@@ -42,7 +42,7 @@ stages:
     # Fix: inputs: {tuples: production}, referring to the earlier stage above.
     inputs: {tuples: prodution}
     eras: [2022_postEE]
-    configs: [mutau]               # A supported Plotter channel shortcut.
+    configs: [mutau]               # A supported channel shortcut (Configs/Plotter/setups/).
     variables: [m_vis]
 
   - stage: python

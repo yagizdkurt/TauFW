@@ -717,7 +717,7 @@ verify_install() {
     if [[ -n $warning ]]; then warn "$warning"; fi
   done <<< "$environment_warnings"
   log 'Checking TauFW and the selected tools'
-  verify_python_modules "$repo_dir" TauFW.PicoProducer TauFW.Plotter TauFW.Fitter \
+  verify_python_modules "$repo_dir" TauFW.PicoProducer TauFW.Histogrammer TauFW.Plotter TauFW.Fitter \
     TauFW.Utilities TauFW.Framework:Framework
   local nano_root
   if $run2_jme; then

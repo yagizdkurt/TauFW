@@ -10,7 +10,7 @@ from TauFW.Utilities.Drawing.labels import makelatex
 from ROOT import TColor, kBlack, kWhite, kGray, kAzure, kBlue, kCyan,\
                  kGreen, kSpring, kTeal, kYellow,\
                  kOrange, kRed, kPink, kMagenta, kViolet
-LOG = _Logger('Sample') # the Plotter's sample logger: TauFW.Plotter.sample.utils.LOG is this object
+LOG = _Logger('Sample') # the Histogrammer's sample logger: TauFW.Histogrammer.sample.utils.LOG is this object
 
 sample_titles = {
   'DY':         "Drell-Yan", # Z + jets

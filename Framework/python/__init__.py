@@ -18,7 +18,7 @@ Public API:
   check_recipe, RecipeCheck                     every problem of a recipe file, files included (validation.py)
   RunRecord, RunState, StageRecord              run.json (run_record.py)
   StageState, StageOutcome, STAGES              the stage contract (stages/); plots, histograms and fit call
-                                                the Plotter and Fitter APIs (TauFW.Plotter.api, TauFW.Fitter.api)
+                                                the Histogrammer and Fitter APIs (TauFW.Histogrammer.api, TauFW.Fitter.api)
   Reporter, FrameworkReporter, SilentReporter,  reporting (reporting.py); EventReporter also writes events for
   EventReporter                                 the menu's screens
 """

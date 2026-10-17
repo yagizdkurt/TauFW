@@ -2,7 +2,7 @@
 # Copied to Utilities by Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """The logger of the drawing code: a verbatim copy of TauFW.common.tools.log (color, underline, header, Logger).
 
-Utilities must not import TauFW.common, but the drawing code (and the Plotter, which shares its LOG objects) must
+Utilities must not import TauFW.common, but the drawing code (and the Histogrammer, which shares its LOG objects) must
 print exactly what it printed before, so the old logger is kept here unchanged. Only `long` (past.builtins, the same
 as int on Python 3) is gone from Logger.getverbosity.
 """

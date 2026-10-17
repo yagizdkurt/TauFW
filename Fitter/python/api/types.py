@@ -45,7 +45,7 @@ class ShapesRequest:
     scripts read $PICODIR from without tuples (None: its default).
     outdir: the directory the scripts run in and write input_pt_less_region/ to (None: Fitter/).
     samples: sample model files, one per era (Configs/Plotter/samples/v15_<era>.yml or a copy), given to
-    createinputsTES.py as --samples; empty: the tables of Plotter/config/samples_v15.py."""
+    createinputsTES.py as --samples; empty: the tables of Histogrammer/config/samples_v15.py."""
     eras:    Tuple[str, ...]
     configs: Tuple[str, ...]
     jet_wps: Tuple[str, ...]

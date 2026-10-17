@@ -11,8 +11,9 @@ bundle ─▶ plan() ─▶ start() ─▶ advance() ─▶ … ─▶ advance()
           RunPlan   RunRecord     RunRecord (run.json, saved after every stage step)
 
 stages:   production ──────▶ plots ─────────▶ histograms ──────▶ fit
-          PicoProducer API   Plotter API       Fitter API         Fitter API
-          batch, stepwise    plot.py, local    createinputsTES    run_workflow_zmm.sh steps, local
+          PicoProducer API   Histogrammer API  Fitter API         Fitter API
+          batch, stepwise    fillhists.py,     createinputsTES    run_workflow_zmm.sh steps, local
+                             local
           python steps (a Python file of the bundle, step_runner.py, local) may be anywhere in between
 ```
 
@@ -57,7 +58,7 @@ The words below are used everywhere in the code and in this README.
 3. `python/framework.py`: `start` → `advance` → `_advance_stages`, the loop that drives the stages.
 4. `python/stages/production.py`: the batch stage; `decide_next` holds its policy.
 5. `python/stages/local.py`: the local stages (preflight, run the commands, DONE or FAILED); `plots.py`,
-   `histograms.py` and `fit.py` only map their options to the Plotter and Fitter APIs; `python_step.py` runs a
+   `histograms.py` and `fit.py` only map their options to the Histogrammer and Fitter APIs; `python_step.py` runs a
    bundle's Python file through `step_runner.py`.
 6. `python/recipe.py` and `python/validation.py`: what a valid recipe is, and the checks of the files it names.
 7. `python/bundle.py`: the path rule (bundle file or module config) and the run's bundle copy.
@@ -281,7 +282,7 @@ of the stage) and in the reader's manifest.
 | `python/validation.py` | `check_recipe`, `RecipeCheck`: everything `recipe.py` checks plus the files a recipe names (and the stage directories of `{path}` inputs, `read_source`), without raising (`taufw.py check`, the menu) |
 | `python/manifest.py` | `write_manifest`, `read_stage_dir`, `StageDir`, `ManifestError`: the stage manifests (format 2) |
 | `python/bundle.py` | the path rule (bundle file, module config, absolute), the run's bundle copy, new bundles (`taufw.py init`) |
-| `python/samples.py` | `sample_issues`: before a run, the samples a production stage makes (PicoProducer's catalogs) vs those its readers' `samples` files ask for (Plotter API); `plan` lists, `start` refuses the problems |
+| `python/samples.py` | `sample_issues`: before a run, the samples a production stage makes (PicoProducer's catalogs) vs those its readers' `samples` files ask for (Histogrammer API); `plan` lists, `start` refuses the problems |
 | `python/configs.py` | the config templates of `Configs/`: headers (`taufw_config`: id, version, schema), `configs.lock`, `update` (`taufw.py configs update`), the warnings for old copies in a bundle |
 | `python/step_runner.py` | runs a python step in its own process (standard library only): `context.json` → `run(ctx)` → `result.json` |
 | `python/run_record.py` | `RunRecord`, `RunState`, `StageRecord`: `run.json`, crash-safe save |
@@ -299,8 +300,9 @@ The analyses live outside this package, in `Analyses/` at the repository root: `
 usage reference), `Analyses/example_mutau_short/` (a small production), `Analyses/example_mutau_long/` (a full production with data, then control plots) and `Analyses/tes_id_2025/` (the TES +
 tau ID fit on existing tuples: plots, histograms, fit, and a Python summary step).
 
-Dependencies point one way: `Framework → PicoProducer.api, Plotter.api, Fitter.api`. No other package imports the
-Framework. The Framework imports each API only when its stage is built, and the Plotter and Fitter APIs never import
+Dependencies point one way: `Framework → PicoProducer.api, Histogrammer.api, Fitter.api` (the
+Histogrammer is the former Plotter, changelog §24). No other package imports the
+Framework. The Framework imports each API only when its stage is built, and the Histogrammer and Fitter APIs never import
 ROOT (they run the scripts as separate processes, through `TauFW.Utilities.Process`), so recipes, run records and the
 stage logic can be tested without ROOT.
 
@@ -311,12 +313,12 @@ BBB check/lock also default to quiet output; see the [test runner instructions](
 
 - `python -m unittest discover -s Tests/Framework` (any Python 3.9+, no ROOT): the state machine with a fake
   PicoProducer (submit, wait, resubmit until `max_tries`, merge, not-implemented stages, errors), `decide_next`,
-  `run.json` round trip and crash-safe save, recipe validation, and `taufw.py`; the local stages with fake Plotter
-  and Fitter APIs (`test_stages.py`: the whole pipeline, repeated stages, preflight, failures, fit points, planned
+  `run.json` round trip and crash-safe save, recipe validation, and `taufw.py`; the local stages with fake
+  Histogrammer and Fitter APIs (`test_stages.py`: the whole pipeline, repeated stages, preflight, failures, fit points, planned
   artifacts, inputs from another run); bundles (`test_bundle.py`: the path rule, stage ids, `{path}` inputs, the
   run's bundle copy, `taufw.py init`); manifests (`test_manifest.py`); recipe checks with files
   (`test_validation.py`); python steps (`test_python_step.py`: real step files run by `step_runner.py`).
-- `Tests/Fitter/api`, `Tests/Plotter/api`: the commands of the APIs equal those of `run_inputs.sh`,
-  `run_workflow_zmm.sh` and `plot.py`, and outputs are checked (fake process runner, no ROOT).
+- `Tests/Fitter/api`, `Tests/Histogrammer/api`: the commands of the APIs equal those of `run_inputs.sh`,
+  `run_workflow_zmm.sh` and `fillhists.py`, and outputs are checked (fake process runner, no ROOT).
 - BBB case `framework.production` (lxplus): `taufw.py plan/start/advance/status` against the fake HTCondor of the
   PicoProducer BBB harness, with a resubmission and a merge; snapshots the normalized `run.json` and the merged tuples.

@@ -157,8 +157,8 @@ def execute_scripts(cases, extra_args, quiet=True, tail_lines=80, log_kind="norm
 def check_cases(quiet=True):
     """Standalone checks keep their own unittest -q/-v flags, separate from the harness CLI."""
     cases = []
-    for directory in ("Utilities", "Framework", "Setup", "PicoProducer/compat", "Fitter/api", "Plotter/api",
-                      "Plotter/sample_model", "tools"):
+    for directory in ("Utilities", "Framework", "Setup", "PicoProducer/compat", "Fitter/api", "Histogrammer/api",
+                      "Histogrammer/sample_model", "Histogrammer/compat", "tools"):
         path = "Tests/" + directory
         command = ["-m", "unittest", "discover", "-s", path, "-p", "test_*.py", "-q" if quiet else "-v"]
         cases.append({"id": "unit." + directory.replace("/", ".").lower(),

@@ -15,7 +15,7 @@ The path options of a stage (the fields named in its Spec's `_paths`) and `pico.
     absolute path                       ─▶ used as is                                        'absolute'
     relative, a file in the bundle      ─▶ that file of the bundle (not above it: ../x)      'bundle'
     relative, not in the bundle         ─▶ unchanged: the module resolves it, as before       'module'
-                                           (Fitter/ or Plotter/; a Plotter channel name such as mutau)
+                                           (Fitter/ or Histogrammer/; a channel name such as mutau)
 
 When a run starts, the bundle is copied to <run_dir>/bundle/ (same relative paths), and the run reads it from
 there: like the recipe, a run never sees later edits. A bundle (a directory with recipe.yml) is copied whole, so a

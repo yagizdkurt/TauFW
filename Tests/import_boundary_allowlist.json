@@ -9,13 +9,13 @@
     {
       "file": "Fitter/ETauFR/createinputs.py",
       "module": "config.samples_v12",
-      "reason": "Histogram-input script implicitly loads Plotter/config via the configured path.",
+      "reason": "Histogram-input script implicitly loads Histogrammer/config (Plotter/config until CL 24) via the configured path.",
       "roadmap_step": "4"
     },
     {
       "file": "Fitter/HighPT/createinputs.py",
       "module": "config.samples_HighPT",
-      "reason": "Histogram-input script implicitly loads Plotter/config via the configured path.",
+      "reason": "Histogram-input script implicitly loads Histogrammer/config (Plotter/config until CL 24) via the configured path.",
       "roadmap_step": "4"
     },
     {
@@ -27,13 +27,13 @@
     {
       "file": "Fitter/MuTauFR/createinputs.py",
       "module": "config.samples",
-      "reason": "Histogram-input script implicitly loads Plotter/config via the configured path.",
+      "reason": "Histogram-input script implicitly loads Histogrammer/config (Plotter/config until CL 24) via the configured path.",
       "roadmap_step": "4"
     },
     {
       "file": "Fitter/TauES/createinputsTES.py",
       "module": "config.samples_v15",
-      "reason": "Histogram-input script implicitly loads Plotter/config via the configured path.",
+      "reason": "Histogram-input script implicitly loads Histogrammer/config (Plotter/config until CL 24) via the configured path.",
       "roadmap_step": "4"
     },
     {
@@ -57,7 +57,7 @@
     {
       "file": "Fitter/paper/createinputs.py",
       "module": "config.samples",
-      "reason": "Histogram-input script implicitly loads Plotter/config via the configured path.",
+      "reason": "Histogram-input script implicitly loads Histogrammer/config (Plotter/config until CL 24) via the configured path.",
       "roadmap_step": "4"
     },
     {
@@ -75,7 +75,7 @@
     {
       "file": "Fitter/tutorial/createinputs.py",
       "module": "config.samples",
-      "reason": "Histogram-input script implicitly loads Plotter/config via the configured path.",
+      "reason": "Histogram-input script implicitly loads Histogrammer/config (Plotter/config until CL 24) via the configured path.",
       "roadmap_step": "4"
     },
     {
@@ -85,10 +85,88 @@
       "roadmap_step": "4"
     },
     {
-      "file": "Plotter/python/sample/utils.py",
+      "file": "Histogrammer/python/sample/utils.py",
       "module": "TauFW.PicoProducer.settings",
-      "reason": "Sample helpers read PicoProducer configuration to locate tuples (A03).",
+      "reason": "Sample helpers read PicoProducer configuration to locate tuples (A03); the Plotter module became the Histogrammer (CL 24).",
       "roadmap_step": "3"
+    },
+    {
+      "file": "Plotter/python/methods/QCD_OSSS.py",
+      "module": "TauFW.Histogrammer.methods.QCD_OSSS",
+      "reason": "Backward-compatibility alias of the old Plotter module name (CL 24); the clean Plotter imports no stage.",
+      "roadmap_step": "migration point (TODO section 8)"
+    },
+    {
+      "file": "Plotter/python/plot/Context.py",
+      "module": "TauFW.Histogrammer.spec.Context",
+      "reason": "Backward-compatibility alias of the old Plotter module name (CL 24); the clean Plotter imports no stage.",
+      "roadmap_step": "migration point (TODO section 8)"
+    },
+    {
+      "file": "Plotter/python/plot/MultiDraw.py",
+      "module": "TauFW.Histogrammer.sample.MultiDraw",
+      "reason": "Backward-compatibility alias of the old Plotter module name (CL 24); the clean Plotter imports no stage.",
+      "roadmap_step": "migration point (TODO section 8)"
+    },
+    {
+      "file": "Plotter/python/plot/Selection.py",
+      "module": "TauFW.Histogrammer.spec.Selection",
+      "reason": "Backward-compatibility alias of the old Plotter module name (CL 24); the clean Plotter imports no stage.",
+      "roadmap_step": "migration point (TODO section 8)"
+    },
+    {
+      "file": "Plotter/python/plot/Variable.py",
+      "module": "TauFW.Histogrammer.spec.Variable",
+      "reason": "Backward-compatibility alias of the old Plotter module name (CL 24); the clean Plotter imports no stage.",
+      "roadmap_step": "migration point (TODO section 8)"
+    },
+    {
+      "file": "Plotter/python/plot/string.py",
+      "module": "TauFW.Histogrammer.spec.string",
+      "reason": "Backward-compatibility alias of the old Plotter module name (CL 24); the clean Plotter imports no stage.",
+      "roadmap_step": "migration point (TODO section 8)"
+    },
+    {
+      "file": "Plotter/python/sample/HistSet.py",
+      "module": "TauFW.Histogrammer.sample.HistSet",
+      "reason": "Backward-compatibility alias of the old Plotter module name (CL 24); the clean Plotter imports no stage.",
+      "roadmap_step": "migration point (TODO section 8)"
+    },
+    {
+      "file": "Plotter/python/sample/MergedSample.py",
+      "module": "TauFW.Histogrammer.sample.MergedSample",
+      "reason": "Backward-compatibility alias of the old Plotter module name (CL 24); the clean Plotter imports no stage.",
+      "roadmap_step": "migration point (TODO section 8)"
+    },
+    {
+      "file": "Plotter/python/sample/ResultDict.py",
+      "module": "TauFW.Histogrammer.sample.ResultDict",
+      "reason": "Backward-compatibility alias of the old Plotter module name (CL 24); the clean Plotter imports no stage.",
+      "roadmap_step": "migration point (TODO section 8)"
+    },
+    {
+      "file": "Plotter/python/sample/Sample.py",
+      "module": "TauFW.Histogrammer.sample.Sample",
+      "reason": "Backward-compatibility alias of the old Plotter module name (CL 24); the clean Plotter imports no stage.",
+      "roadmap_step": "migration point (TODO section 8)"
+    },
+    {
+      "file": "Plotter/python/sample/SampleSet.py",
+      "module": "TauFW.Histogrammer.sample.SampleSet",
+      "reason": "Backward-compatibility alias of the old Plotter module name (CL 24); the clean Plotter imports no stage.",
+      "roadmap_step": "migration point (TODO section 8)"
+    },
+    {
+      "file": "Plotter/python/sample/model.py",
+      "module": "TauFW.Histogrammer.sample.model",
+      "reason": "Backward-compatibility alias of the old Plotter module name (CL 24); the clean Plotter imports no stage.",
+      "roadmap_step": "migration point (TODO section 8)"
+    },
+    {
+      "file": "Plotter/python/sample/utils.py",
+      "module": "TauFW.Histogrammer.sample.utils",
+      "reason": "Backward-compatibility alias of the old Plotter module name (CL 24); the clean Plotter imports no stage.",
+      "roadmap_step": "migration point (TODO section 8)"
     }
   ],
   "unparseable": [

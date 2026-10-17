@@ -422,7 +422,7 @@ PicoProducer, Plotter and Fitter commands.
 ## 10. Framework: plots, histograms and fit stages (Part G)
 
 **Date:** 2026-10-13
-**Details:** [Framework](../../Framework/README.md), [Fitter bugs](../Fitter/BUGS.md), [Plotter bugs](../Plotter/BUGS.md)
+**Details:** [Framework](../../Framework/README.md), [Fitter bugs](../Fitter/BUGS.md), [Plotter bugs](../Histogrammer/BUGS.md)
 
 Connected control plots and the combined TES+TauID workflow through public APIs wrapping existing scripts.
 Later internal cleanup can preserve these APIs without changing Framework.
@@ -682,7 +682,7 @@ Callers updated: `Fitter/python/plot/datacard.py:15` (`from TauFW.Utilities.Expr
 `Utilities/IOInventory.md`: the `string.py` row (regenerated before and after in a scratch copy, the one changed row
 replaced in the hand-edited file). `Utilities/README.md`: new section "ROOT selection and weight expressions".
 
-Three latent bugs are registered, not fixed: [Plotter BUGS](../Plotter/BUGS.md)
+Three latent bugs are registered, not fixed: [Plotter BUGS](../Histogrammer/BUGS.md)
 L05 (`joinweights` with a weight `0` raises `TypeError`), L06 (`replacepattern` applies only the last of several
 patterns), L07 (`joincuts` does not bracket `(x)||y`).
 
@@ -1250,8 +1250,12 @@ events yet; the run screens come next. The terminal output and `run.log` do not 
 
 ## 22. Sample lists as data: the sample model
 
-**Date:** 2026-10-17 (S0-S5 on Windows; BBB `plotter.sample_model` locked on lxplus with the old code; the lxplus
-checks of S6 are in TODO §1). Plan: LocalR/architecture/14.
+**Date:** 2026-10-17 (S0-S5 on Windows; BBB `plotter.sample_model` locked on lxplus with the old code). **Verified
+on lxplus 2026-10-17:** `bbb check` 21/21 and `Tests/run.py checks` after the switch; a plots + histograms run of
+`tes_id_2025` with `samples:` against the same stages without it (57 PNG byte-identical; shapes equal up to the
+multithreaded RDataFrame noise, `data_obs` bit-identical); S7 (`plot.py -c mutau` with the setups in `Configs/`,
+`init --from`); `plan` of `example_mutau_long` (25 samples). Details in TODO §1. (This is the second §22: the menu
+events section above has the same number.) Plan: LocalR/architecture/14.
 
 The recipe must say which samples an analysis reads; until now `Plotter/config/samples_v15.py` decided it out of
 sight (the MC table with cross sections, the data datasets, the MC weights, stitching, joining and splitting, per
@@ -1488,3 +1492,55 @@ data change:** the filling code is moved, not edited, and every step is proven b
 - Windows: `python Tests/run.py checks`: `unit.tools` passes (6 tests); only the known failures (`check_root`: no
   ROOT on Windows; `check_import_boundaries`: known debt, 0 new pairs). `cases.py` parses with Python 3.9 syntax.
 - Not checked here: the new case and the spike need ROOT (TODO §1).
+
+### The rename (S1)
+
+**Date:** 2026-10-18, Windows; the lxplus checks are in TODO §1 (BBB without re-lock, old names, real plots).
+
+- `git mv Plotter Histogrammer`; in it `plot.py` -> `fillhists.py` (fills, and until S4 also draws, exactly as
+  before; only its header comment, the usage lines and `prog` in `-h` changed), `python/plot/` -> `python/spec/`
+  (`Variable`, `Selection`, `Context`, `string`), `MultiDraw.py`/`.cxx` -> `python/sample/` (a filling engine).
+  `docs/Plotter/BUGS.md` -> `docs/Histogrammer/BUGS.md` (same IDs).
+- Inside the moved code only these lines changed: the `TauFW.Plotter.*` imports, the two `GLOB` imports of the
+  module state (`Sample.py:31`, `SampleSet.py:106`), the package of the method modules (`SampleSet.py:286`,
+  `ensuremodule(method,'Histogrammer.methods')`), and docstrings that name paths. `Tests/tools/move_check.py` over
+  the 25 moved Python files: every changed line is an import or one of those lines (commented-out old imports were
+  left as they were).
+- `api/control_plots.py`: the script is one constant (`SCRIPT = 'fillhists.py'`), the default `basedir` is
+  `$CMSSW_BASE/src/TauFW/Histogrammer`; messages and docstrings name the Histogrammer. The Framework's plots stage,
+  its sample checks and `validation.py` use `TauFW.Histogrammer.api` (no old `TauFW.Plotter.api` name is kept: only
+  the Framework used it). Recipes, stage names and `run.json` are unchanged.
+- **Backward compatibility (TODO §8):** a new `Plotter/` holds the 13 old module names
+  (`python/sample/*`, `python/plot/*`, `python/methods/QCD_OSSS.py`). Each is
+  `import <new module> as _module; sys.modules[__name__] = _module`: the old name is the very same module object,
+  so `setera` through either name changes the same era and luminosity (a star re-export would freeze them). No alias
+  for `TauFW.Plotter.plot.datacard` (it would repair `Fitter/MuTauFR/createinputs.py:11`). `Plotter/plot.py` and
+  `Histogrammer/plot.py` print the new command (same arguments, path relative to the working directory) and exit
+  with status 2; they run nothing. `Plotter/README.md` describes the coming drawing-only Plotter and its rules.
+- Paths: the 6 Fitter `createinputs*.py` find `config.samples*` in `Histogrammer/`, `Fitter/Zpt` loads
+  `Histogrammer/python/macros/Unroll.cxx`, `Fitter/HighPT` writes and reads `Histogrammer/data/ff_HighPT/`;
+  `Utilities.Paths` gets `HISTOGRAMMER_ROOT`/`HISTOGRAMMER_DATA_DIR` (the `PLOTTER_*` names stay); `FastSetup.sh`
+  also verifies `TauFW.Histogrammer`; `.gitignore` ignores `Histogrammer/plots`. `Configs/Plotter/` is unchanged
+  (S2).
+- Import boundaries: `Histogrammer` is a stage of `Tests/check_import_boundaries.py` (a new detector test: the
+  Histogrammer and the Plotter never import each other, the Framework may import only `TauFW.Histogrammer.api`,
+  the Fitter not the Histogrammer). Allowlist: 13 new entries for the aliases (end: migration point), the A03 entry
+  now in `Histogrammer/python/sample/utils.py`; the 6 Fitter `config.samples*` entries keep their keys but now count
+  as Fitter -> Histogrammer (the same debt at a new address; step 2 removes it). Totals 30 / 28 / 26 (17 / 15 / 13
+  before + the 13 aliases), 0 new pairs. **No cross-stage import was removed by this step**; it prepares step 2.
+- Tests: `Tests/Plotter/{api,sample_model}` -> `Tests/Histogrammer/` (suites `unit.histogrammer.api`,
+  `unit.histogrammer.sample_model`), new `Tests/Histogrammer/compat/test_compat_paths.py` (`unit.histogrammer.compat`:
+  each alias file is exactly the alias of its module, the pattern shares state on a throw-away package, and with
+  ROOT the old and new names are one object). BBB cases: only import lines, `_stack_modules`, the Unroll path and the
+  `_DRAWING_MODULE` normaliser (old and new paths map to the same text) changed; the case names stay `plotter.*`.
+  The old scripts in `Tests/Plotter/` keep the old names (they exercise the aliases); their inventory `package` is
+  now `Histogrammer` (they load macros from `python/macros/` of the working directory). `Tests/support/bootstrap.py`
+  copies `Histogrammer` too.
+- Docs: READMEs (root, `Histogrammer/`, new `Plotter/`, Framework, Analyses, Tests, Utilities, Fitter `TauES_ID`
+  and `Zpt`), `Utilities/IOInventory.md` (the Histogrammer and Plotter sections regenerated by `_audit_io.py`, which
+  now scans `Histogrammer/` too; the rest of the file unchanged), `scripts_arg_changes.md` (old -> new table), TODO §1
+  and §8, recipe comments.
+
+Checked (Windows): `python Tests/run.py checks`: all unit suites pass (Framework 166, `unit.histogrammer.api` 14,
+`unit.histogrammer.compat` 6 with 2 skipped for ROOT, `unit.tools`, `check_harness`); `check_import_boundaries`
+fails as designed with 0 new pairs, `check_root` needs ROOT. Not checked here: BBB, the old scripts, real plots (lxplus).

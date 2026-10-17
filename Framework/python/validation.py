@@ -15,8 +15,8 @@ What is checked here and what is not:
                   is DONE), was not moved or copied, and its stage makes the kind of data the slot takes
                   (manifest.py; the same rule as between the stages of one recipe).
     samples:      the `samples` option (plots, histograms) names files of the bundle (copies of the templates in
-                  Configs/Plotter/samples/) or absolute ones, not module files; they are read through the Plotter
-                  API (the format is the Plotter's): readable, exactly one per era of the stage.
+                  Configs/Plotter/samples/) or absolute ones, not module files; they are read through the
+                  Histogrammer API (the format is the Histogrammer's): readable, exactly one per era of the stage.
     not checked:  path options a module resolves (e.g. Fitter/TauES_ID/config/...), and the environment (CMSSW,
                   ROOT, combine, tuples on disk): they are the machine's state, not the recipe's. The stages' plan
                   notes and preflight report them.
@@ -104,12 +104,12 @@ def _file_issues(pico_config, stage_specs, bundle_dir):
 
 
 def _sample_issues(stage_spec, where, bundle_dir):
-    """The problems of the sample model files of a stage's `samples` option (read through the Plotter API)."""
+    """The problems of the sample model files of a stage's `samples` option (read through the Histogrammer API)."""
     files = [resolved for option, _, resolved, kind in path_rows(stage_spec.spec, bundle_dir)
              if option == 'samples' and kind != 'module']
     if not files or len(files) != len(getattr(stage_spec.spec, 'samples', ())):
         return []  # none, or a module path (reported above)
-    from TauFW.Plotter.api import ControlPlots  # the format of the files is the Plotter's
+    from TauFW.Histogrammer.api import ControlPlots  # the format of the files is the Histogrammer's
     return [Issue("%s.samples" % (where), problem)
             for problem in ControlPlots().samples_problems(files, stage_spec.spec.eras)]
 

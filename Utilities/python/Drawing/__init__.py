@@ -11,9 +11,10 @@ PicoProducer can draw without importing the Plotter. The code moved as it was; o
     hist_tools                   ROOT histogram helpers (normalize, ratios, error bands, overflow, ...)
     labels                       LaTeX labels and file-safe names (makelatex, makehistname, match, ...)
 
-LOG is the logger of the drawing code ('Plot'); the Plotter shares this object, so setting LOG.verbosity in a
-script sets it for both. Plots take a variable as a string or as any object with the attributes of the Plotter's
-Variable (name, title, filename, binning, ranges); this library never imports the Plotter.
+LOG is the logger of the drawing code ('Plot'); the Histogrammer (the former Plotter, CL §24) shares this object, so
+setting LOG.verbosity in a script sets it for both. Plots take a variable as a string or as any object with the
+attributes of the Histogrammer's Variable (name, title, filename, binning, ranges); this library never imports the
+Histogrammer or the Plotter.
 """
 from ._internal.legacy_log import Logger
 

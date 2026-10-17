@@ -4,7 +4,7 @@
 #   ./createinputs.py -c munu -y 2018
 #copiato da TauID 
 import sys
-sys.path.append("../../Plotter/") # for config.samples
+sys.path.append("../../Histogrammer/") # for config.samples (Plotter/ until CL §24)
 from config.samples_HighPT import *
 from TauFW.Utilities.Drawing import LOG as PLOG 
 from TauFW.common.tools.file import ensuredir

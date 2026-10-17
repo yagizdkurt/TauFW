@@ -17,7 +17,7 @@ layout inside it is up to you: the bundled examples keep their configs next to
 
 The recipe describes the pipeline: which stages to run, which samples and eras
 to use, and the options for each stage. The Framework reads it, checks its
-structure, and calls the public PicoProducer, Plotter, and Fitter APIs, and the
+structure, and calls the public PicoProducer, Histogrammer, and Fitter APIs, and the
 analysis's own Python steps. A recipe can produce new pico tuples or start from
 existing tuples or fit shapes. Copy or send the directory to hand over the whole
 analysis.
@@ -47,7 +47,7 @@ machine, Python API, and run-record internals, see the
 | [example_broken](example_broken/recipe.yml) | (invalid on purpose) | A demonstration of the validation: `taufw.py check Analyses/example_broken` lists its four problems; the menu shows it in red. Do not fix it. |
 | [tes_id_2025](tes_id_2025/recipe.yml) | `plots` → `histograms` → `fit` → `fit_summary` (python) | Use existing 2025 tuples for the combined tau energy scale (TES) and tau ID scale factor fit, with the Z→μμ control region; DeepTau VSjet `VTight`, VSe `Tight`; then a table of the fitted values. |
 
-Each bundle carries copies of the Plotter and Fitter configs it uses, next to
+Each bundle carries copies of the Histogrammer and Fitter configs it uses, next to
 its `recipe.yml`. The examples still need the corresponding sample catalog,
 tuple files, and PicoProducer configuration in your environment; they are not
 self-contained input datasets (see [Current limitations](#current-limitations)).
@@ -69,7 +69,7 @@ python3 taufw.py init my_tes --from Analyses/tes_id_2025  # a copy of a bundle o
 
 `init --from` copies every file of the source bundle (its configs, its copies
 of `Configs/` templates with their `taufw_config` header, its Python steps) to
-the same place in the new bundle, and every Plotter or Fitter config the recipe
+the same place in the new bundle, and every Histogrammer or Fitter config the recipe
 takes from its module next to the new `recipe.yml` (a name that is taken
 becomes `plotter_<name>` or `fitter_<name>`), pointing the new recipe at those
 copies, so you can edit them without touching the modules. From a loose recipe
@@ -288,7 +288,7 @@ follow one rule:
 | --- | --- | --- |
 | Absolute path | Used as is. | `absolute` |
 | Relative path of a file in the bundle | That bundle file, e.g. `config_coarse_TT.yml` next to `recipe.yml`. | `bundle` |
-| Any other relative path | Unchanged: the module resolves it as before, relative to `Fitter/` (e.g. `TauES_ID/config/config_coarse_TT.yml`) or `Plotter/` (e.g. `config/setup_mutau.yml`). | `module` |
+| Any other relative path | Unchanged: the module resolves it as before, relative to `Fitter/` (e.g. `TauES_ID/config/config_coarse_TT.yml`) or `Histogrammer/` (e.g. `config/setup_mutau.yml`). | `module` |
 | `plots.configs` channel name | `mutau` selects `Configs/Plotter/setups/setup_mutau.yml` (the template; a bundle copy is better: `taufw.py init --from` makes one). | `module` |
 
 A bundle file **replaces** the module's config as a whole: the script reads the
@@ -310,7 +310,7 @@ Other paths:
 | `run_root` | Absolute; `~` and `$VARIABLES` are expanded where `taufw.py` runs. See [Where the runs go](#where-the-runs-go-run_root). |
 | `{path: ...}` input | Absolute only; nothing is expanded; not inside the bundle. See [Inputs from another run](#inputs-from-another-run). |
 | Relative `pico.config` | A file of the bundle (the recipe's directory), e.g. `pico.json`; a path above it (`../`) is made absolute when the recipe is loaded and is not copied into runs. |
-| Plotter/Fitter outputs | In the run: `<run_root>/<run>/stages/<id>/` (see [Outputs and logs](#outputs-and-logs)); nothing is written to `Plotter/` or `Fitter/`. Production's merged tuples too: `stages/<id>/<era>/<group>/`, not `$PICODIR` of the PicoProducer configuration. |
+| Histogrammer/Fitter outputs | In the run: `<run_root>/<run>/stages/<id>/` (see [Outputs and logs](#outputs-and-logs)); nothing is written to `Histogrammer/` or `Fitter/`. Production's merged tuples too: `stages/<id>/<era>/<group>/`, not `$PICODIR` of the PicoProducer configuration. |
 
 ### Where the runs go (`run_root`)
 
@@ -402,7 +402,7 @@ does not reach the readers: they look for `<sample>_<channel>.root`.
 - To name the same tuples in several stages, use a YAML anchor and alias, as in
   [tes_id_2025](tes_id_2025/recipe.yml).
 - Which samples are read is decided by the `samples` option (next section);
-  without it, by the tables of `Plotter/config/samples_v15.py`.
+  without it, by the tables of `Histogrammer/config/samples_v15.py`.
 
 ### Which samples
 
@@ -413,8 +413,8 @@ how samples are stitched and joined. Copy the file of each era from
 `Configs/Plotter/samples/` (`taufw.py configs` lists them) next to `recipe.yml`
 and name the copies; edit the values of your copy (never its `taufw_config`
 header, see [Config templates](#config-templates-configs)). The templates were
-exported from `Plotter/config/samples_v15.py` and give exactly the same sample
-sets (checked by `Tests/Plotter/sample_model`).
+exported from `Histogrammer/config/samples_v15.py` and give exactly the same sample
+sets (checked by `Tests/Histogrammer/sample_model`).
 
 ```yaml
   - stage: plots
@@ -495,14 +495,14 @@ when you intend to remove the intermediate job files after validation.
 
 ### `plots`
 
-Runs `Plotter/plot.py` locally, once per config and era, through
-`TauFW.Plotter.api.ControlPlots`. This is the pipeline's control-plot stage;
+Runs `Histogrammer/fillhists.py` (the former `Plotter/plot.py`, changelog §24) locally, once per config and
+era, through `TauFW.Histogrammer.api.ControlPlots`. This is the pipeline's control-plot stage;
 the `plots` entry in `fit.steps` instead makes plots of fit results.
 
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `eras` | Required | Non-empty eras; forwarded as `plot.py -y`. |
-| `configs` | `[mutau]` | Non-empty channel names, bundle files, or setup `.yml` paths relative to `Plotter/`; `-c`. |
+| `configs` | `[mutau]` | Non-empty channel names, bundle files, or setup `.yml` paths relative to `Histogrammer/`; `-c`. |
 | `variables` | `[]` | Variable glob filters; `-V`. Empty selects all variables defined by the script. |
 | `selections` | `[]` | Selection glob filters; `-S`. Empty includes baseline and the setup's regions. |
 | `serial` | `false` | Serial processing; `-s`. |
@@ -512,17 +512,17 @@ the `plots` entry in `fit.steps` instead makes plots of fit results.
 | `tag` | `""` | Plot tag; `-t`. |
 | `text` | `""` | Additional plot text; `-T`. |
 | `timeout` | `null` | Seconds allowed per command; unset means no time limit. |
-| `samples` | `[]` | Sample model files of the bundle (or absolute), one per era: copies of `Configs/Plotter/samples/v15_<era>.yml` (MC table, data, MC weights, stitching); `--samples`. Empty: the tables of `Plotter/config/samples_v15.py` (old recipes). See [Which samples](#which-samples). |
+| `samples` | `[]` | Sample model files of the bundle (or absolute), one per era: copies of `Configs/Plotter/samples/v15_<era>.yml` (MC table, data, MC weights, stitching); `--samples`. Empty: the tables of `Histogrammer/config/samples_v15.py` (old recipes). See [Which samples](#which-samples). |
 
-`plot.py` runs in the stage's directory, so the plots are written under
+`fillhists.py` runs in the stage's directory, so the plots are written under
 `taufw_runs/<run>/stages/<id>/plots/<era>/` (nothing is written to
-`Plotter/plots/`). The run records one artifact per channel setup and era,
+`Histogrammer/plots/`). The run records one artifact per channel setup and era,
 including the directory and the number of plots this run made. File names carry
 the setup's `tag` plus `tag` of the stage; two setups with the same channel and
 tag (e.g. `setup_mutau.yml` and `setup_mutau_inclusive.yml`) write the same
 names, and `plan` says so.
 The selected setup controls the physics samples and regions; a production
-sample filter does not automatically restrict the Plotter's sample collection.
+sample filter does not automatically restrict the Histogrammer's sample collection.
 
 ### `histograms`
 
@@ -538,7 +538,7 @@ Creates the input shapes for the combined TES + tau ID fit. It wraps the
 | `configs` | `[TauES_ID/config/config_coarse_TT.yml, TauES/config/FitSetup_mumu.yml]` | Non-empty configs (bundle files, or relative to `Fitter/`): by default the mutau fit and mumu control region. |
 | `serial` | `false` | Serial shape creation; `-s`. |
 | `timeout` | `null` | Seconds per shape-creation command; unset means no time limit. |
-| `samples` | `[]` | Sample model files of the bundle (or absolute), one per era: copies of `Configs/Plotter/samples/v15_<era>.yml` (MC table, data, MC weights, stitching); `--samples`. Empty: the tables of `Plotter/config/samples_v15.py` (old recipes). See [Which samples](#which-samples). |
+| `samples` | `[]` | Sample model files of the bundle (or absolute), one per era: copies of `Configs/Plotter/samples/v15_<era>.yml` (MC table, data, MC weights, stitching); `--samples`. Empty: the tables of `Histogrammer/config/samples_v15.py` (old recipes). See [Which samples](#which-samples). |
 
 The lists form a Cartesian product. Two eras, two jet WPs, one electron WP,
 and two configs produce eight shape-creation commands. Each command can write

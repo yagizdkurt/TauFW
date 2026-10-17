@@ -19,7 +19,7 @@
     {
       "id": "plotter.histogram_correctness",
       "path": "Plotter/testHistogramCorrectness.py",
-      "package": "Plotter",
+      "package": "Histogrammer",
       "group": "local",
       "reason": "Assert hand-calculated weighted bins, errors, flow and normalization using tiny local ROOT inputs.",
       "dependencies": ["ROOT", "numpy", "past"]
@@ -27,7 +27,7 @@
     {
       "id": "plotter.tuple_location",
       "path": "Plotter/testTupleLocation.py",
-      "package": "Plotter",
+      "package": "Histogrammer",
       "group": "local",
       "reason": "Assert getsampleset finds MC, merged data and variation tuples in the directory given by tuples=, without reading the PicoProducer configuration.",
       "dependencies": ["ROOT", "numpy", "past"]
@@ -35,7 +35,7 @@
     {
       "id": "plotter.cmsstyle",
       "path": "Plotter/testCMSStyle.py",
-      "package": "Plotter",
+      "package": "Histogrammer",
       "group": "local",
       "reason": "Synthetic/local inputs; existing script behavior preserved.",
       "dependencies": [
@@ -47,7 +47,7 @@
     {
       "id": "plotter.colors",
       "path": "Plotter/testColors.py",
-      "package": "Plotter",
+      "package": "Histogrammer",
       "group": "local",
       "reason": "Synthetic/local inputs; existing script behavior preserved.",
       "dependencies": [
@@ -59,7 +59,7 @@
     {
       "id": "plotter.latex",
       "path": "Plotter/testLatex.py",
-      "package": "Plotter",
+      "package": "Histogrammer",
       "group": "local",
       "reason": "Synthetic/local inputs; existing script behavior preserved.",
       "dependencies": [
@@ -71,7 +71,7 @@
     {
       "id": "plotter.legend",
       "path": "Plotter/testLegend.py",
-      "package": "Plotter",
+      "package": "Histogrammer",
       "group": "local",
       "reason": "Synthetic/local inputs; existing script behavior preserved.",
       "dependencies": [
@@ -83,7 +83,7 @@
     {
       "id": "plotter.macros",
       "path": "Plotter/testMacros.py",
-      "package": "Plotter",
+      "package": "Histogrammer",
       "group": "integration",
       "reason": "Default pileup macro test reads actual calibration ROOT files.",
       "dependencies": [
@@ -95,7 +95,7 @@
     {
       "id": "plotter.methods",
       "path": "Plotter/testMethods.py",
-      "package": "Plotter",
+      "package": "Histogrammer",
       "group": "local",
       "reason": "Synthetic/local inputs; existing script behavior preserved.",
       "dependencies": [
@@ -107,7 +107,7 @@
     {
       "id": "plotter.multidraw",
       "path": "Plotter/testMultiDraw.py",
-      "package": "Plotter",
+      "package": "Histogrammer",
       "group": "local",
       "reason": "Synthetic/local inputs; existing script behavior preserved.",
       "dependencies": [
@@ -119,7 +119,7 @@
     {
       "id": "plotter.multithread",
       "path": "Plotter/testMultiThread.py",
-      "package": "Plotter",
+      "package": "Histogrammer",
       "group": "local",
       "reason": "Synthetic/local inputs; existing script behavior preserved.",
       "dependencies": [
@@ -132,7 +132,7 @@
     {
       "id": "plotter.panels",
       "path": "Plotter/testPanels.py",
-      "package": "Plotter",
+      "package": "Histogrammer",
       "group": "local",
       "reason": "Synthetic/local inputs; existing script behavior preserved.",
       "dependencies": [
@@ -144,7 +144,7 @@
     {
       "id": "plotter.plot",
       "path": "Plotter/testPlot.py",
-      "package": "Plotter",
+      "package": "Histogrammer",
       "group": "local",
       "reason": "Synthetic/local inputs; existing script behavior preserved.",
       "dependencies": [
@@ -156,7 +156,7 @@
     {
       "id": "plotter.ratio",
       "path": "Plotter/testRatio.py",
-      "package": "Plotter",
+      "package": "Histogrammer",
       "group": "local",
       "reason": "Synthetic/local inputs; existing script behavior preserved.",
       "dependencies": [
@@ -168,7 +168,7 @@
     {
       "id": "plotter.rdataframe",
       "path": "Plotter/testRDataFrame.py",
-      "package": "Plotter",
+      "package": "Histogrammer",
       "group": "broken",
       "reason": "Pre-existing runtime defects: NameError at import (line 17 uses kBlue etc., never imported from ROOT); main passes filename strings to a tuple loop; res_dict, sname, xvar, wname and other identifiers are undefined; default inputs are on /scratch.",
       "dependencies": [
@@ -180,7 +180,7 @@
     {
       "id": "plotter.rdataframe_sample",
       "path": "Plotter/testRDataFrame_Sample.py",
-      "package": "Plotter",
+      "package": "Histogrammer",
       "group": "local",
       "reason": "Synthetic/local inputs; existing script behavior preserved.",
       "dependencies": [
@@ -192,7 +192,7 @@
     {
       "id": "plotter.samples",
       "path": "Plotter/testSamples.py",
-      "package": "Plotter",
+      "package": "Histogrammer",
       "group": "local",
       "reason": "Synthetic/local inputs; existing script behavior preserved.",
       "dependencies": [
@@ -204,7 +204,7 @@
     {
       "id": "plotter.sampleset",
       "path": "Plotter/testSampleSet.py",
-      "package": "Plotter",
+      "package": "Histogrammer",
       "group": "local",
       "reason": "Synthetic/local inputs; existing script behavior preserved.",
       "dependencies": [
@@ -216,7 +216,7 @@
     {
       "id": "plotter.selection",
       "path": "Plotter/testSelection.py",
-      "package": "Plotter",
+      "package": "Histogrammer",
       "group": "local",
       "reason": "Synthetic/local inputs; existing script behavior preserved.",
       "dependencies": [
@@ -228,7 +228,7 @@
     {
       "id": "plotter.stack",
       "path": "Plotter/testStack.py",
-      "package": "Plotter",
+      "package": "Histogrammer",
       "group": "local",
       "reason": "Synthetic/local inputs; existing script behavior preserved.",
       "dependencies": [
@@ -240,7 +240,7 @@
     {
       "id": "plotter.stitching",
       "path": "Plotter/testStitching.py",
-      "package": "Plotter",
+      "package": "Histogrammer",
       "group": "local",
       "reason": "Synthetic/local inputs; existing script behavior preserved.",
       "dependencies": [
@@ -252,7 +252,7 @@
     {
       "id": "plotter.tgaxis",
       "path": "Plotter/testTGAxis.py",
-      "package": "Plotter",
+      "package": "Histogrammer",
       "group": "local",
       "reason": "Synthetic/local inputs; existing script behavior preserved.",
       "dependencies": [
@@ -264,7 +264,7 @@
     {
       "id": "plotter.tlatex",
       "path": "Plotter/testTLaTeX.py",
-      "package": "Plotter",
+      "package": "Histogrammer",
       "group": "local",
       "reason": "Synthetic/local inputs; existing script behavior preserved.",
       "dependencies": [
@@ -276,7 +276,7 @@
     {
       "id": "plotter.unpacking",
       "path": "Plotter/testUnpacking.py",
-      "package": "Plotter",
+      "package": "Histogrammer",
       "group": "local",
       "reason": "Synthetic/local inputs; existing script behavior preserved.",
       "dependencies": [
@@ -288,7 +288,7 @@
     {
       "id": "plotter.unroll",
       "path": "Plotter/testUnroll.py",
-      "package": "Plotter",
+      "package": "Histogrammer",
       "group": "local",
       "reason": "Local input: the committed Tests/Plotter/DYJetsToLL_M-50_mumu.root, copied to the script's relative path.",
       "dependencies": [
@@ -301,7 +301,7 @@
     {
       "id": "plotter.variables",
       "path": "Plotter/testVariables.py",
-      "package": "Plotter",
+      "package": "Histogrammer",
       "group": "local",
       "reason": "Synthetic/local inputs; existing script behavior preserved.",
       "dependencies": [
@@ -375,7 +375,7 @@
     {
       "id": "plotter.plotpico",
       "path": "Plotter/plotPico.py",
-      "package": "Plotter",
+      "package": "Histogrammer",
       "group": "integration",
       "dependencies": [
         "ROOT",
@@ -387,7 +387,7 @@
     {
       "id": "plotter.wstarplotpico",
       "path": "Plotter/WstarplotPico.py",
-      "package": "Plotter",
+      "package": "Histogrammer",
       "group": "integration",
       "dependencies": [
         "ROOT",

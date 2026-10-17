@@ -114,7 +114,7 @@ Above command will produce the root files in the direcory `tau_sf/*_SF_dm_DeepTa
  ```sh
   python plot_v10.py -y UL2018_v10 -c ./../Fitter/TauES_ID/config/Default_FitSetupTES_mutau_DM_mt65pt_lessptregion
   ```
-Control plot of the differents variables are saved in `/plots` folder. See [the README.md in the parent directory](../../../Plotter) for more informations.
+Control plot of the differents variables are saved in `/plots` folder. See [the Histogrammer README](../../Histogrammer/README.md) for more informations.
 
 4. Create the inputs :
  ```sh

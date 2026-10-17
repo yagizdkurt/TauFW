@@ -25,7 +25,7 @@ pico:
                             # (not used for the tuples, which the inputs below name)
 
 stages:
-  - stage: plots            # data/MC control plots (Plotter/plot.py, run in stages/plots/)
+  - stage: plots            # data/MC control plots (Histogrammer/fillhists.py, run in stages/plots/)
     id: plots
     description: data/MC control plots of the mutau and mumu selections
     inputs:
@@ -34,7 +34,7 @@ stages:
     eras: [2025]
     configs: [setup_mutau.yml, setup_mumu.yml]   # channel setups (copies of Configs/Plotter/setups/)
     samples: &samples_2025 [v15_2025.yml]   # the samples (MC table, data, weights): a copy of
-                            # Configs/Plotter/samples/v15_2025.yml, the same as Plotter/config/samples_v15.py
+                            # Configs/Plotter/samples/v15_2025.yml, the same as Histogrammer/config/samples_v15.py
     variables: [m_vis, pt_1, pt_2, eta_2, dm_2]   # plot.py -V; []: every variable
     selections: [baseline]  # plot.py -S; []: baseline and every region
     pdf: false

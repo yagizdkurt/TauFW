@@ -1,5 +1,5 @@
 # Example TauFW analysis bundle (short): produce mutau pico tuples of the DY and ttbar samples for 2022_postEE with
-# PicoProducer. Production only: a few samples and no data are not enough for control plots (the Plotter needs data
+# PicoProducer. Production only: a few samples and no data are not enough for control plots (the Histogrammer needs data
 # and every background); example_mutau_long is the same production for every sample the plots need, then the plots.
 #   taufw.py plan    Analyses/example_mutau_short               # what would be submitted (nothing is written)
 #   taufw.py start   Analyses/example_mutau_short               # new run in run_root (below); submits the jobs
