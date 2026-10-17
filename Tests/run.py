@@ -11,6 +11,7 @@ import tempfile
 import time
 
 from support.bootstrap import MISSING_DEPENDENCY_EXIT
+from support.events import emit, worker_environment
 from support.progress import Lines, elapsed, file_groups, paint, reset_logs, section, tail
 
 TESTS = Path(__file__).resolve().parent
@@ -23,9 +24,11 @@ def check_python_environment():
                             capture_output=True, text=True)
     for line in result.stdout.splitlines():
         print("WARNING: " + line, file=sys.stderr, flush=True)
+        emit("warning", message=line)
     if result.returncode:
-        print("WARNING: Could not check CMSSW Python package origins: " + result.stderr.strip(),
-              file=sys.stderr, flush=True)
+        message = "Could not check CMSSW Python package origins: " + result.stderr.strip()
+        print("WARNING: " + message, file=sys.stderr, flush=True)
+        emit("warning", message=message)
 
 
 def inventory():
@@ -65,7 +68,7 @@ def describe_exit(code):
 def run_case(case, extra_args, log=None):
     """Return the worker's exit status; with a log path, its output goes there instead of the terminal."""
     with tempfile.TemporaryDirectory(prefix="taufw-normal-") as directory:
-        env = os.environ.copy()
+        env = worker_environment(os.environ.copy())
         # Unbuffered so logs keep stdout and stderr (tracebacks, ROOT messages) in true order;
         # faulthandler dumps the Python stack if ROOT crashes the interpreter.
         env.update(PYTHONDONTWRITEBYTECODE="1", PYTHONHASHSEED="1777", PYTHONUNBUFFERED="1", PYTHONFAULTHANDLER="1")
@@ -89,6 +92,7 @@ def execute_scripts(cases, extra_args, quiet=True, tail_lines=80, log_kind="norm
         print("Running %s cases (quiet; logs in %s)" % (len(cases), logs), flush=True)
     groups = file_groups(cases, lambda case: case["path"], lambda case: case["id"])
     lines = Lines([label for label, _ in groups])
+    emit("suite", name=log_kind, total=len(cases))
     results = []  # (case, status, seconds, log, code)
     started = time.monotonic()
     interrupted = False
@@ -101,9 +105,12 @@ def execute_scripts(cases, extra_args, quiet=True, tail_lines=80, log_kind="norm
                 if not quiet:
                     print("RUN %s" % case["id"], flush=True)
                 began = time.monotonic()
+                emit("case_start", id=case["id"], group=label, log=log)
                 code = run_case(case, extra_args, log)
                 status = "PASS" if code == 0 else "SKIP" if code == MISSING_DEPENDENCY_EXIT else "FAIL"
                 results.append((case, status, time.monotonic() - began, log, code))
+                emit("case_end", id=case["id"], status=status, seconds=results[-1][2], exit=describe_exit(code),
+                     log=log)
                 if quiet:
                     lines.mark(status[0])
                 elif status == "PASS":
@@ -132,6 +139,8 @@ def execute_scripts(cases, extra_args, quiet=True, tail_lines=80, log_kind="norm
         print("\nInterrupted after %s of %s cases." % (len(results), len(cases)))
     counts = {status: [case["id"] for case, result, _, _, _ in results if result == status]
               for status in ("PASS", "FAIL", "SKIP")}
+    emit("summary", name=log_kind, passed=len(counts["PASS"]), failed=len(counts["FAIL"]),
+         skipped=len(counts["SKIP"]), interrupted=interrupted, seconds=time.monotonic() - started)
     print("%s executed, %s passed, %s failed, %s skipped in %s"
           % (len(results), len(counts["PASS"]), len(counts["FAIL"]), len(counts["SKIP"]),
              elapsed(time.monotonic() - started)))
@@ -284,6 +293,7 @@ def main(argv=None, check_environment=True):
         return execute_scripts(selected, extra, quiet, tail_lines)
     except (ValueError, RuntimeError, OSError) as error:
         print("ERROR: %s" % error, file=sys.stderr)
+        emit("error", message=str(error))
         return 1
 
 

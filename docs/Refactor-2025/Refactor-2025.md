@@ -1121,3 +1121,57 @@ On lxplus (2026-10-17):
 
 - TODO §1: plots on another run's tuples finishing awaits the sample list in the recipe.
 - TODO §6: one rule for the paths in a recipe; the `null` warning; production repeating; the sample list next.
+
+
+## 20. Menu: commands run beside the screen; the test screen
+
+**Date:** 2026-10-17 (Windows tests pass; lxplus check in TODO §1 "Test screen on lxplus")
+
+The menu should work like a program: an operation must not print into the terminal or block the screen. So a long
+operation runs as its own process (the existing CLI command, unchanged) beside the screen: same machine, user,
+environment and working directory, but stdin is `/dev/null`, stdout and stderr go to a log file, and the command
+reports its progress as events in a second file. The screen follows both files. Only this keeps the screen intact:
+ROOT and C++ write to the file descriptor, which no Python redirection catches. This section builds that
+infrastructure and moves the tests onto it; the run screens (start, advance, status) come later.
+
+### Infrastructure (`TauFW.Utilities.Process`)
+
+- `_events.py` (new): the event protocol, one JSON object per line `{"t": <unix time>, "kind": ...}`. `EventWriter`
+  opens, appends and closes the file per event (AFS shows a change to other machines only after a close).
+  `EventReader` and `LogTail` continue where they stopped, keep an unfinished last line, read at most 1 MB per call
+  and start again after a truncation; `LogTail` keeps at most `maxlines` lines (no memory growth on long runs) and
+  handles `\r` progress bars and UTF-8 split between reads. The file is named by `$TAUFW_EVENTS`.
+- `_background.py` (new): `BackgroundProcess.start(argv, cwd, log, events, env)`: its own session (process group),
+  output straight into the log (no pipe that could fill and block the command), `poll()`, `cancel()` (SIGINT to the
+  group, SIGTERM after 3 s, SIGKILL after 8 s), `close()` (a failing screen leaves nothing running). Exit code: the
+  command's, 128+N after signal N, 130 when cancelled. `$TAUFW_EVENTS` of the caller never reaches a command started
+  without events.
+
+### Tests report events
+
+- `Tests/support/events.py` (new): the same protocol, repeated so that `Tests/run.py` keeps running without the TauFW
+  package; `Tests/Utilities/test_events.py` checks that both sides agree. Kinds: `suite`, `case_start` (with the log
+  path, so a running case can be followed), `case_end` (status, seconds, exit, log, BBB differences), `summary`,
+  `warning` (package shadowing), `error` (the run could not start).
+- `Tests/run.py` (`execute_scripts`, `main`) and `Tests/BBB/runner.py` (check) emit them. Without `$TAUFW_EVENTS`
+  nothing changes: the terminal output is the same. Test workers never inherit the variable.
+
+### The test screen
+
+- `Utilities/python/Menu/_test_run.py` (new): `TestRun` (the state, from the events) and the screen: the cases with
+  `[PASS]/[FAIL]/[SKIP]/[ RUN]/[    ]`, time, counts and elapsed time; the focused case's details (BBB differences)
+  and the end of its log, live while it runs; Enter for the whole case log, L for the output of `Tests/run.py`; logs
+  follow their end until scrolled up (End follows again). Ten frames a second; the screen never waits for the run.
+- Leaving a running run asks, then stops it (tests are never left running behind the menu); S or Ctrl-C stops it and
+  stays. Ctrl-C reaches only the screen, the tests run in their own process group.
+- `interactive.py`: `execute_tests` (in-terminal run, `Press Enter`) is replaced by `start_tests`, which returns the
+  `BackgroundProcess`; logs in `Tests/.artifacts/logs/menu/` (`output.log`, `events.jsonl`). `MenuNavigation.tests()`
+  shows `ConsoleUI.test_run()` and always closes the process. `ConsoleUI.interrupted_tests` is gone.
+- `_menu.py` imports the screen only when it is shown: FastSetup imports `Menu` on its own before TauFW is built
+  (caught by `unit.setup`).
+
+### What is left
+
+- The run screens: `EventReporter` + `taufw.py` events (stage, progress, wait), `start`/`advance` detached with a run
+  lock that records the host (lxplus logins land on different machines), `status`/`plan`/`prepare_review` beside the
+  screen, one curses session for the whole menu, errors shown on screen instead of printed.

@@ -74,9 +74,9 @@ class ScreenTests(unittest.TestCase):
         curses, _ = self.curses([32, 10])
         self.assertEqual(ConsoleUI(curses).test_selection("Review", items, review=True), ["example"])
 
-    def test_testing_navigation_selection_review_and_recovery(self):
+    def test_testing_navigation_selection_review_and_the_test_screen(self):
         item = dict(id="example", description="Local example", dependencies=[])
-        for outcome in (0, 1, KeyboardInterrupt(), RuntimeError("failed")):
+        for outcome in (0, 1, KeyboardInterrupt(), RuntimeError("screen failed")):
             with self.subTest(outcome=outcome):
                 ui, operations = mock.Mock(), mock.Mock()
                 ui.main_menu.side_effect = ["tests", "exit"]
@@ -85,16 +85,27 @@ class ScreenTests(unittest.TestCase):
                 ui.test_selection.side_effect = [["example"], ["example"]]
                 operations.test_catalog.return_value = {"normal": [item]}
                 if isinstance(outcome, BaseException):
-                    operations.execute_tests.side_effect = outcome
+                    ui.test_run.side_effect = outcome
                 else:
-                    operations.execute_tests.return_value = outcome
+                    ui.test_run.return_value = outcome
                 self.assertEqual(MenuNavigation(ui, operations).run(), 0)
-                operations.execute_tests.assert_called_once_with("normal", ["example"])
+                operations.start_tests.assert_called_once_with("normal", ["example"])
+                process = operations.start_tests.return_value
+                ui.test_run.assert_called_once_with("Normal tests", process, ["example"])
+                process.close.assert_called_once_with()  # nothing is left running, whatever the screen did
                 self.assertEqual(ui.test_selection.call_args_list[-1],
                                  mock.call("Review / Normal tests", [item], review=True))
-                ui.pause.assert_called_once()
-                if isinstance(outcome, KeyboardInterrupt):
-                    ui.interrupted_tests.assert_called_once()
+                self.assertEqual(ui.pause.call_count, 1 if isinstance(outcome, RuntimeError) else 0)
+        ui, operations = mock.Mock(), mock.Mock()
+        ui.tests_menu.side_effect = ["normal", "back"]
+        ui.test_family.return_value = "all"
+        ui.test_selection.return_value = ["example"]
+        operations.test_catalog.return_value = {"normal": [item]}
+        operations.start_tests.side_effect = RuntimeError("Cannot find Tests/run.py")
+        MenuNavigation(ui, operations).tests()
+        ui.test_run.assert_not_called()
+        ui.operation_error.assert_called_once()
+        ui.pause.assert_called_once()
 
     def test_testing_back_empty_selection_and_catalog_failure_do_not_execute(self):
         item = dict(id="example", description="Local example", dependencies=[])
@@ -105,12 +116,12 @@ class ScreenTests(unittest.TestCase):
             ui.test_selection.return_value = selection
             operations.test_catalog.return_value = {"normal": [item]}
             MenuNavigation(ui, operations).tests()
-            operations.execute_tests.assert_not_called()
+            operations.start_tests.assert_not_called()
         ui, operations = mock.Mock(), mock.Mock()
         ui.tests_menu.side_effect = ["all", "back"]
         operations.test_catalog.side_effect = RuntimeError("Cannot load test choices")
         MenuNavigation(ui, operations).tests()
-        operations.execute_tests.assert_not_called()
+        operations.start_tests.assert_not_called()
         ui.operation_error.assert_called_once()
         ui.pause.assert_called_once()
 
@@ -123,14 +134,15 @@ class ScreenTests(unittest.TestCase):
                 for name in ("checks", "normal", "bbb")}
             ui.test_selection.return_value = ["reviewed"]
             MenuNavigation(ui, operations).tests()
-            operations.execute_tests.assert_called_once_with(family, [])
+            operations.start_tests.assert_called_once_with(family, [])
+            ui.test_run.assert_called_once_with(mock.ANY, operations.start_tests.return_value, [])
             self.assertTrue(ui.test_selection.call_args.kwargs["review"])
             if family == "all":
                 self.assertEqual([item["id"] for item in ui.test_selection.call_args.args[1]],
                                  ["checks", "normal", "bbb"])
             else:
                 operations.test_catalog.assert_not_called()
-            ui.pause.assert_called_once()
+            ui.pause.assert_not_called()
 
     def test_entry_banners_welcome_text_and_compact_layout(self):
         from TauFW.Utilities.Menu.banner import FULL

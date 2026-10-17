@@ -196,6 +196,47 @@ class HarnessChecks(unittest.TestCase):
         # Same-file cases run together under the file name; a lone case keeps its own name.
         self.assertRegex(output, r"(?m)^%s \.{3,} PF\n%s \.{3,} P$" % (re.escape(first["path"]), re.escape(other["id"])))
 
+    def events(self, path):
+        with open(path, encoding="utf-8") as stream:
+            return [json.loads(line) for line in stream]
+
+    def test_menu_events_follow_the_cases_and_never_reach_workers(self):
+        skip = run.MISSING_DEPENDENCY_EXIT
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "events.jsonl")
+            with mock.patch.dict(run.os.environ, {"TAUFW_EVENTS": path}):
+                status, _, _, cases = self.quiet_run([(0, ""), (1, ""), (skip, "")])
+            events = self.events(path)
+        self.assertEqual(status, 1)
+        self.assertEqual([event["kind"] for event in events],
+                         ["suite"] + ["case_start", "case_end"] * 3 + ["summary"])
+        self.assertEqual((events[0]["name"], events[0]["total"]), ("normal", 3))
+        ends = [event for event in events if event["kind"] == "case_end"]
+        self.assertEqual([(event["id"], event["status"]) for event in ends],
+                         [(case["id"], status) for case, status in zip(cases, ("PASS", "FAIL", "SKIP"))])
+        self.assertEqual(ends[1]["exit"], "exit 1")
+        self.assertTrue(ends[0]["log"].endswith(cases[0]["id"] + ".log"))
+        self.assertEqual({key: events[-1][key] for key in ("passed", "failed", "skipped", "interrupted")},
+                         {"passed": 1, "failed": 1, "skipped": 1, "interrupted": False})
+        for event in events:
+            self.assertIsInstance(event["t"], float)
+        with tempfile.TemporaryDirectory() as directory,                 mock.patch.dict(run.os.environ, {"TAUFW_EVENTS": str(Path(directory) / "events.jsonl")}),                 mock.patch.object(run.subprocess, "run", return_value=mock.Mock(returncode=0)) as worker:
+            run.run_case(cases[0], [])
+            self.assertNotIn("TAUFW_EVENTS", worker.call_args.kwargs["env"])
+
+    def test_menu_events_report_errors_and_nothing_without_the_variable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "events.jsonl"
+            with mock.patch.dict(run.os.environ, {"TAUFW_EVENTS": str(path)}),                     contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(run.main(["normal", "--case", "no.such.case"], check_environment=False), 1)
+            self.assertEqual([(event["kind"], "no.such.case" in event["message"]) for event in self.events(path)],
+                             [("error", True)])
+            path.unlink()
+            with mock.patch.dict(run.os.environ), contextlib.redirect_stdout(io.StringIO()):
+                run.os.environ.pop("TAUFW_EVENTS", None)
+                self.quiet_run([(0, "")])
+            self.assertFalse(path.exists())
+
     def test_skips_do_not_fail_but_all_skipped_does(self):
         skip = run.MISSING_DEPENDENCY_EXIT
         self.assertEqual(self.quiet_run([(0, ""), (skip, "")])[0], 0)
@@ -362,6 +403,29 @@ class HarnessChecks(unittest.TestCase):
             self.assertIn("Full log: %s" % (Path(directory) / "bbb" / "crash.log"), output)
             self.assertEqual({log.name for log in (Path(directory) / "bbb").iterdir()},
                              {name + ".log" for name in names})
+
+    def test_bbb_check_menu_events(self):
+        names = ["pass", "diff", "crash"]
+        expected = {name: payload(name) for name in names}
+
+        def worker(name, log):
+            if name == "crash":
+                raise RuntimeError("worker crashed")
+            return payload(name, {"value": 2.0}) if name == "diff" else expected[name]
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "events.jsonl")
+            with mock.patch.object(progress, "LOGS", Path(directory)),                  mock.patch.dict(runner.os.environ, {"TAUFW_EVENTS": path}),                  mock.patch.object(runner, "selected_cases", return_value=names),                  mock.patch.object(runner, "load_lock", return_value=expected),                  mock.patch.object(runner, "validate_target"),                  mock.patch.object(runner, "execute_case", side_effect=worker),                  contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(runner.main("check", []), 1)
+            events = self.events(path)
+        self.assertEqual([event["kind"] for event in events],
+                         ["suite"] + ["case_start", "case_end"] * 3 + ["summary"])
+        ends = {event["id"]: event for event in events if event["kind"] == "case_end"}
+        self.assertEqual({name: event["status"] for name, event in ends.items()},
+                         {"pass": "PASS", "diff": "FAIL", "crash": "FAIL"})
+        self.assertIn("$.output.value.float64", "\n".join(ends["diff"]["details"]))
+        self.assertEqual(ends["crash"]["details"], ["worker crashed"])
+        self.assertEqual((events[-1]["passed"], events[-1]["failed"]), (1, 2))
 
     def test_lock_logs_both_runs_and_reproduces_bytes(self):
         names = ["first", "second"]

@@ -6,7 +6,6 @@ here. Presentation and screen transitions live in TauFW.Utilities.Menu.
 """
 import json
 import os
-import signal
 import subprocess
 import sys
 from argparse import Namespace
@@ -20,6 +19,7 @@ from TauFW.Framework.validation import check_recipe
 from TauFW.Framework.framework import Framework
 from TauFW.Framework.reporting import SilentReporter
 from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation
+from TauFW.Utilities.Process import BackgroundProcess
 
 
 class _Operations:
@@ -176,44 +176,22 @@ class _Operations:
         except (ValueError, KeyError, TypeError) as error:
             raise RuntimeError("Invalid test catalog from Tests/run.py; check the checkout: %s" % error) from error
 
-    def execute_tests(self, family, cases):
+    def start_tests(self, family, cases):
+        """Start Tests/run.py beside the menu; return the running BackgroundProcess. Its output and its events
+        (Tests/support/events.py) go to Tests/.artifacts/logs/menu/; the test screen follows them."""
         if family not in ("all", "checks", "normal", "bbb", "environment"):
             raise ValueError("Unknown automated test family: %s" % family)
+        if cases and family in ("all", "environment"):
+            raise ValueError("This action does not accept selected cases.")
         root, runner = self._test_runner()
         command = [sys.executable, "-B", str(runner), family]
         if family == "bbb":
             command.append("check")
-        if cases and family in ("all", "environment"):
-            raise ValueError("This action does not accept selected cases.")
         for case in cases:
             command.extend(["--case", case])
-        # Own a process group so cancelling also stops any active test workers.
-        process = subprocess.Popen(command, cwd=str(root), start_new_session=os.name == "posix")
-        try:
-            status = process.wait()
-        except KeyboardInterrupt:
-            try:
-                if os.name == "posix":
-                    os.killpg(process.pid, signal.SIGINT)
-                else:
-                    process.terminate()
-            except ProcessLookupError:
-                pass  # The child may have finished just before Ctrl-C.
-            try:
-                process.wait(timeout=5)
-            except (subprocess.TimeoutExpired, KeyboardInterrupt):
-                try:
-                    if os.name == "posix":
-                        os.killpg(process.pid, signal.SIGKILL)
-                    else:
-                        process.kill()
-                except ProcessLookupError:
-                    pass
-                process.wait()
-            raise
-        print("\nTest operation: %s" % ("completed" if status == 0 else
-                                         "cancelled" if status == 130 else "failed (exit %s)" % status))
-        return status
+        logs = root / "Tests" / ".artifacts" / "logs" / "menu"
+        return BackgroundProcess.start(command, str(root), str(logs / "output.log"),
+                                       events=str(logs / "events.jsonl"))
 
     def execute(self, command, **values):
         args = dict(verbose=0, wait=False, poll=DEFAULT_POLL_SECONDS, run_root=None, local=False, maxevts=100)

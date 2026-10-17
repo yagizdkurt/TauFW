@@ -7,8 +7,10 @@ import platform
 import subprocess
 import sys
 import tempfile
+import time
 
 from BBB.snapshot import canonical_bytes, difference
+from support.events import emit, worker_environment
 from support.progress import Lines, file_groups, reset_logs, section, tail
 
 TESTS = Path(__file__).resolve().parents[1]
@@ -27,7 +29,7 @@ def selected_cases(requested):
 def execute_case(name, log=None):
     with tempfile.TemporaryDirectory(prefix="taufw-bbb-") as directory:
         output = Path(directory) / "result.json"
-        env = os.environ.copy()
+        env = worker_environment(os.environ.copy())
         env.update(PYTHONDONTWRITEBYTECODE="1", PYTHONHASHSEED="1777", OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1",
                    PYTHONUNBUFFERED="1", PYTHONFAULTHANDLER="1")  # Logs in true order; Python stack on ROOT crashes.
         command = [sys.executable, "-B", str(TESTS / "support" / "launch.py"), "bbb", name, directory, str(output)]
@@ -234,11 +236,15 @@ def main(action, requested, replace=False, quiet=True, tail_lines=80, ref="HEAD"
     lines = Lines([label for label, _ in groups])
     if quiet:
         lines.begin(groups[0][0])
+    emit("suite", name="bbb", total=len(names))
+    started = time.monotonic()
     failures = []  # (name, details, log of a failed worker)
     for name in names:
         log = logs / (name + ".log") if quiet else None
         if not quiet:
             print("CHECK %s" % name, flush=True)
+        emit("case_start", id=name, group="BBB/cases.py", log=log)
+        began = time.monotonic()
         try:
             details = compare(name, expected[name], execute_case(name, log))
             if details:
@@ -251,9 +257,14 @@ def main(action, requested, replace=False, quiet=True, tail_lines=80, ref="HEAD"
             failures.append((name, [str(error)], log))
             if not quiet:
                 print("FAIL %s: %s" % (name, error))
+        failed = bool(failures) and failures[-1][0] == name
+        emit("case_end", id=name, status="FAIL" if failed else "PASS", seconds=time.monotonic() - began,
+             exit="", log=log, details=failures[-1][1] if failed else [])
         if quiet:
-            lines.mark("F" if failures and failures[-1][0] == name else "P")
+            lines.mark("F" if failed else "P")
     lines.end()
+    emit("summary", name="bbb", passed=len(names) - len(failures), failed=len(failures), skipped=0,
+         interrupted=False, seconds=time.monotonic() - started)
     if quiet:
         for name, details, log in failures:
             body = "\n".join(details)

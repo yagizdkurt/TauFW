@@ -538,8 +538,12 @@ class ConsoleUI:
                         self.curses.beep()
         return self.curses.wrapper(draw)
 
-    def interrupted_tests(self):
-        print("\nTest run cancelled. Returning to the testing menu.")
+    def test_run(self, title, process, expected=()):
+        """Follow a running Tests/run.py (a TauFW.Utilities.Process.BackgroundProcess) until the user leaves;
+        return its exit code. expected: the case ids shown as waiting before they start."""
+        # Imported here: FastSetup imports Menu on its own before TauFW is built, and never shows this screen.
+        from ._test_run import follow_tests
+        return self.curses.wrapper(lambda screen: follow_tests(self, screen, title, process, expected))
 
     def _pick(self, title, labels, manual_label):
         selected = self.choose(title, labels + [manual_label, "Back"])

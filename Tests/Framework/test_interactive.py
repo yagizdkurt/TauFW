@@ -88,13 +88,17 @@ class MenuTests(unittest.TestCase):
                                       ("normal", [], ["normal"]),
                                       ("bbb", ["plotter.unroll"], ["bbb", "check", "--case", "plotter.unroll"]),
                                       ("environment", [], ["environment"])):
-            with mock.patch.object(interactive.subprocess, "Popen") as launch, \
-                    contextlib.redirect_stdout(io.StringIO()):
-                launch.return_value.wait.return_value = 1
-                self.assertEqual(operations.execute_tests(family, cases), 1)
-            self.assertEqual(launch.call_args.args[0],
-                             [sys.executable, "-B", str(checkout.REPO / "Tests/run.py")] + suffix)
-            self.assertEqual(launch.call_args.kwargs["cwd"], str(checkout.REPO))
+            with mock.patch.object(interactive.BackgroundProcess, "start") as launch:
+                self.assertIs(operations.start_tests(family, cases), launch.return_value)
+            logs = checkout.REPO / "Tests/.artifacts/logs/menu"
+            self.assertEqual(launch.call_args.args, ([sys.executable, "-B", str(checkout.REPO / "Tests/run.py")]
+                                                     + suffix, str(checkout.REPO), str(logs / "output.log")))
+            self.assertEqual(launch.call_args.kwargs, dict(events=str(logs / "events.jsonl")))
+        for family, cases in (("unknown", []), ("all", ["example"]), ("environment", ["example"])):
+            with mock.patch.object(interactive.BackgroundProcess, "start") as launch:
+                with self.assertRaises(ValueError):
+                    operations.start_tests(family, cases)
+            launch.assert_not_called()
         metadata = {family: [dict(id="example", description="Example", dependencies=[])]
                     for family in ("normal", "checks", "bbb")}
         with mock.patch.object(interactive.subprocess, "run", return_value=mock.Mock(
@@ -110,26 +114,6 @@ class MenuTests(unittest.TestCase):
         with mock.patch.object(interactive, "__file__", str(self.root / "Framework/python/interactive.py")):
             with self.assertRaisesRegex(RuntimeError, "complete TauFW checkout"):
                 operations.test_catalog()
-
-    def test_test_interrupt_stops_process_group_and_waits(self):
-        operations = self.menu(FakeUI()).operations
-        process = mock.Mock(pid=123, wait=mock.Mock(side_effect=[KeyboardInterrupt(), 130]))
-        posix = SimpleNamespace(name="posix", killpg=mock.Mock())
-        with mock.patch.object(interactive, "os", posix), \
-                mock.patch.object(interactive.subprocess, "Popen", return_value=process):
-            with self.assertRaises(KeyboardInterrupt):
-                operations.execute_tests("normal", [])
-        posix.killpg.assert_called_once_with(123, interactive.signal.SIGINT)
-        self.assertEqual(process.wait.call_args_list, [mock.call(), mock.call(timeout=5)])
-        process.wait.side_effect = [KeyboardInterrupt(), interactive.subprocess.TimeoutExpired("tests", 5), -9]
-        posix.killpg.reset_mock()
-        with mock.patch.object(interactive, "os", posix), \
-                mock.patch.object(interactive.signal, "SIGKILL", 9, create=True), \
-                mock.patch.object(interactive.subprocess, "Popen", return_value=process):
-            with self.assertRaises(KeyboardInterrupt):
-                operations.execute_tests("normal", [])
-        self.assertEqual(posix.killpg.call_args_list, [mock.call(123, interactive.signal.SIGINT),
-                                                     mock.call(123, 9)])
 
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()

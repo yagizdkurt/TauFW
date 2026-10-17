@@ -9,7 +9,8 @@ problems is shown in red and cannot start) and warnings (yellow; the recipe can 
 Records expose run_id, run_dir, and state;
 run rows are (created, path, (run_id, state, updated)). Only operations reads
 files, validates values, or invokes commands. Grid callbacks are grid_proxy_valid()
-and renew_grid_proxy(). This class owns screen transitions.
+and renew_grid_proxy(). Test callbacks are test_catalog() and start_tests(family, cases), which returns a
+running TauFW.Utilities.Process.BackgroundProcess that the test screen follows. This class owns screen transitions.
 """
 from ._menu import ConsoleUI
 
@@ -185,16 +186,13 @@ class MenuNavigation:
                     raise ValueError("No automated tests available in this family.")
                 if self.ui.test_selection("Review / " + titles[family], items, review=True) is None:
                     continue
+                # "all" lists families, not cases; the environment check runs no cases.
+                expected = [] if family in ("all", "environment") else [item["id"] for item in items]
+                process = self.operations.start_tests(family, selected)
                 try:
-                    self.operations.execute_tests(family, selected)
-                except KeyboardInterrupt:
-                    self.ui.interrupted_tests()
-                except Exception as error:
-                    if isinstance(self.ui, ConsoleUI) and self.ui.is_terminal_error(error):
-                        raise
-                    self.ui.operation_error(error)
+                    self.ui.test_run(titles[family], process, expected)
                 finally:
-                    self.ui.pause()
+                    process.close()  # the screen leaves only after the run ended; this covers a screen failure
             except KeyboardInterrupt:
                 continue
             except Exception as error:

@@ -55,6 +55,11 @@ Items marked **(verify)** may already be done; check before working on them.
       `prod_test_20261017-023321`'s production manifest converted the same way; `check` and `plan` of a plots recipe
       with `{tuples: {path: ...}}` (the `--tuples` pattern is that run's). (6) `taufw.py plan Analyses/tes_id_2025`
       as before.
+- [ ] **Test screen on lxplus (CL §20):** `python3 Tests/run.py checks` (all but `check_import_boundaries` pass), then
+      in the menu (`taufw.py`): Tests > Normal tests > Run entire family: the cases fill in live, a running case's log
+      grows in Details, Enter/L/End work, no line is printed over the screen. Stop a BBB check with S and with Esc + Y:
+      the run ends within seconds and `ps -u $USER` shows no left-over worker. `Tests/Utilities/test_background.py`
+      runs the real process-group test there (skipped on Windows).
 - [ ] SGE adapter (S01) has never run on an SGE site; nice to have. ([PicoProducer BUGS](../PicoProducer/BUGS.md) S01)
 
 ## 2. Moving `common/python/tools/` into `TauFW.Utilities`
