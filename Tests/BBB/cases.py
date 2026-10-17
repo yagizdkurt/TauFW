@@ -180,6 +180,8 @@ def plotter_stack(workspace):
         fname = "%s/$VAR_mt-%s-2018$TAG" % (outdir, selection.filename)
         # getstack returns {Stack: (Variable, Selection)}; sorted by variable for a fixed order
         for stack, (variable, _) in sorted(stacks.items(), key=lambda item: item[1][0].filename):
+            # the histograms as filled (Stack.draw replaces the data histogram by a graph with Poisson errors)
+            histograms = [histogram_snapshot(hist) for hist in stack.hists]
             stack.draw(fraction=False)
             stack.drawlegend()
             stack.drawtext("#mu#tau_{h}: %s" % selection.title)
@@ -189,7 +191,7 @@ def plotter_stack(workspace):
                 "drawing": {name: getattr(variable, name) for name in (  # what Plot reads from the variable
                     "filename", "title", "xmin", "xmax", "ymin", "ymax", "rmin", "rmax", "ratiorange", "binlabels",
                     "logx", "logy", "ymargin", "logyrange", "position", "ncols", "dividebins")},
-                "histograms": [histogram_snapshot(hist) for hist in stack.hists],
+                "histograms": histograms,
                 "canvas": drawn_snapshot(stack.canvas)})
             stack.close(keep=True)
     if not any("QCD" in hist["name"] for item in result["stacks"] for hist in item["histograms"]):
