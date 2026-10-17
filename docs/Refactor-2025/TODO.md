@@ -135,7 +135,7 @@ Each changes logs, so do each in its own commit, with a BBB re-lock where a base
 - [ ] F08: `merge_datacards_regions` called with 7 arguments, takes 6 (crash).
 - [ ] F09: `hasattr` on a dict is always false, so the Zmm card is never added (latent).
 - [ ] F10: the combined card is written to `output_{era}/` (wrong).
-- [ ] F25: `find_spec('ROOT')` raises when ROOT is already imported (`api/tes_id.py`, default `find_module`; crash, like L13).
+- [x] F25 (fixed, CL §18): `find_spec('ROOT')` raises when ROOT is already imported (`api/tes_id.py`, default `find_module`; crash, like L13).
 
 **Plotter** ([BUGS.md](../Plotter/BUGS.md)):
 
@@ -144,7 +144,7 @@ Each changes logs, so do each in its own commit, with a BBB re-lock where a base
       the `drawing.canvas` baseline (`$.tools.sumhists`), so re-lock.
 - [ ] L04: `estimatelen` with several arguments raises `TypeError` (now `Utilities/python/Drawing/labels.py`).
 - [ ] L12: `getmcsample` ignores its `pico=` keyword (`python/sample/utils.py:119-120`; no callers, latent).
-- [ ] L13: `find_spec('ROOT')` raises `ValueError` when ROOT is already imported (`python/api/control_plots.py`, default `find_module`): `plan`/`advance` of production + plots crash on lxplus.
+- [x] L13 (fixed, CL §18): `find_spec('ROOT')` raises `ValueError` when ROOT is already imported (`python/api/control_plots.py`, default `find_module`): `plan`/`advance` of production + plots crash on lxplus.
 
 **Framework** ([BUGS.md](../Framework/BUGS.md)), registered only:
 

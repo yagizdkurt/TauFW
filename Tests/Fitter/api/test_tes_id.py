@@ -2,8 +2,11 @@
 import glob
 import os
 import shutil
+import sys
 import tempfile
+import types
 import unittest
+from unittest import mock
 
 import checkout  # noqa: F401  (must precede TauFW imports)
 from TauFW.Fitter.api import TauESID, ShapesRequest, FitRequest, FIT_STEPS, read_fit_values
@@ -156,6 +159,17 @@ class ShapesTests(TauESIDTestCase):
         self.assertEqual(plan.artifacts, ())
         problems = self.fitter.preflight_shapes(self.shapes(configs=["nope.yml"]))
         self.assertTrue(any("config nope.yml not found" in p for p in problems))
+
+    def test_default_module_lookup(self):  # BUGS F25: find_spec raises for an imported module without __spec__
+        imported = types.ModuleType("taufw_test_imported")
+        imported.__spec__ = None  # like CMSSW's ROOT once PicoProducer imported it
+        with mock.patch.dict(sys.modules, {"taufw_test_imported": imported, "taufw_test_blocked": None}):
+            lookup = TauESID(basedir=self.base).find_module
+            self.assertTrue(lookup("taufw_test_imported"))
+            self.assertFalse(lookup("taufw_test_blocked"))
+            self.assertFalse(lookup("taufw_test_missing"))
+            self.assertFalse(lookup("taufw_test_missing.sub"))
+            self.assertTrue(lookup("json"))
 
     def test_preflight_environment(self):
         self.modules = set()

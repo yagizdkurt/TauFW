@@ -55,7 +55,7 @@ so it comes in its own commit after the shell/Framework comparison of R3.
 | F22 | `python/api/tes_id.py` `_correction_glob` | `tau_sf/*_<era>_VSjet<J>_VSele<E>.<form>` also matches the files of other taggers (PNet, UParT), so they are listed in the fit artifact | wrong (artifact list) | R3 (CL §17), checked on lxplus: the glob is `tau_sf/*_SF_dm_DeepTau*_<era>_VSjet<J>_VSele<E>.<form>` | the fit artifact lists only DeepTau files |
 | F23 | `python/plot/runpostfit.py` (line ~45) | the post-fit file name has `__mutau_` hard-coded instead of the config's tag, so a config with another tag fails to open its post-fit shapes | latent | registered only | |
 | F24 | `tau_tid_2024.py` `makecorr_tid` (lines ~395-421), through `make_tid_2025.py` | if no per-working-point file is found, `makecorr_tid` takes its "test format with dummy values" branch (Loose/Medium, SF 1.0 +- 0.2) instead of failing; what it writes then is not yet checked on lxplus | wrong | registered only; after R3 | |
-| F25 | `python/api/tes_id.py` `TauESID.__init__` (default `find_module`), used by `preflight_shapes` and `preflight_fit` (`_environment`, CombineHarvester check) | the same as Plotter L13: `importlib.util.find_spec('ROOT')` raises `ValueError: ROOT.__spec__ is None` when CMSSW's ROOT is already imported in the process (e.g. after a production stage, or after the plots stage's own checks). The histograms and fit stages then raise at preflight | crash | registered only | none: the preflight answers instead of raising |
+| F25 | `python/api/tes_id.py` `TauESID.__init__` (default `find_module`), used by `preflight_shapes` and `preflight_fit` (`_environment`, CombineHarvester check) | the same as Plotter L13: `importlib.util.find_spec('ROOT')` raises `ValueError: ROOT.__spec__ is None` when CMSSW's ROOT is already imported in the process (e.g. after a production stage, or after the plots stage's own checks). The histograms and fit stages then raise at preflight | crash | CL §18 (exception to the no-fix rule: it blocked every recipe with production and plots on lxplus): `_module_exists`, a module already imported counts as found | none: the preflight answers instead of raising |
 
 ## How old
 
@@ -109,4 +109,3 @@ Open bugs only; fixed ones are left out.
 - **F22** `_correction_glob` came with the Fitter API, `c27abb7` (2026-10-13, Part G).
 - **F23** `__mutau_` is from `27f31c6` (2025-10-20, "postfit Zmm plots").
 - **F24** see F17: `7589a86` (2026-05-19).
-- **F25** the default `find_module` came with the Fitter API, `c27abb7` (2026-10-13, Part G); see Plotter L13.

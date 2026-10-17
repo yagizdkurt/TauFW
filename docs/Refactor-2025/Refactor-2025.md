@@ -989,3 +989,15 @@ the pattern; a read-only `--run-root` stopped before anything was made. BBB `fra
 snapshots the merged tuples in `stages/production/` and masks the run ID (part of the tuple paths) in `run.json`;
 re-locked on lxplus: only this case changed (tuple paths, `pattern`, the manifest next to the tuples, the
 `run_root` lines of `plan`; the merged tuples are byte-identical), then `bbb check` 20/20.
+
+### Fix on the way: Plotter L13, Fitter F25
+
+An exception to "no bug fixes until the refactor is finished", in its own commit: the Plotter and Fitter APIs asked
+`importlib.util.find_spec('ROOT')` whether ROOT can be imported, which raises `ValueError` once CMSSW's ROOT is
+imported in the process (its `__spec__` is None). Every recipe with a production stage before plots or histograms
+crashed in `taufw.py plan` and in the preflight of a run. The default lookup is now `_module_exists`: a module that
+is already imported counts as found (a blocked one, `None` in `sys.modules`, does not); otherwise `find_spec`, and a
+missing parent package means not found. No output changes.
+
+Tests (Windows): Plotter API 13, Fitter API 20 (an imported module without `__spec__`, a blocked one, a missing one
+and a missing parent package).

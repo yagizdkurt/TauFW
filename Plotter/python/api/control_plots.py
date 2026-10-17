@@ -175,7 +175,7 @@ class ControlPlots:
         self.runner = runner or ProcessRunner()
         self.read_yaml = read_yaml or _read_yaml
         self.python = python or sys.executable
-        self.find_module = find_module or (lambda name: importlib.util.find_spec(name) is not None)
+        self.find_module = find_module or _module_exists
 
     def __repr__(self):
         return "<ControlPlots(basedir=%r)>" % (self.basedir)
@@ -207,6 +207,17 @@ def _plot_glob(channel, era, tag):
 
 # =============================================================================
 # ================================= DEFAULTS ==================================
+
+
+def _module_exists(name):
+    """True if module `name` can be imported. A module that is already imported counts without asking importlib:
+    find_spec() raises ValueError for one whose __spec__ is None, e.g. CMSSW's ROOT once PicoProducer imported it."""
+    if sys.modules.get(name) is not None:  # BUGS L13 (None in sys.modules: an import that is blocked)
+        return True
+    try:
+        return importlib.util.find_spec(name) is not None
+    except ImportError:  # e.g. the parent package of a dotted name is missing
+        return False
 
 
 def _default_basedir():

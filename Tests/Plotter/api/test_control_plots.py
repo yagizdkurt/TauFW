@@ -1,7 +1,9 @@
 """Plotter API: plot.py commands as a user types them; plots are checked (no ROOT)."""
 import os
 import shutil
+import sys
 import tempfile
+import types
 import unittest
 from unittest import mock
 
@@ -162,6 +164,17 @@ class ControlPlotsTests(unittest.TestCase):
         self.assertEqual(problems, ("tuple pattern 'pico/$ERA/$GROUP' is relative: the scripts would look for the "
                                     "tuples relative to %s" % (os.path.join(self.base, "out")),))
         self.assertNotIn("--tuples", self.plotter.plan(PlotsRequest(eras=["2025"])).commands[0].argv)
+
+    def test_default_module_lookup(self):  # BUGS L13: find_spec raises for an imported module without __spec__
+        imported = types.ModuleType("taufw_test_imported")
+        imported.__spec__ = None  # like CMSSW's ROOT once PicoProducer imported it
+        with mock.patch.dict(sys.modules, {"taufw_test_imported": imported, "taufw_test_blocked": None}):
+            lookup = ControlPlots(basedir=self.base).find_module
+            self.assertTrue(lookup("taufw_test_imported"))
+            self.assertFalse(lookup("taufw_test_blocked"))
+            self.assertFalse(lookup("taufw_test_missing"))
+            self.assertFalse(lookup("taufw_test_missing.sub"))
+            self.assertTrue(lookup("json"))
 
     def test_request_checks(self):
         with self.assertRaises(ValueError):
