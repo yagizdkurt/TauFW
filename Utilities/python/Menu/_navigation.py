@@ -5,7 +5,7 @@ The injected operations object supplies launch_dir, recipes(), runs(),
 resolve_path(value), load_run(path), can_advance(record), validate_poll(value),
 recipe_preview(path), prepare_review(path), and execute(command, **values).
 Recipe views contain name, path, ordered (stage id, type, description) triples, notes, problems (a recipe with
-problems is shown in red and cannot start) and warnings (shown; the recipe can still start).
+problems is shown in red and cannot start) and warnings (yellow; the recipe can still start).
 Records expose run_id, run_dir, and state;
 run rows are (created, path, (run_id, state, updated)). Only operations reads
 files, validates values, or invokes commands. This class owns screen transitions.
@@ -47,8 +47,9 @@ class MenuNavigation:
             recipes = self.operations.recipes()
             previews = [self._preview(path) for path in recipes]  # all at once: the list marks broken recipes
             broken = [bool(view.get("error") or view.get("problems")) for view in previews]
+            warnings = [bool(view.get("warnings")) for view in previews]
             action, index = self.ui.select_recipe([p.name for p in recipes], preview=lambda i: previews[i],
-                                                  broken=broken)
+                                                  broken=broken, warnings=warnings)
             if action == "back":
                 return
             if action == "manual":

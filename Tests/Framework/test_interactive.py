@@ -40,7 +40,7 @@ class FakeUI(ConsoleUI):
     def help(self):
         pass
 
-    def select_recipe(self, names, preview=None, broken=None):
+    def select_recipe(self, names, preview=None, broken=None, warnings=None):
         self.broken = broken
         return super().select_recipe(names)
 

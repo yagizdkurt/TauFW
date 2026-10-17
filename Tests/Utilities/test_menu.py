@@ -443,14 +443,17 @@ ConsoleUI(None)
     def test_picker_preview_cache_and_exception_recovery(self):
         ui, operations = mock.Mock(), mock.Mock()
         operations.recipes.return_value = [Path("good.yml"), Path("bad.yml"), Path("wrong.yml")]
-        operations.recipe_preview.side_effect = [dict(name="good"), ValueError("bad recipe"),
-                                                 dict(name="wrong", problems=("stages[0] (fit): missing 'id'",))]
+        operations.recipe_preview.side_effect = [dict(name="good", warnings=("run_root: not set",)),
+                                                 ValueError("bad recipe"),
+                                                 dict(name="wrong", problems=("stages[0] (fit): missing 'id'",),
+                                                      warnings=("run_root: not set",))]
 
-        def select(names, preview, broken):
+        def select(names, preview, broken, warnings):
             self.assertEqual(preview(0), preview(0))
             self.assertEqual(preview(1), preview(1))
             self.assertEqual(preview(1)["error"], "bad recipe")
             self.assertEqual(broken, [False, True, True])  # every recipe is checked first, to mark it in the list
+            self.assertEqual(warnings, [True, False, True])
             return "back", None
 
         ui.select_recipe.side_effect = select
@@ -482,11 +485,37 @@ ConsoleUI(None)
         text = "|".join(ui._pipeline_lines(view, 40))
         self.assertLess(text.index("problem(s)"), text.index("warning(s)"))
 
-    def test_broken_recipes_are_red_in_the_list(self):
+    def test_recipe_list_colors_prioritize_errors_over_warnings(self):
         ui = ConsoleUI(mock.Mock())
         with mock.patch.object(ui, "_pipeline_choice", return_value=None) as choice:
             self.assertEqual(ui.select_recipe(["a", "b"], lambda i: {}, broken=[False, True]), ("back", None))
         self.assertEqual(choice.call_args.kwargs["row_colors"], [None, "error", None, None])
+        with mock.patch.object(ui, "_pipeline_choice", return_value=None) as choice:
+            ui.select_recipe(["ok", "warning", "error", "both"], lambda i: {},
+                             broken=[False, False, True, True], warnings=[False, True, False, True])
+        self.assertEqual(choice.call_args.kwargs["row_colors"],
+                         [None, "warning", "error", "error", None, None])
+
+    def test_warning_colors_survive_errors_wrapping_and_scrolling(self):
+        for problems in ({}, {"problems": ("stages[0]: missing 'id'",)}, {"error": "invalid recipe"}):
+            with self.subTest(problems=problems):
+                curses, screen = self.curses([])
+                ui = ConsoleUI(curses)
+                with mock.patch.object(ui, "colors_enabled", return_value=True):
+                    ui._setup(screen)
+                self.assertEqual(ui.styles["warning"], curses.color_pair(8))
+                view = dict(name="analysis", warnings=("run_root: not set, choose a run directory",), **problems)
+                colors = []
+                lines = ui._pipeline_lines(view, 24, colors=colors)
+                self.assertEqual(len(lines), len(colors))
+                self.assertEqual(colors[0], "error" if problems else "warning")
+                start = lines.index("1 warning(s):")
+                end = lines.index("", start)
+                self.assertGreater(end - start, 2)  # warning wraps onto multiple lines
+                self.assertEqual(colors[start:end], ["warning"] * (end - start))
+                ui._viewport(screen, (1, 1, end - start + 1, 24), lines, start, line_colors=colors)
+                for call in screen.addnstr.call_args_list[:end - start]:
+                    self.assertEqual(call.args[4], ui.styles["warning"])
 
     def test_framed_screens_without_color_and_with_color_failure(self):
         for fail in (False, True):

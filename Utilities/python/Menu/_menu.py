@@ -58,7 +58,7 @@ class ConsoleUI:
 
     def _setup(self, screen):
         screen.keypad(True)
-        self.styles = dict(accent=0, good=0, waiting=0, error=0)
+        self.styles = dict(accent=0, good=0, waiting=0, warning=0, error=0)
         try:
             if self.colors_enabled() and self.curses.has_colors():
                 self.curses.start_color()
@@ -76,8 +76,9 @@ class ConsoleUI:
                 ):
                     self.curses.init_pair(pair, foreground, background)
                     self.styles[role] = self.curses.color_pair(pair)
+                self.styles["warning"] = self.styles["waiting"]
         except self.curses.error:
-            self.styles = dict(accent=0, good=0, waiting=0, error=0)
+            self.styles = dict(accent=0, good=0, waiting=0, warning=0, error=0)
         try:
             self.curses.curs_set(0)
         except self.curses.error:
@@ -120,13 +121,26 @@ class ConsoleUI:
         return [line for paragraph in str(value).splitlines()
                 for line in (textwrap.wrap(paragraph, max(1, width)) or [""])] or [""]
 
-    def _pipeline_lines(self, view, width, show_path=False, compact=False):
-        """Turn presentation data into a vertical, scrollable ASCII pipeline."""
+    def _pipeline_lines(self, view, width, show_path=False, compact=False, colors=None):
+        """Build pipeline lines and optionally fill their matching color roles."""
         lines = self._wrap("Recipe: " + view.get("name", ""), width)
+        name_end = len(lines)
+        warning_start = warning_end = 0
+
+        def finish():
+            if colors is not None:
+                broken = view.get("error") or view.get("problems")
+                colors.extend(["error" if broken else None] * len(lines))
+                if view.get("warnings") and not broken:
+                    colors[:name_end] = ["warning"] * name_end
+                colors[warning_start:warning_end] = ["warning"] * (warning_end - warning_start)
+            return lines
+
         if view.get("error"):
-            return lines + [""] + self._wrap("Cannot preview: " + view["error"], width)
+            lines += [""] + self._wrap("Cannot preview: " + view["error"], width)
         if view.get("hint"):
-            return self._wrap(view["hint"], width)
+            lines = self._wrap(view["hint"], width)
+            return finish()
         if show_path:
             lines += self._wrap("Path: " + view.get("path", ""), width)
         problems = view.get("problems", ())
@@ -137,10 +151,14 @@ class ConsoleUI:
             lines += [""]
         warnings = view.get("warnings", ())
         if warnings:  # the recipe can run, but should change
+            warning_start = len(lines)
             lines += ["", "%d warning(s):" % len(warnings)] if not problems else ["%d warning(s):" % len(warnings)]
             for warning in warnings:
                 lines += self._wrap("- " + warning, width)
+            warning_end = len(lines)
             lines += [""]
+        if view.get("error"):
+            return finish()
         stages = view.get("stages", ())
         if not compact:
             lines += ["%d stage(s)" % len(stages), ""]
@@ -161,14 +179,16 @@ class ConsoleUI:
             lines += ["", "Planning notes:"]
             for note in notes:
                 lines += self._wrap(note, width) + [""]
-        return lines
+        return finish()
 
-    def _viewport(self, screen, rect, lines, offset, color=0):
+    def _viewport(self, screen, rect, lines, offset, color=0, line_colors=None):
         top, left, rows, width = rect
         visible = max(1, rows - (1 if len(lines) > rows else 0))
         offset = min(max(0, offset), max(0, len(lines) - visible))
         for index, line in enumerate(lines[offset:offset + visible]):
-            self._line(screen, top + index, left, line[:width], color=color)
+            role = line_colors[offset + index] if line_colors is not None else None
+            self._line(screen, top + index, left, line[:width],
+                       color=self.styles.get(role, 0) if line_colors is not None else color)
         if len(lines) > rows:
             self._line(screen, top + rows - 1, left,
                        ("Lines %d-%d/%d" % (offset + 1, min(len(lines), offset + visible),
@@ -207,11 +227,11 @@ class ConsoleUI:
                         self._line(screen, top + index - first, column, label[:columns],
                                    index == selected, self.styles.get(role, 0) if role else 0)
                     view = preview(selected)
+                    line_colors = []
                     lines = self._pipeline_lines(view, right_rect[3], show_path=review,
-                                                 compact=right_rect[2] <= 6)
-                    broken = view.get("error") or view.get("problems")
+                                                 compact=right_rect[2] <= 6, colors=line_colors)
                     offset, page = self._viewport(screen, right_rect, lines, offset,
-                                                  self.styles["error"] if broken else 0)
+                                                  line_colors=line_colors)
                 else:
                     self._line(screen, 3, 1, "Enlarge terminal (at least 64 x 12).")
                 self._footer(screen, "Up/Down Move | Enter Select | PgUp/Dn Pipeline | Esc Back")
@@ -525,9 +545,9 @@ class ConsoleUI:
             return "manual", None
         return "select", selected
 
-    def select_recipe(self, names, preview=None, broken=None):
+    def select_recipe(self, names, preview=None, broken=None, warnings=None):
         """Return (select, index), (manual, None), or (back, None). broken: True for each recipe with problems
-        (shown in red)."""
+        (shown in red). Warnings without problems are shown in yellow."""
         if preview is None:
             return self._pick("Select a recipe", names, "Enter another recipe path")
 
@@ -537,7 +557,8 @@ class ConsoleUI:
             return dict(hint="Enter a recipe file or bundle directory to review its pipeline."
                         if index == len(names) else "Return to the main menu.")
 
-        colors = ["error" if flag else None for flag in (broken or [False] * len(names))]
+        colors = ["error" if flag else "warning" if warnings and warnings[index] else None
+                  for index, flag in enumerate(broken or [False] * len(names))]
         selected = self._pipeline_choice("Start a new run / Select a recipe",
                                          names + ["Enter another recipe path", "Back"], view,
                                          row_colors=colors + [None, None])
