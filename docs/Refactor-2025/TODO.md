@@ -257,7 +257,9 @@ Parts 1–5 are done (CL §5–§8; the Part 2 changelog section was removed).
       shared core (layout + model) and the test model, the run model on the Framework side, the log path in the
       `progress` event (`run_all` computes it after `progress(..., None)`), start/advance as operations
       (`escalate=False`); (3) `plan`/`status`/`check` beside the screen (output-only view, Esc stops them);
-      (4) one curses session for the whole menu, live labels, errors on screen instead of print + Enter.
+      (4) one curses session for the whole menu, live labels, errors on screen instead of print + Enter, and a
+      small panel over the current screen (`_modal()`) for the quit warning (now a full screen), errors such as
+      "Tests are already running", and confirmations (stop, kill now) (user, 2026-10-18: deferred to this step).
 
 Next-work proposals (not designed in detail yet):
 

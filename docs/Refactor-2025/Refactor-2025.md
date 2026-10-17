@@ -1434,6 +1434,11 @@ and their exit code lived only in the menu's process. Now a supervisor runs them
   RUNNING / STOPPING / PASSED / FAILED / STOPPED / LOST, "RUNNING on <host>" for a run started on another machine;
   a LOST run marks its running case STOP and explains why (`LOST_TEXT`). The state line moves below the title when
   both do not fit on one line. `test_summary(operation)` gives the menus "Running 12/40", "Failed: 3", "Done", ...
+- "Run all automated tests" (found on lxplus, 2026-10-18): the cases were not known in advance, so the total grew
+  with every case ("n/n+1"), and `plotter.unroll` (in normal and in BBB) shared one row. Now `expected` holds
+  `[family, id]` pairs for all three families: the total is right from the start, and `TestRun` keys and labels
+  such cases "suite: id" ("normal: plotter.unroll", "bbb: plotter.unroll"), finding them through the `suite` event
+  of the runner that runs. One family: plain ids, as before.
 
 ### Checked
 
