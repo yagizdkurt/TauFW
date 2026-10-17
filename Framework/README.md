@@ -91,13 +91,17 @@ Use Up/Down to move, Enter to select, and Esc to go back or exit the main menu.
   polling defaults to 600 seconds. Terminal runs offer status inspection instead.
 - **Inspect run status** shows the existing read-only status output, with Refresh
   and Back actions.
+- **Tests** runs the automated tests behind the menu, on a live test screen ([Tests/README.md](../Tests/README.md)
+  "Interactive testing menu"). Leaving the screen never stops them: the main menu shows their state, e.g.
+  **Tests (Running 12/40)** or **Tests (Failed: 3)**, and Tests opens the running run's screen again.
 - **Grid Certificate** checks the existing proxy at startup and whenever the main
   menu reopens. A green tick means valid; yellow **Warning: Proxy Failed!** means
   missing, expired, or unable to check. Select it to create or renew a CMS proxy
   with your certificate password. Startup does not prompt for a password.
 - **Help** displays FAQ topics with explanations on the right; Page Up/Down
   scrolls the explanation.
-- **Exit** closes the menu.
+- **Exit** closes the menu. While something runs behind it (tests), it asks first: **C** stay, **S** stop it
+  all and quit, **Q** quit and leave it running (only while the login session lasts; see Tests/README.md).
 
 Typed relative paths and the default run root are relative to the launch
 directory. Operations print their normal output outside the menu; press Enter
@@ -109,8 +113,12 @@ Menu presentation lives in `Utilities/python/Menu/`: `_menu.py` owns rendering,
 wording, screen choices, and terminal lifecycle; `_navigation.py` owns screen
 transitions, back behavior, refresh loops, and operation feedback; `faq.py` owns
 help content.
+`_test_run.py` is the test screen. What runs behind the menu is an operation
+(`Utilities/python/Process/_operations.py`, `_supervisor.py`): a directory under `.artifacts/menu/operations/`
+that a supervisor process fills while it runs the command, and that any menu reads again (CL §23).
 `python/interactive.py` keeps recipe/run discovery, validation, record access,
-read-only recipe previews and plan preparation, and command dispatch. Recipe previews (with their problems)
+read-only recipe previews and plan preparation, test runs (`start_tests`, `tests_operation`), and command
+dispatch. Recipe previews (with their problems)
 are made once per picker visit; Framework objects stay in the adapter. UI screens use ASCII frames, cyan accents,
 selection markers, and a shared keyboard-controls footer. Colors are optional and all status labels
 remain readable without them. Entry screens retain the adaptive TauFW artwork.

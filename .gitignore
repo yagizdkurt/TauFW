@@ -37,6 +37,9 @@ Fitter/*.out
 Fitter/Zpt/weights
 LocalR/
 
+# What runs behind the menu (Utilities/python/Process/_operations.py).
+.artifacts/
+
 # Centralized test artifacts (BBB expectations and fixture definitions stay tracked).
 Tests/**/__pycache__/
 Tests/.artifacts/

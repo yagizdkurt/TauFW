@@ -19,7 +19,10 @@ from TauFW.Framework.validation import check_recipe
 from TauFW.Framework.framework import Framework
 from TauFW.Framework.reporting import SilentReporter
 from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation
-from TauFW.Utilities.Process import BackgroundProcess, EventWriter
+from TauFW.Utilities.Process import EventWriter, OperationStore
+
+CHECKOUT = Path(__file__).resolve().parents[2]
+OPERATIONS_DIR = CHECKOUT / ".artifacts" / "menu" / "operations"  # what runs behind the menu (git-ignored)
 
 
 class _Operations:
@@ -28,10 +31,11 @@ class _Operations:
     # =========================================================================
     # ================================= SETUP =================================
 
-    def __init__(self, commands, launch_dir=None, recipes_dir=None):
+    def __init__(self, commands, launch_dir=None, recipes_dir=None, operations_dir=None):
         self.commands = commands
         self.launch_dir = Path(launch_dir or os.getcwd()).resolve()
         self.recipes_dir = Path(recipes_dir or ANALYSES_DIR)
+        self.store = OperationStore(operations_dir or OPERATIONS_DIR)
 
     def resolve_path(self, value):
         path = Path(value).expanduser()
@@ -150,7 +154,7 @@ class _Operations:
 
     @staticmethod
     def _test_runner():
-        root = Path(__file__).resolve().parents[2]
+        root = CHECKOUT
         runner = root / "Tests" / "run.py"
         if not runner.is_file():
             raise RuntimeError("Cannot find Tests/run.py in %s. Open the menu from a complete TauFW checkout." % root)
@@ -176,22 +180,47 @@ class _Operations:
         except (ValueError, KeyError, TypeError) as error:
             raise RuntimeError("Invalid test catalog from Tests/run.py; check the checkout: %s" % error) from error
 
-    def start_tests(self, family, cases):
-        """Start Tests/run.py beside the menu; return the running BackgroundProcess. Its output and its events
-        (Tests/support/events.py) go to Tests/.artifacts/logs/menu/; the test screen follows them."""
+    def start_tests(self, family, cases, title=None, expected=()):
+        """Start Tests/run.py behind the menu; return its TauFW.Utilities.Process.Operation (its output and its
+        events, Tests/support/events.py, are in its directory under .artifacts/menu/operations/). title and
+        expected (the case ids shown as waiting) are kept with it, for its screen in a later menu. One test run
+        at a time: RuntimeError while one runs (Tests/run.py and its logs are shared). The oldest records are
+        removed first (OperationStore.prune)."""
         if family not in ("all", "checks", "normal", "bbb", "environment"):
             raise ValueError("Unknown automated test family: %s" % family)
         if cases and family in ("all", "environment"):
             raise ValueError("This action does not accept selected cases.")
+        running = self.store.running("tests")
+        if running:
+            raise RuntimeError("Tests are already running (%s, started on %s); open Tests to follow them."
+                               % (running[0].title, running[0].host))
         root, runner = self._test_runner()
         command = [sys.executable, "-B", str(runner), family]
         if family == "bbb":
             command.append("check")
         for case in cases:
             command.extend(["--case", case])
-        logs = root / "Tests" / ".artifacts" / "logs" / "menu"
-        return BackgroundProcess.start(command, str(root), str(logs / "output.log"),
-                                       events=str(logs / "events.jsonl"))
+        self.store.prune("tests", keep=4)  # with the new one: the last five
+        return self.store.start("tests", title or family, command, str(root),
+                                data=dict(family=family, cases=list(cases), expected=list(expected)))
+
+    def tests_operation(self):
+        """The last test run (an Operation), or None; also when the records cannot be read."""
+        try:
+            return self.store.latest("tests")
+        except OSError:
+            return None
+
+    def running_operations(self):
+        """Everything that runs behind the menu now (Operations)."""
+        try:
+            return self.store.running()
+        except OSError:
+            return []
+
+    @staticmethod
+    def stop_operation(operation):
+        operation.cancel()
 
     def execute(self, command, **values):
         args = dict(verbose=0, wait=False, poll=DEFAULT_POLL_SECONDS, run_root=None, local=False, maxevts=100,
@@ -204,9 +233,10 @@ class _Operations:
 # ================================== LAUNCH ===================================
 
 
-def Menu(commands, ui, launch_dir=None, recipes_dir=None):
-    """Build navigation with Framework callbacks, preserving the constructor API."""
-    return MenuNavigation(ui, _Operations(commands, launch_dir, recipes_dir))
+def Menu(commands, ui, launch_dir=None, recipes_dir=None, operations_dir=None):
+    """Build navigation with Framework callbacks, preserving the constructor API. operations_dir: where the
+    operations behind the menu are kept (default: OPERATIONS_DIR)."""
+    return MenuNavigation(ui, _Operations(commands, launch_dir, recipes_dir, operations_dir))
 
 
 def run_menu(commands, parser):

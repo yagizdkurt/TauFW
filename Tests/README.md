@@ -32,10 +32,23 @@ to **Run** and press Enter. At least one selection is required. Review the
 selected tests before running; Esc or Back cancels. Page Up/Down scroll details,
 including descriptions and declared dependencies where available.
 
-Execution uses the current Python interpreter from the checkout root, outside
-the menu screen. Output is always quiet with the usual PASS/FAIL/SKIP reporting,
-80-line failure tails and log paths. Press Enter afterward to return; Ctrl-C
-cancels the active test run and workers. Normal PASS means successful script
+The tests run behind the menu: `Tests/run.py` (quiet, the usual PASS/FAIL/SKIP
+reporting) with the current Python interpreter from the checkout root, started
+by a small supervisor in a session of its own. The test screen follows it live:
+the cases with their state and time, the focused case's details and the end of
+its log; Enter shows the whole case log, L the output of `Tests/run.py`, End
+follows a log again after scrolling. **Esc leaves the screen and the tests keep
+running**: the main menu shows **Tests (Running 12/40)**, then **Tests (Done)**,
+**Tests (Failed: 3)**, **Tests (Stopped)** or **Tests (Lost)**; selecting Tests
+while they run opens their screen again, also from a menu opened later in the
+same login session or on another lxplus machine. After a run, the Tests menu
+starts with **Last run: ...** to look at it again. One test run at a time.
+**S** (or Ctrl-C) asks, then stops the run and its workers. Quitting the menu
+while tests run asks first: stay, stop them, or quit and leave them running.
+They run only as long as the login session: a run killed when the SSH session
+ends is shown as **Lost** (no sign of life for two minutes). The run's files are
+in `.artifacts/menu/operations/tests-<time>/` (`output.log`, `events.jsonl`;
+the last five runs are kept). Normal PASS means successful script
 exit, not additional assertions. Full runs still require the reference software
 stack and an existing BBB lock; the menu does not install dependencies or create
 baselines. Integration tests and baseline changes remain CLI-only.

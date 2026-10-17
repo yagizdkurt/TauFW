@@ -12,6 +12,17 @@ from .faq import FAQ
 from .banner import BOXED, COMPACT, FULL, INTERACTIONS, VERSION, WIDTH
 
 
+QUIT_WARNING = ("If you quit, they keep running, but only while this login session lasts: closing the SSH "
+                "session may kill them, and the menu then shows them as Lost. A run killed while it submits jobs "
+                "may need a manual check (condor_q). Open the menu again to follow them.")
+
+
+def _clock(seconds):
+    minutes, seconds = divmod(int(max(0, seconds)), 60)
+    hours, minutes = divmod(minutes, 60)
+    return "%d:%02d:%02d" % (hours, minutes, seconds) if hours else "%02d:%02d" % (minutes, seconds)
+
+
 class ConsoleUI:
     """Small curses screens; no Framework or batch logic."""
 
@@ -437,12 +448,18 @@ class ConsoleUI:
         selected = self.choose(title, choices, welcome=welcome, **layout)
         return back if selected is None else actions[selected]
 
-    def main_menu(self, proxy_valid=False):
+    def main_menu(self, proxy_valid=False, tests=None):
+        """tests: the last test run (a TauFW.Utilities.Process.Operation) or None; its state is shown next to
+        Tests ("Tests (Running 12/40)"), as it was when the menu was drawn."""
         certificate = "Grid Certificate  " + ("\u2713" if proxy_valid else "Warning: Proxy Failed!")
+        label, role = "Tests", None
+        if tests is not None:
+            text, role = self._operation_summary(tests)
+            label = "Tests (%s)" % text
         return self._action("TauFW", ["Start a new run", "Continue an existing run",
-                                     "Inspect run status", "Tests", certificate, "Help", "Exit"],
+                                     "Inspect run status", label, certificate, "Help", "Exit"],
                             ["start", "continue", "inspect", "tests", "grid_certificate", "help", "exit"],
-                            back="exit", row_colors=[None, None, None, None,
+                            back="exit", row_colors=[None, None, None, role,
                                                      "good" if proxy_valid else "warning", None, None],
                             welcome="Welcome to TauFW!", descriptions=[
                                 "Choose an analysis recipe and review its pipeline before starting.",
@@ -454,16 +471,27 @@ class ConsoleUI:
                                 "Close the menu and return to your terminal.",
                             ])
 
-    def tests_menu(self):
-        return self._action("Tests", ["Run all automated tests", "Unit and harness checks",
-                            "Normal tests", "BBB regression checks", "Check environment", "Back"],
-                            ["all", "checks", "normal", "bbb", "environment", "back"], descriptions=[
-                                "Run all unit, harness, normal and BBB checks; requires CMSSW/ROOT and a BBB lock.",
-                                "Select unit suites or harness checks.",
-                                "Run local scripts. PASS means successful process exit; missing dependencies may SKIP.",
-                                "Compare exact data/schema against saved expectations; needs Linux Python 3.9 and a lock.",
-                                "Advisory CMSSW Python package-origin diagnostics; does not install or repair packages.",
-                                "Return to the main menu."])
+    def tests_menu(self, last=None):
+        """last: the last test run (an Operation that ended) or None; "last" opens its screen."""
+        choices = ["Run all automated tests", "Unit and harness checks", "Normal tests", "BBB regression checks",
+                   "Check environment", "Back"]
+        actions = ["all", "checks", "normal", "bbb", "environment", "back"]
+        descriptions = [
+            "Run all unit, harness, normal and BBB checks; requires CMSSW/ROOT and a BBB lock.",
+            "Select unit suites or harness checks.",
+            "Run local scripts. PASS means successful process exit; missing dependencies may SKIP.",
+            "Compare exact data/schema against saved expectations; needs Linux Python 3.9 and a lock.",
+            "Advisory CMSSW Python package-origin diagnostics; does not install or repair packages.",
+            "Return to the main menu."]
+        colors = [None] * len(choices)
+        if last is not None:
+            text, role = self._operation_summary(last)
+            choices.insert(0, "Last run: %s (%s)" % (last.title, text))
+            actions.insert(0, "last")
+            descriptions.insert(0, "Show the last test run: its cases, their logs and its output.")
+            colors.insert(0, role)
+        return self._action("Tests", choices, actions, descriptions=descriptions,
+                            row_colors=colors if last is not None else None)
 
     def test_family(self, title):
         return self._action(title, ["Run entire family", "Choose tests", "Back"],
@@ -539,11 +567,55 @@ class ConsoleUI:
         return self.curses.wrapper(draw)
 
     def test_run(self, title, process, expected=()):
-        """Follow a running Tests/run.py (a TauFW.Utilities.Process.BackgroundProcess) until the user leaves;
-        return its exit code. expected: the case ids shown as waiting before they start."""
+        """Follow a test run (a TauFW.Utilities.Process.Operation) until the user leaves; the run goes on behind
+        the menu. Return its exit code (None while it runs). expected: the case ids shown as waiting before they
+        start."""
         # Imported here: FastSetup imports Menu on its own before TauFW is built, and never shows this screen.
         from ._test_run import follow_tests
         return self.curses.wrapper(lambda screen: follow_tests(self, screen, title, process, expected))
+
+    def quit_running(self, operations):
+        """Ask before the menu closes while operations run behind it. Return "cancel" (stay in the menu), "stop"
+        (stop them all, then quit) or "quit" (quit; they keep running)."""
+        rows = []
+        for operation in operations:
+            text, role = self._operation_summary(operation)
+            where = " on %s" % operation.host if operation.remote else ""
+            rows.append(("%s: %s  %s%s" % (operation.title, text, _clock(operation.elapsed()), where), role))
+
+        def draw(screen):
+            self._setup(screen)
+            while True:
+                screen.erase()
+                height, width = screen.getmaxyx()
+                self._header(screen, "Quit TauFW")
+                top, left, lines, columns = self._panel(screen, 3, 1, height - 6, width - 2, "Still running")
+                content = [(text, self.styles.get(role, 0)) for text, role in rows] + [("", 0)]
+                content += [(line, self.styles["warning"]) for line in self._wrap(QUIT_WARNING, columns)]
+                for row, (text, color) in enumerate(content[:lines]):
+                    self._line(screen, top + row, left, text[:columns], color=color)
+                self._footer(screen, "C Cancel (stay) | S Stop all and quit | Q Quit anyway")
+                screen.refresh()
+                try:
+                    key = screen.getch()
+                except KeyboardInterrupt:
+                    return "cancel"
+                if key in (ord("q"), ord("Q")):
+                    return "quit"
+                if key in (ord("s"), ord("S")):
+                    return "stop"
+                if key in (ord("c"), ord("C"), 27, 10, 13, self.curses.KEY_ENTER):
+                    return "cancel"
+        return self.curses.wrapper(draw)
+
+    @staticmethod
+    def _operation_summary(operation):
+        """(text, style role) of an operation's state for the menus."""
+        if operation.kind == "tests":
+            from ._test_run import test_summary  # imported here: see test_run()
+            return test_summary(operation)
+        state = operation.state()
+        return state.capitalize(), {"RUNNING": "accent", "DONE": "good", "FAILED": "error"}.get(state, "warning")
 
     def _pick(self, title, labels, manual_label):
         selected = self.choose(title, labels + [manual_label, "Back"])

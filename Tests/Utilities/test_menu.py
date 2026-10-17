@@ -12,6 +12,38 @@ import checkout
 from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation
 
 
+def idle_operations():
+    """Mock operations with nothing behind the menu: no test run, nothing running."""
+    operations = mock.Mock()
+    operations.tests_operation.return_value = None
+    operations.running_operations.return_value = []
+    return operations
+
+
+class FakeOperation:
+    """A test run behind the menu (TauFW.Utilities.Process.Operation stand-in) with its events in a file."""
+    kind = "tests"
+
+    def __init__(self, directory, state="RUNNING", events="", expected=("a", "b"), remote=False):
+        self.events_path = str(Path(directory) / "events.jsonl")
+        Path(self.events_path).write_text(events)
+        self._state = state
+        self.title = "Normal tests"
+        self.data = dict(expected=list(expected))
+        self.host = "lxplus812.cern.ch"
+        self.remote = remote
+
+    def state(self):
+        return self._state
+
+    @property
+    def running(self):
+        return self._state in ("RUNNING", "STOPPING")
+
+    def elapsed(self):
+        return 75.0
+
+
 class ScreenTests(unittest.TestCase):
     """Exercise actual screen key handling and wrapper lifetime with a fake terminal."""
     def test_grid_certificate_status_label_and_color(self):
@@ -26,7 +58,7 @@ class ScreenTests(unittest.TestCase):
     def test_grid_certificate_checks_on_startup_and_refreshes_after_renewal(self):
         for outcome in (0, 1, KeyboardInterrupt(), RuntimeError("VOMS unavailable")):
             with self.subTest(outcome=outcome):
-                ui, operations = mock.Mock(), mock.Mock()
+                ui, operations = mock.Mock(), idle_operations()
                 ui.main_menu.side_effect = ["grid_certificate", "exit"]
                 operations.grid_proxy_valid.side_effect = [False, outcome == 0]
                 if isinstance(outcome, BaseException):
@@ -35,10 +67,11 @@ class ScreenTests(unittest.TestCase):
                     operations.renew_grid_proxy.return_value = outcome
                 self.assertEqual(MenuNavigation(ui, operations).run(), 0)
                 self.assertEqual(ui.main_menu.call_args_list,
-                                 [mock.call(proxy_valid=False), mock.call(proxy_valid=outcome == 0)])
+                                 [mock.call(proxy_valid=False, tests=None),
+                                  mock.call(proxy_valid=outcome == 0, tests=None)])
                 operations.renew_grid_proxy.assert_called_once_with()
                 ui.pause.assert_called_once_with()
-        ui, operations = mock.Mock(), mock.Mock()
+        ui, operations = mock.Mock(), idle_operations()
         ui.main_menu.return_value = "exit"
         self.assertEqual(MenuNavigation(ui, operations).run(), 0)
         operations.grid_proxy_valid.assert_called_once_with()
@@ -78,7 +111,7 @@ class ScreenTests(unittest.TestCase):
         item = dict(id="example", description="Local example", dependencies=[])
         for outcome in (0, 1, KeyboardInterrupt(), RuntimeError("screen failed")):
             with self.subTest(outcome=outcome):
-                ui, operations = mock.Mock(), mock.Mock()
+                ui, operations = mock.Mock(), idle_operations()
                 ui.main_menu.side_effect = ["tests", "exit"]
                 ui.tests_menu.side_effect = ["normal", "back"]
                 ui.test_family.return_value = "choose"
@@ -88,15 +121,16 @@ class ScreenTests(unittest.TestCase):
                     ui.test_run.side_effect = outcome
                 else:
                     ui.test_run.return_value = outcome
-                self.assertEqual(MenuNavigation(ui, operations).run(), 0)
-                operations.start_tests.assert_called_once_with("normal", ["example"])
                 process = operations.start_tests.return_value
+                process.configure_mock(title="Normal tests", data={"expected": ["example"]}, running=False)
+                self.assertEqual(MenuNavigation(ui, operations).run(), 0)
+                operations.start_tests.assert_called_once_with("normal", ["example"], "Normal tests", ["example"])
                 ui.test_run.assert_called_once_with("Normal tests", process, ["example"])
-                process.close.assert_called_once_with()  # nothing is left running, whatever the screen did
+                process.cancel.assert_not_called()  # the screen never stops a run
                 self.assertEqual(ui.test_selection.call_args_list[-1],
                                  mock.call("Review / Normal tests", [item], review=True))
                 self.assertEqual(ui.pause.call_count, 1 if isinstance(outcome, RuntimeError) else 0)
-        ui, operations = mock.Mock(), mock.Mock()
+        ui, operations = mock.Mock(), idle_operations()
         ui.tests_menu.side_effect = ["normal", "back"]
         ui.test_family.return_value = "all"
         ui.test_selection.return_value = ["example"]
@@ -110,14 +144,14 @@ class ScreenTests(unittest.TestCase):
     def test_testing_back_empty_selection_and_catalog_failure_do_not_execute(self):
         item = dict(id="example", description="Local example", dependencies=[])
         for action, selection in (("back", None), ("choose", []), ("all", None)):
-            ui, operations = mock.Mock(), mock.Mock()
+            ui, operations = mock.Mock(), idle_operations()
             ui.tests_menu.side_effect = ["normal", "back"]
             ui.test_family.return_value = action
             ui.test_selection.return_value = selection
             operations.test_catalog.return_value = {"normal": [item]}
             MenuNavigation(ui, operations).tests()
             operations.start_tests.assert_not_called()
-        ui, operations = mock.Mock(), mock.Mock()
+        ui, operations = mock.Mock(), idle_operations()
         ui.tests_menu.side_effect = ["all", "back"]
         operations.test_catalog.side_effect = RuntimeError("Cannot load test choices")
         MenuNavigation(ui, operations).tests()
@@ -125,16 +159,95 @@ class ScreenTests(unittest.TestCase):
         ui.operation_error.assert_called_once()
         ui.pause.assert_called_once()
 
+    def test_a_running_test_run_opens_its_screen_and_stays_behind_the_menu(self):
+        with tempfile.TemporaryDirectory() as directory:
+            running = FakeOperation(directory)
+            ui, operations = mock.Mock(), idle_operations()
+            operations.tests_operation.return_value = running
+            ui.main_menu.side_effect = ["tests", "exit"]
+            ui.quit_running.return_value = "quit"
+            operations.running_operations.return_value = [running]
+            self.assertEqual(MenuNavigation(ui, operations).run(), 0)
+            ui.test_run.assert_called_once_with("Normal tests", running, ["a", "b"])
+            ui.tests_menu.assert_not_called()  # one test run at a time: Tests is its screen
+            operations.start_tests.assert_not_called()
+            self.assertIs(ui.main_menu.call_args.kwargs["tests"], running)
+            # it ended while its screen was open: the Tests menu follows, with the last run on top
+            ended = FakeOperation(directory)
+            ui, operations = mock.Mock(), idle_operations()
+            operations.tests_operation.side_effect = [ended, ended, ended]
+            ui.test_run.side_effect = lambda *args: setattr(ended, "_state", "FAILED")
+            ui.tests_menu.side_effect = ["last", "back"]
+            MenuNavigation(ui, operations).tests()
+            self.assertEqual(ui.test_run.call_count, 2)  # its screen, then again from "Last run"
+            self.assertEqual(ui.tests_menu.call_args_list, [mock.call(last=ended)] * 2)
+
+    def test_quitting_with_operations_behind_the_menu(self):
+        with tempfile.TemporaryDirectory() as directory:
+            running = FakeOperation(directory)
+            for choice, menus, stopped in (("cancel", 2, False), ("stop", 1, True), ("quit", 1, False)):
+                with self.subTest(choice=choice):
+                    ui, operations = mock.Mock(), idle_operations()
+                    ui.main_menu.return_value = "exit"
+                    ui.quit_running.side_effect = [choice, "quit"]
+                    operations.running_operations.return_value = [running]
+                    self.assertEqual(MenuNavigation(ui, operations).run(), 0)
+                    self.assertEqual(ui.main_menu.call_count, menus)  # cancel: back to the main menu
+                    ui.quit_running.assert_called_with([running])
+                    self.assertEqual(operations.stop_operation.call_args_list,
+                                     [mock.call(running)] if stopped else [])
+            ui, operations = mock.Mock(), idle_operations()
+            ui.main_menu.return_value = "exit"
+            self.assertEqual(MenuNavigation(ui, operations).run(), 0)
+            ui.quit_running.assert_not_called()  # nothing runs: no question
+
+    def test_tests_label_last_run_and_quit_screen(self):
+        events = "".join('{"kind": "case_end", "id": "%s", "status": "%s"}\n' % pair
+                         for pair in (("a", "PASS"), ("b", "FAIL")))
+        with tempfile.TemporaryDirectory() as directory:
+            ui = ConsoleUI(mock.Mock())
+            for state, text, role in (("RUNNING", "Running 2/2", "accent"), ("FAILED", "Failed: 1", "error"),
+                                      ("DONE", "Done", "good"), ("STOPPING", "Stopping", "warning"),
+                                      ("STOPPED", "Stopped", "warning"), ("LOST", "Lost", "warning")):
+                operation = FakeOperation(directory, state, events)
+                with self.subTest(state=state), mock.patch.object(ui, "choose", return_value=3) as choose:
+                    self.assertEqual(ui.main_menu(tests=operation), "tests")
+                    self.assertEqual(choose.call_args.args[1][3], "Tests (%s)" % text)
+                    self.assertEqual(choose.call_args.kwargs["row_colors"][3], role)
+            with mock.patch.object(ui, "choose", return_value=3) as choose:
+                ui.main_menu()
+                self.assertEqual((choose.call_args.args[1][3], choose.call_args.kwargs["row_colors"][3]),
+                                 ("Tests", None))
+            operation = FakeOperation(directory, "FAILED", events)
+            with mock.patch.object(ui, "choose", side_effect=[0, 1]) as choose:
+                self.assertEqual(ui.tests_menu(last=operation), "last")
+                self.assertEqual(choose.call_args.args[1][0], "Last run: Normal tests (Failed: 1)")
+                self.assertEqual(ui.tests_menu(), "checks")
+            self.assertEqual(FakeOperation(directory, "RUNNING", "", expected=()).state(), "RUNNING")
+            with mock.patch.object(ui, "choose", return_value=3) as choose:
+                ui.main_menu(tests=FakeOperation(directory, "RUNNING", "", expected=()))
+                self.assertEqual(choose.call_args.args[1][3], "Tests (Running)")  # no cases known yet
+            remote = FakeOperation(directory, "RUNNING", events, remote=True)
+            for keys, choice in (([ord("x"), ord("q")], "quit"), ([ord("S")], "stop"), ([27], "cancel"),
+                                 ([10], "cancel"), ([KeyboardInterrupt()], "cancel")):
+                curses, screen = self.curses(keys)
+                self.assertEqual(ConsoleUI(curses).quit_running([remote]), choice)
+            drawn = [call.args[2] for call in screen.addnstr.call_args_list]
+            self.assertIn("Normal tests: Running 2/2  01:15 on lxplus812.cern.ch", drawn)
+            self.assertIn("C Cancel (stay) | S Stop all and quit | Q Quit anyway", drawn)
+            self.assertTrue(any("closing the SSH" in line for line in drawn))
+
     def test_all_and_environment_review_before_running(self):
         for family in ("all", "environment"):
-            ui, operations = mock.Mock(), mock.Mock()
+            ui, operations = mock.Mock(), idle_operations()
             ui.tests_menu.side_effect = [family, "back"]
             operations.test_catalog.return_value = {
                 name: [dict(id=name, description=name, dependencies=[])]
                 for name in ("checks", "normal", "bbb")}
             ui.test_selection.return_value = ["reviewed"]
+            operations.start_tests.return_value.configure_mock(data={"expected": []}, running=False)
             MenuNavigation(ui, operations).tests()
-            operations.start_tests.assert_called_once_with(family, [])
+            operations.start_tests.assert_called_once_with(family, [], mock.ANY, [])
             ui.test_run.assert_called_once_with(mock.ANY, operations.start_tests.return_value, [])
             self.assertTrue(ui.test_selection.call_args.kwargs["review"])
             if family == "all":
@@ -262,7 +375,7 @@ class ScreenTests(unittest.TestCase):
 
     def test_navigation_uses_injected_operations(self):
         ui = mock.Mock()
-        operations = mock.Mock()
+        operations = idle_operations()
         operations.execute.return_value = 0
         operations.recipes.return_value = [Path("recipes/example.yml")]
         operations.runs.return_value = [("today", "runs/example", ("example", "WAITING", "today"))]
@@ -483,7 +596,7 @@ ConsoleUI(None)
         self.assertIn("Planning notes:", text)
 
     def test_picker_preview_cache_and_exception_recovery(self):
-        ui, operations = mock.Mock(), mock.Mock()
+        ui, operations = mock.Mock(), idle_operations()
         operations.recipes.return_value = [Path("good.yml"), Path("bad.yml"), Path("wrong.yml")]
         operations.recipe_preview.side_effect = [dict(name="good", warnings=("run_root: not set",)),
                                                  ValueError("bad recipe"),

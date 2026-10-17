@@ -1,25 +1,30 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-"""The screen that follows a test run while Tests/run.py works beside it.
+"""The screen that follows a test run while Tests/run.py works behind the menu.
 
-The run is a TauFW.Utilities.Process.BackgroundProcess: its events
-(Tests/support/events.py) build a TestRun, its output log is the "Output"
-view, and every case log is read only while that case is on screen:
+The run is a TauFW.Utilities.Process.Operation (its supervisor runs
+Tests/run.py): its events (Tests/support/events.py) build a TestRun, its
+output log is the "Output" view, and every case log is read only while that
+case is on screen:
 
     process.events ─▶ TestRun.feed() ─▶ Cases list + Details (focused case)
     process.output ─────────────────▶ Output view (L)
     case log       ─────────────────▶ Details / Case log view (Enter)
+    process.state() ────────────────▶ RUNNING, STOPPING, PASSED, FAILED, STOPPED or LOST (+ "on <host>")
 
 The screen draws ten times a second and never waits for the run. Leaving it
-while the run works asks first and stops the run: tests are not left running
-behind the menu. No Framework imports belong here; _menu.py imports this module only
-when the screen is shown (FastSetup imports Menu before TauFW is built).
+(Esc) never stops the run: it goes on behind the menu, which shows its state
+(test_summary) and opens this screen again. S or Ctrl-C asks, then stops it.
+No Framework imports belong here; _menu.py imports this module only when a
+test run is shown (FastSetup imports Menu before TauFW is built).
 """
 import re
 import time
 
-from ..Process import LogTail
+from ._menu import _clock
+from ..Process import EventReader, LogTail
+from ..Process._operations import ACTIVE, DONE, FAILED, LOST, RUNNING, STOPPED, STOPPING
 
-__all__ = ["TestRun", "follow_tests"]
+__all__ = ["TestRun", "follow_tests", "test_summary"]
 
 
 # =============================================================================
@@ -32,6 +37,10 @@ MESSAGES = 50         # warnings and errors kept
 MARKERS = {"WAIT": "[    ]", "RUN": "[ RUN]", "PASS": "[PASS]", "FAIL": "[FAIL]", "SKIP": "[SKIP]",
            "STOP": "[STOP]"}
 ROLES = {"RUN": "accent", "PASS": "good", "FAIL": "error", "SKIP": "waiting", "STOP": "warning"}
+STATES = {RUNNING: ("RUNNING", "accent"), STOPPING: ("STOPPING", "warning"), DONE: ("PASSED", "good"),
+          FAILED: ("FAILED", "error"), STOPPED: ("STOPPED", "warning"), LOST: ("LOST", "warning")}
+LOST_TEXT = ("The run gave no sign of life for minutes: its login session ended or its machine restarted. "
+             "Its cases did not finish; start the tests again.")
 CONTROL = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|[\x00-\x08\x0b-\x1f\x7f]")
 
 
@@ -50,12 +59,14 @@ class TestRun:
             if handler:
                 handler(event)
 
-    def finish(self, returncode):
-        """The run ended: a case still running was stopped with it."""
+    def finish(self, returncode, lost=False):
+        """The run ended (lost: it was lost, see LOST_TEXT): a case still running was stopped with it."""
         for case in self.cases.values():
             if case["status"] == "RUN":
                 case["status"] = "STOP"
-        if returncode and not self.summaries and not self.cases:
+        if lost:
+            self._message("warning", LOST_TEXT)
+        elif returncode and not self.summaries and not self.cases:
             self.messages.append(("error", "Tests/run.py ended with exit code %s; see Output (L)." % returncode))
 
     def counts(self):
@@ -117,29 +128,44 @@ class TestRun:
 
 
 def follow_tests(ui, screen, title, process, expected=()):
-    """Draw the run until the user leaves (only once it ended: leaving a
-    running run stops it first); return its exit code."""
+    """Draw the run until the user leaves; the run goes on behind the menu.
+    Return its exit code, None while it runs (or once it was lost)."""
     ui._setup(screen)
     screen.timeout(int(FRAME * 1000))
     run = TestRun(expected)
     view = _View()
     while True:
         try:
-            ended = process.poll() is not None  # before reading: then every event of an ended run is read
+            state = process.state()  # before reading: then every event of an ended run is read
             if process.events is not None:
                 run.feed(process.events.read())
             process.output.read()
-            if ended and not view.finished:
-                run.finish(process.returncode)
+            if state not in ACTIVE and not view.finished:
+                run.finish(process.returncode, lost=state == LOST)
                 view.finished = True
-                if view.leave:
-                    return process.returncode
-            _draw(ui, screen, title, process, run, view)
+            _draw(ui, screen, title, process, run, view, state)
             key = screen.getch()
         except KeyboardInterrupt:
             key = 3
-        if _key(ui, key, process, run, view):
+        if _key(ui, key, process, run, view, state):
             return process.returncode
+
+
+def test_summary(operation):
+    """(text, role) of a test run for the menus: "Running 12/40", "Failed: 3", "Done", "Stopping", "Stopped",
+    "Lost"; role: a style name of ConsoleUI."""
+    state = operation.state()
+    run = TestRun(operation.data.get("expected", ()))
+    run.feed(EventReader(operation.events_path).read())  # a reader of its own: the screen's stays at the top
+    counts = run.counts()
+    if state == RUNNING:
+        done = counts["PASS"] + counts["FAIL"] + counts["SKIP"]
+        text = "Running %d/%d" % (done, len(run.cases)) if run.cases else "Running"
+    elif state == FAILED:
+        text = "Failed: %d" % counts["FAIL"] if counts["FAIL"] else "Failed"
+    else:
+        text = state.capitalize()
+    return text, STATES[state][1]
 
 
 class _View:
@@ -151,8 +177,7 @@ class _View:
         self.offset = None      # first line of a log view; None: follow the end
         self.end = 0            # the first line of the last page of the log view
         self.page = 1           # lines of the log view
-        self.confirm = False    # "stop the tests and go back?" is asked
-        self.leave = False      # go back once the stopped run ended
+        self.confirm = False    # "stop the tests?" is asked
         self.finished = False
         self.tails = {}         # case log path -> LogTail
 
@@ -161,16 +186,18 @@ class _View:
 # ================================== DRAWING ==================================
 
 
-def _draw(ui, screen, title, process, run, view):
+def _draw(ui, screen, title, process, run, view, state):
     screen.erase()
     height, width = screen.getmaxyx()
     ui._header(screen, title)
-    state, role = _state(process, run)
+    text, role = _state(process, state)
     counts = run.counts()
     done = counts["PASS"] + counts["FAIL"] + counts["SKIP"]
     summary = "%s | %s | %d/%d done, %d passed, %d failed, %d skipped" % (
-        state, _clock(process.elapsed()), done, len(run.cases), counts["PASS"], counts["FAIL"], counts["SKIP"])
-    ui._line(screen, 1, max(1, width - len(summary) - 2), summary, color=ui.styles.get(role, 0))
+        text, _clock(process.elapsed()), done, len(run.cases), counts["PASS"], counts["FAIL"], counts["SKIP"])
+    column = width - len(summary) - 2
+    row = 1 if column > len(title) + 3 else 2  # no room next to the title: on the free line below it
+    ui._line(screen, row, max(1, column) if row == 1 else 1, summary, color=ui.styles.get(role, 0))
     if height < 12 or width < 40:
         ui._line(screen, 3, 1, "Enlarge terminal (at least 40 x 12).")
     elif view.mode == "output" or not run.cases:
@@ -181,7 +208,7 @@ def _draw(ui, screen, title, process, run, view):
         _log(ui, screen, view, "Log: %s" % case["id"], _case_lines(view, case), height, width)
     else:
         _cases(ui, screen, run, view, height, width)
-    ui._footer(screen, _footer(process, run, view))
+    ui._footer(screen, _footer(run, view, state))
     screen.refresh()
 
 
@@ -223,48 +250,47 @@ def _log(ui, screen, view, title, lines, height, width):
     ui._viewport(screen, rect, lines, view.end if view.offset is None else view.offset)
 
 
-def _footer(process, run, view):
+def _footer(run, view, state):
     if view.confirm:
-        return "Stop the tests and go back? Y Yes | N No"
-    if process.returncode is None and process.cancelled:
-        return "Stopping the tests..."
-    stop = "" if process.returncode is not None else " | S Stop"
+        return "Stop the tests? Y Yes | N No"
+    stop = " | S Stop" if state == RUNNING else ""
+    back = " | Esc Back (keeps running)" if state in ACTIVE else " | Esc Back"
+    if state == STOPPING:
+        return "Stopping the tests..." + back
     if view.mode != "cases" or not run.cases:
-        return "Up/Down/PgUp/PgDn Scroll | End Follow" + stop + " | Esc Back"
-    return "Up/Down Case | Enter Case log | L Output" + stop + " | Esc Back"
+        return "Up/Down/PgUp/PgDn Scroll | End Follow" + stop + back
+    return "Up/Down Case | Enter Case log | L Output" + stop + back
 
 
-def _state(process, run):
-    if process.returncode is None:
-        return ("STOPPING", "warning") if process.cancelled else ("RUNNING", "accent")
-    if process.cancelled:
-        return "STOPPED", "warning"
-    return ("PASSED", "good") if process.returncode == 0 else ("FAILED", "error")
+def _state(process, state):
+    """(text, role) of the state line; a run started on another machine says where it runs."""
+    text, role = STATES[state]
+    if state in ACTIVE and getattr(process, "remote", False):
+        text = "%s on %s" % (text, process.host)
+    return text, role
 
 
 # =============================================================================
 # ==================================== KEYS ===================================
 
 
-def _key(ui, key, process, run, view):
-    """Handle one key; True: leave the screen."""
+def _key(ui, key, process, run, view, state):
+    """Handle one key; True: leave the screen (the run goes on)."""
     curses = ui.curses
     if view.confirm:
         if key in (ord("y"), ord("Y")):
-            view.confirm, view.leave = False, True
+            view.confirm = False
             process.cancel()
         elif key in (ord("n"), ord("N"), 27):
             view.confirm = False
         return False
     if key in (3, ord("s"), ord("S")):
-        process.cancel()
+        view.confirm = state == RUNNING
     elif key == 27:
         if view.mode != "cases" and run.cases:
             view.mode, view.offset = "cases", None
-        elif process.returncode is not None:
-            return True
         else:
-            view.confirm = True
+            return True
     elif key in (ord("l"), ord("L")):
         view.mode, view.offset = ("cases" if view.mode == "output" else "output"), None
     elif view.mode == "cases" and run.cases:
@@ -317,12 +343,6 @@ def _case_time(case):
     if case["seconds"] is not None:
         return "%.1fs" % case["seconds"] if case["seconds"] < 60 else _clock(case["seconds"])
     return ""
-
-
-def _clock(seconds):
-    minutes, seconds = divmod(int(max(0, seconds)), 60)
-    hours, minutes = divmod(minutes, 60)
-    return "%d:%02d:%02d" % (hours, minutes, seconds) if hours else "%02d:%02d" % (minutes, seconds)
 
 
 def _printable(text):

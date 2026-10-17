@@ -1,4 +1,4 @@
-"""The test screen: run state from events, and keys on a fake terminal with a scripted run."""
+"""The test screen: run state from events, and keys on a fake terminal with a scripted run behind the menu."""
 import os
 import tempfile
 import unittest
@@ -6,7 +6,7 @@ from unittest import mock
 
 import checkout  # noqa: F401  (must precede TauFW.Utilities imports)
 from TauFW.Utilities.Menu import ConsoleUI
-from TauFW.Utilities.Menu._test_run import TestRun, follow_tests, MESSAGES
+from TauFW.Utilities.Menu._test_run import TestRun, follow_tests, MESSAGES, LOST_TEXT
 from TauFW.Utilities.Process import LogTail
 
 UP, DOWN, ENTER, NPAGE, PPAGE, END = 1001, 1002, 1003, 1004, 1005, 1007
@@ -21,16 +21,28 @@ def end(name, status, **fields):
 
 
 class FakeRun:
-    """A BackgroundProcess stand-in: poll() returns the scripted codes (the last repeats), events.read() the
-    scripted batches (then nothing)."""
+    """An Operation stand-in: poll() returns the scripted codes (the last repeats), events.read() the
+    scripted batches (then nothing); lost: it never ends, it is LOST."""
 
-    def __init__(self, output, codes=(0,), batches=()):
+    def __init__(self, output, codes=(0,), batches=(), lost=False, remote=False):
         self.codes = list(codes)
         self.batches = list(batches)
         self.events = mock.Mock(read=lambda: self.batches.pop(0) if self.batches else [])
         self.output = LogTail(output)
         self.returncode = None
         self.cancelled = False
+        self.lost = lost
+        self.remote = remote
+        self.host = "lxplus812.cern.ch"
+
+    def state(self):
+        if self.lost:
+            return "LOST"
+        if self.poll() is None:
+            return "STOPPING" if self.cancelled else "RUNNING"
+        if self.cancelled:
+            return "STOPPED"
+        return "DONE" if self.returncode == 0 else "FAILED"
 
     def poll(self):
         if self.returncode is None:
@@ -127,24 +139,48 @@ class TestScreenTests(unittest.TestCase):
         self.assertFalse(run.cancelled)
         screen.timeout.assert_called_once_with(100)
 
-    def test_leaving_a_running_run_asks_and_stops_it_first(self):
-        run = FakeRun(self.output, codes=(None,))
-        curses, screen = self.curses([27, ord("n"), 27, ord("y"), -1, -1])
-        self.assertEqual(ConsoleUI(curses).test_run("Tests", run, ["a"]), 130)
-        self.assertTrue(run.cancelled)
-        self.assertIn("Stop the tests and go back? Y Yes | N No", self.drawn(screen))
-        self.assertEqual(screen.getch.call_count, 4)  # left as soon as the stopped run ended
+    def test_leaving_a_running_run_leaves_it_running(self):
+        run = FakeRun(self.output, codes=(None,), batches=[[start("a")]])
+        curses, screen = self.curses([-1, 27])
+        self.assertIsNone(ConsoleUI(curses).test_run("Tests", run, ["a", "b"]))
+        self.assertFalse(run.cancelled)
+        drawn = self.drawn(screen)
+        self.assertIn("Up/Down Case | Enter Case log | L Output | S Stop | Esc Back (keeps running)", drawn)
+        self.assertTrue(any(line.startswith("RUNNING | 01:15 | 0/2 done") for line in drawn))
 
-    def test_stop_key_and_ctrl_c_stop_but_stay(self):
+    def test_stop_key_and_ctrl_c_ask_then_stop_and_stay(self):
         for key in (ord("s"), KeyboardInterrupt()):
             with self.subTest(key=key):
                 run = FakeRun(self.output, codes=(None,))
-                curses, screen = self.curses([key, -1, 27])
+                curses, screen = self.curses([key, ord("n"), key, ord("y"), -1, 27])
                 self.assertEqual(ConsoleUI(curses).test_run("Tests", run, ["a"]), 130)
                 self.assertTrue(run.cancelled)
                 drawn = self.drawn(screen)
+                self.assertIn("Stop the tests? Y Yes | N No", drawn)
                 self.assertTrue(any(line.startswith("STOPPED") for line in drawn))
                 self.assertTrue(any(line.startswith("[    ] a") for line in drawn))  # "a" never started
+                self.assertEqual(screen.getch.call_count, 6)  # stayed until Esc
+        run = FakeRun(self.output, codes=(0,))
+        curses, screen = self.curses([ord("s"), 27])
+        ConsoleUI(curses).test_run("Tests", run, ["a"])
+        self.assertNotIn("Stop the tests? Y Yes | N No", self.drawn(screen))  # an ended run is not stopped
+
+    def test_a_lost_run_and_a_run_on_another_machine(self):
+        run = FakeRun(self.output, codes=(None,), batches=[[start("a")]], lost=True)
+        curses, screen = self.curses([-1, 27])
+        self.assertIsNone(ConsoleUI(curses).test_run("Tests", run, ["a"]))
+        drawn = self.drawn(screen)
+        self.assertTrue(any(line.startswith("LOST") for line in drawn))
+        self.assertTrue(any(line.startswith("[STOP] a") for line in drawn))
+        self.assertTrue(any(line.startswith("! " + LOST_TEXT[:40]) for line in drawn))
+        run = FakeRun(self.output, codes=(None,), remote=True)
+        curses, screen = self.curses([27])
+        ConsoleUI(curses).test_run("Tests / Normal tests", run, ["a"])
+        drawn = self.drawn(screen)
+        self.assertTrue(any(line.startswith("RUNNING on lxplus812.cern.ch | ") for line in drawn))
+        self.assertIn("Up/Down Case | Enter Case log | L Output | S Stop | Esc Back (keeps running)", drawn)
+        summary = [call.args for call in screen.addnstr.call_args_list if call.args[2].startswith("RUNNING on")]
+        self.assertEqual(summary[0][:2], (2, 1))  # too long for the title's line: below it
 
     def test_a_run_without_cases_shows_its_output_and_scrolls(self):
         with open(self.output, "w") as stream:

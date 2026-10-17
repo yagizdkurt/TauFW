@@ -9,8 +9,11 @@ problems is shown in red and cannot start) and warnings (yellow; the recipe can 
 Records expose run_id, run_dir, and state;
 run rows are (created, path, (run_id, state, updated)). Only operations reads
 files, validates values, or invokes commands. Grid callbacks are grid_proxy_valid()
-and renew_grid_proxy(). Test callbacks are test_catalog() and start_tests(family, cases), which returns a
-running TauFW.Utilities.Process.BackgroundProcess that the test screen follows. This class owns screen transitions.
+and renew_grid_proxy(). Test callbacks are test_catalog(), start_tests(family, cases, title, expected), which
+returns the TauFW.Utilities.Process.Operation that the test screen follows, and tests_operation(), the last test
+run (or None). running_operations() lists what runs behind the menu, stop_operation(operation) stops one.
+Operations run behind the menu: leaving a screen or quitting never stops them (quitting warns first).
+This class owns screen transitions.
 """
 from ._menu import ConsoleUI
 
@@ -155,15 +158,25 @@ class MenuNavigation:
             self.ui.invalid_poll_interval()
 
     def tests(self):
-        """Browse caller-supplied metadata and run only automated actions."""
+        """Browse caller-supplied metadata and run only automated actions. One test run at a time: while one
+        runs (also from another menu), Tests opens its screen; the screen's Esc leaves it running and returns to
+        the main menu, which shows its state."""
         titles = {"checks": "Unit and harness checks", "normal": "Normal tests",
                   "bbb": "BBB regression checks", "all": "All automated tests",
                   "environment": "Check environment"}
         while True:
             try:
-                family = self.ui.tests_menu()
+                last = self.operations.tests_operation()
+                if last is not None and last.running:
+                    if self._follow_tests(last):
+                        return
+                    continue
+                family = self.ui.tests_menu(last=last)
                 if family == "back":
                     return
+                if family == "last":
+                    self._follow_tests(last)
+                    continue
                 if family == "environment":
                     items = [dict(id="environment", description="Advisory CMSSW Python package-origin check; "
                                   "no tests run and no packages are changed.", dependencies=[])]
@@ -188,11 +201,9 @@ class MenuNavigation:
                     continue
                 # "all" lists families, not cases; the environment check runs no cases.
                 expected = [] if family in ("all", "environment") else [item["id"] for item in items]
-                process = self.operations.start_tests(family, selected)
-                try:
-                    self.ui.test_run(titles[family], process, expected)
-                finally:
-                    process.close()  # the screen leaves only after the run ended; this covers a screen failure
+                operation = self.operations.start_tests(family, selected, titles[family], expected)
+                if self._follow_tests(operation):
+                    return
             except KeyboardInterrupt:
                 continue
             except Exception as error:
@@ -201,8 +212,25 @@ class MenuNavigation:
                 self.ui.operation_error(error)
                 self.ui.pause()
 
+    def _follow_tests(self, operation):
+        """Show a test run; True if it still runs when the screen is left (back to the main menu)."""
+        self.ui.test_run(operation.title, operation, operation.data.get("expected", []))
+        return operation.running
+
     # =========================================================================
     # ============================ MAIN NAVIGATION ============================
+
+    def _may_quit(self):
+        """Whether the menu may close: nothing runs behind it, or the user chose to quit anyway or to stop it
+        all first (the stop is asked for; the supervisors stop the commands after the menu closed)."""
+        running = self.operations.running_operations()
+        if not running:
+            return True
+        choice = self.ui.quit_running(running)
+        if choice == "stop":
+            for operation in running:
+                self.operations.stop_operation(operation)
+        return choice in ("stop", "quit")
 
     def grid_certificate(self):
         try:
@@ -220,9 +248,12 @@ class MenuNavigation:
                    "grid_certificate": self.grid_certificate, "help": self.ui.help}
         while True:
             try:
-                action = self.ui.main_menu(proxy_valid=self.operations.grid_proxy_valid())
+                action = self.ui.main_menu(proxy_valid=self.operations.grid_proxy_valid(),
+                                           tests=self.operations.tests_operation())
                 if action == "exit":
-                    return 0
+                    if self._may_quit():
+                        return 0
+                    continue
                 actions[action]()
             except KeyboardInterrupt:
                 continue

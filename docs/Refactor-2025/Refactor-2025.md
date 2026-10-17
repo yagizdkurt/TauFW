@@ -1358,3 +1358,93 @@ bundle to the same relative path (`bundle.source_files`: as a run copies a bundl
 runs; a loose recipe file: the files its options name), so copies of `Configs/` templates keep their header and the
 recipe's values stay valid. `steps/example.py` is written only when the source has no `steps/`. Test:
 `test_make_bundle_copies_the_source_bundle`.
+
+
+## 23. Menu: operations run behind the menu; tests keep running when the screen is left
+
+**Date:** 2026-10-17 (Windows tests pass; lxplus check in TODO §1 "Tests behind the menu on lxplus")
+
+Leaving a screen must never kill what it shows (user, 2026-10-17): tests (here) and runs (next) go on behind the
+menu, the menu shows their state ("Tests (Running 12/40)", "Tests (Failed: 3)") and opens their screen again.
+§20 started commands beside the screen, but the menu was their parent: it stopped them when the screen was left,
+and their exit code lived only in the menu's process. Now a supervisor runs them and keeps everything in files.
+
+### Decisions (user, 2026-10-17)
+
+- Leaving a screen (Esc) never stops the operation; S (or Ctrl-C) asks, then stops it.
+- Running on after the login session ends is **not a goal**, and is not measured: lxplus may kill a user's
+  processes at logout, and the AFS token goes too. Such an operation is shown as **Lost** (D1).
+- One test run at a time (D2): `Tests/run.py`, its logs and BBB are shared.
+- The last five records of a kind are kept (D4).
+- Quitting the menu while something runs gives a clear warning: C stay (default, also Esc and Enter), S stop it
+  all and quit, Q quit and leave it running (only while the login session lasts; a run killed while it submits
+  jobs may need a manual condor_q check).
+- For runs (later): the lock is in `Framework.advance` (also the CLI), refused while it is held on another machine,
+  taken over only on request when its operation is Lost (D3); a stop never kills job submission halfway (no
+  automatic SIGTERM/SIGKILL for runs, `escalate=False`). The shared screen (K1: the whole layout plus a model; K2:
+  the run model on the Framework side) comes with the run screen; `setup_runner` stays as it is (K5);
+  `plan`/`status`/`check` move beside the screen with an output-only view (K4).
+
+### The operation (`Utilities/python/Process/`)
+
+- `_supervisor.py` (new; standard library only, run by its path, so it works where TauFW is not built):
+  `python3 -B _supervisor.py <dir>` reads `operation.json`, starts the command in its own process group (output to
+  `output.log`), writes `heartbeat.json` {host, pid, child, t} every `heartbeat` s, reacts to the files `stop`
+  (SIGINT, then with `escalate` SIGTERM after 3 s and SIGKILL after 8 s) and `kill` (SIGKILL), and writes
+  `exit.json` {returncode, stopped, finished} at the end (130 when stopped and not successful, 128+N after signal
+  N, 127 when the command cannot start). It ignores SIGINT and SIGHUP (the terminal is not its own); SIGTERM to it
+  (e.g. a logout) counts as a stop. JSON files are written under a temporary name and renamed (never half a file).
+  A stop is a file, so any menu can stop an operation, also from another lxplus machine (AFS).
+- `_operations.py` (new): `OperationStore(root)`: `start(kind, title, argv, cwd, data, env, escalate, heartbeat)`
+  makes `<root>/<kind>-<time>/` (a new name when two start in one second), writes `operation.json` (kind, title,
+  argv, cwd, `data` for its screen, host, user, started, heartbeat, escalate), empty `events.jsonl`/`output.log`,
+  and starts the supervisor in a session of its own with `$TAUFW_EVENTS` and `PYTHONUNBUFFERED=1`; `all(kind)`
+  (newest first; unreadable directories are skipped), `latest(kind)`, `running(kind)`, `prune(kind, keep)` (never an
+  operation that runs). `Operation`: the interface the test screen used from `BackgroundProcess` (`poll()`,
+  `returncode`, `cancelled`, `cancel()`, `elapsed()`, `events`, `output`) plus `state()`, `running`, `kill()`,
+  `remote`, `host`, `title`, `data`. Every new `Operation` object reads its files from the top.
+- `state()`: `exit.json` -> DONE / FAILED / STOPPED; else RUNNING (STOPPING once `stop` exists), or LOST when the
+  last heartbeat (or the start) is older than `LOST_AFTER` = 120 s, or at once when the heartbeat's host is this
+  machine and its pid is gone, or the supervisor this menu started ended without `exit.json`. The heartbeat is
+  read at most once a second per object (the screen draws ten times a second, on AFS). Wall-clock times (`t`) are
+  compared across machines; lxplus clocks are synchronised.
+- `BackgroundProcess` (§20) stays: the menu no longer uses it; it is the form for a command that should live only
+  as long as its screen (K4 may use it).
+
+### The menu
+
+- `interactive.py`: `OPERATIONS_DIR` = `<checkout>/.artifacts/menu/operations` (git-ignored: `.gitignore` gets
+  `.artifacts/`); `Menu(..., operations_dir=None)`. `start_tests(family, cases, title, expected)` refuses while a
+  test run is running ("Tests are already running (..., started on <host>)"), prunes to the last four, and starts
+  `Tests/run.py` through `OperationStore` with `data` = family, cases, expected (for its screen in a later menu).
+  `tests_operation()` (the last test run, None when the records cannot be read: the main menu still opens),
+  `running_operations()`, `stop_operation(operation)`. `CHECKOUT` replaces the `__file__` arithmetic.
+- `_navigation.py`: the main menu gets `tests=` the last test run. `tests()`: while one runs, Tests opens its screen
+  (no family menu); after the screen, back to the main menu if it still runs, else the Tests menu, which starts
+  with "Last run: <title> (<state>)" (`last`). The `finally: process.close()` of §20 is gone. Exit (and Esc in the
+  main menu) goes through `_may_quit()`: nothing runs -> quit; else `ui.quit_running(...)`: cancel -> stay, stop ->
+  `stop_operation` for each, then quit, quit -> quit.
+- `_menu.py`: `main_menu(proxy_valid, tests)` labels Tests with the run's state (role colors: running cyan, done
+  green, failed red, stopping/stopped/lost yellow); `tests_menu(last)`; `quit_running(operations)` (the list with
+  state, time and "on <host>", the warning, C/S/Q); `_operation_summary`; `_clock` (moved here from
+  `_test_run.py`). Labels are computed when a menu is drawn: a menu waiting for a key does not change by itself
+  until the menu redraws (a live update comes with the single curses session).
+- `_test_run.py`: the screen follows an `Operation` through `state()`. Esc leaves at once (the run goes on; footer
+  "Esc Back (keeps running)"); S or Ctrl-C asks "Stop the tests? Y Yes | N No" (only while it runs); states
+  RUNNING / STOPPING / PASSED / FAILED / STOPPED / LOST, "RUNNING on <host>" for a run started on another machine;
+  a LOST run marks its running case STOP and explains why (`LOST_TEXT`). The state line moves below the title when
+  both do not fit on one line. `test_summary(operation)` gives the menus "Running 12/40", "Failed: 3", "Done", ...
+
+### Checked
+
+- `Tests/Utilities/test_operations.py` (new, 12 tests): the supervisor with a fake command and clock (exit codes,
+  heartbeat, stop with and without escalation, kill, SIGTERM, a command that cannot start); the states from files
+  (RUNNING, STOPPING, DONE, FAILED, STOPPED, LOST by an old heartbeat, by a gone supervisor; another machine); a
+  real start (Windows too): output, `$TAUFW_EVENTS`, exit code 3, found again by a new object; `start` options;
+  ordering, `running`, `prune`. Two real stop tests (process groups) run on lxplus only.
+- `test_test_run.py`, `test_menu.py`, `Tests/Framework/test_interactive.py` follow the new behavior (leaving keeps
+  the run, stop asks, reattach, last run, quit warning, labels).
+- End to end on Windows: the menu's `start_tests` ran `Tests/run.py checks` (2 cases) through the supervisor; a
+  second start was refused; a second `_Operations` (another menu) found it and its label went Running 0/2 -> 1/2 ->
+  2/2 -> Failed: 1 (`check_import_boundaries` fails by design). `Tests/run.py checks`: only the two known failures.
+- Not checked here: process groups and signals (Windows), curses on a real terminal. TODO §1.

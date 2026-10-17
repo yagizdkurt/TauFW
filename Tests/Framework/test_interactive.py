@@ -88,17 +88,32 @@ class MenuTests(unittest.TestCase):
                                       ("normal", [], ["normal"]),
                                       ("bbb", ["plotter.unroll"], ["bbb", "check", "--case", "plotter.unroll"]),
                                       ("environment", [], ["environment"])):
-            with mock.patch.object(interactive.BackgroundProcess, "start") as launch:
-                self.assertIs(operations.start_tests(family, cases), launch.return_value)
-            logs = checkout.REPO / "Tests/.artifacts/logs/menu"
-            self.assertEqual(launch.call_args.args, ([sys.executable, "-B", str(checkout.REPO / "Tests/run.py")]
-                                                     + suffix, str(checkout.REPO), str(logs / "output.log")))
-            self.assertEqual(launch.call_args.kwargs, dict(events=str(logs / "events.jsonl")))
+            with mock.patch.object(operations.store, "start") as launch:
+                self.assertIs(operations.start_tests(family, cases, "Title", ["a"]), launch.return_value)
+            self.assertEqual(launch.call_args.args, ("tests", "Title", [sys.executable, "-B",
+                                                                         str(checkout.REPO / "Tests/run.py")]
+                                                     + suffix, str(checkout.REPO)))
+            self.assertEqual(launch.call_args.kwargs, dict(data=dict(family=family, cases=cases, expected=["a"])))
+        self.assertEqual(operations.store.root, str(self.root / "operations"))
+        self.assertEqual(interactive.OPERATIONS_DIR, checkout.REPO / ".artifacts" / "menu" / "operations")
         for family, cases in (("unknown", []), ("all", ["example"]), ("environment", ["example"])):
-            with mock.patch.object(interactive.BackgroundProcess, "start") as launch:
+            with mock.patch.object(operations.store, "start") as launch:
                 with self.assertRaises(ValueError):
                     operations.start_tests(family, cases)
             launch.assert_not_called()
+        running = mock.Mock(title="Normal tests", host="lxplus812")
+        with mock.patch.object(operations.store, "running", return_value=[running]), \
+                mock.patch.object(operations.store, "start") as launch:
+            with self.assertRaisesRegex(RuntimeError, "already running .Normal tests, started on lxplus812"):
+                operations.start_tests("normal", [])  # one test run at a time
+        launch.assert_not_called()
+        self.assertIsNone(operations.tests_operation())
+        self.assertEqual(operations.running_operations(), [])
+        with mock.patch.object(operations.store, "latest", side_effect=PermissionError("AFS token")):
+            self.assertIsNone(operations.tests_operation())  # the main menu still opens
+        operation = mock.Mock()
+        operations.stop_operation(operation)
+        operation.cancel.assert_called_once_with()
         metadata = {family: [dict(id="example", description="Example", dependencies=[])]
                     for family in ("normal", "checks", "bbb")}
         with mock.patch.object(interactive.subprocess, "run", return_value=mock.Mock(
@@ -111,7 +126,7 @@ class MenuTests(unittest.TestCase):
             with mock.patch.object(interactive.subprocess, "run", return_value=result):
                 with self.assertRaises(RuntimeError):
                     operations.test_catalog()
-        with mock.patch.object(interactive, "__file__", str(self.root / "Framework/python/interactive.py")):
+        with mock.patch.object(interactive, "CHECKOUT", self.root):
             with self.assertRaisesRegex(RuntimeError, "complete TauFW checkout"):
                 operations.test_catalog()
 
@@ -129,7 +144,7 @@ class MenuTests(unittest.TestCase):
         self.framework.return_value.plan.return_value = mock.Mock(stages=())
 
     def menu(self, ui):
-        return Menu(self.commands, ui, self.root, self.recipes)
+        return Menu(self.commands, ui, self.root, self.recipes, self.root / "operations")
 
     def recipe_file(self, path, name="test", stages=None):
         path.write_text(json.dumps(dict(name=name, stages=stages or [FIT])),
@@ -252,7 +267,7 @@ class MenuTests(unittest.TestCase):
         expected = sorted(path.name for path in recipes_dir.iterdir() if (path / "recipe.yml").is_file())
         self.assertIn("tes_id_2025", expected)
         ui = FakeUI([expected.index("tes_id_2025"), 0])
-        menu = Menu(self.commands, ui, launch_dir=self.root)
+        menu = Menu(self.commands, ui, launch_dir=self.root, operations_dir=self.root / "operations")
         self.assertEqual(menu.operations.recipes_dir, recipes_dir)
         menu.start()
         self.assertEqual(ui.screens[0][1][:-2], expected)

@@ -18,9 +18,9 @@ The package `__init__.py` files contain the public exports, so they are tracked 
 
 ## Package boundaries
 
-CLI and FIO each export one class; Menu exports `ConsoleUI` and `MenuNavigation`; Process exports `Command`, `CommandResult`, `ProcessRunner` and `ParallelProcessor`; Math exports plain functions (`_math.py`). `_cli.py`, `_file_io.py`, and `_menu.py` implement those entry points; CLI and FIO use `_internal/` for formatting, filesystem, serialization, command, transport and ROOT functions. Application code should import only the owning package's public class. Underscores and `__all__` document Python's private API convention; they do not prevent access to internal modules.
+CLI and FIO each export one class; Menu exports `ConsoleUI` and `MenuNavigation`; Process exports `Command`, `CommandResult`, `ProcessRunner` and `ParallelProcessor`, and for the menu `EventWriter`, `EventReader`, `LogTail`, `BackgroundProcess`, `Operation` and `OperationStore`; Math exports plain functions (`_math.py`). `_cli.py`, `_file_io.py`, and `_menu.py` implement those entry points; CLI and FIO use `_internal/` for formatting, filesystem, serialization, command, transport and ROOT functions. Application code should import only the owning package's public class. Underscores and `__all__` document Python's private API convention; they do not prevent access to internal modules.
 
-These packages do not import existing analysis/startup modules or Framework. Construction is silent and does not open files, change directories, read configuration or launch commands; only `ProcessRunner.run`/`run_all` and `ParallelProcessor.start` launch processes. There are no global utility instances, base classes or service registries. Pass instances explicitly to future framework components.
+These packages do not import existing analysis/startup modules or Framework. Construction is silent and does not open files, change directories, read configuration or launch commands; only `ProcessRunner.run`/`run_all`, `ParallelProcessor.start`, `BackgroundProcess.start` and `OperationStore.start` launch processes. There are no global utility instances, base classes or service registries. Pass instances explicitly to future framework components.
 The drawing library is the exception; see [Drawing](#drawing-cms-style-root-plots).
 
 ## Installer helpers
@@ -202,6 +202,33 @@ results[-1].ok, results[-1].log, results[-1].missing
 `ProcessRunner(execute=None, clock=time.time, env=None)` runs each `Command(label, argv, cwd, expects=(), timeout=None)` without a shell. Standard output and errors go to one log file per command (`NN_<label>.log` under `logdir`), framed by a header (cwd, command line, start time) and a footer (exit code, duration, missing outputs). `PYTHONUNBUFFERED=1` keeps Python output in order; `env` adds variables.
 
 A `CommandResult` is `ok` only when the exit code is 0 **and** every `expects` glob (relative to `cwd`) matches a file modified after the command started. Many analysis scripts call tools through `os.system` and exit 0 when those tools fail, and output trees are shared between runs, so neither the exit code nor an old file is trusted. A timeout gives returncode -1, a missing program 127. `run_all` stops after the first result that is not ok and calls `progress(index, total, command, result)` before (result `None`) and after each command. `execute(argv, cwd, stream, timeout, env) -> returncode` can be injected; tests pass a fake.
+
+## Operations behind the menu
+
+```python
+store = OperationStore(".artifacts/menu/operations")
+operation = store.start("tests", "Normal tests", [sys.executable, "-B", "Tests/run.py", "normal"], cwd=".",
+                        data={"expected": ["plotter.unroll"]})
+operation.state()                  # RUNNING, STOPPING, DONE, FAILED, STOPPED or LOST
+operation.events.read(), operation.output.read()   # new events / output lines since the last read
+operation.cancel()                 # stop it (from any menu, on any machine that sees the directory)
+store.latest("tests"), store.running(), store.prune("tests", keep=5)
+```
+
+An operation is a command that runs behind the menu and outlives its screen and the menu itself (CL §23).
+`OperationStore.start` makes `<root>/<kind>-<time>/`, writes `operation.json` (kind, title, argv, cwd, `data` for
+its screen, host, user, start time) and starts `_supervisor.py` by its path, in a session of its own. The
+supervisor (standard library only) starts the command in its own process group with its output in `output.log`
+and `$TAUFW_EVENTS` naming `events.jsonl`; writes `heartbeat.json` every 5 s; on the file `stop` sends SIGINT, then
+SIGTERM after 3 s and SIGKILL after 8 s (`escalate=False`: SIGINT only; the file `kill`: SIGKILL at once); and at
+the end writes `exit.json` (exit code, 130 when stopped, 128+N after signal N). JSON files are renamed into place.
+
+`Operation.load(directory)` reads one again; every new object reads `events`/`output` from the top. `state()`:
+`exit.json` decides DONE/FAILED/STOPPED; without it RUNNING (STOPPING once `stop` exists), or LOST when no
+heartbeat came for 120 s, or at once when the supervisor's process is gone on this machine. Running on after the
+login session ends is not a goal: such an operation becomes LOST. `remote` and `host` tell where it runs.
+`BackgroundProcess` (`_background.py`) is the simpler form without a supervisor, for a command that lives only as
+long as its screen.
 
 ## Parallel Python calls
 
