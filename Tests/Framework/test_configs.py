@@ -12,13 +12,16 @@ from TauFW.Framework import check_recipe
 from TauFW.Framework.configs import (scan, lock_changes, update, copy_warnings, read_header, content_hash,
                                      ConfigError, LOCK_NAME)
 from TauFW.Framework.defaults import CONFIGS_DIR
+from TauFW.Plotter.sample.model import load_sample_model
 
 STEP = {"stage": "python", "id": "check", "inputs": None, "file": "steps/check.py"}
 
 # The reader of each kind of template, by the start of its id: a function(path) that raises if it cannot read the
 # file. Every template of Configs/ must have one (RepositoryConfigsTests); add the module's reader with its first
 # template.
-READERS = {}
+READERS = {
+    'plotter.samples_': lambda path: load_sample_model(path),  # Configs/Plotter/samples/ (TauFW.Plotter.sample.model)
+}
 
 
 def template(config_id="plotter.samples_test", version=1, body="xsec: 1.5\n", newline="\n", header=None):

@@ -1247,3 +1247,49 @@ events yet; the run screens come next. The terminal output and `run.log` do not 
   five commands); `Tests/Framework`: the event order of a waiting run, the progress events, `EventReporter` (same
   terminal output and `run.log` as without it), `taufw.py start` with the variable (removed before a stage submits)
   and the `error` event. BBB (`framework.*`) runs without the variable, so it still checks the plain output.
+
+## 22. Sample lists as data: the sample model (in progress)
+
+**Date:** 2026-10-17 (steps S0-S2 on Windows; the BBB lock on lxplus comes next). Plan: LocalR/architecture/14.
+
+The recipe must say which samples an analysis reads; until now `Plotter/config/samples_v15.py` decided it out of
+sight (the MC table with cross sections, the data datasets, the MC weights, stitching, joining and splitting, per
+era). Its samples become templates in `Configs/Plotter/samples/` (CL §21), one per era, that an analysis copies into
+its bundle. **No physics or data change:** every SampleSet built from a template gets exactly the calls the old
+function makes, and a test proves it.
+
+### Recorder and BBB case (S0)
+
+- `Tests/Plotter/sample_model/recorder.py`: runs a sample-set function with recording stand-ins for the core
+  (`setera`, the core `getsampleset`, the SampleSet's `stitch`, `join`, `split`, `printtable`) and returns every call
+  with its arguments, in order. On Windows with a ROOT-free stub of `TauFW.Plotter.sample.utils` (the pure helpers
+  are the real ones), on lxplus with the real module. The grid: 8 eras x 6 channels (one per channel kind) x 7 caller
+  options (what `plot.py` and `createinputsTES.py` pass, and every other option the function reads) = 336 cases.
+- BBB case `plotter.sample_model`: the grid of the real module, **to be locked on lxplus with the old code**. Its
+  function `_sample_model_function` is the only line that changes when the case moves to the model (after the lock).
+  A call that raises is recorded as `raised` only (the message may differ, see L16).
+
+### Templates (S1)
+
+- `Tests/Plotter/sample_model/export.py` wrote `Configs/Plotter/samples/v15_<era>.yml` for the 8 eras
+  `samples_v15.py` supports (`2022_preEE`, `2022_postEE`, `2023C`, `2023D`, `2024`, `2025`, `2026`, `2526`) from
+  the recorded calls: nothing typed by hand; every file is read back and compared value by value (types too) before
+  it is written. Cross sections are the values `samples_v15.py` computed (cross section times k-factor).
+- `Configs/configs.lock`: the 8 templates at version 1.
+
+### The model (S2)
+
+- `Plotter/python/sample/model.py` (`TauFW.Plotter.sample.model`): `load_sample_model` (YAML only, every format problem
+  at once), `pick(paths, era)`, `sample_names(model, channel)` (MC names and data pattern, no ROOT), and
+  `getsampleset(channel, era, model, **kwargs)`: the generic part of `samples_v15.getsampleset` copied as it is
+  (caller options, joins, genmatch split, table, its odd behaviour included), the era part read from the model. Not
+  copied: the debug print of the data dataset for `2022_preEE` muon channels (terminal output only; each era is now
+  its own file).
+- `Tests/Plotter/sample_model/test_sample_model.py` (new unit suite `unit.plotter.sample_model`, no ROOT, < 1 s):
+  for all 336 cases the old and the new function make the same calls (where the old one raises, the new one raises
+  after the same calls); a changed cross section in a template fails it (checked). Also the reader: `pick`,
+  `sample_names`, format problems. `Tests/Framework/test_configs.py` reads every template with `load_sample_model`.
+- Plotter BUGS L14 (`DM` split: `NameError`), L15 (electron data `else` without assignment, unreachable for the
+  supported eras), L16 (era `2526` with tautau/emu: `TypeError`) registered; the model keeps L14 and raises for L16.
+
+Nothing uses the model yet: `plot.py`, `createinputsTES.py` and the Framework are unchanged (S3-S5).

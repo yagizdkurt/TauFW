@@ -13,6 +13,12 @@ Items marked **(verify)** may already be done; check before working on them.
 ## 1. Checks to run on lxplus
 
 
+- [ ] **BBB lock with the new case `plotter.sample_model` (CL §22), before S2 switches it.** `python3 Tests/run.py
+      bbb check` first (every other case unchanged; it refuses while the case list differs from the lock), then
+      `python3 Tests/run.py bbb lock --replace`; review with `bbb diff`: only the new case. Also
+      `python3 Tests/run.py checks --case unit.plotter.sample_model` (must pass with the real environment too).
+      After the lock: `_sample_model_function` in `Tests/BBB/cases.py` moves to the model, `bbb check` must show no
+      difference.
 - [ ] **Confirm import-boundary reporting on lxplus:** `python3 Tests/run.py checks --case check_import_boundaries`.
       Nonzero status is expected while coupling remains; compare the debt report, do not rebaseline or fix production
       code to make this validation pass. Detector-only command: `python3 Tests/check_import_boundaries.py DetectorTests -q`. (CL §13)
@@ -166,6 +172,9 @@ Each changes logs, so do each in its own commit, with a BBB re-lock where a base
 - [ ] L03: `sumhists` adds to an undefined `sighist` (now `Utilities/python/Drawing/hist_tools.py`); the fix changes
       the `drawing.canvas` baseline (`$.tools.sumhists`), so re-lock.
 - [ ] L04: `estimatelen` with several arguments raises `TypeError` (now `Utilities/python/Drawing/labels.py`).
+- [ ] L14: split `DM` in `samples_v15.py` (and the sample model, kept on purpose) uses the undefined `samples`.
+- [ ] L15: electron data `else:` without assignment in `samples_v15.py` (unreachable for its eras).
+- [ ] L16: era `2526` with tautau/emu: `getyear('2526')` is a text, the `%d` data pattern raises.
 - [ ] L12: `getmcsample` ignores its `pico=` keyword (`python/sample/utils.py:119-120`; no callers, latent).
 - [x] L13: fixed ROOT detection for production + plots planning and advancement. (CL §18)
 
@@ -292,8 +301,9 @@ Next-work proposals (not designed in detail yet):
 
 Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limitations"; CL §10, §11):
 
-- [ ] Sample lists are not part of a bundle (`plot.py`, `createinputsTES.py` import `samples_v15`). The next item
-      after R4. Following CL §18, not an environment hook: the recipe names the list (a bundle file) and the
+- [ ] Sample lists are not part of a bundle (`plot.py`, `createinputsTES.py` import `samples_v15`). **In progress
+      (CL §22, plan LocalR/architecture/14):** the templates `Configs/Plotter/samples/v15_<era>.yml` and the model
+      exist and are proven equal; the scripts, APIs and recipe follow (S3-S5). The next item after R4. Following CL §18, not an environment hook: the recipe names the list (a bundle file) and the
       Framework gives it to the scripts as an option, as it gives `--tuples`. Acceptance: the Framework can compare
       the samples a production stage made with the samples its readers ask for, and a small production followed by
       plots finishes (§1, "Production end to end in the run").
@@ -331,6 +341,10 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
       **(verify)**.
 
 ## 8. Legacy code and architecture
+
+- [ ] **Backward compatibility to delete at the migration point:** `Plotter/config/samples_v15.py` stays for
+      recipes and commands without `samples:` / `--samples` (CL §22, decision D4: no warning for now). When it goes,
+      the BBB case `plotter.sample_model` keeps the reference (it runs the model with the templates).
 
 - [ ] Python 2 scripts kept for migration (CL §3): high priority `Fitter/ETauFR/writedatacard.py` (its
       `prefitFR.json` is read by `text2wp.py`), `Fitter/Zpt/utils.py`, `Fitter/Zpt/config/samples.py` (imported by

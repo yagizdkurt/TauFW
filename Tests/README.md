@@ -56,7 +56,9 @@ python3 Tests/run.py all
 
 This runs the Utilities, Framework, Setup, processor compatibility, Fitter API and
 Plotter API unit tests (`Tests/Fitter/api`, `Tests/Plotter/api`: the commands of the
-Fitter and Plotter scripts, with a fake process runner), the harness and ROOT serializer checks, every normal case, and `bbb check` in
+Fitter and Plotter scripts, with a fake process runner), the sample model tests
+(`Tests/Plotter/sample_model`: the templates of `Configs/Plotter/samples/` make the same
+core calls as `Plotter/config/samples_v15.py`, no ROOT), the harness and ROOT serializer checks, every normal case, and `bbb check` in
 quiet mode. Passing output is captured in logs; failures show their output tail
 and rerun command. Use `all --tail N` to change the tail length, or `all -v` for
 full output from every suite. Check logs are in
@@ -221,6 +223,8 @@ fingerprinted, so changing the fixtures invalidates the lock. Coverage includes:
 - Common table/loading-bar text, chunking, partitioning, and path/argument formatting.
 - Plotter selection/context metadata, weighted 1D/2D histograms, normalization,
   flow bins, merging, splitting, DY stitching, QCD OS/SS estimation, and C++ unrolling.
+- Plotter sample sets (`plotter.sample_model`): the core calls of `getsampleset` for
+  every era, channel kind and caller option (recorded, no sample is built).
 - PicoProducer branch schema, defaults, aliases, fixed/variable arrays, 64-bit
   event IDs, cutflow, NanoAODTools selection/range bookkeeping, and synthetic SF lookup.
 - Fitter nominal/systematic shape names, negative-bin sanitation, adaptive

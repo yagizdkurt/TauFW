@@ -1,0 +1,46 @@
+taufw_config:                     # set by the maintainers: analysts edit the values below, never these lines
+  id: plotter.samples_v15_2022_postee
+  version: 1
+  schema: 1
+  description: samples of the v15 pico tuples for 2022_postEE (MC table, data, MC weights, stitching)
+# The samples Plotter/config/samples_v15.py getsampleset() uses for era 2022_postEE, exported by
+# Tests/Plotter/sample_model/export.py. Format: Plotter/python/sample/model.py. The cross sections are the
+# values samples_v15.py computed (cross section times k-factor).
+era: "2022_postEE"
+cme: 13.6
+extraweights: {dyweight: "zptweight_nnlo", ttweight: "ttptweight"}   # defaults; plot/shape scripts may override them by name
+mc:
+  - {group: "DY", name: "DYto2L-4Jets_MLL-50", title: "Drell-Yan 50", xsec: 6282.6, extraweight: dyweight}
+  - {group: "DY", name: "DYto2L-4Jets_MLL-50_1J", title: "Drell-Yan 1J 50", xsec: 1126.7218295142072, extraweight: dyweight}
+  - {group: "DY", name: "DYto2L-4Jets_MLL-50_2J", title: "Drell-Yan 2J 50", xsec: 362.9050889092576, extraweight: dyweight}
+  - {group: "DY", name: "DYto2L-4Jets_MLL-50_3J", title: "Drell-Yan 3J 50", xsec: 107.91560403299727, extraweight: dyweight}
+  - {group: "DY", name: "DYto2L-4Jets_MLL-50_4J", title: "Drell-Yan 4J 50", xsec: 52.28781668194318, extraweight: dyweight}
+  - {group: "WJ", name: "WtoLNu-4Jets", title: "W + jets", xsec: 63425.09999999999}
+  - {group: "WJ", name: "WJetstoLNu-4Jets_1J", title: "W + 1J", xsec: 10469.155746835442}
+  - {group: "WJ", name: "WJetstoLNu-4Jets_2J", title: "W + 2J", xsec: 3351.3226437613016}
+  - {group: "WJ", name: "WJetstoLNu-4Jets_3J", title: "W + 3J", xsec: 987.848799819168}
+  - {group: "WJ", name: "WtoLNu-4Jets_4J", title: "W + 4J", xsec: 476.43375298372507}
+  - {group: "VV", name: "WW", title: "WW", xsec: 122.27052}
+  - {group: "VV", name: "WZ", title: "WZ", xsec: 41.1474}
+  - {group: "VV", name: "ZZ", title: "ZZ", xsec: 19.431}
+  - {group: "TT", name: "TTTo2L2Nu", title: "ttbar 2l2#nu", xsec: 98.04387875606875, extraweight: ttweight}
+  - {group: "TT", name: "TTto4Q", title: "ttbar hadronic", xsec: 419.8071644141188, extraweight: ttweight}
+  - {group: "TT", name: "TTtoLNu2Q", title: "ttbar semileptonic", xsec: 405.74895682981236, extraweight: ttweight}
+  - {group: "ST", name: "TBbarQ_t-channel", title: "ST t-channel t", xsec: 123.8}
+  - {group: "ST", name: "TbarBQ_t-channel", title: "ST t-channel at", xsec: 75.47}
+  - {group: "ST", name: "TWminustoLNu2Q", title: "ST tW semileptonic", xsec: 15.8}
+  - {group: "ST", name: "TWminusto2L2Nu", title: "ST tW 2l2#nu", xsec: 3.8}
+  - {group: "ST", name: "TbarWplustoLNu2Q", title: "ST atW semileptonic", xsec: 15.9}
+  - {group: "ST", name: "TbarWplusto2L2Nu", title: "ST atW 2l2#nu", xsec: 3.8}
+data:                             # dataset pattern by channel kind (tautau, muon, electron, emu)
+  tautau: "Tau_Run2022?"
+  muon: "Muon_Run2022?"
+  electron: "EGamma_Run2022?"
+  emu: "SingleMuon_Run2022?"
+weights:                          # MC weight by channel kind (semileptonic, ditau, other)
+  semileptonic: "genweight*puweight*trigweight*idisoweight_1*idweight_2*ltfweight_2"
+  ditau: "genweight*trigweight*puweight*idweight_1*idweight_2*ltfweight_1*ltfweight_2"
+  other: "genweight*puweight_2025_69p2_v3*idisoweight_1_2025*trigweight_2025*idisoweight_2_2025"
+stitch:
+  - {pattern: "W*LNu*Jets*", incl: "WtoLNu-4Jets", name: "WJ"}
+join: []

@@ -1,3 +1,11 @@
 # Configs/configs.lock: the content version and hash of every template in Configs/.
 # Written by `taufw.py configs update` (Framework/python/configs.py); do not edit by hand.
 # id  version  sha256 of the values without the taufw_config header
+plotter.samples_v15_2022_postee 1 79d7cfbe66f1f1dc37797f7bfc11b9067876c20ae989d757b8e0810e280c4597
+plotter.samples_v15_2022_preee 1 44788d668370682f90635d075802d1bbecb4b7097cc35805add61d283a9e7672
+plotter.samples_v15_2023c 1 8c0a9a84618b15e3716b8ae487c8e3c82b46ed1f0bd14a2a1d2b2433ade490f0
+plotter.samples_v15_2023d 1 91ecfec543161a52c77b8ab3312acede3412fc976b82d6fce31f7d8b6b9a8d38
+plotter.samples_v15_2024 1 814aab56577032cf6f1771df666d53a72142da18242872ab6ee08992fe693a65
+plotter.samples_v15_2025 1 5a270f3c87e6d68415e3b989aac6ec9eca9179edb756f72e2329cb841e7b78aa
+plotter.samples_v15_2026 1 d4d5c0f2b624d781e14345b388c77105c0859f56d47c379e25b94aa09bfb294b
+plotter.samples_v15_2526 1 f53b64bf1c3357e8ed53dd64b2759b312601bb9c19855f748aac261d4b9f0c6d

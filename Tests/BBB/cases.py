@@ -450,6 +450,39 @@ _ADDRESS = re.compile(r"0x[0-9a-fA-F]+")
 _DRAWING_MODULE = re.compile(r"TauFW\.(?:Plotter\.(?:plot|sample)|Utilities\.Drawing)\.")
 
 
+def _sample_model_recorder():
+    """Tests/Plotter/sample_model/recorder.py (records the core calls of a sample-set function)."""
+    import importlib.util
+    import sys
+    if "sample_model_recorder" not in sys.modules:
+        path = Path(__file__).resolve().parents[1] / "Plotter" / "sample_model" / "recorder.py"
+        spec = importlib.util.spec_from_file_location("sample_model_recorder", str(path))
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["sample_model_recorder"] = module
+        spec.loader.exec_module(module)
+    return sys.modules["sample_model_recorder"]
+
+
+def _sample_model_function(recorder):
+    """The sample-set function under test and the core functions the recorder replaces. Only this function changes
+    when the samples move to Configs/Plotter/samples/ (LocalR plan 14, S2): it then returns
+    TauFW.Plotter.sample.model.getsampleset with those templates and recorder.model_targets(utils)."""
+    old = recorder.load_samples_v15()
+    return old.getsampleset, recorder.old_targets(old)
+
+
+def plotter_sample_model(workspace):
+    """The core calls (setera, getsampleset, stitch, join, split, printtable) of the sample-set function for every
+    era, channel kind and caller option of the recorder; locked with Plotter/config/samples_v15.py. A call that
+    raises is recorded as 'raised' (its message may differ once the model replaces samples_v15.py)."""
+    recorder = _sample_model_recorder()
+    function, targets = _sample_model_function(recorder)
+    grid = recorder.record_grid(function, targets)
+    if not any(calls and calls[-1][0] != 'raised' for calls in grid.values()):
+        raise RuntimeError("No sample set was built; refusing a no-op baseline.")
+    return {key: [call if call[0] != 'raised' else ['raised'] for call in calls] for key, calls in grid.items()}
+
+
 def _drawing_modules():
     """The drawing code under test. Only this function changes when the drawing code moves."""
     import TauFW.Utilities.Drawing.CMSStyle as CMSStyle
@@ -731,6 +764,7 @@ CASES = {
     "plotter.stitch": {"run": plotter_stitch, "dependencies": ROOT_DEPS, "description": "Inclusive and exclusive DY parton-bin stitching"},
     "plotter.qcd": {"run": plotter_qcd, "dependencies": ROOT_DEPS, "description": "OS/SS QCD subtraction, negative bins and scaling"},
     "plotter.unroll": {"run": plotter_unroll, "dependencies": ROOT_DEPS, "description": "C++ unroll and roll-up of weighted histograms"},
+    "plotter.sample_model": {"run": plotter_sample_model, "dependencies": ROOT_DEPS, "description": "Core calls of getsampleset (samples_v15.py, later the sample model) per era, channel kind and caller option"},
     "pico.writer": {"run": pico_writer, "dependencies": ROOT_DEPS, "description": "Tree schema, arrays, defaults, aliases, 64-bit IDs and cutflow"},
     "pico.bookkeeper": {"run": pico_bookkeeper, "dependencies": NANO_DEPS, "description": "Real NanoAODTools event loop, selections, ranges and weight bookkeeping"},
     "pico.scale_factors": {"run": pico_scale_factors, "dependencies": ROOT_DEPS, "description": "Local synthetic scale-factor lookup and boundary clamping"},
