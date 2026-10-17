@@ -21,8 +21,8 @@ connects every slot to an earlier stage that makes that kind. Only the slots in 
 (data from outside the run); `null_inputs` also says what null means for each of them (see recipe.py).
 
 A stage also gets a StageContext: the run directory (for its log files), the artifacts of the stages its inputs
-name (so the fit stage knows which shapes exist), and the bundle directory that its path options are resolved
-against (see bundle.py).
+name (so the fit stage knows which shapes exist; an input may also name another run's stage directory, whose
+manifest gives them), and the bundle directory that its path options are resolved against (see bundle.py).
 
 Public API:
   StageState           the states above
@@ -102,9 +102,14 @@ class StageContext:
 
     run_dir:     the run directory: a stage's output goes to stage_dir(), its log files to log_dir()
     upstream:    stage id -> artifacts (dicts) of the stages this one's inputs name. In advance() these are the
-                 recorded artifacts of DONE stages; in plan() the artifacts the earlier stages plan to make.
-    inputs:      input slot -> the stage id the recipe connects it to (None: not from this run)
+                 recorded artifacts of DONE stages; in plan() the artifacts the earlier stages plan to make. An
+                 input that names another run's stage directory ({path: <dir>}) is keyed by that directory, with
+                 the artifacts of its manifest.
+    inputs:      input slot -> the stage id the recipe connects it to, or the directory of {path: <dir>} (the key
+                 of its artifacts in upstream); None: null or {external: ...}
     external:    input slot -> the pattern of the data made outside TauFW ({external: <pattern>} in the recipe)
+    sources:     input slot -> what the manifest of a {path: <dir>} input says (run_id, stage_id, stage,
+                 finished, manifest_sha256; see manifest.StageDir.summary); only those inputs
     pico_config: the PicoProducer configuration of the run (path), or None (PicoProducer's default)
     bundle_dir:  the bundle directory the path options are resolved against (a run: its copy, <run_dir>/bundle)
     stage_id:    the id of the stage this context is for
@@ -113,6 +118,7 @@ class StageContext:
     upstream:    Mapping[str, Tuple[dict, ...]] = field(default_factory=dict)
     inputs:      Mapping[str, Optional[str]] = field(default_factory=dict)
     external:    Mapping[str, str] = field(default_factory=dict)
+    sources:     Mapping[str, dict] = field(default_factory=dict)
     pico_config: Optional[str] = None
     bundle_dir:  Optional[str] = None
     stage_id:    str = ""
@@ -127,6 +133,12 @@ class StageContext:
         """The upstream artifacts of the stage connected to an input slot (none if the slot is null)."""
         stage_id = self.inputs.get(slot)
         return self.artifacts(stage_id, kind) if stage_id else ()
+
+    def input_name(self, slot):
+        """What an input slot names, for messages: "stage 'histograms'", or the other run's stage directory."""
+        if slot in self.sources:
+            return self.inputs.get(slot)
+        return "stage %r" % (self.inputs.get(slot))
 
     def stage_dir(self, stage_id=None):
         """The output directory of one stage: <run_dir>/stages/<id> (default: this context's stage). It holds only

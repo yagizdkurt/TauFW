@@ -5,10 +5,11 @@ It runs what Fitter/run_workflow_zmm.sh runs for every (era, jet WP, electron WP
 datacards, the 2D MultiDimFit of tes and tid_SF per region (makecombinedfitTES_SF.py -o 3), FitDiagnostics and
 post-fit shapes, the plots, the correction files, and once per era the summary (grids, merged JSON).
 
-    inputs:   shapes: the shapes made by the histograms stage the slot names; the directory of each point's
-              shapes is taken from that stage's shapes artifacts (null, a temporary exception: the shapes
-              already in Fitter/input_pt_less_region/..., made outside this run). The points come from the
-              recipe (eras x jet_wps x ele_wps; each must have shapes in the input stage), or, if jet_wps and
+    inputs:   shapes: the shapes made by the histograms stage the slot names, or by the histograms stage of
+              another run ({path: <run_dir>/stages/<id>}, its manifest's artifacts); the directory of each point's
+              shapes is taken from those shapes artifacts. null (old recipes only, a temporary exception): the
+              shapes already in Fitter/input_pt_less_region/..., made outside the Framework. The points come from
+              the recipe (eras x jet_wps x ele_wps; each must have shapes in the input stage), or, if jet_wps and
               ele_wps are empty, from the shapes artifacts of that stage (every era and working point pair that
               has shapes of both configs).
     options:  FitSpec (configs, points, steps, impacts)
@@ -52,8 +53,8 @@ class FitStage(LocalStage):
     fitter: a TauFW.Fitter.api.TauESID, or any object with the same methods (tests pass a fake one)."""
     name = 'fit'
     inputs = {'shapes': 'shapes'}
-    # Temporary exception: null reads the shapes the Fitter scripts made outside the Framework. To be removed when
-    # an input can name another run's stage directory (TODO 6 C).
+    # Temporary exception, kept for old recipes only: null reads the shapes the Fitter scripts made outside the
+    # Framework. A new recipe names a histograms stage, or another run's with {path: <run_dir>/stages/<id>} (R4).
     null_inputs = {'shapes': "the shapes already in Fitter/input_pt_less_region/ (temporary)"}
     outputs = ('fit', 'corrections')
     group = 'fitter'  # taufw.py init names a copied config <group>_<name> if its name is taken
@@ -75,8 +76,10 @@ class FitStage(LocalStage):
         return self.api.plan_fit(request)
 
     def preflight(self, request, context):
-        """The shapes on disk are checked only when no stage of this run makes (or made) them."""
-        return self.api.preflight_fit(request, check_shapes=not context.input_artifacts('shapes', kind='shapes'))
+        """The shapes on disk are checked unless a stage of this run makes (or made) them: for null, and for the
+        shapes of another run ({path: ...})."""
+        check = 'shapes' in context.sources or not context.input_artifacts('shapes', kind='shapes')
+        return self.api.preflight_fit(request, check_shapes=check)
 
     def execute(self, request, logdir, progress):
         return self.api.fit(request, logdir, progress)
@@ -91,9 +94,9 @@ class FitStage(LocalStage):
                 for value in artifact.get('values', [])] or None
 
     def shapes_dirs(self, points, context):
-        """(era, jet WP, electron WP, directory) of every point, from the shapes artifacts of the input stage;
-        empty if the slot is null (the scripts then read Fitter/). Raises ValueError if a point has no shapes in
-        the input stage, or shapes in more than one directory."""
+        """(era, jet WP, electron WP, directory) of every point, from the shapes artifacts of the input stage (of
+        this run or another); empty if the slot is null (the scripts then read Fitter/). Raises ValueError if a
+        point has no shapes in the input stage, or shapes in more than one directory."""
         if not context.inputs.get('shapes'):
             return ()
         found = {}
@@ -102,8 +105,8 @@ class FitStage(LocalStage):
                 os.path.dirname(shape['path']))
         missing = ["%s %s/%s" % point for point in points if point not in found]
         if missing:
-            raise ValueError("no shapes of %s in stage %r (its points: %s)" % (', '.join(missing),
-                             context.inputs['shapes'], ', '.join("%s %s/%s" % p for p in found) or 'none'))
+            raise ValueError("no shapes of %s in %s (its points: %s)" % (', '.join(missing),
+                             context.input_name('shapes'), ', '.join("%s %s/%s" % p for p in found) or 'none'))
         for point in points:
             if len(found[point]) > 1:
                 raise ValueError("the shapes of %s %s/%s are in more than one directory: %s"

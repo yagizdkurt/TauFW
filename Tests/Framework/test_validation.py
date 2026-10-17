@@ -37,6 +37,44 @@ class CheckRecipeTests(unittest.TestCase):
         self.write("recipe.yml", json.dumps({"name": "tes", "run_root": run_root, "stages": [FIT]}))
         return check_recipe(self.bundle)
 
+    def source(self, stage, stage_id, run="r1"):
+        """A finished stage directory of another run (outside the bundle), with its manifest (format 2)."""
+        directory = os.path.join(self.root, "runs", run, "stages", stage_id)
+        os.makedirs(directory)
+        with open(os.path.join(directory, "manifest.json"), "w") as stream:
+            json.dump({"manifest": 2, "run_id": run, "stage_id": stage_id, "stage": stage, "description": "",
+                       "inputs": None, "sources": {}, "stage_dir": directory, "finished": "2026-10-17 12:00:00",
+                       "artifacts": []}, stream)
+        return directory
+
+    def test_path_inputs(self):
+        """R4: the stage directory of a {path: ...} input is checked; every problem is listed."""
+        histograms = self.source("histograms", "histograms")
+        plots = self.source("plots", "plots")
+        fit = self.source("fit", "fit")
+        check = self.check(dict(FIT, inputs={"shapes": {"path": histograms}}),
+                           dict(STEP, inputs={"fit": {"path": fit}, "plots": {"path": plots}}))
+        self.write("steps/check.py", "def run(ctx):\n    pass\n")
+        check = check_recipe(self.bundle)
+        self.assertEqual(self.messages(check), [])
+        self.assertEqual(check.recipe.stage("fit").paths, {"shapes": histograms})
+        missing = os.path.join(self.root, "runs", "r2", "stages", "histograms")
+        unfinished = os.path.join(self.root, "runs", "r3", "stages", "histograms")
+        os.makedirs(unfinished)
+        copy = os.path.join(self.root, "copy", "stages", "histograms")
+        shutil.copytree(histograms, copy)
+        check = self.check(*[dict(FIT, id="fit%d" % (n), inputs={"shapes": {"path": path}})
+                             for n, path in enumerate((missing, unfinished, copy, plots))])
+        self.assertEqual(self.messages(check), [
+            "stages[0] (fit).inputs.shapes: no such directory: %s" % (missing),
+            "stages[1] (fit).inputs.shapes: %s has no manifest.json: its stage has not finished, or it is not the "
+            "stage directory of a TauFW run (<run_dir>/stages/<id>)" % (unfinished),
+            "stages[2] (fit).inputs.shapes: %s was moved or copied from %s: its artifacts name the files there"
+            % (copy, histograms),
+            "stages[3] (fit).inputs.shapes: %s is stage 'plots' (plots) of run r1: it makes plots, not shapes"
+            % (plots)])
+        self.assertIsNone(check.recipe)
+
     def test_run_root(self):
         check = self.check_root("/afs/cern.ch/work/u/user/taufw_runs")  # absolute on lxplus (also on Windows)
         self.assertEqual((self.messages(check), check.warnings), ([], ()))
@@ -92,15 +130,16 @@ class CheckRecipeTests(unittest.TestCase):
                  "root://eoscms.cern.ch//eos/x/$ERA)"),
                 ({"external": ""}, "external must be an absolute directory pattern, e.g. /eos/.../$ERA/$GROUP "
                                    "(got '')"),
-                ({"external": pattern, "path": "x"}, "a mapping is {external: <absolute pattern>} (got keys "
-                                                     "external, path)"),
-                ({"path": "x"}, "a mapping is {external: <absolute pattern>} (got keys path)")):
+                ({"external": pattern, "path": "x"}, "a mapping is {path: <stage directory>} or {external: "
+                                                     "<pattern>} (got keys external, path)"),
+                ({"path": "x"}, "path must be absolute (got x; relative paths are not allowed, and ~ and "
+                                "$VARIABLES are not expanded)")):
             with self.subTest(value=value):
                 self.assertEqual(self.messages(self.check(dict(plots, inputs={"tuples": value}))),
                                  [where + message])
         self.assertEqual(self.messages(self.check(dict(FIT, inputs={"shapes": {"external": pattern}}))),
                          ["stages[0] (fit).inputs.shapes: {external: ...} is only for a tuples input (plots, "
-                          "histograms); name an earlier stage"])
+                          "histograms); name an earlier stage, or {path: <stage directory>}"])
         step = dict(STEP, inputs={"tuples": {"external": pattern}})
         self.write("steps/check.py", "def run(ctx):\n    pass\n")
         self.assertIn("{external: ...} is only for a tuples input", self.messages(self.check(step))[0])

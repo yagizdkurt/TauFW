@@ -31,13 +31,18 @@ Every stage has the keys `stage`, `id` and `inputs`, and may have `description`;
                 fit           shapes   <- shapes           null: the shapes already in Fitter/ (temporary exception)
                 python        any names <- any stage       null: no inputs; a mapping names stages, never null
               A slot names a stage that comes earlier in the recipe and makes that kind of data
-              (Stage.outputs). A tuples slot may instead name tuples made outside TauFW:
+              (Stage.outputs). A slot may instead name the stage directory of another run (a stage that is
+              DONE, with its manifest.json; validation.py checks it, the Framework reads its artifacts):
+                shapes: {path: /afs/.../taufw_runs/<run>/stages/histograms}
+              (absolute; nothing is expanded; not inside the bundle). A tuples slot may also name tuples made
+              outside TauFW:
                 tuples: {external: /eos/.../TES_variations/$ERA/$GROUP}
               (an absolute directory pattern with $ERA and $GROUP, the files <sample>_<channel>.root in it).
               A slot may be null (only for old recipes: the module's own default) only if its stage lists it in
               Stage.null_inputs. Nothing is connected implicitly: a stage sees only the artifacts of its inputs.
-    order:    the built-in stages at most once each, in the order of ORDER (production, plots, histograms, fit);
-              python steps anywhere, any number of times.
+    order:    the stages run in the order they are written (the user's choice); the only rule is that an input
+              names an earlier stage. Any stage may appear any number of times (with its own id), except
+              production: at most once (its job files are outside the run, and a run has one pico.config).
 
 run_root is the parent directory of the runs: a run is <run_root>/<name>_<YYYYmmdd-HHMMSS>/. It must be absolute, on
 a mounted file system (not a URL), and outside the bundle directory (every run copies its bundle, so it would copy
@@ -101,7 +106,8 @@ class StageSpec:
     id:          the stage's id in the run (unique; run.json and the run directory use it)
     spec:        the stage's typed options, a Spec dataclass (e.g. ProductionSpec); this is what the stage reads
     options:     the options exactly as written in the recipe (without the keys of STAGE_KEYS); saved to run.json
-    inputs:      input slot -> stage id, None or {external: pattern}, as written; None: `inputs: null`
+    inputs:      input slot -> stage id, None, {path: directory} or {external: pattern}, as written;
+                 None: `inputs: null`
     description: free text from the recipe ("" if none); shown, never used for anything else
     """
     stage:       str
@@ -113,8 +119,14 @@ class StageSpec:
 
     @property
     def connections(self):
-        """input slot -> stage id (None: not from this run: null, or external); {} for `inputs: null`."""
+        """input slot -> stage id (None: not a stage of this run: null, path or external); {} for `inputs: null`."""
         return {slot: value if isinstance(value, str) else None for slot, value in (self.inputs or {}).items()}
+
+    @property
+    def paths(self):
+        """input slot -> the directory of {path: <stage directory>} (another run's stage); {} if none."""
+        return {slot: value.get('path') for slot, value in (self.inputs or {}).items()
+                if isinstance(value, dict) and isinstance(value.get('path'), str)}
 
     @property
     def external(self):
@@ -218,7 +230,7 @@ class Recipe:
         if not isinstance(stages, list) or not stages:
             issues.append(Issue('stages', "must be a non-empty list"))
             stages = []
-        entries = [_stage_entry(entry, index, issues) for index, entry in enumerate(stages)]
+        entries = [_stage_entry(entry, index, bundle_dir, issues) for index, entry in enumerate(stages)]
         _check_graph([e for e in entries if e is not None], issues)
         stage_specs = [(e.index, e.stage_spec) for e in entries if e is not None and e.stage_spec is not None]
         if issues:
@@ -279,7 +291,7 @@ class _Entry:
     stage_spec: Optional[StageSpec] = None
 
 
-def _stage_entry(entry, index, issues):
+def _stage_entry(entry, index, bundle_dir, issues):
     """Check one entry of the recipe's 'stages' list on its own; None if it is not even a stage."""
     if not isinstance(entry, dict) or 'stage' not in entry:
         issues.append(Issue("stages[%d]" % (index), "must be a mapping with a 'stage' key"))
@@ -294,7 +306,7 @@ def _stage_entry(entry, index, issues):
     description = entry.get('description')
     if description is not None and not isinstance(description, str):
         issues.append(Issue(where + ".description", "must be text (got %r)" % (description,)))
-    inputs = _check_inputs(entry, name, where, issues)
+    inputs = _check_inputs(entry, name, where, bundle_dir, issues)
     options = {k: v for k, v in entry.items() if k not in STAGE_KEYS}
     result = _Entry(index=index, stage=name, id=stage_id, inputs=inputs, where=where)
     try:
@@ -325,9 +337,9 @@ def _check_id(entry, where, issues):
     return stage_id
 
 
-def _check_inputs(entry, name, where, issues):
+def _check_inputs(entry, name, where, bundle_dir, issues):
     """The stage's inputs as written (None for `inputs: null`), checked against the slots of its type.
-    Which stages they name is checked by _check_graph."""
+    Which stages they name is checked by _check_graph; the directory of a {path: ...} by validation.py."""
     slots, nullable = STAGES[name].inputs, STAGES[name].null_inputs
     where = where + ".inputs"
     if 'inputs' not in entry:
@@ -361,11 +373,12 @@ def _check_inputs(entry, name, where, issues):
             issues.append(Issue("%s.%s" % (where, slot), "must name an earlier stage that makes %s (null is not "
                                                          "allowed for this input)" % (slots[slot])))
         elif isinstance(value, dict):
-            problem = _external_problem(value, slots.get(slot) if slots else None)
+            problem = _mapping_problem(value, slots.get(slot) if slots else None, bundle_dir)
             if problem:
                 issues.append(Issue("%s.%s" % (where, slot), problem))
         elif value is not None and not isinstance(value, str):
-            issues.append(Issue("%s.%s" % (where, slot), "must be a stage id or null (got %r)" % (value,)))
+            issues.append(Issue("%s.%s" % (where, slot), "must be a stage id, {path: <stage directory>} or null "
+                                                         "(got %r)" % (value,)))
     for slot in (slots or {}):
         if slot not in inputs:
             issues.append(Issue("%s.%s" % (where, slot), "missing (the id of an earlier stage%s)"
@@ -375,20 +388,49 @@ def _check_inputs(entry, name, where, issues):
 
 def _inputs_hint(name, slots, nullable):
     if slots is None:
-        return "write inputs: null, or a mapping of names to the ids of earlier stages"
+        return ("write inputs: null, or a mapping of names to the ids of earlier stages (or {path: <stage "
+                "directory>})")
     if not slots:
         return "write inputs: null"
-    return "write inputs: {%s}" % (', '.join("%s: <stage id%s%s>" % (slot,
-                                                                      " or {external: <pattern>}"
-                                                                      if slots[slot] == 'tuples' else "",
-                                                                      " or null" if slot in nullable else "")
+    return "write inputs: {%s}" % (', '.join("%s: <stage id, {path: <stage directory>}%s%s>"
+                                             % (slot, ", {external: <pattern>}" if slots[slot] == 'tuples' else "",
+                                                " or null" if slot in nullable else "")
                                              for slot in slots))
 
 
+def _mapping_problem(value, kind, bundle_dir):
+    """What is wrong with an input written as a mapping: {path: <stage directory>} (any slot) or
+    {external: <pattern>} (a tuples slot); None: nothing."""
+    if set(value) == {'path'}:
+        return _path_problem(value['path'], bundle_dir)
+    if set(value) == {'external'}:
+        return _external_problem(value, kind)
+    return ("a mapping is {path: <stage directory>}%s (got keys %s)"
+            % (" or {external: <pattern>}" if kind == 'tuples' else "", ', '.join(sorted(map(str, value)))))
+
+
+def _path_problem(path, bundle_dir):
+    """What is wrong with the directory of {path: <stage directory>} (None: nothing). Only the value is checked
+    here; the directory and its manifest are checked by validation.py and the Framework (manifest.py)."""
+    if not isinstance(path, str) or not path.strip():
+        return ("path must be the absolute stage directory of another run, e.g. "
+                "/afs/.../taufw_runs/<run>/stages/histograms (got %r)" % (path,))
+    if URLEXP.match(path):
+        return "path must be a directory on a mounted file system, not a URL (got %s)" % (path)
+    if not _is_absolute(path):
+        return ("path must be absolute (got %s; relative paths are not allowed, and ~ and $VARIABLES are not "
+                "expanded)" % (path))
+    if is_bundle(bundle_dir) and _inside(path, bundle_dir):
+        return ("%s is inside the bundle %s: an input names another run's stage directory, and data is never "
+                "part of a bundle" % (path, bundle_dir))
+    return None
+
+
 def _external_problem(value, kind):
-    """What is wrong with an input written as a mapping, {external: <pattern>} (None: nothing)."""
+    """What is wrong with an input written as {external: <pattern>} (None: nothing)."""
     if kind != 'tuples':
-        return "{external: ...} is only for a tuples input (plots, histograms); name an earlier stage"
+        return ("{external: ...} is only for a tuples input (plots, histograms); name an earlier stage, or "
+                "{path: <stage directory>}")
     if set(value) != {'external'}:
         return "a mapping is {external: <absolute pattern>} (got keys %s)" % (', '.join(sorted(map(str, value))))
     pattern = value['external']
@@ -403,8 +445,8 @@ def _external_problem(value, kind):
 
 
 def _check_graph(entries, issues):
-    """The checks between stages: unique ids, the built-in stages once each and in order, and inputs that name
-    an earlier stage that makes the right kind of data."""
+    """The checks between stages: unique ids, at most one production stage, and inputs that name an earlier stage
+    that makes the right kind of data (the only order rule: a stage reads only stages above it)."""
     seen = {}
     for entry in entries:
         if entry.id is None:
@@ -414,19 +456,15 @@ def _check_graph(entries, issues):
                                 % (entry.id, seen[entry.id].index)))
         else:
             seen[entry.id] = entry
-    for name in ORDER:
-        same = [e for e in entries if e.stage == name]
-        for extra in same[1:]:
-            issues.append(Issue(extra.where, "a recipe has at most one %s stage" % (name)))
-    names = [e.stage for e in entries if e.stage in ORDER]
-    if [ORDER.index(n) for n in names] != sorted(ORDER.index(n) for n in names):
-        issues.append(Issue('stages', "the built-in stages must be in the order %s (got %s)"
-                            % (' -> '.join(ORDER), ' -> '.join(names))))
+    productions = [e for e in entries if e.stage == 'production']
+    for extra in productions[1:]:  # its job files are outside the run and the run has one pico.config (TODO 6)
+        issues.append(Issue(extra.where, "a recipe has at most one production stage (put several eras and "
+                                         "channels in its lists, or use separate recipes)"))
     for position, entry in enumerate(entries):
         earlier = {e.id: e for e in entries[:position] if e.id is not None}
         slots = STAGES[entry.stage].inputs
         for slot, value in (entry.inputs or {}).items():
-            if not isinstance(value, str):
+            if not isinstance(value, str):  # null, {path: ...} (checked by validation.py), {external: ...}
                 continue
             where = "%s.inputs.%s" % (entry.where, slot)
             if value not in earlier:

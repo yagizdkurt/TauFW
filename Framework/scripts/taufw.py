@@ -77,7 +77,8 @@ def cmd_plan(args):
         reporter.header("Stage %s (%s)" % (stage_spec.id, stage_spec.stage))
         if stage_spec.description:
             reporter.message(stage_spec.description)
-        reporter.message("Inputs: %s" % (_inputs_line(stage_spec, framework.stages[stage_spec.id])))
+        reporter.message("Inputs: %s" % (_inputs_line(stage_spec, framework.stages[stage_spec.id],
+                                                     stage_plan.sources)))
         if stage_plan.paths:  # the files the stage reads: from the bundle, from its module, or absolute
             reporter.table(["option", "file", "from"],
                            [(option, resolved, where) for option, _, resolved, where in stage_plan.paths])
@@ -177,14 +178,27 @@ def _run_root_line(recipe, given=None):
     return "%s (default: no run_root in the recipe)" % (os.path.abspath(DEFAULT_RUN_ROOT))
 
 
-def _inputs_line(stage_spec, stage):
-    """The stage's inputs as written: 'none', or 'slot <- stage id', 'slot <- external <pattern>' (data made outside
-    TauFW), or for null 'slot <- outside this run (what null means for the slot, Stage.null_inputs)'."""
+def _inputs_line(stage_spec, stage, sources=None):
+    """The stage's inputs as written: 'none', or 'slot <- stage id', 'slot <- <directory> (run, stage, finished)'
+    (another run's stage directory; sources: what its manifest says, see StagePlan.sources), 'slot <- external
+    <pattern>' (data made outside TauFW), or for null 'slot <- outside this run (what null means for the slot,
+    Stage.null_inputs)'."""
     if stage_spec.inputs is None:
         return "none"
-    return ", ".join("%s <- %s" % (slot, "external %s" % (value['external']) if isinstance(value, dict) else
-                                   value or "outside this run (%s)" % (stage.null_inputs.get(slot, '?')))
+    return ", ".join("%s <- %s" % (slot, _input_text(slot, value, stage, sources or {}))
                      for slot, value in stage_spec.inputs.items())
+
+
+def _input_text(slot, value, stage, sources):
+    if isinstance(value, dict) and 'path' in value:
+        source = sources.get(slot)
+        if source is None:  # cannot be read: the stage's note says why
+            return value['path']
+        return "%s (run %s, stage %s (%s), finished %s)" % (value['path'], source['run_id'], source['stage_id'],
+                                                            source['stage'], source['finished'])
+    if isinstance(value, dict):
+        return "external %s" % (value['external'])
+    return value or "outside this run (%s)" % (stage.null_inputs.get(slot, '?'))
 
 
 def _show_commands(reporter, plan):

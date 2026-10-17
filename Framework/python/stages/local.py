@@ -20,7 +20,8 @@ A subclass sets `name` and `Spec`, and implements:
     summary(report)                 -> the stage's message when it is DONE (default: counts)
     config_file(value)              -> the module file of a path option (for taufw.py init; default: None)
 A stage with a `tuples` input slot reads the tuples its input names (tuples_pattern): the pattern recorded on the
-artifacts of the production stage it names, or the recipe's {external: <pattern>}; with `null` (old recipes) none,
+artifacts of the production stage it names (of this run, or of another run: {path: <run_dir>/stages/<id>}), or the
+recipe's {external: <pattern>}; with `null` (old recipes) none,
 and the scripts read $PICODIR of the PicoProducer configuration as before. The pattern, and the tuple paths of a
 production stage, are recorded in the stage's last_status; input_problems() are added to the preflight.
 
@@ -121,7 +122,8 @@ class LocalStage(Stage):
         """(pattern or None, problems): where the stage's tuples are, as a directory pattern ($ERA, $GROUP).
           {external: <pattern>}  -> that pattern
           a production stage     -> the pattern recorded on its tuple artifacts (in a plan: the planned one);
-                                    none yet (not planned) -> None
+                                    none yet (not planned) -> None. Also another run's ({path: ...}, its
+                                    manifest's artifacts).
           null                   -> None (the scripts read $PICODIR of the PicoProducer configuration)"""
         if slot in context.external:
             return context.external[slot], ()
@@ -131,11 +133,12 @@ class LocalStage(Stage):
             return None, ()
         patterns = list(dict.fromkeys(artifact.get('pattern') for artifact in artifacts))
         if None in patterns:
-            return None, ("the tuples of stage %r do not record where they are (made before the Framework chose "
+            return None, ("the tuples of %s do not record where they are (made before the Framework chose "
                           "their place, CL §18); start a new run, or name them with {external: <pattern>}"
-                          % (stage_id),)
+                          % (context.input_name(slot)),)
         if len(patterns) > 1:
-            return None, ("the tuples of stage %r are in several places (%s)" % (stage_id, ', '.join(patterns)),)
+            return None, ("the tuples of %s are in several places (%s)" % (context.input_name(slot),
+                                                                         ', '.join(patterns)),)
         return patterns[0], ()
 
     def input_problems(self, context, files=True):
@@ -149,8 +152,8 @@ class LocalStage(Stage):
         missing = [artifact['path'] for artifact in context.input_artifacts('tuples')
                    if artifact.get('path') and '://' not in artifact['path'] and not os.path.exists(artifact['path'])]
         if missing:
-            return ("%d tuple file(s) of stage %r not found, e.g. %s"
-                    % (len(missing), context.inputs.get('tuples'), missing[0]),)
+            return ("%d tuple file(s) of %s not found, e.g. %s"
+                    % (len(missing), context.input_name('tuples'), missing[0]),)
         if 'tuples' in context.external:
             directory = fixed_directory(pattern)
             if not os.path.isdir(directory):

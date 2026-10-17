@@ -8,6 +8,7 @@ import unittest
 
 import checkout  # noqa: F401  (must precede TauFW imports)
 import fakes
+import hashlib
 from TauFW.Framework import Framework, Recipe, RecipeError, RunRecord, SilentReporter
 from TauFW.Framework.stages import (ProductionStage, PlotStage, HistogramStage, FitStage, StageContext,
                                     PreflightError)
@@ -48,7 +49,9 @@ class LocalStageTestCase(unittest.TestCase):
     def framework(self, *stages):
         built = {"production": ProductionStage(self.pico), "plots": PlotStage(self.plotter),
                  "histograms": HistogramStage(self.fitter), "fit": FitStage(self.fitter)}
-        return Framework(recipe(*stages), built, reporter=self.reporter, sleep=lambda s: None, clock=Clock())
+        stages = recipe(*stages)  # the stage objects by type: a repeated stage shares its module API
+        return Framework(stages, {s.id: built[s.stage] for s in stages.stages}, reporter=self.reporter,
+                         sleep=lambda s: None, clock=Clock())
 
     def warnings(self):
         return [text for kind, text in self.reporter.messages if kind == "warning"]
@@ -73,9 +76,11 @@ class PipelineTests(LocalStageTestCase):
                          ["fit", "histograms", "plots", "production"])
         with open(os.path.join(record.run_dir, "stages", "histograms", "manifest.json")) as stream:
             manifest = json.load(stream)
-        self.assertEqual({key: manifest[key] for key in ("manifest", "run_id", "stage_id", "stage", "inputs")},
-                         {"manifest": 1, "run_id": record.run_id, "stage_id": "histograms", "stage": "histograms",
-                          "inputs": {"tuples": "production"}})
+        self.assertEqual({key: manifest[key] for key in ("manifest", "run_id", "stage_id", "stage", "inputs",
+                                                         "sources", "stage_dir")},
+                         {"manifest": 2, "run_id": record.run_id, "stage_id": "histograms", "stage": "histograms",
+                          "inputs": {"tuples": "production"}, "sources": {},
+                          "stage_dir": os.path.join(os.path.abspath(record.run_dir), "stages", "histograms")})
         self.assertEqual(manifest["artifacts"], record.stage("histograms").artifacts)
         production_dir = os.path.join(record.run_dir, "stages", "production")  # the tuples, below <era>/<group>
         self.assertEqual(sorted(os.listdir(production_dir)), ["2018", "manifest.json"])
@@ -107,6 +112,27 @@ class PipelineTests(LocalStageTestCase):
         live = fw.status(record).stages[3].live
         self.assertEqual([(v["jet_wp"], v["poi"], v["value"]) for v in live],
                          [("VTight", "tes", 0.98), ("Tight", "tes", 0.98)])
+
+    def test_repeated_stages_run_in_their_own_directories(self):
+        """R4: two histograms and two fits (each fit reads its own histograms), two plots, in any order."""
+        hist_vt = dict(HISTOGRAMS, id="hist_vt", jet_wps=["VTight"])
+        hist_t = dict(HISTOGRAMS, id="hist_t", jet_wps=["Tight"])
+        stages = (hist_vt, connected(dict(FIT, id="fit_vt"), shapes="hist_vt"), hist_t,
+                  connected(dict(FIT, id="fit_t"), shapes="hist_t"),
+                  dict(PLOTS, id="plots_mvis"), dict(PLOTS, id="plots_pt", variables=["pt_1"]))
+        record = self.framework(*stages).start(run_root=self.root)
+        self.assertEqual(record.state, "DONE")
+        directories = os.path.join(record.run_dir, "stages")
+        self.assertEqual(sorted(os.listdir(directories)), ["fit_t", "fit_vt", "hist_t", "hist_vt", "plots_mvis",
+                                                           "plots_pt"])
+        self.assertEqual([request["outdir"] for request, in [c[1:] for c in self.fitter.calls if c[0] == "fit"]],
+                         [os.path.join(directories, "fit_vt"), os.path.join(directories, "fit_t")])
+        self.assertEqual([request["points"] for request, in [c[1:] for c in self.fitter.calls if c[0] == "fit"]],
+                         [(("2025", "VTight", "Tight"),), (("2025", "Tight", "Tight"),)])
+        self.assertEqual([request["variables"] for request, in [c[1:] for c in self.plotter.calls if c[0] == "make"]],
+                         [["m_vis"], ["pt_1"]])
+        for stage_id in ("fit_vt", "fit_t", "plots_mvis", "plots_pt"):
+            self.assertTrue(os.path.isfile(os.path.join(directories, stage_id, "manifest.json")))
 
     def test_progress_lines(self):
         fw = self.framework(PLOTS)
@@ -307,6 +333,89 @@ class TupleInputTests(LocalStageTestCase):
         self.assertEqual(fixed_directory("/eos/tes"), "/eos/tes")
 
 
+class PathInputTests(LocalStageTestCase):
+    """R4: an input that names another run's stage directory ({path: <dir>}): the artifacts come from its
+    manifest, nothing is written there, and run.json and the reader's manifest record the source."""
+
+    def source_run(self, *stages):
+        fw = self.framework(*stages)
+        record = fw.start(run_root=os.path.join(self.root, "source"))
+        if record.state == "WAITING":  # production: the jobs are complete at the next check
+            record = fw.advance(record)
+        self.assertEqual(record.state, "DONE")
+        return record
+
+    def snapshot(self, directory):
+        return sorted((os.path.relpath(os.path.join(d, f), directory), os.stat(os.path.join(d, f)).st_mtime_ns)
+                      for d, _, files in os.walk(directory) for f in files)
+
+    def test_fit_reads_the_shapes_of_another_run(self):
+        source = os.path.join(self.source_run(HISTOGRAMS).run_dir, "stages", "histograms")
+        before = self.snapshot(source)
+        with open(os.path.join(source, "manifest.json"), "rb") as stream:
+            sha256 = hashlib.sha256(stream.read()).hexdigest()
+        fit = dict(FIT, inputs={"shapes": {"path": source}})
+        fw = self.framework(fit)
+        plan = fw.plan().stages[0]
+        self.assertEqual(plan.plan.commands[0].label, "fit 2025 VTight Tight")  # the points of the source's shapes
+        self.assertEqual(plan.sources["shapes"]["stage_id"], "histograms")
+        record = fw.start(run_root=os.path.join(self.root, "reader"))
+        self.assertEqual(record.state, "DONE", record.stage("fit").message)
+        request = self.fitter.call("fit")[0]
+        self.assertEqual(request["points"], (("2025", "VTight", "Tight"), ("2025", "Tight", "Tight")))
+        self.assertEqual(request["shapes_dirs"], (("2025", "VTight", "Tight", "/fit"),
+                                                  ("2025", "Tight", "Tight", "/fit")))
+        self.assertIs(self.fitter.call("preflight_fit")[1], True)  # from another run: the files are checked
+        with open(os.path.join(source, "manifest.json")) as stream:
+            source_manifest = json.load(stream)
+        expected = {"shapes": {"path": source, "run_id": source_manifest["run_id"], "stage_id": "histograms",
+                               "stage": "histograms", "finished": source_manifest["finished"],
+                               "manifest_sha256": sha256}}
+        self.assertEqual(record.stage("fit").sources, expected)
+        self.assertEqual(RunRecord.load(record.run_dir).stage("fit").sources, expected)
+        with open(os.path.join(record.run_dir, "stages", "fit", "manifest.json")) as stream:
+            manifest = json.load(stream)
+        self.assertEqual((manifest["inputs"], manifest["sources"]), ({"shapes": {"path": source}}, expected))
+        self.assertEqual(self.snapshot(source), before)  # nothing written in the source
+
+    def test_unreadable_source_leaves_the_stage_new(self):
+        source = os.path.join(self.source_run(HISTOGRAMS).run_dir, "stages", "histograms")
+        fit = dict(FIT, inputs={"shapes": {"path": source}})
+        os.rename(os.path.join(source, "manifest.json"), os.path.join(source, "manifest.moved"))
+        fw = self.framework(fit)
+        self.assertIn("inputs.shapes: %s has no manifest.json" % (source), fw.plan().stages[0].note)
+        record = fw.start(run_root=os.path.join(self.root, "reader"))
+        self.assertEqual(record.stage("fit").state, "NEW")
+        self.assertIn("not ready: inputs.shapes: %s has no manifest.json" % (source), record.stage("fit").message)
+        self.assertEqual(record.stage("fit").history[-1]["event"], "preflight")
+        self.assertNotIn("fit", self.fitter.names())
+        os.rename(os.path.join(source, "manifest.moved"), os.path.join(source, "manifest.json"))  # fixed
+        record = fw.advance(record)
+        self.assertEqual(record.stage("fit").state, "DONE")
+        self.assertEqual(record.stage("fit").sources["shapes"]["path"], source)
+
+    def test_plots_read_the_tuples_of_another_run(self):
+        source = os.path.join(self.source_run(PRODUCTION).run_dir, "stages", "production")
+        plots = dict(PLOTS, inputs={"tuples": {"path": source}})
+        record = self.framework(plots).start(run_root=os.path.join(self.root, "reader"))
+        self.assertEqual(record.state, "DONE", record.stage("plots").message)
+        pattern = os.path.join(source, "$ERA", "$GROUP")
+        self.assertEqual(self.plotter.call("make")[0]["tuples"], pattern)
+        self.assertIsNone(self.plotter.call("make")[0]["pico_config"])
+        self.assertEqual(record.stage("plots").last_status["tuples"], pattern)
+        self.assertEqual(record.stage("plots").sources["tuples"]["stage"], "production")
+
+    def test_wrong_kind_is_refused(self):
+        source = os.path.join(self.source_run(PLOTS).run_dir, "stages", "plots")
+        fw = self.framework(dict(FIT, inputs={"shapes": {"path": source}}))
+        self.assertIn("is stage 'plots' (plots) of run", fw.plan().stages[0].note)
+        self.assertIn("it makes plots, not shapes", fw.plan().stages[0].note)
+
+    def test_no_sources_is_an_empty_record(self):
+        record = self.framework(HISTOGRAMS).start(run_root=self.root)
+        self.assertEqual(record.stage("histograms").sources, {})
+
+
 class ContextTests(LocalStageTestCase):
     def test_only_done_upstream_stages_are_passed(self):
         plots = connected(PLOTS, tuples="production")
@@ -409,6 +518,16 @@ class CommandLineTests(LocalStageTestCase):
         self.assertIn("Inputs: tuples <- external %s" % (pattern),
                       [t for k, t in self.reporter.messages if k == "message"])
 
+    def test_inputs_line_of_another_runs_stage(self):
+        source = {"run_id": "tes_20261015-120000", "stage_id": "histograms", "stage": "histograms",
+                  "finished": "2026-10-15 14:02:11"}
+        stage_spec = recipe(dict(FIT, inputs={"shapes": {"path": "/afs/runs/x/stages/histograms"}})).stage("fit")
+        self.assertEqual(self.cli._inputs_line(stage_spec, FitStage(self.fitter), {"shapes": source}),
+                         "shapes <- /afs/runs/x/stages/histograms (run tes_20261015-120000, stage histograms "
+                         "(histograms), finished 2026-10-15 14:02:11)")
+        self.assertEqual(self.cli._inputs_line(stage_spec, FitStage(self.fitter), {}),
+                         "shapes <- /afs/runs/x/stages/histograms")  # cannot be read: the note says why
+
     def test_check_lists_every_problem(self):
         path = os.path.join(self.root, "r.json")
         with open(path, "w") as stream:
@@ -419,7 +538,8 @@ class CommandLineTests(LocalStageTestCase):
             "Set run_root: <absolute directory> in the recipe, or start with --run-root",
             "Recipe tes: 2 problem(s)",
             "  stages[0] (histograms).id: must be a word of letters, digits, '_', '.' or '-' (got 'a/b')",
-            "  stages[1] (fit).inputs: fit reads shapes: write inputs: {shapes: <stage id or null>}"])
+            "  stages[1] (fit).inputs: fit reads shapes: write inputs: {shapes: <stage id, {path: <stage "
+             "directory>} or null>}"])
         self.assertEqual(self.cli.main(["plan", path]), 1)  # an invalid recipe: the problems, no traceback
         self.assertIn("r.json: 2 problems", self.warnings()[-1])
         with open(path, "w") as stream:

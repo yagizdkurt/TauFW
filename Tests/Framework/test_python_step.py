@@ -41,6 +41,15 @@ def run(ctx):
 '''
 
 
+READ = '''
+def run(ctx):
+    numbers = ctx.input("numbers", kind="numbers")   # inputs: {numbers: {path: <another run>/stages/make}}
+    with open(numbers[0]["path"]) as stream:
+        total = sum(int(n) for n in stream.read().split())
+    return [{"kind": "sum", "value": total, "input": ctx.inputs["numbers"], "keys": list(ctx.upstream)}]
+'''
+
+
 def step(name, **options):
     """A python step of steps/<name>.py with the id <name> and no inputs (unless given)."""
     return dict({"stage": "python", "id": name, "inputs": None, "file": "steps/%s.py" % (name)}, **options)
@@ -107,6 +116,16 @@ class PythonStepTests(PythonStepTestCase):
         with open(os.path.join(record.run_dir, "logs", "use", "context.json")) as stream:
             context = json.load(stream)
         self.assertEqual((context["inputs"], list(context["upstream"])), ({"numbers": "make"}, ["make"]))
+
+    def test_a_step_reads_another_runs_stage(self):
+        """R4: ctx.input() of an input that names another run's stage directory."""
+        source = os.path.join(self.start(step("make", options={"n": 4})).run_dir, "stages", "make")
+        self.write("steps/read.py", READ)
+        record = self.start(step("read", inputs={"numbers": {"path": source}}))
+        self.assertEqual(record.state, "DONE", record.stage("read").message)
+        self.assertEqual(record.stage("read").artifacts[0], {"kind": "sum", "value": 0 + 1 + 2 + 3,
+                                                             "input": source, "keys": [source]})
+        self.assertEqual(record.stage("read").sources["numbers"]["stage"], "python")
 
     def test_a_step_without_inputs_sees_no_artifacts(self):
         self.write("steps/look.py", "def run(ctx):\n    return {'message': '%d' % len(ctx.artifacts())}\n")

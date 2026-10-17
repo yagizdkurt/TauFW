@@ -1027,3 +1027,69 @@ and a missing parent package).
   sample list is part of the recipe.
 - TODO §6: the `null` warning (and the production `tag` warning), production job files in the run, EOS as
   `run_root`, the sample list in the recipe, a grid proxy check before production submits; R4 next.
+
+## 19. Framework: inputs from another run's stage directory, repeated stages (R4)
+
+**Date:** 2026-10-17 (Windows tests pass; the lxplus checks are open, TODO §1 "R4 on lxplus")
+**Details:** [Analyses](../../Analyses/README.md) "File format and validation" (stage order, "Inputs from another
+run"), "Outputs and logs", "Troubleshooting"; [Framework](../../Framework/README.md) "Run directory"; TODO §6
+"Revise: one rule for the paths in a recipe"
+
+The last part of the recipe IO work (R1-R3, CL §15-17; tuple locations, CL §18): a stage may read the output of
+another, finished run, and the built-in stages may repeat. Plan and decisions: `LocalR/architecture/11-r4-plan.md`
+(§9, §11).
+
+### Repeated stages, no fixed order
+
+- `plots`, `histograms` and `fit` may appear any number of times, each with its own id (e.g. a histograms + fit
+  pair per set of working points). The fixed order production -> plots -> histograms -> fit is no longer a rule:
+  the stages run in the order of the recipe (the user's choice), and the only order rule is that an input names a
+  stage written above it. `production` stays at most once (its job files are outside the run, and a run has one
+  `pico.config`; TODO §6). Nothing else needed a change: artifacts, directories, run.json, the menu and `status`
+  were already keyed by stage id, and since R3 every stage writes in its own `stages/<id>/`.
+- `ORDER` (`stages/__init__.py`) is kept only to list the known stages in messages.
+
+### Inputs from another run: `{path: <stage directory>}`
+
+- **Recipe.** Any input slot (python steps included) may be `{path: <run_root>/<run>/stages/<id>}`. The value is
+  kept as written and must be absolute: relative paths are refused, `~` and `$VARIABLES` are not expanded (unlike
+  `run_root`), URLs are refused, and a path inside the bundle is refused (data is never part of a bundle). The rules
+  of the paths in a recipe are to be unified in a later session (TODO §6). `StageSpec.paths` gives slot -> directory;
+  `connections` still gives only stage ids.
+- **Manifest format 2** (`python/manifest.py`, new; the writer moved from `framework.py`): adds `stage_dir` (where it
+  was written, absolute) and `sources`. `read_stage_dir` returns a `StageDir` or raises `ManifestError`: no directory,
+  no manifest (the stage is not `DONE`), unreadable JSON, another format (format 1 manifests of earlier runs are
+  refused, no conversion), missing keys, or a directory that is not its `stage_dir` (moved or copied: its artifacts
+  name the files of the old place). Only a manifest-backed (`DONE`) directory is accepted; a module directory such
+  as `Fitter/` is not.
+- **Checks.** `validation.read_source` adds the kind rule (the source's stage must make the kind of data the slot
+  takes; a python step as source or reader is not checked). `taufw.py check` and the menu report every problem at
+  once; `plan` shows it as the stage's note; in `advance` it stops the stage like a preflight problem (`NEW`, message
+  and history), checked in `_advance_stage` so that the message is kept.
+- **Framework.** The artifacts come from the manifest, never from the other run's `run.json`, and nothing is written
+  to or copied from the source. Inside the Framework the slot is keyed by the directory (`StageContext.inputs` and
+  `upstream`), so the stages use the artifacts as those of a stage of the run: the fit's points and shape
+  directories, the production pattern for `--tuples`, `ctx.input()` of a python step. (A slot left as `None` would
+  have looked like `null`, and the fit would have read `Fitter/`.) New `StageContext.sources`, `StagePlan.sources`,
+  `StageContext.input_name` (messages name the directory).
+- **Provenance.** `StageRecord.sources` (slot -> `{path, run_id, stage_id, stage, finished, manifest_sha256}`),
+  written at every step of the stage, so a `DONE` or `FAILED` stage keeps what it read; `{}` without such inputs. The
+  reader's own manifest has the same `sources`. **run.json schema 3** (schema 2 runs are refused).
+- **`taufw.py plan`:** `Inputs: shapes <- <dir> (run <id>, stage <id> (<type>), finished <time>)`.
+- **Fit.** The shapes on disk are checked in the preflight also for a `{path}` input (as for `null`). The fit's
+  `{shapes: null}` stays, for old recipes only (a warning is a TODO §6 item).
+- **Fitter API.** `FitRequest`: with `outdir`, a non-empty `shapes_dirs` must name every point (`ValueError`
+  otherwise); empty still reads `Fitter/` (the Framework's `null`). Without `outdir` (standalone, shell) nothing
+  changes. This is a safety rule: the Framework already refuses a point without shapes.
+
+Tests (Windows): Framework 131 (repeated stages and order; `test_manifest.py`; `{path}` syntax and the bundle
+rule; `check` of missing, unfinished, copied and wrong-kind directories; a fit, plots and a python step reading
+another run; an unreadable source leaves the stage `NEW` and runs once it is fixed; the source is not touched;
+`sources` in run.json and the manifest; schema 2 refused; the `Inputs:` line), Fitter API 21, Plotter API 13,
+Utilities 107. lxplus: BBB `framework.production` re-lock (schema 3 and `sources` only) and the checks of TODO §1
+"R4 on lxplus".
+
+### What is left (TODO)
+
+- TODO §1: the R4 lxplus checks; plots on another run's tuples finishing awaits the sample list in the recipe.
+- TODO §6: one rule for the paths in a recipe; the `null` warning; production repeating; the sample list next.

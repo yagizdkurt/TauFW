@@ -5,14 +5,17 @@
      "recipe": {...}, "pico_config": {"path": "...", "snapshot": {...}},
      "bundle": {"source": "/.../Analyses/tes_id_2025", "files": ["recipe.yml", "config_coarse_TT.yml", ...]},
      "stages": [{"name": "production", "state": "WAITING", "attempt": 2, "message": "...",
-                 "request": {...}, "submissions": [...], "last_status": {...}, "artifacts": [...],
+                 "request": {...}, "sources": {}, "submissions": [...], "last_status": {...}, "artifacts": [...],
                  "history": [{"time": "...", "event": "submitted", "state": "SUBMITTED", "detail": "..."}]}]}
 
-A stage record's "name" is the stage's id. "bundle" lists the bundle files copied to <run_dir>/bundle/ when the run
-started (empty for a run without bundle files).
+A stage record's "name" is the stage's id. "sources" says which other runs' stage directories the stage read
+({path: <dir>} inputs): slot -> {path, run_id, stage_id, stage, finished, manifest_sha256}, written at every step of
+the stage (so a DONE or FAILED stage keeps what it read); {} for a stage without such inputs. "bundle" lists the
+bundle files copied to <run_dir>/bundle/ when the run started (empty for a run without bundle files).
 
-Schema 2 (2026-10-14): required stage ids and inputs in the recipe, the run directory with logs/<id>/ and
-stages/<id>/. Runs of another schema are refused when loaded (there is no conversion).
+Schema 3 (2026-10-17, R4): StageRecord.sources, and manifest format 2 (manifest.py). Schema 2 (2026-10-14):
+required stage ids and inputs in the recipe, the run directory with logs/<id>/ and stages/<id>/. Runs of another
+schema are refused when loaded (there is no conversion).
 
 The record holds references and summaries only. The real state of the jobs stays with each stage's package (for
 production: PicoProducer's job configs), so a lost record can be rebuilt from them.
@@ -27,7 +30,8 @@ Public API:
   RunRecord.create(recipe, run_root, pico_config, now) / RunRecord.load(run_dir) / record.save()
   RunRecord.state      overall state of the run, a RunState
   RunState             NEW, RUNNING, WAITING, DONE, FAILED, BLOCKED
-  StageRecord          one stage's state, attempt, request, submissions, last status, artifacts, history
+  StageRecord          one stage's state, attempt, request, sources, submissions, last status, artifacts,
+                       history
 """
 import os
 from dataclasses import dataclass, field, asdict
@@ -44,7 +48,7 @@ __all__ = ['RunRecord', 'RunState', 'StageRecord', 'RUN_RECORD_NAME', 'SCHEMA']
 # ================================= CONSTANTS =================================
 
 
-SCHEMA = 2  # version of the run.json and run directory layout; increase it when the layout changes
+SCHEMA = 3  # version of the run.json and run directory layout; increase it when the layout changes
 
 
 # =============================================================================
@@ -83,6 +87,7 @@ class StageRecord:
     attempt:     int = 0
     message:     str = ""
     request:     Optional[dict] = None
+    sources:     dict = field(default_factory=dict)
     submissions: List[dict] = field(default_factory=list)
     last_status: Optional[dict] = None
     artifacts:   List[dict] = field(default_factory=list)

@@ -229,18 +229,31 @@ the directory of each point's shapes from the shapes artifacts). The API only us
 copies. Before the scripts start, the API refuses an output directory that is not empty (an interrupted attempt;
 remove it or start a new run), a relative tuple pattern, or a PicoProducer configuration with a relative `picodir`.
 
-`manifest.json` is written when a stage becomes `DONE` (never for a failed stage), before `run.json` is saved:
-`{"manifest": 1, "run_id", "stage_id", "stage", "description", "inputs", "finished", "artifacts"}`. It is a copy of the
-stage's record, so that a stage directory describes itself; `run.json` stays the source of truth.
+`manifest.json` (`python/manifest.py`) is written when a stage becomes `DONE` (never for a failed stage), before
+`run.json` is saved: `{"manifest": 2, "run_id", "stage_id", "stage", "description", "inputs", "sources", "stage_dir",
+"finished", "artifacts"}`. It is a copy of the stage's record, so that a stage directory describes itself; `run.json`
+stays the source of truth. `stage_dir` is where it was written (absolute).
 
-`run.json` (schema 2; a run directory of another schema is refused):
+A manifest is also the contract for an input of another run: `inputs: {shapes: {path: <run_dir>/stages/<id>}}`
+([Analyses/README.md](../Analyses/README.md#inputs-from-another-run)). The reader takes the artifacts from the
+manifest, never from the other run's `run.json`, and writes nothing there. `read_stage_dir` refuses a directory
+without a manifest (not `DONE`), a manifest of another format (format 1, before R4: no conversion), and a directory
+that is not its `stage_dir` (moved or copied: its artifacts name files of the old place); `validation.read_source`
+adds the kind check (the source's stage must make the kind of data the slot takes). `check`, `plan` and `advance`
+use the same functions, so the messages are the same; in `advance` a problem stops the stage like a preflight
+problem (it stays `NEW`). Inside the Framework the slot is keyed by the directory (`StageContext.inputs` and
+`upstream`), so the stages use these artifacts like those of a stage of the run. What was read is the stage's
+`sources`: slot -> `{path, run_id, stage_id, stage, finished, manifest_sha256}`, in `run.json` (written at every step
+of the stage) and in the reader's manifest.
+
+`run.json` (schema 3; a run directory of another schema is refused):
 ```json
-{"schema": 2, "run_id": "...", "created": "...", "updated": "...",
+{"schema": 3, "run_id": "...", "created": "...", "updated": "...",
  "recipe": {"name": "...", "pico": {"config": null}, "stages": [...]},
  "pico_config": {"path": ".../config/config.json", "snapshot": {...}},
  "bundle": {"source": ".../Analyses/tes_id_2025", "files": ["recipe.yml", "config_coarse_TT.yml", ...]},
  "stages": [{"name": "production", "state": "WAITING", "attempt": 2, "message": "...",
-             "request": {...}, "submissions": [...], "last_status": {...}, "artifacts": [...],
+             "request": {...}, "sources": {}, "submissions": [...], "last_status": {...}, "artifacts": [...],
              "history": [{"time": "...", "event": "resubmitted", "state": "SUBMITTED", "detail": "..."}]}]}
 ```
 - A run always continues with the recipe stored in `run.json` and its `bundle/` copy, not with the current files.
@@ -256,13 +269,14 @@ stage's record, so that a stage directory describes itself; `run.json` stays the
 | File | Contents |
 |---|---|
 | `python/framework.py` | `Framework`: `plan`, `start`, `advance`, `run`, `status`, `make_bundle`; stage dispatch; construction (`from_recipe`, `from_record`) |
-| `python/recipe.py` | `Recipe`, `StageSpec`, `Issue`, `RecipeError`: load and validate recipes (a bundle directory or a file): structure, stage ids, inputs, order; every problem at once |
-| `python/validation.py` | `check_recipe`, `RecipeCheck`: everything `recipe.py` checks plus the files a recipe names, without raising (`taufw.py check`, the menu) |
+| `python/recipe.py` | `Recipe`, `StageSpec`, `Issue`, `RecipeError`: load and validate recipes (a bundle directory or a file): structure, stage ids, inputs (stage ids, `{path}`, `{external}`), at most one production; every problem at once |
+| `python/validation.py` | `check_recipe`, `RecipeCheck`: everything `recipe.py` checks plus the files a recipe names (and the stage directories of `{path}` inputs, `read_source`), without raising (`taufw.py check`, the menu) |
+| `python/manifest.py` | `write_manifest`, `read_stage_dir`, `StageDir`, `ManifestError`: the stage manifests (format 2) |
 | `python/bundle.py` | the path rule (bundle file, module config, absolute), the run's bundle copy, new bundles (`taufw.py init`) |
 | `python/step_runner.py` | runs a python step in its own process (standard library only): `context.json` → `run(ctx)` → `result.json` |
 | `python/run_record.py` | `RunRecord`, `RunState`, `StageRecord`: `run.json`, crash-safe save |
 | `python/reporting.py` | `Reporter` (interface), `FrameworkReporter` (terminal + `run.log`), `SilentReporter`; adapter for PicoProducer's messages |
-| `python/defaults.py` | shared defaults: `taufw_runs`, `run.json`, `run.log`, `recipe.yml`, `bundle/`, `logs/`, the reserved stage ids, `Analyses/`, the polling interval (600 s), the time format |
+| `python/defaults.py` | shared defaults: `taufw_runs`, `run.json`, `run.log`, `recipe.yml`, `bundle/`, `logs/`, `stages/`, `manifest.json`, `Analyses/`, the polling interval (600 s), the time format |
 | `python/interactive.py` | the Framework side of the console menu (recipe/run discovery, dispatch to the commands) |
 | `python/stages/base.py` | the stage contract: `Stage`, `StageState`, `StageOutcome`, `StageContext`, `StageNotImplemented`, `PreflightError` |
 | `python/stages/production.py` | `ProductionStage` and the pure `decide_next` policy |
@@ -288,9 +302,10 @@ BBB check/lock also default to quiet output; see the [test runner instructions](
 - `python -m unittest discover -s Tests/Framework` (any Python 3.9+, no ROOT): the state machine with a fake
   PicoProducer (submit, wait, resubmit until `max_tries`, merge, not-implemented stages, errors), `decide_next`,
   `run.json` round trip and crash-safe save, recipe validation, and `taufw.py`; the local stages with fake Plotter
-  and Fitter APIs (`test_stages.py`: the whole pipeline, preflight, failures, fit points, planned artifacts); bundles
-  (`test_bundle.py`: the path rule, stage ids, the run's bundle copy, `taufw.py init`); python steps
-  (`test_python_step.py`: real step files run by `step_runner.py`).
+  and Fitter APIs (`test_stages.py`: the whole pipeline, repeated stages, preflight, failures, fit points, planned
+  artifacts, inputs from another run); bundles (`test_bundle.py`: the path rule, stage ids, `{path}` inputs, the
+  run's bundle copy, `taufw.py init`); manifests (`test_manifest.py`); recipe checks with files
+  (`test_validation.py`); python steps (`test_python_step.py`: real step files run by `step_runner.py`).
 - `Tests/Fitter/api`, `Tests/Plotter/api`: the commands of the APIs equal those of `run_inputs.sh`,
   `run_workflow_zmm.sh` and `plot.py`, and outputs are checked (fake process runner, no ROOT).
 - BBB case `framework.production` (lxplus): `taufw.py plan/start/advance/status` against the fake HTCondor of the

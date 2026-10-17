@@ -67,8 +67,10 @@ class FitRequest:
     config: the mutau fit config; config_mumu: the mumu control-region config (both relative to Fitter/, or
     absolute). pico_config: the PicoProducer configuration the scripts read $PICODIR from (None: its default).
     outdir: the directory the fit writes to; the scripts of one era run in <outdir>/<era>/ (None: all in Fitter/).
-    shapes_dirs: (era, jet WP, electron WP, directory) of the shape files of each point (absolute); a point without
-    one reads Fitter/input_pt_less_region/... (the shapes made outside the Framework)."""
+    shapes_dirs: (era, jet WP, electron WP, directory) of the shape files of each point (absolute). Empty: every
+    point reads Fitter/input_pt_less_region/... (the shapes made outside the Framework; with outdir, a temporary
+    exception for the Framework's null shapes input). With outdir, a non-empty shapes_dirs must name every point:
+    a point is never read from Fitter/ silently while the others come from elsewhere."""
     points:      Tuple[Tuple[str, str, str], ...]
     config:      str
     config_mumu: str
@@ -92,6 +94,11 @@ class FitRequest:
         if unknown or not steps:
             raise ValueError("FitRequest: unknown step %r (steps: %s)" % (unknown[0] if unknown else None,
                                                                           ', '.join(FIT_STEPS)))
+        if self.outdir is not None and self.shapes_dirs:
+            missing = [point for point in points if point not in {entry[:3] for entry in self.shapes_dirs}]
+            if missing:
+                raise ValueError("FitRequest: shapes_dirs names no directory for %s (with outdir it names every "
+                                 "point, or none)" % (', '.join("%s %s/%s" % point for point in missing)))
         object.__setattr__(self, 'points', points)
         object.__setattr__(self, 'steps', tuple(step for step in FIT_STEPS if step in steps))
 

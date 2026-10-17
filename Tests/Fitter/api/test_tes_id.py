@@ -347,6 +347,20 @@ class FitTests(TauESIDTestCase):
         with self.assertRaises(ValueError):
             self.fit_request(shapes_dirs=[("2025", "VTight", "Tight")])
 
+    def test_shapes_dirs_with_outdir_name_every_point_or_none(self):
+        """R4 (S11): with an output directory a point is never read from Fitter/ while the others come from
+        elsewhere; an empty list (the Framework's null shapes input) still reads Fitter/."""
+        points = [("2025", "VTight", "Tight"), ("2025", "Tight", "Tight")]
+        outdir = os.path.join(self.base, "fit")
+        with self.assertRaises(ValueError) as context:
+            self.fit_request(points=points, outdir=outdir, shapes_dirs=[("2025", "VTight", "Tight", "/s/vt")])
+        self.assertEqual(str(context.exception), "FitRequest: shapes_dirs names no directory for 2025 Tight/Tight "
+                                                 "(with outdir it names every point, or none)")
+        self.assertEqual(self.fit_request(points=points, outdir=outdir).shapes_dirs, ())
+        complete = [("2025", "VTight", "Tight", "/s/vt"), ("2025", "Tight", "Tight", "/s/t")]
+        self.assertEqual(len(self.fit_request(points=points, outdir=outdir, shapes_dirs=complete).shapes_dirs), 2)
+        self.fit_request(points=points, shapes_dirs=complete[:1])  # no outdir (standalone): unchanged
+
 
 class ResultsTests(unittest.TestCase):
     def test_read_fit_values(self):

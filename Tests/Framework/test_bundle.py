@@ -189,7 +189,8 @@ class StageIdTests(BundleTestCase):
                       self.error(dict(STEP, id="..")))
         recipe = Recipe.from_dict({"name": "x", "stages": [dict(STEP, id="bundle"), dict(STEP, id="logs")]})
         self.assertEqual([s.id for s in recipe.stages], ["bundle", "logs"])  # stages/<id>: no clash in the run
-        self.assertIn("must be in the order", self.error(dict(FIT, inputs={"shapes": None}), STEP, HISTOGRAMS))
+        recipe = Recipe.from_dict({"name": "x", "stages": [dict(FIT, inputs={"shapes": None}), STEP, HISTOGRAMS]})
+        self.assertEqual([s.stage for s in recipe.stages], ["fit", "python", "histograms"])  # no fixed order (R4)
         self.assertIn("unknown stage 'pyhton' (known: production, plots, histograms, fit, python)",
                       self.error({"stage": "pyhton"}))
         self.assertIn("file must be a .py file", self.error(dict(STEP, file="steps/check.sh")))
@@ -216,12 +217,13 @@ class StageIdTests(BundleTestCase):
                      "stages[4] (python).inputs.z: a stage cannot read its own output",
                      "stages[4] (python).inputs.w: no stage 'nowhere' in the recipe"):
             self.assertIn(text, message)
-        self.assertIn("stages[0] (fit).inputs: missing (write inputs: {shapes: <stage id or null>})",
+        self.assertIn("stages[0] (fit).inputs: missing (write inputs: {shapes: <stage id, {path: <stage directory>} or "
+                      "null>})",
                       self.error({"stage": "fit", "id": "fit"}))
         self.assertIn("stages[0] (fit).inputs.shapes: missing (the id of an earlier stage, or null)",
                       self.error({"stage": "fit", "id": "fit", "inputs": {"shape": None}}))
-        self.assertIn("stages[0] (plots).inputs: plots reads tuples: write inputs: {tuples: <stage id or {external: <pattern>} "
-                      "or null>}",
+        self.assertIn("stages[0] (plots).inputs: plots reads tuples: write inputs: {tuples: <stage id, {path: <stage "
+                      "directory>}, {external: <pattern>} or null>}",
                       self.error(dict(PLOTS, inputs=None)))
 
     def test_null_only_where_the_stage_allows_it(self):
@@ -230,10 +232,62 @@ class StageIdTests(BundleTestCase):
         with mock.patch.object(FitStage, "null_inputs", {}):  # a slot that must name a stage
             self.assertIn("stages[0] (fit).inputs.shapes: must name an earlier stage that makes shapes (null is "
                           "not allowed for this input)", self.error(dict(FIT, inputs={"shapes": None})))
-            self.assertIn("stages[0] (fit).inputs: missing (write inputs: {shapes: <stage id>})",
+            self.assertIn("stages[0] (fit).inputs: missing (write inputs: {shapes: <stage id, {path: <stage "
+                          "directory>}>})",
                           self.error({"stage": "fit", "id": "fit"}))
             self.assertIn("stages[0] (fit).inputs.shapes: missing (the id of an earlier stage)",
                           self.error({"stage": "fit", "id": "fit", "inputs": {"shape": None}}))
+
+    def test_path_inputs(self):
+        """R4: {path: <stage directory>} names another run's stage directory: absolute, as written, any slot."""
+        source = os.path.join(self.root, "runs", "r1", "stages", "histograms")
+        fit = dict(FIT, inputs={"shapes": {"path": source}})
+        step = dict(STEP, inputs={"fit": {"path": source}, "shapes": "histograms"})
+        recipe = Recipe.from_dict({"name": "x", "stages": [HISTOGRAMS, fit, step]})
+        self.assertEqual(recipe.stage("fit").inputs, {"shapes": {"path": source}})
+        self.assertEqual(recipe.stage("fit").connections, {"shapes": None})  # not a stage of this run
+        self.assertEqual(recipe.stage("fit").paths, {"shapes": source})
+        self.assertEqual(recipe.stage("check").paths, {"fit": source})
+        self.assertEqual(Recipe.from_dict(recipe.to_dict()), recipe)  # as written, also in run.json
+        self.assertEqual(Recipe.from_dict(recipe.to_dict(), bundle_dir=os.path.join(self.root, "run", "bundle"))
+                         .stage("fit").paths, {"shapes": source})
+        tuples = dict(PLOTS, inputs={"tuples": {"path": os.path.join(self.root, "runs", "r1", "stages", "prod")}})
+        self.assertEqual(Recipe.from_dict({"name": "x", "stages": [tuples]}).stage("plots").connections,
+                         {"tuples": None})
+        where = "stages[0] (fit).inputs.shapes: "
+        for value, message in (
+                ("../runs/r1/stages/histograms", "path must be absolute (got ../runs/r1/stages/histograms; "
+                                                 "relative paths are not allowed, and ~ and $VARIABLES are not "
+                                                 "expanded)"),
+                ("~/taufw_runs/r1/stages/histograms", "path must be absolute (got ~/taufw_runs/r1/stages/histograms; "
+                                                      "relative paths are not allowed, and ~ and $VARIABLES are "
+                                                      "not expanded)"),
+                ("$HOME/r1", "path must be absolute (got $HOME/r1; relative paths are not allowed, and ~ and "
+                             "$VARIABLES are not expanded)"),
+                ("root://eosuser.cern.ch//eos/r1", "path must be a directory on a mounted file system, not a URL "
+                                                   "(got root://eosuser.cern.ch//eos/r1)"),
+                ("", "path must be the absolute stage directory of another run, e.g. "
+                     "/afs/.../taufw_runs/<run>/stages/histograms (got '')"),
+                (1, "path must be the absolute stage directory of another run, e.g. "
+                    "/afs/.../taufw_runs/<run>/stages/histograms (got 1)")):
+            with self.subTest(value=value):
+                self.assertEqual(self.error(dict(FIT, inputs={"shapes": {"path": value}})),
+                                 "r.yml: " + where + message)
+        self.assertEqual(self.error(dict(FIT, inputs={"shapes": {"dir": source}})),
+                         "r.yml: " + where + "a mapping is {path: <stage directory>} (got keys dir)")
+        self.assertEqual(self.error(dict(FIT, inputs={"shapes": {"path": source, "run": "r1"}})),
+                         "r.yml: " + where + "a mapping is {path: <stage directory>} (got keys path, run)")
+
+    def test_path_input_inside_the_bundle(self):
+        inside = os.path.join(self.bundle, "old_run", "stages", "histograms")
+        fit = dict(FIT, inputs={"shapes": {"path": inside}})
+        with self.assertRaises(RecipeError) as context:
+            self.recipe(fit)
+        self.assertEqual(str(context.exception), "tes/recipe.yml: stages[0] (fit).inputs.shapes: %s is inside the "
+                         "bundle %s: an input names another run's stage directory, and data is never part of a "
+                         "bundle" % (inside, self.bundle))
+        loose = self.write("loose.yml", json.dumps({"name": "x", "stages": [fit]}), base=self.root)
+        self.assertEqual(Recipe.load(loose).stage("fit").paths, {"shapes": inside})  # not a bundle: allowed
 
 
 class MakeBundleTests(BundleTestCase):

@@ -51,6 +51,7 @@ stages:
     id: fit
     description: 2D scan of tes and tid_SF per decay mode and pt region
     inputs: {shapes: histograms}   # the shapes of the histograms stage above
+                                   # (or of another run: {path: <run_dir>/stages/histograms}, absolute)
     config: config_coarse_TT.yml
     config_mumu: FitSetup_mumu.yml
     eras: []                # []: the eras and working points of the input shapes

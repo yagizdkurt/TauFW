@@ -7,8 +7,9 @@
   fit          shapes -> fit results, correction files   Fitter API (run_workflow_zmm.sh steps), local
   python       a Python file of the analysis bundle      step_runner.py in its own process, local
 
-A recipe may leave stages out (e.g. only histograms and fit, on tuples made before), but keeps the built-in stages
-in the order of ORDER, each at most once. Python steps are not in ORDER: they may be anywhere, any number of times.
+A recipe may leave stages out (e.g. only histograms and fit, on tuples made before), and runs its stages in the order
+they are written; an input names an earlier stage. Any stage may appear any number of times, each with its own id,
+except production (at most once, see recipe.py).
 Each stage declares its input slots and the kinds of data it makes (Stage.inputs, Stage.outputs):
 
   production   inputs: none                outputs: tuples
@@ -18,11 +19,12 @@ Each stage declares its input slots and the kinds of data it makes (Stage.inputs
   python       inputs: any names           outputs: any
 
 To add a stage: write a Stage subclass with a Spec, its inputs and outputs (see stages/base.py; stages/local.py
-for a stage that runs scripts), add it to STAGES, put its name in ORDER at the place where it runs (or leave it out
-of ORDER for a stage that may be anywhere), and build it in Framework.from_recipe.
+for a stage that runs scripts), add it to STAGES (and to ORDER if it is a built-in pipeline stage), and build it
+in Framework.from_recipe.
 
 Public API:
-  STAGES, ORDER      name -> Stage class; the order in which the built-in stages may appear in a recipe
+  STAGES, ORDER      name -> Stage class; the built-in pipeline stages in their usual order (used to list the
+                     known stages in messages; a recipe may write them in any order)
   Stage, StageState, StageOutcome, StageContext, StageNotImplemented, PreflightError, SpecError (stages/base.py)
 """
 from TauFW.Framework.stages.base import (Stage, StageState, StageOutcome, StageContext, StageNotImplemented,

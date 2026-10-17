@@ -42,6 +42,19 @@ Items marked **(verify)** may already be done; check before working on them.
       `taufw.py plan` on `Analyses/example_mutau`, and one small real `taufw.py start` + `advance` until DONE on
       HTCondor. Check by eye that the status loading bar with 15+ outputs looks unchanged **(verify)**.
 - [x] Production and run-local tuple routing verified on lxplus 2026-10-17; plots finishing awaits the recipe sample list (§6). (CL §18)
+  - [ ] Once the sample list is in the recipe: plots with `{tuples: {path: <a production run>/stages/production}}`
+        finish (R4, CL §19; until then only `check` and `plan` are checked, below).
+- [ ] **R4 on lxplus (CL §19):** (1) `python3 Tests/run.py bbb check`: every case unchanged except
+      `framework.production` (`"schema": 3`, `"sources": {}` in every stage record), then `bbb lock --replace` for that
+      case. (2) A recipe with two plots stages (different `variables`, `{external}` tuples): two directories, both
+      `DONE`. (3) Fit on another run's shapes: the R3 run's `stages/histograms/manifest.json` converted by hand to format
+      2 (original kept outside the run), then a fit-only recipe `{shapes: {path: <R3 run>/stages/histograms}}`: the
+      fit results equal those of the R3 run's fit (if the fit commands did not change since), nothing written in the
+      source, `sources.shapes.manifest_sha256` = `sha256sum` of that manifest. (4) `check` refuses, in one output, a
+      missing directory, `Fitter/` (no manifest), a `cp -r` copy and a plots directory for a fit. (5) Tuples:
+      `prod_test_20261017-023321`'s production manifest converted the same way; `check` and `plan` of a plots recipe
+      with `{tuples: {path: ...}}` (the `--tuples` pattern is that run's). (6) `taufw.py plan Analyses/tes_id_2025`
+      as before.
 - [ ] SGE adapter (S01) has never run on an SGE site; nice to have. ([PicoProducer BUGS](../PicoProducer/BUGS.md) S01)
 
 ## 2. Moving `common/python/tools/` into `TauFW.Utilities`
@@ -213,9 +226,10 @@ Next-work proposals (not designed in detail yet):
       output (Fitter BUGS F11, F13, F19, F20, F24, F12's script side), each in its own commit, after the refactor is
       finished (no bug fixing before that). Comparisons of fit
       results need a tolerance: shapes made twice from the same tuples differ by 1e-13 (multithreaded RDataFrame),
-      which moves the fitted POIs by up to one grid step and flat nuisance parameters a lot. Later: an input may also be a path (another run's stage directory), which also removes the fit's temporary
-      `{shapes: null}` exception (the shapes in `Fitter/`); a built-in stage may repeat.
-- [ ] **Production stage at most once per recipe (look at again later).** R4 (planned) lets `plots`, `histograms`
+      which moves the fitted POIs by up to one grid step and flat nuisance parameters a lot. R4 (CL §19): an input may
+      name another run's stage directory (`{path: ...}`, read through its manifest), and plots, histograms and fit
+      may repeat. The fit's `{shapes: null}` stays for old recipes (warning item below).
+- [ ] **Production stage at most once per recipe (look at again later).** R4 (CL §19) lets `plots`, `histograms`
       and `fit` appear any number of times and drops the fixed stage order (the inputs already require that a
       stage reads only earlier stages). `production` keeps the old rule "at most once", on purpose:
       - *Why we want to remove it:* one rule for all stages; one recipe could, for example, produce the nominal
@@ -239,6 +253,15 @@ Next-work proposals (not designed in detail yet):
       `plan` and the menu should warn when a recipe uses it. The warning machinery exists (`recipe_warnings`,
       CL §18 step 1). Same session: warn when a production stage has a non-empty `tag`, since the readers look for
       `<sample>_<channel>.root` (the tag does not reach them).
+- [ ] **Revise: one rule for the paths in a recipe** (separate session). A recipe has several path rules today:
+      stage path options and `pico.config` (relative: the bundle file if it exists, else the module resolves it;
+      `pico.config` above the bundle is made absolute when loaded), `run_root` (absolute; `~` and `$VARIABLES`
+      expanded where `taufw.py` runs, with a warning), `{external: <pattern>}` (absolute only, nothing expanded) and,
+      from R4, `{path: <stage directory>}` (absolute only for now, decided 2026-10-17; relative to the recipe's
+      directory was the first plan). The absolute test also differs: `_is_absolute` (posixpath or os.path) in
+      `recipe.py`, `os.path.isabs` elsewhere ([Framework BUGS](../Framework/BUGS.md) K05). Decide one rule (what is
+      relative to what, what is expanded, where it is checked), apply it to every path key and document it in
+      `Analyses/README.md` "Paths and configuration".
 - [ ] **Production job files in the run.** The merged tuples are in `stages/<id>/` (CL §18), but the job configs, logs
       and job output still go to `jobdir`/`outdir` of the PicoProducer configuration (`PicoProducer/output/`), shared
       by every run with the same era, channel and tag. Needs PicoProducer to take them from the request, like

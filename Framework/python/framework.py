@@ -18,8 +18,8 @@ Pipeline map:
                  │          │            │
               RunPlan   RunRecord     RunRecord (saved after every stage step)
 
-    stage order: production ─▶ plots ─▶ histograms ─▶ fit   (a recipe may leave stages out)
-                 python steps (a Python file of the bundle) may be anywhere in between, any number of times.
+    stage order: the order of the recipe, e.g. production ─▶ plots ─▶ histograms ─▶ fit (a recipe may leave stages
+                 out, and repeat any stage but production); python steps (a Python file of the bundle) too.
                  production runs on the batch system (PicoProducer API); plots, histograms and fit run their
                  module's scripts locally (Plotter and Fitter APIs), python steps run step_runner.py; these
                  finish inside one advance() call.
@@ -32,6 +32,11 @@ Pipeline map:
                  DONE (production's tuples, the histograms' shapes), the run's PicoProducer config and the
                  bundle directory its path options are resolved against. A stage never sees the artifacts of a
                  stage its inputs do not name.
+    other runs:  an input may name the stage directory of another run ({path: <dir>}): its artifacts come from
+                 the directory's manifest.json (manifest.py; never from that run's run.json), and nothing is
+                 written there. A directory that cannot be read (no manifest, moved, wrong kind) is a note in
+                 plan() and stops the stage in advance() like a preflight problem (it stays NEW). What was read is
+                 recorded in the stage's `sources` (run.json and its own manifest).
     bundle:      start() copies the bundle files the recipe uses to <run_dir>/bundle/; the run reads them from
                  there, so later edits of the bundle never change a run (see bundle.py).
 
@@ -44,15 +49,17 @@ Public API:
   RunPlan, RunSummary, StageSummary           records (bottom of this file)
 """
 import os, json, time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional, Tuple
+from typing import Mapping, Optional, Tuple
 from TauFW.Framework.defaults import (DEFAULT_RUN_ROOT, RUN_LOG_NAME, DEFAULT_POLL_SECONDS, BUNDLE_DIR_NAME,
-                                      MANIFEST_NAME, timestamp, default_file_io)
+                                      timestamp, default_file_io)
 from TauFW.Framework.bundle import path_rows, snapshot, make_bundle
+from TauFW.Framework.manifest import write_manifest, ManifestError
 from TauFW.Framework.recipe import Recipe
 from TauFW.Framework.run_record import RunRecord, RunState
 from TauFW.Framework.reporting import FrameworkReporter
+from TauFW.Framework.validation import read_source
 from TauFW.Framework.stages import (STAGES, StageState, StageContext, StageNotImplemented, PreflightError,
                                     ProductionStage, PlotStage, HistogramStage, FitStage, PythonStage)
 
@@ -65,7 +72,6 @@ __all__ = ['Framework', 'RunPlan', 'StagePlan', 'RunSummary', 'StageSummary', 'l
 
 
 MAX_STEPS = 8  # most steps one stage may take in one advance() call (a safety net against a stage that never settles)
-MANIFEST_FORMAT = 1  # version of the manifest.json layout
 
 
 class Framework:
@@ -96,19 +102,26 @@ class Framework:
         recipe = recipe or self.recipe
         plans, planned = [], {}
         for stage_spec in recipe.stages:
-            context = StageContext(upstream=_inputs_of(stage_spec, planned), inputs=stage_spec.connections,
-                                   external=stage_spec.external, pico_config=recipe.pico_config_path,
-                                   bundle_dir=recipe.bundle_dir, stage_id=stage_spec.id)
+            sources, found, problems = _read_sources(stage_spec)
+            context = StageContext(upstream={**_inputs_of(stage_spec, planned), **found},
+                                   inputs=_input_keys(stage_spec), external=stage_spec.external, sources=sources,
+                                   pico_config=recipe.pico_config_path, bundle_dir=recipe.bundle_dir,
+                                   stage_id=stage_spec.id)
             paths = path_rows(stage_spec.spec, recipe.bundle_dir)
+            if problems:  # an input from another run that cannot be read: nothing to plan with
+                plans.append(StagePlan(stage=stage_spec.id, plan=None, note="; ".join(problems), paths=paths,
+                                       sources=sources))
+                continue
             try:
                 stage = self._stage_for(stage_spec.id)
                 stage_plan = stage.plan(stage_spec.spec, context)
-                plans.append(StagePlan(stage=stage_spec.id, plan=stage_plan, paths=paths))
+                plans.append(StagePlan(stage=stage_spec.id, plan=stage_plan, paths=paths, sources=sources))
                 planned[stage_spec.id] = (stage.planned_artifacts(stage_spec.spec, stage_plan, context)
                                           if hasattr(stage, 'planned_artifacts') else
                                           tuple(getattr(stage_plan, 'artifacts', ()) or ()))
             except (StageNotImplemented, PreflightError) as err:  # placeholder, or cannot be planned yet
-                plans.append(StagePlan(stage=stage_spec.id, plan=None, note=str(err), paths=paths))
+                plans.append(StagePlan(stage=stage_spec.id, plan=None, note=str(err), paths=paths,
+                                       sources=sources))
         return RunPlan(name=recipe.name, stages=tuple(plans), pico_config=recipe.pico_config_path,
                        bundle_dir=recipe.bundle_dir)
 
@@ -235,13 +248,17 @@ class Framework:
 
     def _advance_stage(self, stage_spec, stage_record, context):
         """One step of one stage. If the stage raises an error, the error is written to the stage's history (the
-        state is not changed) and raised again. A PreflightError (environment not ready) also becomes the stage's
-        message."""
+        state is not changed) and raised again. A PreflightError (environment not ready, or an input from another
+        run that cannot be read) also becomes the stage's message. The sources of the step are recorded first."""
         stage = self._stage_for(stage_spec.id)
         if stage_record.request is None and hasattr(stage_spec.spec, 'request_dict'):
             stage_record.request = stage_spec.spec.request_dict()  # save the request once, for run.json
         self.reporter.header("Stage %s (%s)" % (stage_spec.id, stage_record.state))
         try:
+            problems = _read_sources(stage_spec)[2]
+            if problems:
+                raise PreflightError("; ".join(problems))
+            stage_record.sources = _jsonable(dict(context.sources))  # what this step reads (every step)
             return stage.advance(stage_spec.spec, stage_record, self.reporter, context)
         except PreflightError as err:
             stage_record.message = "not ready: %s" % (err)
@@ -272,19 +289,15 @@ class Framework:
                                    " - " + outcome.message if outcome.message else ""))
 
     def _write_manifest(self, record, stage_spec, stage_record):
-        """<run_dir>/stages/<id>/manifest.json of a stage that is DONE: which stage of which run made the directory,
-        from which inputs, and its artifacts. It is a copy of the stage's record (run.json stays the source of truth),
-        so that the directory describes itself; only a DONE stage has one."""
-        directory = StageContext(run_dir=record.run_dir).stage_dir(stage_spec.id)
-        self.files.make_directory(directory)
-        self.files.write_json(os.path.join(directory, MANIFEST_NAME), {
-            'manifest': MANIFEST_FORMAT, 'run_id': record.run_id, 'stage_id': stage_spec.id,
-            'stage': stage_spec.stage, 'description': stage_spec.description, 'inputs': stage_spec.inputs,
-            'finished': self._now(), 'artifacts': stage_record.artifacts}, overwrite=True)
+        """<run_dir>/stages/<id>/manifest.json of a stage that is DONE (see manifest.py): which stage of which run
+        made the directory, from which inputs, where it was written, and its artifacts."""
+        write_manifest(self.files, StageContext(run_dir=record.run_dir).stage_dir(stage_spec.id), record.run_id,
+                       stage_spec, stage_record.sources, stage_record.artifacts, self._now())
 
     def _context(self, record, stage_spec):
         """The StageContext of one stage: the run directory, its inputs and the artifacts of those of its input
-        stages that are DONE, the run's PicoProducer config and bundle copy."""
+        stages that are DONE, and of the other runs' stage directories it names (those that can be read; the
+        others stop the stage in _advance_stage), the run's PicoProducer config and bundle copy."""
         recipe = self._recipe_of(record)
         done = {}
         for earlier in recipe.stages:
@@ -293,8 +306,9 @@ class Framework:
             earlier_record = record.stage(earlier.id)
             if StageState(earlier_record.state) is StageState.DONE:
                 done[earlier.id] = tuple(earlier_record.artifacts)
-        return StageContext(run_dir=record.run_dir, upstream=_inputs_of(stage_spec, done),
-                            inputs=stage_spec.connections, external=stage_spec.external,
+        sources, found, _ = _read_sources(stage_spec)
+        return StageContext(run_dir=record.run_dir, upstream={**_inputs_of(stage_spec, done), **found},
+                            inputs=_input_keys(stage_spec), external=stage_spec.external, sources=sources,
                             pico_config=recipe.pico_config_path or (record.pico_config or {}).get('path'),
                             bundle_dir=recipe.bundle_dir, stage_id=stage_spec.id)
 
@@ -391,11 +405,13 @@ class Framework:
 @dataclass(frozen=True)
 class StagePlan:
     """plan() of one stage: the stage's own plan object (production: a JobPlan), or None with a note.
-    stage: the stage id; paths: (option, value as written, resolved path, 'bundle'|'module'|'absolute')."""
-    stage: str
-    plan:  object
-    note:  str = ""
-    paths: Tuple[Tuple[str, str, str, str], ...] = ()
+    stage: the stage id; paths: (option, value as written, resolved path, 'bundle'|'module'|'absolute');
+    sources: input slot -> the manifest summary of the other run's stage directory it names (those read)."""
+    stage:   str
+    plan:    object
+    note:    str = ""
+    paths:   Tuple[Tuple[str, str, str, str], ...] = ()
+    sources: Mapping[str, dict] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -467,6 +483,28 @@ def _inputs_of(stage_spec, artifacts):
     """The artifacts (stage id -> artifacts) of the stages a stage's inputs name, among those given."""
     return {stage_id: artifacts[stage_id] for stage_id in stage_spec.connections.values()
             if stage_id is not None and stage_id in artifacts}
+
+
+def _input_keys(stage_spec):
+    """input slot -> the key of its artifacts in StageContext.upstream: the stage id, or the directory of a
+    {path: <dir>} input (None: null or external). Never None for a {path} input: a stage that saw None would take
+    the slot for null (the fit would read Fitter/)."""
+    return {**stage_spec.connections, **stage_spec.paths}
+
+
+def _read_sources(stage_spec):
+    """(sources, artifacts, problems) of a stage's {path: <dir>} inputs: slot -> manifest summary, directory ->
+    artifacts, and one problem per directory that cannot be read (validation.read_source)."""
+    sources, artifacts, problems = {}, {}, []
+    for slot, path in stage_spec.paths.items():
+        try:
+            source = read_source(stage_spec, slot, path)
+        except ManifestError as error:
+            problems.append("inputs.%s: %s" % (slot, error))
+            continue
+        sources[slot] = source.summary()
+        artifacts[path] = source.artifacts
+    return sources, artifacts, problems
 
 
 def _jsonable(value):

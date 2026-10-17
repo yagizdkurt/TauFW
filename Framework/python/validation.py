@@ -3,13 +3,17 @@
 
     check_recipe(path) ─▶ read the file ─┬─ cannot read ─▶ one issue
                                          └─▶ Recipe.parse() ─▶ structure, ids, inputs, order (recipe.py)
-                                                └─▶ files ─▶ pico.config, absolute path options, python step files
+                                                └─▶ files ─▶ pico.config, absolute path options, python step files,
+                                                             the stage directories of {path: ...} inputs
                                                        ─▶ RecipeCheck(recipe or None, stages, issues, warnings)
 
 What is checked here and what is not:
     checked:      everything Recipe.load() checks, plus the files the recipe names that do not depend on a module:
-                  pico.config, absolute path options, the `file` of python steps (always a bundle file), and the
-                  directory of an {external: <pattern>} input (its part before the first $KEY).
+                  pico.config, absolute path options, the `file` of python steps (always a bundle file), the
+                  directory of an {external: <pattern>} input (its part before the first $KEY), and the stage
+                  directory of a {path: <stage directory>} input: it exists, has a manifest of format 2 (its stage
+                  is DONE), was not moved or copied, and its stage makes the kind of data the slot takes
+                  (manifest.py; the same rule as between the stages of one recipe).
     not checked:  path options a module resolves (e.g. Fitter/TauES_ID/config/...), and the environment (CMSSW,
                   ROOT, combine, tuples on disk): they are the machine's state, not the recipe's. The stages' plan
                   notes and preflight report them.
@@ -19,6 +23,7 @@ Outputs: a RecipeCheck. Nothing is written.
 
 Public API:
   check_recipe(path, files=None) -> RecipeCheck
+  read_source(stage_spec, slot, path) -> StageDir   the source of a {path: ...} input (raises ManifestError)
   RecipeCheck   name, path, recipe (None if invalid), stages ((stage id, type, description) of every stage whose
                 options are valid), issues (Issue), warnings (Issue: the recipe can run with them), ok
 """
@@ -27,10 +32,13 @@ from dataclasses import dataclass
 from typing import Optional, Tuple
 
 from TauFW.Framework.bundle import path_rows
+from TauFW.Framework.manifest import read_stage_dir, ManifestError
+from TauFW.Framework.stages import STAGES
 from TauFW.Framework.stages.local import fixed_directory
-from TauFW.Framework.recipe import Recipe, RecipeError, Issue, read_recipe, recipe_warnings, _external_problem
+from TauFW.Framework.recipe import (Recipe, RecipeError, Issue, read_recipe, recipe_warnings, _external_problem,
+                                    _path_problem)
 
-__all__ = ['check_recipe', 'RecipeCheck']
+__all__ = ['check_recipe', 'RecipeCheck', 'read_source']
 
 
 # =============================================================================
@@ -82,7 +90,37 @@ def _file_issues(pico_config, stage_specs, bundle_dir):
             if not os.path.isdir(fixed_directory(pattern)):
                 issues.append(Issue("%s.inputs.%s" % (where, slot), "tuple directory %s not found (external: %s)"
                                     % (fixed_directory(pattern), pattern)))
+        for slot, path in stage_spec.paths.items():
+            if _path_problem(path, bundle_dir):
+                continue  # not a valid path: Recipe.parse reported it
+            problem = source_problem(stage_spec, slot, path)
+            if problem:
+                issues.append(Issue("%s.inputs.%s" % (where, slot), problem))
     return issues
+
+
+def source_problem(stage_spec, slot, path):
+    """What is wrong with the stage directory a {path: ...} input names (None: nothing); see read_source."""
+    try:
+        read_source(stage_spec, slot, path)
+    except ManifestError as error:
+        return str(error)
+    return None
+
+
+def read_source(stage_spec, slot, path):
+    """The StageDir of the stage directory a {path: ...} input of `stage_spec` names (manifest.read_stage_dir),
+    if its stage makes the kind of data the slot takes (a python step, as source or reader, is not checked).
+    Raises ManifestError. Used here and by the Framework (plan, advance), so the messages are the same."""
+    source = read_stage_dir(path)
+    slots = STAGES[stage_spec.stage].inputs
+    kind = slots.get(slot) if slots else None
+    makes = STAGES[source.stage].outputs if source.stage in STAGES else None
+    if kind is not None and makes is not None and kind not in makes:
+        raise ManifestError("%s is stage %r (%s) of run %s: it makes %s, not %s"
+                            % (path, source.stage_id, source.stage, source.run_id, ', '.join(makes) or 'nothing',
+                               kind))
+    return source
 
 
 # =============================================================================
