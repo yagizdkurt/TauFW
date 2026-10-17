@@ -1030,7 +1030,7 @@ and a missing parent package).
 
 ## 19. Framework: inputs from another run's stage directory, repeated stages (R4)
 
-**Date:** 2026-10-17 (Windows tests pass; the lxplus checks are open, TODO §1 "R4 on lxplus")
+**Date:** 2026-10-17 (Windows tests pass; checked on lxplus, TODO §1 "R4 on lxplus")
 **Details:** [Analyses](../../Analyses/README.md) "File format and validation" (stage order, "Inputs from another
 run"), "Outputs and logs", "Troubleshooting"; [Framework](../../Framework/README.md) "Run directory"; TODO §6
 "Revise: one rule for the paths in a recipe"
@@ -1086,10 +1086,38 @@ Tests (Windows): Framework 131 (repeated stages and order; `test_manifest.py`; `
 rule; `check` of missing, unfinished, copied and wrong-kind directories; a fit, plots and a python step reading
 another run; an unreadable source leaves the stage `NEW` and runs once it is fixed; the source is not touched;
 `sources` in run.json and the manifest; schema 2 refused; the `Inputs:` line), Fitter API 21, Plotter API 13,
-Utilities 107. lxplus: BBB `framework.production` re-lock (schema 3 and `sources` only) and the checks of TODO §1
-"R4 on lxplus".
+Utilities 107.
+
+On lxplus (2026-10-17):
+- `bbb check`: 19 cases unchanged; `framework.production` differed only in `schema` (2 -> 3) and the new `sources`
+  of its stage record (started, resubmitted, done), so it was re-locked (`framework.production.json` and the BBB
+  `manifest.json`, one line each). `check` and `plan` of `Analyses/tes_id_2025` as before.
+- **Fit on another run's shapes.** Source: the R3 run `r3_fit_20261016-142346` (`~/r3_test`), whose
+  `stages/histograms/manifest.json` (format 1) was turned into format 2 by a test script that adds only `manifest`,
+  `sources` and `stage_dir` (original kept outside the run; the diff shows only these three keys). A fit-only recipe
+  `{shapes: {path: <R3 run>/stages/histograms}}` with the R3 fit's options (defaults): `check` without problems;
+  `plan` shows `shapes <- <dir> (run r3_fit_20261016-142346, stage histograms (histograms), finished 2026-10-16
+  17:53:30)` and no preflight note; its 13 commands equal those in the R3 fit's command logs (only the interpreter's
+  spelling differs: `python3` against its resolved path). Run `r4b_fit_20261017-133018`: DONE in about 15 min
+  (multidimfit 203 s, fitdiagnostics 656 s). The 12 `FitparameterValues__mutau_*` files and the JSON corrections
+  (`tau_sf/*.json`, the merged and the combined JSON) are byte-identical to the R3 fit's; the two `tau_sf/*.root`
+  files differ in bytes only (ROOT's header), their 12 objects each have the same content. The source directory is
+  unchanged (its 44 files, sizes and modification times before and after). `run.json` has schema 3 and
+  `sources.shapes` with the run, stage, finish time and `manifest_sha256` equal to `sha256sum` of the source
+  manifest; the fit's own manifest is format 2 with its `stage_dir` and the same `sources`.
+- **Repeated stages:** a recipe with two plots stages (`plots_mvis`: `-V m_vis`, `plots_pt`: `-V pt_1`; 2025 mutau,
+  `{external}` tuples), run `r4_two_plots_20261017-134232`: both DONE, each in its own directory with its own plots
+  (`mvis_*` in `stages/plots_mvis/plots/2025/`, `pt_1_*` and `jpt_1_*` in `stages/plots_pt/plots/2025/`; plot.py's
+  `-V` matches by pattern, as in the shell).
+- **Refused:** one `check` of a recipe with four fits listed all four problems: a missing directory, `Fitter/` (no
+  manifest), a `cp -r` copy of the R3 histograms directory ("was moved or copied from ..."), and the R3 plots
+  directory (manifest converted for the test, then restored) for a fit ("it makes plots, not shapes").
+- **Tuples from another run:** the CL §18 production run `prod_test_20261017-023321` (its manifest converted the
+  same way, then restored): `check` of a plots recipe with `{tuples: {path: <run>/stages/production}}` without
+  problems; `plan` shows the source on the `Inputs:` line and gives `plot.py --tuples
+  '<run>/stages/production/$ERA/$GROUP'`. Running it waits for the sample list in the recipe (TODO §6).
 
 ### What is left (TODO)
 
-- TODO §1: the R4 lxplus checks; plots on another run's tuples finishing awaits the sample list in the recipe.
+- TODO §1: plots on another run's tuples finishing awaits the sample list in the recipe.
 - TODO §6: one rule for the paths in a recipe; the `null` warning; production repeating; the sample list next.

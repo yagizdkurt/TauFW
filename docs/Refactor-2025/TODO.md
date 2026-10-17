@@ -44,7 +44,7 @@ Items marked **(verify)** may already be done; check before working on them.
 - [x] Production and run-local tuple routing verified on lxplus 2026-10-17; plots finishing awaits the recipe sample list (§6). (CL §18)
   - [ ] Once the sample list is in the recipe: plots with `{tuples: {path: <a production run>/stages/production}}`
         finish (R4, CL §19; until then only `check` and `plan` are checked, below).
-- [ ] **R4 on lxplus (CL §19):** (1) `python3 Tests/run.py bbb check`: every case unchanged except
+- [x] **R4 on lxplus (CL §19), done 2026-10-17:** (1) `python3 Tests/run.py bbb check`: every case unchanged except
       `framework.production` (`"schema": 3`, `"sources": {}` in every stage record), then `bbb lock --replace` for that
       case. (2) A recipe with two plots stages (different `variables`, `{external}` tuples): two directories, both
       `DONE`. (3) Fit on another run's shapes: the R3 run's `stages/histograms/manifest.json` converted by hand to format
