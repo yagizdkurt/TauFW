@@ -987,4 +987,5 @@ Fitter BUGS F25; registered, older than this work). The warnings were printed as
 The plots run with `{external: ...}` (mutau 284 s, mumu 1133 s) made the same 8 plots as the R3 check and recorded
 the pattern; a read-only `--run-root` stopped before anything was made. BBB `framework.production`: the case now
 snapshots the merged tuples in `stages/production/` and masks the run ID (part of the tuple paths) in `run.json`;
-re-lock pending.
+re-locked on lxplus: only this case changed (tuple paths, `pattern`, the manifest next to the tuples, the
+`run_root` lines of `plan`; the merged tuples are byte-identical), then `bbb check` 20/20.
