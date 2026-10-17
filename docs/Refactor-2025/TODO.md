@@ -41,6 +41,11 @@ Items marked **(verify)** may already be done; check before working on them.
 - [ ] **Manual smoke runs:** `pico.py run -c mutau -y 2022_postEE -m 100`, `pico.py submit ... --dry`,
       `taufw.py plan` on `Analyses/example_mutau`, and one small real `taufw.py start` + `advance` until DONE on
       HTCondor. Check by eye that the status loading bar with 15+ outputs looks unchanged **(verify)**.
+- [ ] **Production end to end in the run (CL §18):** a small production (one sample) followed by plots. Production
+      must merge into `<run_dir>/stages/production/<era>/<group>/` and plots must look there (`--tuples`). Plots
+      cannot finish yet: `samples_v15.py` asks for every sample of the era, so it stops at the first sample that
+      was not produced, with a path inside the run (this is the check). Plots finish once the sample list is part
+      of the recipe (§6). Started 2026-10-17 (`~/tuples_test/prod.yml`).
 - [ ] SGE adapter (S01) has never run on an SGE site; nice to have. ([PicoProducer BUGS](../PicoProducer/BUGS.md) S01)
 
 ## 2. Moving `common/python/tools/` into `TauFW.Utilities`
@@ -192,7 +197,9 @@ Parts 1–5 are done (CL §5–§8; the Part 2 changelog section was removed).
 
 Next-work proposals (not designed in detail yet):
 
-- [ ] A: tuple-manifest preflight.
+- [ ] A: tuple-manifest preflight. Partly done (CL §18 step 6): the preflight of plots and histograms checks that
+      the production tuple files exist, or the directory of an `{external: ...}` pattern. Open: which files an
+      external pattern must hold (needs the sample list in the recipe).
 - [ ] B: replace `os.system` with checked calls in the Fitter scripts.
 - [ ] C: one output base per run. Plotter and Fitter outputs are shared between runs and overwritten; `--run-root`
       does not isolate them, and the summary scripts pick up working points of other runs. Agreed design (2026-10-14):
@@ -229,7 +236,17 @@ Next-work proposals (not designed in detail yet):
         its lists, and separate production settings need separate recipes.
 - [ ] **Warning for `null` inputs** (separate session). `null` in a recipe's inputs (e.g. `tuples: null`) is accepted
       only so that old recipes keep working; the standard Framework usage names every input explicitly. `check`,
-      `plan` and the menu should warn when a recipe uses it.
+      `plan` and the menu should warn when a recipe uses it. The warning machinery exists (`recipe_warnings`,
+      CL §18 step 1). Same session: warn when a production stage has a non-empty `tag`, since the readers look for
+      `<sample>_<channel>.root` (the tag does not reach them).
+- [ ] **Production job files in the run.** The merged tuples are in `stages/<id>/` (CL §18), but the job configs, logs
+      and job output still go to `jobdir`/`outdir` of the PicoProducer configuration (`PicoProducer/output/`), shared
+      by every run with the same era, channel and tag. Needs PicoProducer to take them from the request, like
+      `JobRequest.tupledir`. A prerequisite for production repeating (item above).
+- [ ] **EOS as `run_root`.** Accepted by the validator but not tested: the local stages (combine with many small
+      files, ACLiC builds, `run.json` rewritten after every step, `run.log` appends) on EOS FUSE, and the merge of
+      production there (the storage factory picks its EOS class for `/eos/` paths). Until then the documented home
+      of the runs is AFS (`/afs/cern.ch/work/...`).
 - [ ] D: condor for the local stages, and resume. Local stages cannot resume partway; Ctrl+C leaves a stage `NEW`
       with partial output.
 - [ ] E: a weights stage.
@@ -237,8 +254,11 @@ Next-work proposals (not designed in detail yet):
 
 Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limitations"; CL §10, §11):
 
-- [ ] Sample lists are not part of a bundle (`plot.py`, `createinputsTES.py` import `samples_v15`); needs e.g. a
-      `$TAUFW_SAMPLES` hook.
+- [ ] Sample lists are not part of a bundle (`plot.py`, `createinputsTES.py` import `samples_v15`). The next item
+      after R4. Following CL §18, not an environment hook: the recipe names the list (a bundle file) and the
+      Framework gives it to the scripts as an option, as it gives `--tuples`. Acceptance: the Framework can compare
+      the samples a production stage made with the samples its readers ask for, and a small production followed by
+      plots finishes (§1, "Production end to end in the run").
 - [ ] Only the uncorrelated DeepTau option-3 fit is wrapped (no corrTES, fullcorr, PNet, UParT).
 - [ ] Trigger stage (was out of scope).
 - [ ] Plotter and Fitter are wrapped as they are; clean them up behind the same APIs.

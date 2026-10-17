@@ -867,7 +867,7 @@ differ by a grid step in the fitted POIs (the fit amplifies the 1e-13 difference
 
 ## 18. Framework: tuples as an input, production writes into the run, run_root
 
-**Date:** 2026-10-17 (in progress: steps 1-6 of 8)
+**Date:** 2026-10-17 (steps 1-8 done; the end-to-end production check is in TODO §1)
 **Details:** [Framework](../../Framework/README.md) "Concepts" and "Run directory", [Analyses](../../Analyses/README.md)
 "Where the runs go (`run_root`)", [scripts_arg_changes.md](scripts_arg_changes.md) "Tuple location", Framework BUGS
 K04, K05, Plotter BUGS L12
@@ -1001,3 +1001,10 @@ missing parent package means not found. No output changes.
 
 Tests (Windows): Plotter API 13, Fitter API 20 (an imported module without `__spec__`, a blocked one, a missing one
 and a missing parent package).
+
+### What is left (TODO)
+
+- TODO §1: production end to end in the run (a small production, then plots; plots stop at the first sample that was
+  not produced until the sample list is part of the recipe).
+- TODO §6: the `null` warning (and the production `tag` warning), production job files in the run, EOS as
+  `run_root`, the sample list in the recipe; R4 next.
