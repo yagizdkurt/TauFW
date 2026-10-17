@@ -60,14 +60,16 @@ Recipe.from_dict() / Recipe.load() raise one RecipeError that lists them all, e.
       stages[2] (fit).inputs.shapes: no stage 'histo' in the recipe
 validation.py adds the checks of the files a recipe names (for the menu and `taufw.py check`).
 A warning is not a problem: the recipe can run. recipe_warnings() lists them (Recipe.warnings for a valid recipe);
-`taufw.py check`, `plan`, `start` and the menu show them.
+`taufw.py check`, `plan`, `start` and the menu show them. Besides the run_root warnings, a bundle file copied from a
+template of Configs/ gets a warning while its template has a newer version (configs.copy_warnings).
 
 Inputs:  a recipe file or bundle directory, or a dict (e.g. the copy of the recipe saved in run.json).
 Outputs: Recipe and StageSpec records (frozen), Issues. Nothing is written.
 
 Public API:
   Recipe.load(path) / Recipe.from_dict(data, source, bundle_dir) / Recipe.parse(...) / recipe.to_dict()
-  recipe_warnings(data) -> [Issue]   what a recipe dict should change, though it can run (e.g. no run_root)
+  recipe_warnings(data, bundle_dir=None) -> [Issue]   what a recipe should change, though it can run (e.g. no
+                                     run_root, an old copy of a Configs/ template in the bundle)
   run_root_dir(value)   -> str       run_root with ~ and $VARIABLES expanded (None: not set)
   StageSpec            one stage of the recipe: its type, id, inputs, typed options (Spec), options as written
   Issue                one problem (or warning) of a recipe: where it is and what is wrong
@@ -77,6 +79,7 @@ import os, re, copy, posixpath
 from dataclasses import dataclass, field, replace
 from typing import Optional, Tuple
 from TauFW.Framework.bundle import leaves_bundle, is_bundle
+from TauFW.Framework.configs import copy_warnings
 from TauFW.Framework.defaults import RECIPE_NAME, DEFAULT_RUN_ROOT, default_file_io
 from TauFW.Framework.stages import STAGES, ORDER, SpecError, spec_from_dict
 
@@ -237,7 +240,7 @@ class Recipe:
             return None, stage_specs, issues
         recipe = cls(name=name, stages=tuple(s for _, s in stage_specs), pico_config=pico.get('config'),
                      source=source, bundle_dir=bundle_dir, run_root=run_root,
-                     warnings=tuple(recipe_warnings(data)))
+                     warnings=tuple(recipe_warnings(data, bundle_dir)))
         return recipe, stage_specs, issues
 
     def to_dict(self):
@@ -533,9 +536,10 @@ def _check_run_root(value, bundle_dir, issues):
     return value
 
 
-def recipe_warnings(data):
+def recipe_warnings(data, bundle_dir=None):
     """The warnings of a recipe dict: what it should change, though it can run. Not problems: the recipe is valid
-    with them (and nothing here is checked twice: a run_root that is a problem gets no warning)."""
+    with them (and nothing here is checked twice: a run_root that is a problem gets no warning). With the bundle
+    directory, also the bundle files copied from Configs/ templates that have a newer version (configs.py)."""
     warnings = []
     if not isinstance(data, dict):
         return warnings
@@ -558,6 +562,8 @@ def recipe_warnings(data):
     elif isinstance(value, str) and run_root_dir(value) != value and '$' not in run_root_dir(value):
         warnings.append(Issue('run_root', "%s is expanded where taufw.py runs (here: %s); someone else, or another "
                                           "machine, gets another directory" % (value, run_root_dir(value))))
+    if is_bundle(bundle_dir):
+        warnings.extend(Issue(relative, message) for relative, message in copy_warnings(bundle_dir))
     return warnings
 
 

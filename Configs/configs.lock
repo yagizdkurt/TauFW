@@ -1,0 +1,3 @@
+# Configs/configs.lock: the content version and hash of every template in Configs/.
+# Written by `taufw.py configs update` (Framework/python/configs.py); do not edit by hand.
+# id  version  sha256 of the values without the taufw_config header

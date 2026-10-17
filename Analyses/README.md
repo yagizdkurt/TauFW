@@ -291,6 +291,13 @@ A bundle file **replaces** the module's config as a whole: the script reads the
 bundle's copy instead, nothing is merged. `taufw.py plan` lists every file each
 stage reads and where it comes from, so check it after changing a path.
 
+### Config templates (`Configs/`)
+
+The templates of the module configs an analysis may copy are in `Configs/<Module>/` at the repository root
+(`taufw.py configs` lists them). Copy one next to `recipe.yml`, name the copy in the recipe and edit its values,
+never its `taufw_config` header: it records the template's id and version, and `check`, `plan` and `start` warn
+when the template has a newer version than your copy. Rules: [Configs/README.md](../Configs/README.md).
+
 Other paths:
 
 | Value | Resolution |

@@ -1175,3 +1175,48 @@ infrastructure and moves the tests onto it; the run screens (start, advance, sta
 - The run screens: `EventReporter` + `taufw.py` events (stage, progress, wait), `start`/`advance` detached with a run
   lock that records the host (lxplus logins land on different machines), `status`/`plan`/`prepare_review` beside the
   screen, one curses session for the whole menu, errors shown on screen instead of printed.
+
+## 21. Configs: config templates with an id, a version and a lock
+
+**Date:** 2026-10-17 (Windows tests pass; nothing to check on lxplus: no ROOT, no BBB case)
+
+Analysts should not have to enter the module directories. Everything an analysis can change is a copy in its bundle;
+the modules' templates for those copies now have one home, `Configs/<Module>/` at the repository root, and the config
+directories inside the modules stay internal (maintainers edit them; users only through the modules' own commands).
+A copy must say where it came from, so that a later change of the template (e.g. a corrected cross section) does not
+go unnoticed: every template starts with a `taufw_config` header (`id`, `version`, `schema`, `description`), and the
+copy keeps it. Rules for analysts and maintainers: [Configs/README.md](../../Configs/README.md).
+
+This section builds the infrastructure only. `Configs/` holds no template yet: the first ones are the sample model
+files of the next work (sample lists as data). The existing module configs are not moved (open, TODO §6).
+
+### `TauFW.Framework.configs` (new)
+
+- `scan(directory)`: the templates of `Configs/` and their problems: only `.yml`/`.yaml` templates (plus `README.md`
+  and `configs.lock`), each in `Configs/<Module>/`, with a valid header written as a block, an id that starts with
+  the module directory in lower case (`plotter.samples_v15_2025`), unique.
+- `content_hash(data)`: sha256 of the parsed values without the header, so comments, layout and key order do not
+  count; `schema` (format) and `version` (content) are separate numbers.
+- `lock_changes()` / `update()`: `Configs/configs.lock` holds `<id> <version> <sha256>` per template. `update` locks new
+  templates, raises the version of a template whose values changed (only the number in its file is rewritten, every
+  other byte and the line endings stay), keeps a version raised by hand, drops removed templates, and writes nothing
+  while a template has a problem or a version was lowered.
+- `copy_warnings(bundle_dir)`: the bundle files with a `taufw_config` header whose template has a newer version, is
+  gone, or is older than the copy (an edited header); also copies with an invalid header.
+
+### Framework and command line
+
+- `recipe_warnings(data, bundle_dir)` adds the copy warnings for a bundle (`Recipe.parse`, `check_recipe`), so
+  `taufw.py check`, `plan`, `start` and the menu preview show them. A warning only: an old copy kept on purpose is
+  allowed (a way to acknowledge it is a TODO item).
+- `taufw.py configs`: the templates (id, version, file, lock state, description); `taufw.py configs update`
+  (maintainers): raise the versions and rewrite the lock.
+- `defaults.CONFIGS_DIR`: `Configs/` next to `Analyses/`.
+
+### Tests
+
+`Tests/Framework/test_configs.py` (21 tests, under a second, no ROOT): headers, hashing, every `update` case (new,
+changed with CRLF kept, comment-only change, raised by hand, lowered, removed, problems), the copy warnings and
+`check_recipe`. Two tests read this checkout's `Configs/`: the lock must be up to date (else: run
+`taufw.py configs update`), and every template must be readable by its module's reader (`READERS` in the test; the
+first template brings its reader). Framework tests: 151.

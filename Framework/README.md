@@ -273,10 +273,11 @@ of the stage) and in the reader's manifest.
 | `python/validation.py` | `check_recipe`, `RecipeCheck`: everything `recipe.py` checks plus the files a recipe names (and the stage directories of `{path}` inputs, `read_source`), without raising (`taufw.py check`, the menu) |
 | `python/manifest.py` | `write_manifest`, `read_stage_dir`, `StageDir`, `ManifestError`: the stage manifests (format 2) |
 | `python/bundle.py` | the path rule (bundle file, module config, absolute), the run's bundle copy, new bundles (`taufw.py init`) |
+| `python/configs.py` | the config templates of `Configs/`: headers (`taufw_config`: id, version, schema), `configs.lock`, `update` (`taufw.py configs update`), the warnings for old copies in a bundle |
 | `python/step_runner.py` | runs a python step in its own process (standard library only): `context.json` → `run(ctx)` → `result.json` |
 | `python/run_record.py` | `RunRecord`, `RunState`, `StageRecord`: `run.json`, crash-safe save |
 | `python/reporting.py` | `Reporter` (interface), `FrameworkReporter` (terminal + `run.log`), `SilentReporter`; adapter for PicoProducer's messages |
-| `python/defaults.py` | shared defaults: `taufw_runs`, `run.json`, `run.log`, `recipe.yml`, `bundle/`, `logs/`, `stages/`, `manifest.json`, `Analyses/`, the polling interval (600 s), the time format |
+| `python/defaults.py` | shared defaults: `taufw_runs`, `run.json`, `run.log`, `recipe.yml`, `bundle/`, `logs/`, `stages/`, `manifest.json`, `Analyses/`, `Configs/`, the polling interval (600 s), the time format |
 | `python/interactive.py` | the Framework side of the console menu (recipe/run discovery, dispatch to the commands) |
 | `python/stages/base.py` | the stage contract: `Stage`, `StageState`, `StageOutcome`, `StageContext`, `StageNotImplemented`, `PreflightError` |
 | `python/stages/production.py` | `ProductionStage` and the pure `decide_next` policy |

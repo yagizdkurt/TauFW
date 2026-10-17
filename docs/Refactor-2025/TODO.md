@@ -297,6 +297,18 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
       plots finishes (§1, "Production end to end in the run").
       Note: `samples_v15.py` has `DYto2TautoMuTauh_M-50` commented out (`:182`, `:215`), so taking over its list
       is not enough for that check; the recipe's list must name the produced sample (seen in the CL §18 test).
+- [ ] **Config templates (CL §21), open points.**
+      - Acknowledging an old copy: `taufw.py check` warns as long as a bundle copy is older than its template in
+        `Configs/`, also when the analysis keeps the old version on purpose (e.g. to reproduce a published result).
+        For now a plain warning (user, 2026-10-17); if it becomes noise, a recipe key that accepts a named
+        id/version.
+      - Moving the existing module configs to `Configs/` (`Plotter/config/setup_*.yml`, the Fitter fit configs, the
+        PicoProducer sample lists once they are data): decided last (LocalR/architecture/13). Each moved file gets a
+        header; check that its reader ignores the `taufw_config` key; scripts, shell scripts, docs and BBB cases
+        name the old paths.
+      - Optional: a git pre-commit hook that runs `taufw.py configs update`, so the lock never needs a test failure
+        to be noticed (hooks are per clone: needs a setup step).
+      - The menu does not list the templates yet (`taufw.py configs` does).
 - [ ] Only the uncorrelated DeepTau option-3 fit is wrapped (no corrTES, fullcorr, PNet, UParT).
 - [ ] Trigger stage (was out of scope).
 - [ ] Plotter and Fitter are wrapped as they are; clean them up behind the same APIs.

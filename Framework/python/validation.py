@@ -62,7 +62,7 @@ def check_recipe(path, files=None):
     name = data.get('name') if isinstance(data, dict) and isinstance(data.get('name'), str) else source
     return RecipeCheck(name=name, path=path, recipe=None if issues else recipe,
                        stages=tuple((s.id, s.stage, s.description) for _, s in stage_specs),
-                       issues=tuple(issues), warnings=tuple(recipe_warnings(data)))
+                       issues=tuple(issues), warnings=tuple(recipe_warnings(data, bundle_dir)))
 
 
 # =============================================================================

@@ -14,6 +14,9 @@
   taufw.py status  RUN_DIR                                saved and live state of a run (read-only)
   taufw.py init    NAME [--from RECIPE] [--root DIR]      new analysis bundle Analyses/NAME/ (with copies of the
                                                           module configs RECIPE uses, next to its recipe.yml)
+  taufw.py configs [update]                               the config templates of Configs/ to copy into a bundle;
+                                                          update (maintainers): raise the versions of changed
+                                                          templates and rewrite Configs/configs.lock
 
 RECIPE is an analysis bundle directory (Analyses/<name>, with recipe.yml) or a recipe file.
 
@@ -30,7 +33,9 @@ try:
     from TauFW.Framework import (Framework, Recipe, RecipeError, load_run, FrameworkReporter, RunState,
                                  check_recipe, RunDirectoryError)
     from TauFW.Framework.bundle import BundleError, make_bundle
-    from TauFW.Framework.defaults import DEFAULT_RUN_ROOT, DEFAULT_POLL_SECONDS, ANALYSES_DIR, default_file_io
+    from TauFW.Framework.configs import LOCK_NAME, lock_changes, update
+    from TauFW.Framework.defaults import (DEFAULT_RUN_ROOT, DEFAULT_POLL_SECONDS, ANALYSES_DIR, CONFIGS_DIR,
+                                          default_file_io)
 except ImportError as err:
     print("\033[1m\033[31mImportError for TauFW.Framework: please check if you compiled with `scram b`.\033[0m")
     raise err
@@ -161,6 +166,38 @@ def cmd_init(args):
     return 0
 
 
+def cmd_configs(args):
+    """List the config templates of Configs/; with `update`, raise the versions of the changed templates and
+    rewrite the lock (Framework/python/configs.py)."""
+    reporter = FrameworkReporter(verbosity=args.verbose)
+    configs, changes = (update if args.action == 'update' else lock_changes)(CONFIGS_DIR)
+    for problem in configs.problems:
+        reporter.warning(problem)
+    lowered = [change for change in changes if change.kind == 'lowered']
+    if args.action == 'update':
+        for change in changes:
+            reporter.message(str(change))
+        if configs.problems or lowered:
+            reporter.warning("Nothing was written: fix the problems above first.")
+            return 1
+        reporter.message("Configs/%s is up to date%s." % (LOCK_NAME, "" if changes else " (nothing changed)"))
+        return 0
+    pending = {change.config_id: change.kind for change in changes}
+    if configs.templates:
+        reporter.table(["id", "version", "file", "lock", "description"],
+                       [(t.header.id, t.header.version, "Configs/" + t.path.replace(os.sep, '/'),
+                         pending.get(t.header.id, "ok"), t.header.description)
+                        for t in sorted(configs.templates, key=lambda template: template.header.id)])
+    else:
+        reporter.message("No templates in %s yet." % (CONFIGS_DIR))
+    if changes:
+        reporter.warning("%d template(s) changed since the lock: maintainers run `taufw.py configs update`"
+                         % (len(changes)))
+    reporter.message("Copy a template into your analysis bundle and edit its values (never its taufw_config "
+                     "header); see Configs/README.md.")
+    return 1 if configs.problems or lowered else 0
+
+
 def _show_warnings(reporter, warnings):
     """A recipe's warnings (Issue): the recipe can run, but should change."""
     for warning in warnings:
@@ -238,7 +275,8 @@ def _finish(reporter, record):
     return 1 if record.state == RunState.FAILED else 0
 
 
-COMMANDS = {'check': cmd_check, 'plan': cmd_plan, 'start': cmd_start, 'advance': cmd_advance, 'status': cmd_status, 'init': cmd_init}
+COMMANDS = {'check': cmd_check, 'plan': cmd_plan, 'start': cmd_start, 'advance': cmd_advance, 'status': cmd_status, 'init': cmd_init,
+            'configs': cmd_configs}
 
 
 # =============================================================================
@@ -278,6 +316,10 @@ def build_parser():
                       help="start from this bundle or recipe file, with copies of the module configs it uses "
                            "next to the new recipe.yml")
     init.add_argument('--root', default=None, metavar='DIR', help="parent directory, default=%s" % (ANALYSES_DIR))
+    configs = subparsers.add_parser('configs', parents=[common], help="the config templates of Configs/")
+    configs.add_argument('action', nargs='?', choices=('list', 'update'), default='list',
+                         help="list (default): the templates; update (maintainers): raise the versions of changed "
+                              "templates and rewrite Configs/configs.lock")
     return parser
 
 
