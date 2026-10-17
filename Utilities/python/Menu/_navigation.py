@@ -8,7 +8,8 @@ Recipe views contain name, path, ordered (stage id, type, description) triples, 
 problems is shown in red and cannot start) and warnings (yellow; the recipe can still start).
 Records expose run_id, run_dir, and state;
 run rows are (created, path, (run_id, state, updated)). Only operations reads
-files, validates values, or invokes commands. This class owns screen transitions.
+files, validates values, or invokes commands. Grid callbacks are grid_proxy_valid()
+and renew_grid_proxy(). This class owns screen transitions.
 """
 from ._menu import ConsoleUI
 
@@ -205,12 +206,23 @@ class MenuNavigation:
     # =========================================================================
     # ============================ MAIN NAVIGATION ============================
 
+    def grid_certificate(self):
+        try:
+            self.operations.renew_grid_proxy()
+        except KeyboardInterrupt:
+            pass  # The next main-menu check refreshes the status after cancellation.
+        except Exception as error:
+            self.ui.operation_error(error)
+        finally:
+            self.ui.pause()
+
     def run(self):
         actions = {"start": self.start, "continue": self.continue_run,
-                   "inspect": self.inspect, "tests": self.tests, "help": self.ui.help}
+                   "inspect": self.inspect, "tests": self.tests,
+                   "grid_certificate": self.grid_certificate, "help": self.ui.help}
         while True:
             try:
-                action = self.ui.main_menu()
+                action = self.ui.main_menu(proxy_valid=self.operations.grid_proxy_valid())
                 if action == "exit":
                     return 0
                 actions[action]()

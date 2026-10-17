@@ -4,6 +4,7 @@ import importlib.util
 import io
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -53,6 +54,33 @@ FIT = {"stage": "fit", "id": "fit", "inputs": {"shapes": None}}
 
 
 class MenuTests(unittest.TestCase):
+    def test_grid_proxy_check_is_quiet_and_handles_unavailable_tools(self):
+        operations = self.menu(FakeUI()).operations
+        for status in (0, 1):
+            with mock.patch.object(interactive.subprocess, "run",
+                                   return_value=SimpleNamespace(returncode=status)) as check:
+                self.assertEqual(operations.grid_proxy_valid(), status == 0)
+                check.assert_called_once_with(["voms-proxy-info", "--exists", "--valid", "0:01"],
+                                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+        for error in (FileNotFoundError(), subprocess.TimeoutExpired("voms-proxy-info", 5)):
+            with mock.patch.object(interactive.subprocess, "run", side_effect=error):
+                self.assertFalse(operations.grid_proxy_valid())
+
+    def test_grid_proxy_renewal_uses_terminal_and_checks_result(self):
+        operations = self.menu(FakeUI()).operations
+        for status, valid in ((0, True), (0, False), (1, False)):
+            with mock.patch.object(interactive.subprocess, "run",
+                                   return_value=SimpleNamespace(returncode=status)) as renew, \
+                    mock.patch.object(operations, "grid_proxy_valid", return_value=valid), \
+                    contextlib.redirect_stdout(io.StringIO()) as output:
+                self.assertEqual(operations.renew_grid_proxy(), 0 if valid else 1)
+                renew.assert_called_once_with(["voms-proxy-init", "-voms", "cms"])
+            self.assertIn("Grid proxy active." if valid else "Proxy Failed!", output.getvalue())
+        with mock.patch.object(interactive.subprocess, "run", side_effect=FileNotFoundError()), \
+                contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaisesRegex(RuntimeError, "VOMS tools"):
+                operations.renew_grid_proxy()
+
     def test_test_adapter_uses_checkout_current_python_and_quiet_arguments(self):
         operations = self.menu(FakeUI()).operations
         for family, cases, suffix in (("all", [], ["all"]),
@@ -212,7 +240,7 @@ class MenuTests(unittest.TestCase):
     def test_interrupted_operation_returns_to_main_menu(self):
         self.record()
         self.commands["advance"].side_effect = KeyboardInterrupt
-        ui = FakeUI([1, 0, 1, 5], ["600"])
+        ui = FakeUI([1, 0, 1, 6], ["600"])
         with contextlib.redirect_stdout(io.StringIO()) as output:
             self.assertEqual(self.menu(ui).run(), 0)
         self.assertIn("not cancelled", output.getvalue())

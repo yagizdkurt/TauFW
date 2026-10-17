@@ -14,6 +14,36 @@ from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation
 
 class ScreenTests(unittest.TestCase):
     """Exercise actual screen key handling and wrapper lifetime with a fake terminal."""
+    def test_grid_certificate_status_label_and_color(self):
+        ui = ConsoleUI(mock.Mock())
+        for valid, label, role in ((True, "Grid Certificate  \u2713", "good"),
+                                   (False, "Grid Certificate  Warning: Proxy Failed!", "warning")):
+            with self.subTest(valid=valid), mock.patch.object(ui, "choose", return_value=4) as choose:
+                self.assertEqual(ui.main_menu(proxy_valid=valid), "grid_certificate")
+                self.assertEqual(choose.call_args.args[1][4], label)
+                self.assertEqual(choose.call_args.kwargs["row_colors"][4], role)
+
+    def test_grid_certificate_checks_on_startup_and_refreshes_after_renewal(self):
+        for outcome in (0, 1, KeyboardInterrupt(), RuntimeError("VOMS unavailable")):
+            with self.subTest(outcome=outcome):
+                ui, operations = mock.Mock(), mock.Mock()
+                ui.main_menu.side_effect = ["grid_certificate", "exit"]
+                operations.grid_proxy_valid.side_effect = [False, outcome == 0]
+                if isinstance(outcome, BaseException):
+                    operations.renew_grid_proxy.side_effect = outcome
+                else:
+                    operations.renew_grid_proxy.return_value = outcome
+                self.assertEqual(MenuNavigation(ui, operations).run(), 0)
+                self.assertEqual(ui.main_menu.call_args_list,
+                                 [mock.call(proxy_valid=False), mock.call(proxy_valid=outcome == 0)])
+                operations.renew_grid_proxy.assert_called_once_with()
+                ui.pause.assert_called_once_with()
+        ui, operations = mock.Mock(), mock.Mock()
+        ui.main_menu.return_value = "exit"
+        self.assertEqual(MenuNavigation(ui, operations).run(), 0)
+        operations.grid_proxy_valid.assert_called_once_with()
+        operations.renew_grid_proxy.assert_not_called()
+
     def curses(self, keys):
         screen = mock.Mock()
         screen.getmaxyx.return_value = (12, 65)
@@ -249,7 +279,7 @@ class ScreenTests(unittest.TestCase):
     def test_semantic_screen_actions_and_cancellation(self):
         ui = ConsoleUI(mock.Mock())
         cases = [
-            (ui.main_menu, (), ["start", "continue", "inspect", "tests", "help", "exit"]),
+            (ui.main_menu, (), ["start", "continue", "inspect", "tests", "grid_certificate", "help", "exit"]),
             (ui.tests_menu, (), ["all", "checks", "normal", "bbb", "environment", "back"]),
             (ui.test_family, ("Normal",), ["all", "choose", "back"]),
             (ui.confirm_recipe, ("example.yml",), ["start", "plan", "back"]),

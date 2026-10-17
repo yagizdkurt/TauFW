@@ -91,6 +91,10 @@ Use Up/Down to move, Enter to select, and Esc to go back or exit the main menu.
   polling defaults to 600 seconds. Terminal runs offer status inspection instead.
 - **Inspect run status** shows the existing read-only status output, with Refresh
   and Back actions.
+- **Grid Certificate** checks the existing proxy at startup and whenever the main
+  menu reopens. A green tick means valid; yellow **Warning: Proxy Failed!** means
+  missing, expired, or unable to check. Select it to create or renew a CMS proxy
+  with your certificate password. Startup does not prompt for a password.
 - **Help** displays FAQ topics with explanations on the right; Page Up/Down
   scrolls the explanation.
 - **Exit** closes the menu.

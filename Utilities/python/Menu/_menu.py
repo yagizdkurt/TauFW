@@ -437,15 +437,19 @@ class ConsoleUI:
         selected = self.choose(title, choices, welcome=welcome, **layout)
         return back if selected is None else actions[selected]
 
-    def main_menu(self):
+    def main_menu(self, proxy_valid=False):
+        certificate = "Grid Certificate  " + ("\u2713" if proxy_valid else "Warning: Proxy Failed!")
         return self._action("TauFW", ["Start a new run", "Continue an existing run",
-                                     "Inspect run status", "Tests", "Help", "Exit"],
-                            ["start", "continue", "inspect", "tests", "help", "exit"], back="exit",
+                                     "Inspect run status", "Tests", certificate, "Help", "Exit"],
+                            ["start", "continue", "inspect", "tests", "grid_certificate", "help", "exit"],
+                            back="exit", row_colors=[None, None, None, None,
+                                                     "good" if proxy_valid else "warning", None, None],
                             welcome="Welcome to TauFW!", descriptions=[
                                 "Choose an analysis recipe and review its pipeline before starting.",
                                 "Resume a saved run, once or with repeated checking.",
                                 "Inspect the recorded and live status of an existing run.",
                                 "Run automated checks or choose individual tests.",
+                                "Create or renew your CMS grid proxy using your grid certificate password.",
                                 "Browse workflow explanations and frequently asked questions.",
                                 "Close the menu and return to your terminal.",
                             ])

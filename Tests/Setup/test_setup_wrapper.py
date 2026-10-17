@@ -141,29 +141,16 @@ source ./setup.sh || exit
         self.assertNotIn("\x1b[", result.stdout)
         self.assertNotIn("?", result.stdout)
 
-    def test_grid_proxy_initialization_and_status_follow_activation(self):
-        result = self.shell(r'''
-export LC_ALL=C NO_COLOR=1
-source "$TEST_ORIGINAL/setup.sh" || exit
-''')
-        self.assertEqual((self.root / "voms-commands").read_text().splitlines(),
-                         ["init -voms cms", "info --all", "info --exists --valid 0:01"])
-        self.assertIn("[OK] Grid proxy active", result.stdout)
-        self.assertLess(result.stdout.index("TauFW environment active"),
-                        result.stdout.index("CMS grid proxy:"))
-
-    def test_grid_proxy_failure_keeps_environment_active(self):
+    def test_activation_opens_menu_without_prompting_for_grid_proxy(self):
         result = self.shell(r'''
 export LC_ALL=C NO_COLOR=1 TEST_VOMS_STATUS=1
 set -Eeu -o pipefail
 source "$TEST_ORIGINAL/setup.sh"
 [[ $PWD == "$TEST_INSTALLED" && $CMSSW_BASE == "$TEST_RELEASE" ]]
 ''')
-        self.assertIn("Grid proxy initialization failed", result.stdout)
-        self.assertIn("No valid grid proxy is active", result.stdout)
-        self.assertNotIn("[OK] Grid proxy active", result.stdout)
-        self.assertEqual((self.root / "voms-commands").read_text().splitlines(),
-                         ["init -voms cms", "info --all", "info --exists --valid 0:01"])
+        self.assertFalse((self.root / "voms-commands").exists())
+        self.assertEqual((self.root / "launches").read_text().splitlines(), ["menu"])
+        self.assertNotIn("grid certificate password", result.stdout)
 
     def test_help_and_execution_do_not_install(self):
         self.shell(r'''

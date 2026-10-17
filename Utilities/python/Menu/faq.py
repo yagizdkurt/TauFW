@@ -66,6 +66,13 @@ FAQ = (
      "command options. pico.py and the other package entry points remain "
      "available independently."),
 
+    ("Grid Certificate",
+     "The main menu checks your existing grid proxy without asking for a password. "
+     "A tick means it is valid; Warning: Proxy Failed! means it is missing, expired, "
+     "or VOMS tools are unavailable. Select Grid Certificate to create or renew your "
+     "CMS proxy with voms-proxy-init -voms cms. Enter your grid certificate password "
+     "when prompted, then press Enter to return and refresh the status."),
+
     ("Tests",
      "Open Tests from the main menu to run all automated tests, unit/harness "
      "suites, normal cases, or BBB regression checks. Choose tests uses Space "

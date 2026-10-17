@@ -112,22 +112,6 @@ _taufw_setup_activate() { # RELEASE CHECKOUT CMS_SETUP ARCH [LOG_PATH]
     printf '\nInstallation log: %s\n' "$5"
   fi
 
-  printf '\n'
-  _taufw_setup_line heading 'CMS grid proxy:'
-  if ! command -v voms-proxy-init >/dev/null || ! command -v voms-proxy-info >/dev/null; then
-    _taufw_setup_line normal '[!] VOMS tools unavailable; grid proxy initialization skipped.'
-    return 0
-  fi
-  printf 'Enter your grid certificate password when prompted.\n'
-  if ! voms-proxy-init -voms cms; then
-    _taufw_setup_line normal '[!] Grid proxy initialization failed; check your certificate and password.'
-  fi
-  voms-proxy-info --all || true
-  if voms-proxy-info --exists --valid 0:01; then
-    _taufw_setup_line success 'Grid proxy active'
-  else
-    _taufw_setup_line normal '[!] No valid grid proxy is active. Retry: voms-proxy-init -voms cms'
-  fi
 }
 
 # =============================================================================

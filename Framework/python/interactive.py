@@ -126,6 +126,29 @@ class _Operations:
         return poll
 
     @staticmethod
+    def grid_proxy_valid():
+        """Check the existing proxy quietly; never prompt during menu startup."""
+        try:
+            result = subprocess.run(["voms-proxy-info", "--exists", "--valid", "0:01"],
+                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+            return result.returncode == 0
+        except (OSError, subprocess.TimeoutExpired):
+            return False
+
+    def renew_grid_proxy(self):
+        """Let VOMS read the certificate password directly from the terminal."""
+        print("Enter your grid certificate password when prompted.")
+        try:
+            result = subprocess.run(["voms-proxy-init", "-voms", "cms"])
+        except OSError as error:
+            raise RuntimeError("Cannot initialize the grid proxy; check that VOMS tools are available: %s"
+                               % error) from error
+        valid = result.returncode == 0 and self.grid_proxy_valid()
+        print("Grid proxy active." if valid else
+              "Proxy Failed! Check your grid certificate and password, then retry Grid Certificate.")
+        return 0 if valid else 1
+
+    @staticmethod
     def _test_runner():
         root = Path(__file__).resolve().parents[2]
         runner = root / "Tests" / "run.py"
