@@ -332,6 +332,17 @@ including multiline/function-level imports. Unapproved parse errors, recovery
 errors, duplicate/malformed inventory entries, and stale parse exemptions fail.
 Remove a parse exemption when its file becomes parseable or is removed.
 
+### Move check (offline, no ROOT)
+
+```bash
+# Moved files may only change import lines (and lines matching --allow); lists the functions whose AST differs:
+python Tests/tools/move_check.py OLD=NEW [OLD=NEW ...] [--ref HEAD] [--allow REGEX]
+python Tests/run.py checks --case unit.tools          # its unit tests
+```
+
+`Tests/tools/roundtrip_spike.py` (lxplus, ROOT) is a one-off feasibility check of CL §24: it draws the BBB
+fixtures from memory and from a histogram file and compares the canvases and PNG files.
+
 ### Existing offline and ROOT checks
 
 ```bash

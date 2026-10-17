@@ -140,6 +140,64 @@ def plotter_qcd(workspace):
     return histograms
 
 
+def _stack_modules():
+    """The code under test of plotter.stack. Only this function changes when the Plotter becomes the Histogrammer
+    (LocalR/architecture/18, S1) and when the drawing moves to the histogram file (S3)."""
+    from TauFW.Plotter.sample.utils import Sample, SampleSet, setera
+    from TauFW.Plotter.plot.Variable import Variable
+    from TauFW.Plotter.plot.Selection import Selection
+    return SimpleNamespace(Sample=Sample, SampleSet=SampleSet, setera=setera, Variable=Variable, Selection=Selection)
+
+
+def plotter_stack(workspace):
+    """plot.py's path from samples to a drawn stack: setera without an explicit lumi on the samples (the module
+    global), getstack with the QCD method loaded by name, and the draw calls of plot.py. Locked before the Plotter
+    became the Histogrammer (18, S0)."""
+    from support.fixtures import sample_files
+    from BBB.snapshot import drawn_snapshot, histogram_snapshot
+    m = _stack_modules()
+    m.setera(2018)  # no lumi given: the samples below take it from the era (CMSStyle.lumi_dict)
+    files = sample_files(Path(workspace) / "inputs")
+    data = m.Sample("Data", "Observed", str(files["Data"]), data=True)
+    mc = [m.Sample(name, name, str(files[name]), xsec, weight="weight")
+          for name, xsec in (("DY", 0.01), ("WJ", 0.02), ("TT", 0.03))]
+    samples = m.SampleSet(data, mc, channel="mutau", loadingbar=False)
+    table = io.StringIO()
+    with contextlib.redirect_stdout(table):
+        samples.printtable()
+    variables = [  # the kinds of options plot.py uses: contextual bins and titles, drawing hints, variable bins
+        m.Variable("m_vis", "m_vis", 8, 0, 160, ctitle={"pt_1>": "m_vis (high pt)"}, cbins={"pt_1>": (4, 0, 160)}),
+        m.Variable("pt_1", "Muon pt", 8, 0, 120, logy=True, ymargin=1.6, pos="T", ncols=2),
+        m.Variable("m_vis", "m_vis", [0, 20, 40, 60, 80, 100, 120, 160], fname="mvis_varbins"),
+    ]
+    selections = [m.Selection("baseline", "q_1*q_2<0"), m.Selection("highpt", "High pt", "q_1*q_2<0 && pt_1>20")]
+    outdir = Path(workspace) / "plots"
+    outdir.mkdir()
+    result = {"lumi": samples.expsamples[0].lumi, "table": _clean(table.getvalue()).splitlines(),
+              "samples": [_sample_state(sample) for sample in samples.samples], "stacks": []}
+    for selection in selections:  # as plot.py: one getstack per selection, then draw every stack
+        stacks = samples.getstack(variables, selection, method="QCD_OSSS", nthreads=1)
+        fname = "%s/$VAR_mt-%s-2018$TAG" % (outdir, selection.filename)
+        # getstack returns {Stack: (Variable, Selection)}; sorted by variable for a fixed order
+        for stack, (variable, _) in sorted(stacks.items(), key=lambda item: item[1][0].filename):
+            stack.draw(fraction=False)
+            stack.drawlegend()
+            stack.drawtext("#mu#tau_{h}: %s" % selection.title)
+            stack.saveas(fname, ext=["png"], tag="_stack")
+            result["stacks"].append({
+                "selection": selection.selection, "variable": variable.filename,
+                "drawing": {name: getattr(variable, name) for name in (  # what Plot reads from the variable
+                    "filename", "title", "xmin", "xmax", "ymin", "ymax", "rmin", "rmax", "ratiorange", "binlabels",
+                    "logx", "logy", "ymargin", "logyrange", "position", "ncols", "dividebins")},
+                "histograms": [histogram_snapshot(hist) for hist in stack.hists],
+                "canvas": drawn_snapshot(stack.canvas)})
+            stack.close(keep=True)
+    if not any("QCD" in hist["name"] for item in result["stacks"] for hist in item["histograms"]):
+        raise RuntimeError("QCD histogram missing from the stacks; refusing a no-op baseline.")
+    result["files"] = sorted(path.name for path in outdir.iterdir())
+    return result
+
+
 def plotter_unroll(workspace):
     import ROOT
     from support.fixtures import rows
@@ -775,6 +833,7 @@ CASES = {
     "plotter.qcd": {"run": plotter_qcd, "dependencies": ROOT_DEPS, "description": "OS/SS QCD subtraction, negative bins and scaling"},
     "plotter.unroll": {"run": plotter_unroll, "dependencies": ROOT_DEPS, "description": "C++ unroll and roll-up of weighted histograms"},
     "plotter.sample_model": {"run": plotter_sample_model, "dependencies": ROOT_DEPS, "description": "Core calls of getsampleset (samples_v15.py, later the sample model) per era, channel kind and caller option"},
+    "plotter.stack": {"run": plotter_stack, "dependencies": ROOT_DEPS, "description": "plot.py's path: era lumi, getstack with QCD_OSSS, drawn stacks (histograms, drawing attributes, canvases)"},
     "pico.writer": {"run": pico_writer, "dependencies": ROOT_DEPS, "description": "Tree schema, arrays, defaults, aliases, 64-bit IDs and cutflow"},
     "pico.bookkeeper": {"run": pico_bookkeeper, "dependencies": NANO_DEPS, "description": "Real NanoAODTools event loop, selections, ranges and weight bookkeeping"},
     "pico.scale_factors": {"run": pico_scale_factors, "dependencies": ROOT_DEPS, "description": "Local synthetic scale-factor lookup and boundary clamping"},

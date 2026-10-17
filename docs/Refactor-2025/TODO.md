@@ -10,9 +10,18 @@ section, or delete it.
 
 Items marked **(verify)** may already be done; check before working on them.
 
+## 0. Custom (Special)
+- Stagese delete folder tarzı bir şey eklensin de analiz yapılırken silinmesi gereken dosyalar pipeline içinde stage olrak silinebilsin veya movelanabilsin.
+
 ## 1. Checks to run on lxplus
 
 
+- [ ] **BBB lock with the new case `plotter.stack` (CL §24, S0), before S1 renames the Plotter.** After `git pull`:
+      `python3 Tests/run.py bbb lock --replace`, `bbb diff` (only `plotter.stack` is new), `bbb check` twice (the case
+      must be deterministic). Then `python3 Tests/tools/roundtrip_spike.py` (memory vs histogram-file drawing: every
+      line must say SAME; send the output if not). Reference plots for S1, in `Plotter/`: `python3 plot.py -y 2025 -c
+      mutau -V m_vis pt_1 -S baseline -t _h18old -v 1 --tuples '/eos/cms/store/group/phys_tau/TauFW/pico2024/
+      TES_variations/$ERA/$GROUP' --samples ../Configs/Plotter/samples/v15_2025.yml > ~/h18_old.log 2>&1`.
 - [ ] **BBB lock with the new case `plotter.sample_model` (CL §22), before S2 switches it.** `python3 Tests/run.py
       bbb check` first (every other case unchanged; it refuses while the case list differs from the lock), then
       `python3 Tests/run.py bbb lock --replace`; review with `bbb diff`: only the new case. Also
@@ -371,6 +380,10 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
 - [ ] Only the uncorrelated DeepTau option-3 fit is wrapped (no corrTES, fullcorr, PNet, UParT).
 - [ ] Trigger stage (was out of scope).
 - [ ] Plotter and Fitter are wrapped as they are; clean them up behind the same APIs.
+
+- [ ] **Variable list as a template (CL §24 observation):** the variables users actually edit are Python code inside
+      `Plotter/plot.py` (`:44-95`, later `Histogrammer/fillhists.py`); a `Configs/Histogrammer/` template for them is a
+      new feature (not part of the rename/extraction).
 
 ## 7. Tests
 

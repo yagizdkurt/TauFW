@@ -1453,3 +1453,38 @@ and their exit code lived only in the menu's process. Now a supervisor runs them
   second start was refused; a second `_Operations` (another menu) found it and its label went Running 0/2 -> 1/2 ->
   2/2 -> Failed: 1 (`check_import_boundaries` fails by design). `Tests/run.py checks`: only the two known failures.
 - Not checked here: process groups and signals (Windows), curses on a real terminal. TODO §1.
+
+## 24. Plotter becomes Histogrammer; a clean Plotter is extracted (in progress)
+
+**Date:** 2026-10-18 (S0 on Windows; the lxplus lock and the round-trip check are in TODO §1). Plan:
+LocalR/architecture/18.
+
+After the drawing moved to `TauFW.Utilities.Drawing` (CL §18), almost everything left in `Plotter/` produces
+histograms: the sample model, normalisation, stitching, the RDataFrame filling, the variable/selection language and
+the QCD method. "Plotter" therefore names the module after the one thing it no longer does. The plan: rename the
+module to `Histogrammer/` (`plot.py` -> `fillhists.py`, `python/plot/` -> `python/spec/`), keep the old import paths
+and the old `plot.py` command as documented compatibility (TODO §8), move its configs to `Configs/Histogrammer/`, and
+then extract a small, clean Plotter that draws from a histogram file written by the Histogrammer. **No physics or
+data change:** the filling code is moved, not edited, and every step is proven by BBB without re-lock.
+
+### Lock and tools (S0)
+
+- BBB case `plotter.stack` (new, to be locked on lxplus with the old code): `plot.py`'s path from samples to drawn
+  stacks, which no case covered: `setera(2018)` without an explicit lumi on the samples (the module global read
+  through `GLOB`), `getstack(..., method='QCD_OSSS')` (the method module loaded by name), `draw`, `drawlegend`,
+  `drawtext`, `saveas`; it records the sample table, the sample states, and per stack the histograms, the 17
+  attributes the drawing reads from the variable and the drawn canvas. Only `_stack_modules()` changes when the code
+  moves (S1) and when the drawing reads the histogram file (S3).
+- `Tests/tools/move_check.py` (new, ROOT-free): compares moved files with their old version in git; a changed line
+  must be an import or match an `--allow` pattern, and the functions/classes whose AST differs are listed (AST, not
+  bytecode). Unit tests `Tests/tools/test_move_check.py`, suite `unit.tools` in `Tests/run.py checks`.
+- `Tests/tools/roundtrip_spike.py` (new, lxplus, one-off): draws the BBB fixtures (A) from memory as today, (B) after
+  writing the histograms to a ROOT file and reading them back, (C) from the file with a plain object holding only the
+  drawing attributes instead of the Variable; compares the drawn canvases and the PNG bytes. It checks the two
+  assumptions of the extraction before it is designed.
+
+### Checked
+
+- Windows: `python Tests/run.py checks`: `unit.tools` passes (6 tests); only the known failures (`check_root`: no
+  ROOT on Windows; `check_import_boundaries`: known debt, 0 new pairs). `cases.py` parses with Python 3.9 syntax.
+- Not checked here: the new case and the spike need ROOT (TODO §1).

@@ -158,7 +158,7 @@ def check_cases(quiet=True):
     """Standalone checks keep their own unittest -q/-v flags, separate from the harness CLI."""
     cases = []
     for directory in ("Utilities", "Framework", "Setup", "PicoProducer/compat", "Fitter/api", "Plotter/api",
-                      "Plotter/sample_model"):
+                      "Plotter/sample_model", "tools"):
         path = "Tests/" + directory
         command = ["-m", "unittest", "discover", "-s", path, "-p", "test_*.py", "-q" if quiet else "-v"]
         cases.append({"id": "unit." + directory.replace("/", ".").lower(),
