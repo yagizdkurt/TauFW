@@ -1330,5 +1330,10 @@ model with the templates. On Windows (stub utils) the snapshot of the case befor
   `samples`). `RunPlan.sample_problems` / `sample_warnings`; `taufw.py plan` shows them (exit 1 with problems);
   `start` raises `RecipeError` before anything is made.
 - `Analyses/tes_id_2025`: `v15_2025.yml` (a copy of the template, unchanged) for plots and histograms.
-  `Analyses/example_mutau` is unchanged (its production makes no data; see TODO §6).
+- `Analyses/example_mutau` split in two (user decision): its production made `DY*` and `TT*` only, but the plots
+  need data and every background. Before CL §18 this did not show, because the plots read the full tuple set of
+  `$PICODIR` and not the production's output; since CL §18 its plots stage could not run. Now
+  `example_mutau_short` is production only, and `example_mutau_long` produces the data and the 22 MC samples of
+  its `v15_2022_postEE.yml` copy (exact names; the vetoes keep the tribosons out, since a name without `*` matches
+  as a prefix) and then makes the plots; `plan` compares the two lists.
 - Tests: `Tests/Framework/test_samples.py` (validation, comparison, start refuses), Plotter and Fitter API tests.

@@ -480,12 +480,12 @@ class RecipeTests(FrameworkTestCase):
         self.assertEqual(recipe.stage("fit_t").connections, {"shapes": "hist_t"})
 
     def test_load_bundle_example_and_relative_config(self):
-        example = os.path.join(checkout.REPO, "Analyses", "example_mutau")
+        example = os.path.join(checkout.REPO, "Analyses", "example_mutau_long")
         recipe = Recipe.load(example)  # a bundle directory: its recipe.yml
         self.assertEqual([s.stage for s in recipe.stages], ["production", "plots"])
         self.assertIsNone(recipe.pico_config)
         self.assertEqual(recipe.bundle_dir, example)
-        self.assertEqual(recipe.source, "example_mutau/recipe.yml")
+        self.assertEqual(recipe.source, "example_mutau_long/recipe.yml")
         path = os.path.join(self.root, "r.json")
         with open(path, "w") as stream:
             json.dump(dict(RECIPE, pico={"config": "cfg/config.json"}), stream)

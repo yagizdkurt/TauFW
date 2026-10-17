@@ -42,7 +42,8 @@ machine, Python API, and run-record internals, see the
 
 | Bundle | Pipeline | Inputs and purpose |
 | --- | --- | --- |
-| [example_mutau](example_mutau/recipe.yml) | `production` → `plots` | Produce `2022_postEE` mutau tuples for sample names matching `DY*` or `TT*`, then make control plots. |
+| [example_mutau_short](example_mutau_short/recipe.yml) | `production` | Produce `2022_postEE` mutau tuples for sample names matching `DY*` or `TT*`: a quick production example (no plots: a few MC samples without data are not enough for them). |
+| [example_mutau_long](example_mutau_long/recipe.yml) | `production` → `plots` | Produce every `2022_postEE` mutau tuple the control plots read (data and the 22 MC samples of its `v15_2022_postEE.yml`), then the plots; `plan` checks that production makes every sample the plots ask for. A full production: tens of GB, hours of batch jobs. |
 | [example_broken](example_broken/recipe.yml) | (invalid on purpose) | A demonstration of the validation: `taufw.py check Analyses/example_broken` lists its four problems; the menu shows it in red. Do not fix it. |
 | [tes_id_2025](tes_id_2025/recipe.yml) | `plots` → `histograms` → `fit` → `fit_summary` (python) | Use existing 2025 tuples for the combined tau energy scale (TES) and tau ID scale factor fit, with the Z→μμ control region; DeepTau VSjet `VTight`, VSe `Tight`; then a table of the fitted values. |
 
@@ -715,20 +716,20 @@ From the repository root:
 ```bash
 # Inspect selected samples/jobs, the files each stage reads and the local-stage
 # commands. Nothing executes.
-python3 taufw.py plan Analyses/example_mutau
+python3 taufw.py plan Analyses/example_mutau_short
 
 # Create a run and execute every stage that can proceed now.
-python3 taufw.py start Analyses/example_mutau
+python3 taufw.py start Analyses/example_mutau_short
 ```
 
 `start` prints the actual run directory. Use that directory for further commands:
 
 ```bash
-python3 taufw.py status taufw_runs/mutau_2022_postEE_20261013-120000
-python3 taufw.py advance taufw_runs/mutau_2022_postEE_20261013-120000
+python3 taufw.py status taufw_runs/mutau_2022_postEE_short_20261013-120000
+python3 taufw.py advance taufw_runs/mutau_2022_postEE_short_20261013-120000
 
 # Repeated checks while waiting for batch jobs (default interval: 600 seconds).
-python3 taufw.py advance taufw_runs/mutau_2022_postEE_20261013-120000 --wait --poll 900
+python3 taufw.py advance taufw_runs/mutau_2022_postEE_short_20261013-120000 --wait --poll 900
 ```
 
 The example timestamp above is illustrative; substitute the path printed by
@@ -744,7 +745,7 @@ runs locally on one input file from the first matching sample for each era and
 channel, with 100 events by default:
 
 ```bash
-python3 taufw.py plan Analyses/example_mutau --local -m 50
+python3 taufw.py plan Analyses/example_mutau_short --local -m 50
 ```
 
 It creates no Framework run record, does not execute the later stages, and needs

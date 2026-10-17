@@ -19,6 +19,8 @@ Items marked **(verify)** may already be done; check before working on them.
       `python3 Tests/run.py checks --case unit.plotter.sample_model` (must pass with the real environment too).
       After the lock: `_sample_model_function` in `Tests/BBB/cases.py` moves to the model, `bbb check` must show no
       difference. **Lock done 2026-10-17; the switch is made: run `bbb check`.**
+- [ ] **`example_mutau_long` (CL §22):** `taufw.py plan Analyses/example_mutau_long` must list 25 samples (22 MC,
+      Muon_Run2022E/F/G) and no sample problem or warning. A full `start` is optional (tens of GB).
 - [ ] **Sample model end to end (CL §22, S6).** `taufw.py check Analyses/tes_id_2025` and `plan` (the plots and
       histograms commands get `--samples .../bundle/v15_2025.yml`); then a plots + histograms run with the bundle,
       compared with the same stages without `samples:` (the plots and the shape files; shapes with the 1e-13
@@ -50,7 +52,7 @@ Items marked **(verify)** may already be done; check before working on them.
       on `Tests/BBB/baselines/` **(verify)**. (quiet-runner changelog section removed)
 - [ ] `python3 Tests/run.py normal` after the Plotter legacy move **(verify)**. (Plotter legacy cleanup; changelog section removed)
 - [ ] **Manual smoke runs:** `pico.py run -c mutau -y 2022_postEE -m 100`, `pico.py submit ... --dry`,
-      `taufw.py plan` on `Analyses/example_mutau`, and one small real `taufw.py start` + `advance` until DONE on
+      `taufw.py plan` on `Analyses/example_mutau_short`, and one small real `taufw.py start` + `advance` until DONE on
       HTCondor. Check by eye that the status loading bar with 15+ outputs looks unchanged **(verify)**.
 - [x] Production and run-local tuple routing verified on lxplus 2026-10-17; plots finishing awaits the recipe sample list (§6). (CL §18)
   - [ ] Once the sample list is in the recipe: plots with `{tuples: {path: <a production run>/stages/production}}`
@@ -308,11 +310,10 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
 
 - [ ] Sample lists are not part of a bundle (`plot.py`, `createinputsTES.py` import `samples_v15`). **In progress
       (CL §22, plan LocalR/architecture/14):** templates, model, `--samples`, APIs and the recipe option `samples`
-      are done; `tes_id_2025` uses them. Open: the lxplus checks (§1), S7 (setup files to `Configs/`), and
-      `example_mutau`: its production makes `DY*` and `TT*` only, but the Plotter always needs data (and W, VV, ST
-      for the stitching and joins of its tables), so its plots stage cannot run; with a `samples` copy, `plan`
-      shows it and `start` refuses. Decide: add the data (`Muon_Run2022*`) to its production, or make the example
-      production-only. Following CL §18, not an environment hook: the recipe names the list (a bundle file) and the
+      are done; `tes_id_2025` and `example_mutau_long` use them. Open: the lxplus checks (§1) and S7 (setup files
+      to `Configs/`). `example_mutau` (its production made `DY*` and `TT*` only, but the Plotter always needs data
+      and every background, so its plots could not run since CL §18) is split (user, 2026-10-17):
+      `example_mutau_short` (production only) and `example_mutau_long` (data and the 22 MC samples, then plots). Following CL §18, not an environment hook: the recipe names the list (a bundle file) and the
       Framework gives it to the scripts as an option, as it gives `--tuples`. Acceptance: the Framework can compare
       the samples a production stage made with the samples its readers ask for, and a small production followed by
       plots finishes (§1, "Production end to end in the run").

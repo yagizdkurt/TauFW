@@ -275,7 +275,8 @@ class MenuTests(unittest.TestCase):
         self.eos()
         operations = self.menu(FakeUI()).operations
         expected = {
-            "example_mutau": (("production", "production"), ("plots", "plots")),
+            "example_mutau_short": (("production", "production"),),
+            "example_mutau_long": (("production", "production"), ("plots", "plots")),
             "tes_id_2025": (("plots", "plots"), ("histograms", "histograms"),
                             ("fit", "fit"), ("fit_summary", "python")),
         }

@@ -1,0 +1,77 @@
+# Example TauFW analysis bundle (long): produce every mutau pico tuple the 2022_postEE control plots need (data and
+# every MC sample of the sample file), then the control plots of those tuples. A full production: tens of GB and
+# hours of batch jobs; example_mutau_short is the quick production-only example.
+#   taufw.py plan    Analyses/example_mutau_long                # what would be submitted, the plot commands, and the
+#                                                               # check that production makes every sample the
+#                                                               # plots read (nothing is written)
+#   taufw.py start   Analyses/example_mutau_long                # new run in run_root (below); submits the jobs
+#   taufw.py advance taufw_runs/mutau_2022_postEE_long_<time>   # later: check, resubmit failed chunks, merge,
+#                                                               # then the plots
+#   taufw.py status  taufw_runs/mutau_2022_postEE_long_<time>
+name: mutau_2022_postEE_long
+# run_root: the parent directory of the runs (<run_root>/<name>_<time>/). It is not set here, so taufw.py warns and
+# the runs go to taufw_runs/ in the directory it is started from. The production stage below writes its merged tuples
+# into the run (stages/production/<era>/<group>/): for this full production far more than the home directory's AFS
+# quota. On lxplus, set it to a directory with enough space:
+#   run_root: /afs/cern.ch/work/u/user/taufw_runs     # absolute; ~ and $VARIABLES ($HOME, $USER) are expanded
+# (start --run-root DIR takes precedence). EOS as run_root is not tested yet.
+
+pico:
+  config: null              # PicoProducer configuration; null: PicoProducer/config/config.json
+                            # (a relative path is a file of this bundle, e.g. pico.json)
+
+stages:                     # every stage: stage (type), id (unique), inputs (required), description (optional)
+  - stage: production       # NanoAOD -> pico tuples (PicoProducer API)
+    id: production
+    description: mutau tuples of the data and of every MC sample of v15_2022_postEE.yml
+    inputs: null            # production reads no other stage's output
+    eras: [2022_postEE]     # eras and channels as in the PicoProducer configuration
+    channels: [mutau]
+    samples:                # sample names (glob patterns): exactly the samples the plots read (v15_2022_postEE.yml)
+      - "Muon_Run2022*"     # data: Muon_Run2022E, F, G (the data pattern of the sample file is Muon_Run2022?)
+      - DYto2L-4Jets_MLL-50
+      - DYto2L-4Jets_MLL-50_1J
+      - DYto2L-4Jets_MLL-50_2J
+      - DYto2L-4Jets_MLL-50_3J
+      - DYto2L-4Jets_MLL-50_4J
+      - WtoLNu-4Jets
+      - WJetstoLNu-4Jets_1J
+      - WJetstoLNu-4Jets_2J
+      - WJetstoLNu-4Jets_3J
+      - WtoLNu-4Jets_4J
+      - WW
+      - WZ
+      - ZZ
+      - TTTo2L2Nu
+      - TTto4Q
+      - TTtoLNu2Q
+      - TBbarQ_t-channel
+      - TbarBQ_t-channel
+      - TWminustoLNu2Q
+      - TWminusto2L2Nu
+      - TbarWplustoLNu2Q
+      - TbarWplusto2L2Nu
+    vetoes: [WWW, WWZ, WZZ, ZZZ]   # a name without '*' matches as a prefix: WW, WZ, ZZ would also take the tribosons
+    tag: ""               # extra tag in job and output names
+    extraopts: []           # KEY=VALUE module options; precedence: channel < sample < these
+    split:
+      nfilesperjob: null    # files per job (null: sample, then configuration)
+      maxevts: null         # events per job, split by events if > 1 (null: sample, then configuration)
+    queue: null             # batch queue (HTCondor job flavour); null: configuration
+    max_tries: 3            # (re)submissions before failed chunks fail the stage
+    merge:
+      clean: false          # remove job files and job output after a validated merge
+      force: false          # merge samples with failed or missing chunks too
+
+  - stage: plots            # data/MC control plots of the merged tuples (Plotter/plot.py, run locally)
+    id: plots
+    description: control plots of the new tuples
+    inputs: {tuples: production}   # the tuples of the production stage above
+    eras: [2022_postEE]     # plot.py -y; the tuples come from the production stage (plot.py --tuples)
+    configs: [setup_mutau.yml]  # bundle files, channel names (Plotter/config/setup_<channel>.yml)
+                            # or .yml files relative to Plotter/
+    samples: [v15_2022_postEE.yml]  # the samples the plots read: a copy of Configs/Plotter/samples/, unchanged;
+                            # `plan` and `start` check that the production stage makes all of them
+    variables: [m_vis, pt_1, pt_2]  # plot.py -V filters (glob patterns); []: all variables of plot.py
+    selections: []          # plot.py -S filters; []: baseline and every region of the setup
+    pdf: false              # also save pdf files; output: stages/plots/plots/2022_postEE/ of the run

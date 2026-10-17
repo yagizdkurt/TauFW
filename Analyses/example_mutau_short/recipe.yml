@@ -1,10 +1,11 @@
-# Example TauFW analysis bundle: produce mutau pico tuples for 2022_postEE with PicoProducer, then control plots.
-#   taufw.py plan    Analyses/example_mutau                     # what would be submitted (nothing is written)
-#   taufw.py start   Analyses/example_mutau                     # new run in run_root (below); submits the jobs
-#   taufw.py advance taufw_runs/mutau_2022_postEE_<time>        # later: check, resubmit failed chunks, merge,
-#                                                               # then the plots
-#   taufw.py status  taufw_runs/mutau_2022_postEE_<time>
-name: mutau_2022_postEE
+# Example TauFW analysis bundle (short): produce mutau pico tuples of the DY and ttbar samples for 2022_postEE with
+# PicoProducer. Production only: a few samples and no data are not enough for control plots (the Plotter needs data
+# and every background); example_mutau_long is the same production for every sample the plots need, then the plots.
+#   taufw.py plan    Analyses/example_mutau_short               # what would be submitted (nothing is written)
+#   taufw.py start   Analyses/example_mutau_short               # new run in run_root (below); submits the jobs
+#   taufw.py advance taufw_runs/mutau_2022_postEE_short_<time>  # later: check, resubmit failed chunks, merge
+#   taufw.py status  taufw_runs/mutau_2022_postEE_short_<time>
+name: mutau_2022_postEE_short
 # run_root: the parent directory of the runs (<run_root>/<name>_<time>/). It is not set here, so taufw.py warns and
 # the runs go to taufw_runs/ in the directory it is started from. The production stage below writes its merged tuples
 # into the run (stages/production/<era>/<group>/), often tens of GB. On lxplus, set it to a directory with enough
@@ -34,14 +35,3 @@ stages:                     # every stage: stage (type), id (unique), inputs (re
     merge:
       clean: false          # remove job files and job output after a validated merge
       force: false          # merge samples with failed or missing chunks too
-
-  - stage: plots            # data/MC control plots of the merged tuples (Plotter/plot.py, run locally)
-    id: plots
-    description: control plots of the new tuples
-    inputs: {tuples: production}   # the tuples of the production stage above
-    eras: [2022_postEE]     # plot.py -y; the tuples come from the production stage (plot.py --tuples)
-    configs: [setup_mutau.yml]  # bundle files, channel names (Plotter/config/setup_<channel>.yml)
-                            # or .yml files relative to Plotter/
-    variables: [m_vis, pt_1, pt_2]  # plot.py -V filters (glob patterns); []: all variables of plot.py
-    selections: []          # plot.py -S filters; []: baseline and every region of the setup
-    pdf: false              # also save pdf files; output: Plotter/plots/2022_postEE/

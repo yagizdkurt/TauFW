@@ -173,7 +173,7 @@ class CheckRecipeTests(unittest.TestCase):
         self.assertTrue(check.ok)
 
     def test_the_bundled_analyses_have_no_problems(self):
-        for bundle in ("example_mutau", "tes_id_2025"):
+        for bundle in ("example_mutau_short", "example_mutau_long", "tes_id_2025"):
             with self.subTest(bundle=bundle):
                 check = check_recipe(os.path.join(checkout.REPO, "Analyses", bundle))
                 # the tuples of tes_id_2025 are on EOS: missing on a machine without it (e.g. Windows)

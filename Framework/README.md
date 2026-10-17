@@ -119,13 +119,13 @@ and navigation changes stay in Utilities. Source section banners document both s
 boundary.
 
 ```bash
-taufw.py check   Analyses/example_mutau                        # every problem of the recipe; nothing is written
+taufw.py check   Analyses/example_mutau_short                  # every problem of the recipe; nothing is written
 taufw.py check   Analyses/example_broken                       # a deliberately broken recipe: 4 problems, exit 1
-taufw.py plan    Analyses/example_mutau                        # each stage's plan and files; nothing is written
-taufw.py plan    Analyses/example_mutau --local                # quick local test: 100 events of one file per sample
-taufw.py start   Analyses/example_mutau                        # creates taufw_runs/<name>_<time>/, submits the jobs
-taufw.py advance taufw_runs/mutau_2022_postEE_20261013-120000  # check; resubmit failed chunks; merge when complete
-taufw.py status  taufw_runs/mutau_2022_postEE_20261013-120000  # recorded and live state (read-only)
+taufw.py plan    Analyses/example_mutau_short                  # each stage's plan and files; nothing is written
+taufw.py plan    Analyses/example_mutau_short --local          # quick local test: 100 events of one file per sample
+taufw.py start   Analyses/example_mutau_short                  # creates taufw_runs/<name>_<time>/, submits the jobs
+taufw.py advance taufw_runs/mutau_2022_postEE_short_20261013-120000  # check; resubmit failed chunks; merge when complete
+taufw.py status  taufw_runs/mutau_2022_postEE_short_20261013-120000  # recorded and live state (read-only)
 taufw.py advance taufw_runs/... --wait --poll 900              # keep advancing every 15 minutes until done
 taufw.py plan    Analyses/tes_id_2025                          # the commands of the plots, histograms, fit and python steps
 taufw.py init    my_tes --from Analyses/tes_id_2025            # new bundle Analyses/my_tes/ with copies of its configs
@@ -135,7 +135,7 @@ The same from Python:
 ```python
 from TauFW.Framework import Framework, load_run
 
-fw     = Framework.from_recipe("Analyses/example_mutau")   # a bundle directory or a recipe file
+fw     = Framework.from_recipe("Analyses/example_mutau_short")   # a bundle directory or a recipe file
 record = fw.start()                         # RunRecord; record.state == 'WAITING'
 # ... later, maybe in another session:
 record = load_run(record.run_dir)
@@ -288,7 +288,7 @@ of the stage) and in the reader's manifest.
 | `scripts/taufw.py` | the command line (no logic: argparse → `Framework`) |
 
 The analyses live outside this package, in `Analyses/` at the repository root: `Analyses/README.md` (authoring and
-usage reference), `Analyses/example_mutau/` (production, then control plots) and `Analyses/tes_id_2025/` (the TES +
+usage reference), `Analyses/example_mutau_short/` (a small production), `Analyses/example_mutau_long/` (a full production with data, then control plots) and `Analyses/tes_id_2025/` (the TES +
 tau ID fit on existing tuples: plots, histograms, fit, and a Python summary step).
 
 Dependencies point one way: `Framework → PicoProducer.api, Plotter.api, Fitter.api`. No other package imports the
