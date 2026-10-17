@@ -273,6 +273,7 @@ of the stage) and in the reader's manifest.
 | `python/validation.py` | `check_recipe`, `RecipeCheck`: everything `recipe.py` checks plus the files a recipe names (and the stage directories of `{path}` inputs, `read_source`), without raising (`taufw.py check`, the menu) |
 | `python/manifest.py` | `write_manifest`, `read_stage_dir`, `StageDir`, `ManifestError`: the stage manifests (format 2) |
 | `python/bundle.py` | the path rule (bundle file, module config, absolute), the run's bundle copy, new bundles (`taufw.py init`) |
+| `python/samples.py` | `sample_issues`: before a run, the samples a production stage makes (PicoProducer's catalogs) vs those its readers' `samples` files ask for (Plotter API); `plan` lists, `start` refuses the problems |
 | `python/configs.py` | the config templates of `Configs/`: headers (`taufw_config`: id, version, schema), `configs.lock`, `update` (`taufw.py configs update`), the warnings for old copies in a bundle |
 | `python/step_runner.py` | runs a python step in its own process (standard library only): `context.json` → `run(ctx)` → `result.json` |
 | `python/run_record.py` | `RunRecord`, `RunState`, `StageRecord`: `run.json`, crash-safe save |

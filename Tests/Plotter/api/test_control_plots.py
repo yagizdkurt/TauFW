@@ -165,6 +165,40 @@ class ControlPlotsTests(unittest.TestCase):
                                     "tuples relative to %s" % (os.path.join(self.base, "out")),))
         self.assertNotIn("--tuples", self.plotter.plan(PlotsRequest(eras=["2025"])).commands[0].argv)
 
+    def test_sample_files(self):  # CL §22: sample model files, --samples
+        templates = os.path.join(str(checkout.REPO), "Configs", "Plotter", "samples")
+        samples = (os.path.join(templates, "v15_2025.yml"), os.path.join(templates, "v15_2024.yml"))
+        outdir = os.path.join(self.base, "out")
+        command = self.plotter.plan(PlotsRequest(eras=["2025"], samples=samples, outdir=outdir)).commands[0]
+        self.assertEqual(command.argv[-3:], ("--samples",) + samples)
+        self.assertNotIn("--samples", self.plotter.plan(PlotsRequest(eras=["2025"])).commands[0].argv)
+        self.assertEqual(self.plotter.sample_names(samples, "2025", "mutau")[1], "Muon*Run2025*")
+        self.assertEqual(self.plotter.samples_problems(samples, ["2025", "2024"]), ())
+        problems = self.plotter.samples_problems(samples, ["2025", "2023C"])
+        self.assertEqual(len(problems), 1)
+        self.assertIn("no sample file(s) for era '2023C'", problems[0])
+        self.assertIn("not found", self.plotter.samples_problems(("/no/such.yml",), ["2025"])[0])
+        # the tuple files of the requested samples: every MC file and the data pattern
+        tuples = os.path.join(self.base, "tuples", "$ERA", "$GROUP")
+        names, data = self.plotter.sample_names(samples, "2025", "mumu")
+        sample_model = __import__("TauFW.Plotter.sample.model", fromlist=["pick"])
+        for row in sample_model.pick(samples, "2025").mc:
+            directory = os.path.join(self.base, "tuples", "2025", row["group"])
+            os.makedirs(directory, exist_ok=True)
+            open(os.path.join(directory, "%s_mumu.root" % (row["name"])), "w").close()
+        problems = self.plotter.sample_file_problems(samples, ["2025"], ["mumu"], tuples)
+        self.assertEqual(len(problems), 1)
+        self.assertIn("1 tuple file(s)", problems[0])  # the data
+        os.makedirs(os.path.join(self.base, "tuples", "2025", "Data"))
+        open(os.path.join(self.base, "tuples", "2025", "Data", "Muon0_Run2025C_mumu.root"), "w").close()
+        self.assertEqual(self.plotter.sample_file_problems(samples, ["2025"], ["mumu", "mumu"], tuples), ())
+        os.remove(os.path.join(self.base, "tuples", "2025", "DY", "%s_mumu.root" % (names[0])))
+        with mock.patch.dict(os.environ, {"CMSSW_BASE": "/cmssw"}):
+            problems = self.plotter.preflight(PlotsRequest(eras=["2025"], configs=["mumu"], samples=samples,
+                                                           tuples=tuples, outdir=outdir))
+        self.assertEqual(len(problems), 1)
+        self.assertIn(names[0], problems[0])
+
     def test_default_module_lookup(self):  # BUGS L13: find_spec raises for an imported module without __spec__
         imported = types.ModuleType("taufw_test_imported")
         imported.__spec__ = None  # like CMSSW's ROOT once PicoProducer imported it

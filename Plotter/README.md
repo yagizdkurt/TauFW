@@ -21,4 +21,9 @@ plotter.preflight(request)  # problems (no cmsenv, no ROOT, missing setup); empt
 plotter.make(request, logdir='logs')   # RunReport: ok, one log per command, plots per channel and era
 ```
 
+`PlotsRequest(samples=[...])` names sample model files (`Configs/Plotter/samples/v15_<era>.yml` or a copy, one per
+era; `plot.py --samples`) instead of the tables of `config/samples_v15.py`. They are read by
+`TauFW.Plotter.sample.model` (no ROOT for reading); `sample_names`, `samples_problems` and `sample_file_problems`
+check them without running anything.
+
 Bugs found and fixed on this path: [docs/Plotter/BUGS.md](../docs/Plotter/BUGS.md).

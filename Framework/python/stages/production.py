@@ -122,6 +122,11 @@ class ProductionStage(Stage):
         """The JobPlan of the first submission (nothing is written)."""
         return self.pico.plan(self.request(spec, context))
 
+    def produced_samples(self, spec, context=None):
+        """(era, channel, sample name) of the tuples a first submission makes, from PicoProducer's sample catalogs
+        only (no storage or DAS): for the comparison with the samples the readers ask for (samples.py)."""
+        return self.pico.sample_names(self.request(spec, context))
+
     def planned_artifacts(self, spec, plan, context=None):
         """What the later stages see of the tuples before they exist: one artifact with their pattern,
         <stage dir>/$ERA/$GROUP (in a plan before the run exists, under the placeholder '<run_dir>/stages/<id>')."""

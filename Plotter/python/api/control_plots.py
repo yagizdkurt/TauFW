@@ -8,11 +8,14 @@ directory (outdir; the TauFW Framework gives <run_dir>/stages/<id>/), or in Plot
     PlotsRequest ─▶ plan() ─▶ make()        = python3 plot.py -y ERA -c CONFIG [-V ...] [-S ...] [options]
                     CommandPlan  RunReport (one plots artifact per config and era)
     preflight(): what is missing in the environment (empty: ready)
+    sample_names(), samples_problems(), sample_file_problems(): the sample model files (no ROOT; also used by the
+    Framework for the histograms stage and to compare with what production makes)
 
 Inputs:  pico tuples in the request's tuple pattern (plot.py --tuples), or else found by plot.py through $PICODIR
          of the request's PicoProducer config (passed to plot.py as $TAUFW_PICO_CONFIG; default
          PicoProducer/config/config.json); the channel setups
-         Plotter/config/setup_<channel>.yml (or any .yml, relative to Plotter/ or absolute).
+         Plotter/config/setup_<channel>.yml (or any .yml, relative to Plotter/ or absolute); the sample model
+         files (plot.py --samples; without them the tables of config/samples_v15.py).
 Outputs: <outdir>/plots/<era>/<variable>_<channel>-<selection>-<era><tag>.png, where <tag> is the setup's tag
          plus request.tag (without outdir: Plotter/plots/<era>/, shared by all runs; pdf on request), and one log
          file per command in the caller's log directory.
@@ -23,6 +26,9 @@ Public API:
   request(**fields)             a PlotsRequest
   config_file(config)           the setup file of a channel name or .yml config
   pico_config_source(request)   where $PICODIR is read from (a request without tuples)
+  sample_names(files, era, channel)                 (MC sample names, data pattern) of a channel
+  samples_problems(files, eras)                     unreadable files, an era without exactly one file
+  sample_file_problems(files, eras, channels, tuples)   tuple files of the requested samples that are missing
 """
 import glob
 import importlib.util
@@ -32,6 +38,7 @@ import sys
 from TauFW.Utilities.Process import (Command, CommandPlan, ProcessRunner, RunReport, output_dir_problems,
                                      tuple_pattern_problems)
 from TauFW.Plotter.api.types import PlotsRequest
+from TauFW.Plotter.sample import model as sample_model
 
 __all__ = ['ControlPlots']
 
@@ -84,7 +91,8 @@ class ControlPlots:
 
     def preflight(self, request):
         """What is missing to plot: CMSSW, ROOT, the tuple pattern's keys or else the PicoProducer config, the
-        channel setups."""
+        channel setups, the sample model files and (with both a tuple pattern and sample files) the tuple files of
+        the requested samples."""
         problems = []
         if 'CMSSW_BASE' not in os.environ:
             problems.append("CMSSW_BASE is not set (run cmsenv first)")
@@ -99,7 +107,60 @@ class ControlPlots:
                         for config in request.configs if not os.path.isfile(self._path(_setup_file(config))))
         if request.outdir is not None:
             problems.extend(output_dir_problems(request.outdir, source, tuples=request.tuples))
+        if request.samples:
+            sample_problems = self.samples_problems(request.samples, request.eras)
+            problems.extend(sample_problems)
+            if request.tuples and not sample_problems and '<' not in request.tuples:  # not a plan's placeholder
+                channels = [artifact['channel'] for artifact in self.plan(request).artifacts]
+                problems.extend(self.sample_file_problems(request.samples, request.eras, channels, request.tuples))
         return tuple(problems)
+
+    # =========================================================================
+    # ================================ SAMPLES ================================
+
+    def sample_names(self, files, era, channel):
+        """(MC sample names, data dataset pattern or None) that a channel reads in an era, from the sample model
+        files (TauFW.Plotter.sample.model; raises SampleModelError). Reads only the YAML files."""
+        return sample_model.sample_names(sample_model.pick(files, era), channel)
+
+    def samples_problems(self, files, eras):
+        """The problems of sample model files for these eras: a file that cannot be read, an era with no file or with
+        more than one (empty: none)."""
+        problems = []
+        for path in files:
+            if not os.path.isfile(path):
+                problems.append("sample file %s not found" % (path))
+                continue
+            try:
+                sample_model.load_sample_model(path)
+            except sample_model.SampleModelError as error:
+                problems.append(str(error))
+        if problems:
+            return tuple(problems)
+        for era in eras:
+            try:
+                sample_model.pick(files, era)
+            except sample_model.SampleModelError as error:
+                problems.append(str(error))
+        return tuple(problems)
+
+    def sample_file_problems(self, files, eras, channels, tuples, maxshow=5):
+        """The requested samples without a tuple file in the tuple pattern (with $ERA, $GROUP): an MC sample's
+        <dir>/<sample>_<channel>.root, or no file for the data pattern; the names as the Plotter builds them."""
+        missing = []
+        for era in eras:
+            for channel in dict.fromkeys(channels):
+                _, data = self.sample_names(files, era, channel)
+                for row in sample_model.pick(files, era).mc:
+                    path = _tuple_file(tuples, era, row['group'], row['name'], channel)
+                    if not os.path.isfile(path):
+                        missing.append(path)
+                if data and not glob.glob(_tuple_file(tuples, era, 'Data', data, channel)):
+                    missing.append(_tuple_file(tuples, era, 'Data', data, channel))
+        if not missing:
+            return ()
+        shown = ", ".join(missing[:maxshow]) + (", ..." if len(missing) > maxshow else "")
+        return ("%d tuple file(s) of the requested samples not found: %s" % (len(missing), shown),)
 
     def request(self, **fields):
         """A PlotsRequest (unknown fields are an error), so callers need not import the records."""
@@ -137,6 +198,9 @@ class ControlPlots:
             argv += ['-T', request.text]
         if request.tuples:
             argv += ['--tuples', request.tuples]
+        if request.samples:
+            argv += ['--samples'] + [path if request.outdir is None else os.path.abspath(path)
+                                     for path in request.samples]
         return Command("plots %s %s" % (channel, era), tuple(argv), cwd,
                        expects=("plots/%s/%s" % (era, _plot_glob(channel, era, tag)),),
                        timeout=request.timeout, env=_pico_env(request))
@@ -197,6 +261,13 @@ def _pico_env(request):
         return ()
     return (('TAUFW_PICO_CONFIG', request.pico_config if request.outdir is None else
              os.path.abspath(request.pico_config)),)
+
+
+def _tuple_file(tuples, era, group, sample, channel):
+    """The tuple file the Plotter reads for a sample: $PICODIR/$SAMPLE_$CHANNEL$TAG.root with $PICODIR the tuple
+    pattern (getsampleset; no tag), the keys replaced as plain text."""
+    directory = tuples.replace('$ERA', era).replace('$GROUP', group)
+    return os.path.join(directory, "%s_%s.root" % (sample, channel))
 
 
 def _plot_glob(channel, era, tag):

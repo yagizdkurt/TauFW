@@ -41,7 +41,9 @@ DEFAULT_CONFIGS = ('TauES_ID/config/config_coarse_TT.yml', 'TauES/config/FitSetu
 
 class HistogramStage(LocalStage):
     """Input histograms with the Fitter API.
-    fitter: a TauFW.Fitter.api.TauESID, or any object with the same methods (tests pass a fake one)."""
+    fitter: a TauFW.Fitter.api.TauESID, or any object with the same methods (tests pass a fake one).
+    samples_api: the Plotter API that reads the sample model files of the `samples` option (the Fitter only passes
+    them to createinputsTES.py; their format is the Plotter's)."""
     name = 'histograms'
     inputs = {'tuples': 'tuples'}
     null_inputs = {'tuples': "the tuples in $PICODIR of the run's PicoProducer config"}
@@ -58,7 +60,15 @@ class HistogramStage(LocalStage):
         return self.api.plan_shapes(request)
 
     def preflight(self, request, context):
-        return self.api.preflight_shapes(request)
+        problems = tuple(self.api.preflight_shapes(request))
+        samples, tuples = getattr(request, 'samples', ()), getattr(request, 'tuples', None)
+        if samples and hasattr(self.samples_api, 'samples_problems'):  # the files' content, the tuple files
+            sample_problems = tuple(self.samples_api.samples_problems(samples, request.eras))
+            problems += sample_problems
+            if tuples and not sample_problems and '<' not in tuples:
+                channels = [artifact['channel'] for artifact in self.plan_commands(request).artifacts]
+                problems += tuple(self.samples_api.sample_file_problems(samples, request.eras, channels, tuples))
+        return problems
 
     def execute(self, request, logdir, progress):
         return self.api.make_shapes(request, logdir, progress)
@@ -81,17 +91,20 @@ class HistogramSpec:
     configs: Tuple[str, ...] = DEFAULT_CONFIGS
     serial:  bool = False
     timeout: Optional[float] = None   # seconds per createinputsTES.py run; None: no limit
+    samples: Tuple[str, ...] = ()     # sample model files (bundle copies of Configs/Plotter/samples/), one per
+                                      # era; empty: the tables of Plotter/config/samples_v15.py
 
     def __post_init__(self):
         for name in ('eras', 'jet_wps', 'ele_wps', 'configs'):
             object.__setattr__(self, name, as_strings(getattr(self, name)))
             if not getattr(self, name):
                 raise ValueError("%s must not be empty" % (name))
+        object.__setattr__(self, 'samples', as_strings(self.samples))
 
     def request_dict(self):
         """The options as the Fitter ShapesRequest fields (saved in run.json)."""
         return spec_to_dict(self)
 
 
-HistogramSpec._paths = ('configs',)  # resolved against the bundle (bundle.py)
+HistogramSpec._paths = ('configs', 'samples')  # resolved against the bundle (bundle.py)
 HistogramStage.Spec = HistogramSpec

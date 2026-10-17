@@ -1248,9 +1248,10 @@ events yet; the run screens come next. The terminal output and `run.log` do not 
   terminal output and `run.log` as without it), `taufw.py start` with the variable (removed before a stage submits)
   and the `error` event. BBB (`framework.*`) runs without the variable, so it still checks the plain output.
 
-## 22. Sample lists as data: the sample model (in progress)
+## 22. Sample lists as data: the sample model
 
-**Date:** 2026-10-17 (steps S0-S2 on Windows; the BBB lock on lxplus comes next). Plan: LocalR/architecture/14.
+**Date:** 2026-10-17 (S0-S5 on Windows; BBB `plotter.sample_model` locked on lxplus with the old code; the lxplus
+checks of S6 are in TODO §1). Plan: LocalR/architecture/14.
 
 The recipe must say which samples an analysis reads; until now `Plotter/config/samples_v15.py` decided it out of
 sight (the MC table with cross sections, the data datasets, the MC weights, stitching, joining and splitting, per
@@ -1292,4 +1293,42 @@ function makes, and a test proves it.
 - Plotter BUGS L14 (`DM` split: `NameError`), L15 (electron data `else` without assignment, unreachable for the
   supported eras), L16 (era `2526` with tautau/emu: `TypeError`) registered; the model keeps L14 and raises for L16.
 
-Nothing uses the model yet: `plot.py`, `createinputsTES.py` and the Framework are unchanged (S3-S5).
+### The BBB case moves to the model
+
+After the lock (21 cases, `plotter.sample_model` added, the other 20 the same), `_sample_model_function` runs the
+model with the templates. On Windows (stub utils) the snapshot of the case before and after is byte for byte the same;
+`bbb check` on lxplus must show no difference.
+
+### Scripts (S3)
+
+- `Plotter/config/samples_v15.py` `getsampleset`: one change at the top, marked BACKWARD COMPATIBILITY: with
+  `samples=[files]` it returns the model's sample set for the era's file; without it, its own tables as before. The
+  keyword is read into `samplefiles` (not `samples`: L14 needs that name to stay undefined).
+- `plot.py --samples FILE ...`, `createinputsTES.py --samples FILE ...` pass it on
+  ([scripts_arg_changes.md](scripts_arg_changes.md)). The Fitter imports nothing new: the option goes through
+  `config.samples_v15`, the import it already has (known debt).
+- Test: `samples_v15.getsampleset(..., samples=...)` makes the same calls as its own tables, all 336 cases.
+
+### APIs (S4)
+
+- `PlotsRequest.samples`, `ShapesRequest.samples`: `--samples` on every command (absolute with an output directory).
+- `ControlPlots.sample_names(files, era, channel)`, `samples_problems(files, eras)` (unreadable file, an era without
+  exactly one file), `sample_file_problems(files, eras, channels, tuples)` (requested MC tuples and the data pattern
+  in the tuple directory); `preflight` uses them (not for the '<run_dir>' placeholder of a plan). The Fitter API only
+  checks that the files exist: their content is the Plotter's.
+- `PicoProducer.sample_names(request)`: (era, channel, sample) of a first submission, from the sample catalogs only,
+  selected as `iter_plans` selects them.
+
+### Framework and recipes (S5)
+
+- `plots` and `histograms` get the option `samples` (a path option: bundle files or absolute; a module path is a
+  problem). `check` reads the files through the Plotter API: readable, one per era. The histograms stage gets the
+  Plotter API as `samples_api` for its preflight.
+- `TauFW.Framework.samples.sample_issues` (new): for a reader with `samples` whose tuples come from a production stage
+  of the recipe, a requested MC sample production does not make, or a data pattern that matches nothing it makes, is
+  a problem; a sample made but read by nobody is a warning (only when every reader of that production has
+  `samples`). `RunPlan.sample_problems` / `sample_warnings`; `taufw.py plan` shows them (exit 1 with problems);
+  `start` raises `RecipeError` before anything is made.
+- `Analyses/tes_id_2025`: `v15_2025.yml` (a copy of the template, unchanged) for plots and histograms.
+  `Analyses/example_mutau` is unchanged (its production makes no data; see TODO §6).
+- Tests: `Tests/Framework/test_samples.py` (validation, comparison, start refuses), Plotter and Fitter API tests.

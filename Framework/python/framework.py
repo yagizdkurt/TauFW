@@ -39,6 +39,8 @@ Pipeline map:
                  recorded in the stage's `sources` (run.json and its own manifest).
     bundle:      start() copies the bundle files the recipe uses to <run_dir>/bundle/; the run reads them from
                  there, so later edits of the bundle never change a run (see bundle.py).
+    samples:     plan() and start() compare the samples a production stage makes with those its readers' sample
+                 model files ask for (samples.py): plan() lists the problems, start() refuses them (RecipeError).
 
 Public API:
   Framework.from_recipe(recipe_or_path, reporter, pico, fitter, plotter) / Framework.from_record(record, ...)
@@ -56,7 +58,8 @@ from TauFW.Framework.defaults import (DEFAULT_RUN_ROOT, RUN_LOG_NAME, DEFAULT_PO
                                       timestamp, default_file_io)
 from TauFW.Framework.bundle import path_rows, snapshot, make_bundle
 from TauFW.Framework.manifest import write_manifest, ManifestError
-from TauFW.Framework.recipe import Recipe
+from TauFW.Framework.recipe import Recipe, RecipeError, Issue
+from TauFW.Framework.samples import sample_issues
 from TauFW.Framework.run_record import RunRecord, RunState
 from TauFW.Framework.reporting import FrameworkReporter
 from TauFW.Framework.validation import read_source
@@ -122,8 +125,10 @@ class Framework:
             except (StageNotImplemented, PreflightError) as err:  # placeholder, or cannot be planned yet
                 plans.append(StagePlan(stage=stage_spec.id, plan=None, note=str(err), paths=paths,
                                        sources=sources))
+        problems, warnings = self._sample_issues(recipe)
         return RunPlan(name=recipe.name, stages=tuple(plans), pico_config=recipe.pico_config_path,
-                       bundle_dir=recipe.bundle_dir)
+                       bundle_dir=recipe.bundle_dir, sample_problems=tuple(problems),
+                       sample_warnings=tuple(warnings))
 
     def start(self, recipe=None, run_root=None):
         """Create the run directory, copy the bundle files and write run.json, then call advance() once.
@@ -133,6 +138,11 @@ class Framework:
         Side effects: creates <run_root>/<name>_<time>/ with run.json, run.log and bundle/, and runs the first
         stage steps (the production stage, for example, submits its jobs)."""
         recipe = recipe or self.recipe
+        problems, warnings = self._sample_issues(recipe)
+        if problems:  # before anything is made: production would not make what the readers ask for
+            raise RecipeError(recipe.source, problems)
+        for warning in warnings:
+            self.reporter.warning(str(warning))
         run_root = run_root or recipe.run_root_dir
         if run_root:
             check_writable(run_root, "run root")
@@ -324,6 +334,15 @@ class Framework:
             raise KeyError("No stage %r in this Framework (stages: %s)" % (stage_id, ', '.join(self.stages)))
         return self.stages[stage_id]
 
+    def _sample_issues(self, recipe):
+        """(problems, warnings) of samples.py. If the comparison cannot be made (e.g. a catalog cannot be read), one
+        warning says so: the stages report the cause themselves."""
+        try:
+            return sample_issues(recipe, self._stage_for)
+        except Exception as error:
+            return [], [Issue("samples", "the samples of production and its readers were not compared: %s"
+                              % (error))]
+
     def _recipe_of(self, record):
         """The recipe saved in a run record, with the run's copy of the bundle. A run always continues with the
         recipe and bundle files it started with, even if they were changed since."""
@@ -366,7 +385,8 @@ class Framework:
                 stages[stage_id] = PlotStage(plotter or _plotter())
             elif name in ('histograms', 'fit'):
                 fitter = fitter or _fitter()
-                stages[stage_id] = HistogramStage(fitter) if name == 'histograms' else FitStage(fitter)
+                stages[stage_id] = (HistogramStage(fitter, samples_api=plotter or _plotter()) if name == 'histograms'
+                                    else FitStage(fitter))
             elif name == 'python':
                 stages[stage_id] = PythonStage(runner=runner)
             else:
@@ -422,11 +442,14 @@ class StagePlan:
 
 @dataclass(frozen=True)
 class RunPlan:
-    """plan() of a whole recipe: one StagePlan per stage, the PicoProducer config path and the bundle directory."""
+    """plan() of a whole recipe: one StagePlan per stage, the PicoProducer config path and the bundle directory;
+    sample_problems / sample_warnings: the comparison of samples.py (Issues; start() refuses the problems)."""
     name:        str
     stages:      Tuple[StagePlan, ...]
     pico_config: Optional[str] = None
     bundle_dir:  Optional[str] = None
+    sample_problems: Tuple[object, ...] = ()
+    sample_warnings: Tuple[object, ...] = ()
 
 
 @dataclass(frozen=True)

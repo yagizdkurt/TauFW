@@ -25,6 +25,8 @@ class PlotsRequest:
     variables, selections: plot.py -V and -S filters (glob patterns); empty: all.
     tuples: the directory pattern of the tuples (with $ERA, $GROUP), given to plot.py as --tuples; then the
     PicoProducer configuration is not used. None: plot.py reads $PICODIR of pico_config (None: its default).
+    samples: sample model files, one per era (Configs/Plotter/samples/v15_<era>.yml or a copy), given to plot.py as
+    --samples; empty: the tables of config/samples_v15.py.
     outdir: the directory plot.py runs in and writes plots/<era>/ to (None: Plotter/, as a user runs it)."""
     eras:       Tuple[str, ...]
     configs:    Tuple[str, ...] = ('mutau',)
@@ -40,9 +42,10 @@ class PlotsRequest:
     tuples:     Optional[str] = None     # --tuples of the commands
     pico_config: Optional[str] = None    # $TAUFW_PICO_CONFIG of the commands (without tuples)
     outdir:     Optional[str] = None     # working directory of plot.py (None: Plotter/)
+    samples:    Tuple[str, ...] = ()     # --samples of the commands
 
     def __post_init__(self):
-        for name in ('eras', 'configs', 'variables', 'selections'):
+        for name in ('eras', 'configs', 'variables', 'selections', 'samples'):
             object.__setattr__(self, name, _strings(getattr(self, name)))
         for name in ('eras', 'configs'):
             if not getattr(self, name):

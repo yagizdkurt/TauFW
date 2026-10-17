@@ -19,6 +19,8 @@ A subclass sets `name` and `Spec`, and implements:
     execute(request, logdir, progress) -> RunReport
     summary(report)                 -> the stage's message when it is DONE (default: counts)
     config_file(value)              -> the module file of a path option (for taufw.py init; default: None)
+    requested_samples(spec, context) -> [(era, channel, MC names, data pattern)] of its sample model files
+                                       (`samples` option; default: none), see samples.py
 A stage with a `tuples` input slot reads the tuples its input names (tuples_pattern): the pattern recorded on the
 artifacts of the production stage it names (of this run, or of another run: {path: <run_dir>/stages/<id>}), or the
 recipe's {external: <pattern>}; with `null` (old recipes) none,
@@ -115,6 +117,18 @@ class LocalStage(Stage):
     def config_file(self, value):
         return None
 
+    def requested_samples(self, spec, context):
+        """(era, channel, MC sample names, data pattern) the stage reads, from its `samples` option (sample model
+        files, read through the Plotter API `samples_api`); [] without the option (the module's own tables)."""
+        files = getattr(spec, 'samples', ())
+        if not files or not hasattr(self.samples_api, 'sample_names'):
+            return []
+        resolved = resolve_spec(spec, context.bundle_dir)
+        pairs = dict.fromkeys((artifact['era'], artifact['channel'])
+                              for artifact in self.plan_commands(self.request(resolved, context)).artifacts)
+        return [(era, channel) + tuple(self.samples_api.sample_names(resolved.samples, era, channel))
+                for era, channel in pairs]
+
     # =========================================================================
     # ================================ INPUTS =================================
 
@@ -205,9 +219,12 @@ class LocalStage(Stage):
     # =========================================================================
     # ============================= CONSTRUCTION ==============================
 
-    def __init__(self, api):
-        """api: the module API object (None for a stage without one, e.g. python)."""
+    def __init__(self, api, samples_api=None):
+        """api: the module API object (None for a stage without one, e.g. python).
+        samples_api: what reads the sample model files of the `samples` option (a Plotter ControlPlots: the format
+        is the Plotter's); None: the stage's own api."""
         self.api = api
+        self.samples_api = samples_api or api
 
 
 def fixed_directory(pattern):

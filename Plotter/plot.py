@@ -127,6 +127,7 @@ def main(args):
   outdir    = "plots/$ERA"
   fname     = "$PICODIR/$SAMPLE_$CHANNEL$TAG.root"
   tuples    = args.tuples # None: $PICODIR of the PicoProducer configuration
+  samples   = args.samples # sample model files, one per era; None: the tables of config/samples_v15.py
   
   # LOOP over configs / channels
   for config in configs:
@@ -142,7 +143,8 @@ def main(args):
       addsfs = [ ] #"getTauIDSF(dm_2,genmatch_2)"]
       rmsfs  = [ ] if (setup['channel']=='mumu' or not notauidsf) else ['idweight_2','ltfweight_2'] # remove tau ID SFs
       split  = ['DY'] if 'tau' in setup['channel'] else [ ] # split these backgrounds into tau components
-      sampleset = getsampleset(setup['channel'],era,fname=fname,rmsf=rmsfs,addsf=addsfs,split=split,tuples=tuples)
+      sampleset = getsampleset(setup['channel'],era,fname=fname,rmsf=rmsfs,addsf=addsfs,split=split,tuples=tuples,
+                               samples=samples)
       plot(sampleset,setup,parallel=parallel,tag=tag,extratext=extratext,outdir=outdir,era=era,
            varfilter=varfilter,selfilter=selfilter,fraction=fraction,pdf=pdf)
       #sampleset.close()
@@ -176,6 +178,9 @@ if __name__ == "__main__":
                                          help="directory pattern of the input tuples, e.g. /eos/.../$ERA/$GROUP "
                                               "(files <sample>_<channel>.root), instead of $PICODIR of the "
                                               "PicoProducer configuration" )
+  parser.add_argument('--samples',       default=None, nargs='+', metavar='FILE',
+                                         help="sample model files, one per era (e.g. Configs/Plotter/samples/v15_2025.yml "
+                                              "or a copy), instead of the tables of config/samples_v15.py" )
   parser.add_argument('-v', '--verbose', dest='verbosity', type=int, nargs='?', const=1, default=0, action='store',
                                          help="set verbosity" )
   args = parser.parse_args()

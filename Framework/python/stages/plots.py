@@ -76,9 +76,11 @@ class PlotSpec:
     tag:        str = ""
     text:       str = ""
     timeout:    Optional[float] = None   # seconds per plot.py run; None: no limit
+    samples:    Tuple[str, ...] = ()     # sample model files (bundle copies of Configs/Plotter/samples/), one per
+                                         # era; empty: the tables of Plotter/config/samples_v15.py
 
     def __post_init__(self):
-        for name in ('eras', 'configs', 'variables', 'selections'):
+        for name in ('eras', 'configs', 'variables', 'selections', 'samples'):
             object.__setattr__(self, name, as_strings(getattr(self, name)))
         if not self.eras:
             raise ValueError("eras must not be empty")
@@ -90,5 +92,5 @@ class PlotSpec:
         return spec_to_dict(self)
 
 
-PlotSpec._paths = ('configs',)  # resolved against the bundle (bundle.py)
+PlotSpec._paths = ('configs', 'samples')  # resolved against the bundle (bundle.py)
 PlotStage.Spec = PlotSpec

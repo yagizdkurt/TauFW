@@ -50,6 +50,19 @@ class EqualityTests(unittest.TestCase):
             raised += old_grid[key][-1][0] == 'raised'
         self.assertLess(raised, len(old_grid) // 4, "most cases must build a sample set, not raise")
 
+    def test_samples_keyword_of_samples_v15(self):
+        """samples_v15.getsampleset(..., samples=[templates]) hands over to the model (what plot.py --samples and
+        createinputsTES.py --samples do): the same calls as its own tables."""
+        with recorder.stub_utils() as utils:
+            old = recorder.load_samples_v15()
+            targets = recorder.old_targets(old) + recorder.model_targets(utils)
+            own = recorder.record_grid(old.getsampleset, targets)
+            files = {model.load_sample_model(path).era: [path] for path in TEMPLATES}  # one file: fast
+            handed = recorder.record_grid(lambda c, e, **k: old.getsampleset(c, e, samples=files[e], **k), targets)
+        for key in sorted(own):
+            with self.subTest(case=key):
+                self.assertIsNone(compare(own[key], handed[key]))
+
     def test_the_caller_join_list_is_changed_as_before(self):
         with recorder.stub_utils() as utils:
             old = recorder.load_samples_v15()

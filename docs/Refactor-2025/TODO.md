@@ -18,7 +18,12 @@ Items marked **(verify)** may already be done; check before working on them.
       `python3 Tests/run.py bbb lock --replace`; review with `bbb diff`: only the new case. Also
       `python3 Tests/run.py checks --case unit.plotter.sample_model` (must pass with the real environment too).
       After the lock: `_sample_model_function` in `Tests/BBB/cases.py` moves to the model, `bbb check` must show no
-      difference.
+      difference. **Lock done 2026-10-17; the switch is made: run `bbb check`.**
+- [ ] **Sample model end to end (CL §22, S6).** `taufw.py check Analyses/tes_id_2025` and `plan` (the plots and
+      histograms commands get `--samples .../bundle/v15_2025.yml`); then a plots + histograms run with the bundle,
+      compared with the same stages without `samples:` (the plots and the shape files; shapes with the 1e-13
+      tolerance of R3). The new preflight refuses when a requested MC tuple is missing in the external directory,
+      where the old scripts may only have warned: if it refuses, note which files.
 - [ ] **Confirm import-boundary reporting on lxplus:** `python3 Tests/run.py checks --case check_import_boundaries`.
       Nonzero status is expected while coupling remains; compare the debt report, do not rebaseline or fix production
       code to make this validation pass. Detector-only command: `python3 Tests/check_import_boundaries.py DetectorTests -q`. (CL §13)
@@ -302,8 +307,12 @@ Next-work proposals (not designed in detail yet):
 Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limitations"; CL §10, §11):
 
 - [ ] Sample lists are not part of a bundle (`plot.py`, `createinputsTES.py` import `samples_v15`). **In progress
-      (CL §22, plan LocalR/architecture/14):** the templates `Configs/Plotter/samples/v15_<era>.yml` and the model
-      exist and are proven equal; the scripts, APIs and recipe follow (S3-S5). The next item after R4. Following CL §18, not an environment hook: the recipe names the list (a bundle file) and the
+      (CL §22, plan LocalR/architecture/14):** templates, model, `--samples`, APIs and the recipe option `samples`
+      are done; `tes_id_2025` uses them. Open: the lxplus checks (§1), S7 (setup files to `Configs/`), and
+      `example_mutau`: its production makes `DY*` and `TT*` only, but the Plotter always needs data (and W, VV, ST
+      for the stitching and joins of its tables), so its plots stage cannot run; with a `samples` copy, `plan`
+      shows it and `start` refuses. Decide: add the data (`Muon_Run2022*`) to its production, or make the example
+      production-only. Following CL §18, not an environment hook: the recipe names the list (a bundle file) and the
       Framework gives it to the scripts as an option, as it gives `--tuples`. Acceptance: the Framework can compare
       the samples a production stage made with the samples its readers ask for, and a small production followed by
       plots finishes (§1, "Production end to end in the run").

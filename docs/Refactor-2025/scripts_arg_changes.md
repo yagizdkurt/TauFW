@@ -124,3 +124,26 @@ same directory.
   the keyword without a change. `getmcsample` (L12) is not changed.
 - Test: `Tests/Plotter/testTupleLocation.py` (ROOT; tiny local tuples: MC, merged data glob, a variation, and the
   default through a mocked configuration).
+
+## Sample model files (CL §22)
+
+**Status:** steps S3-S5 of the sample model (`LocalR/architecture/14-sample-model-plan.md`): the options exist, the
+APIs pass them (`PlotsRequest.samples`, `ShapesRequest.samples`) and the Framework gives them (the `samples` option of
+plots and histograms).
+
+The scripts took their samples (MC table, cross sections, data datasets, MC weights, stitching, joins) from the
+tables of `Plotter/config/samples_v15.py`. With this option the caller names sample model files instead: YAML
+templates of `Configs/Plotter/samples/` (one per era, exported from those tables), or a bundle's copy. The file whose
+`era` is the era of the run is used; none or two for an era is an error.
+
+| Script / function | Option | Default (unchanged behaviour) | Status |
+|---|---|---|---|
+| `Plotter/config/samples_v15.py` `getsampleset` | `samples=[FILE, ...]` (keyword) | its own tables | done |
+| `Plotter/plot.py` | `--samples FILE [FILE ...]` | same (passes `samples=None`) | done |
+| `Fitter/TauES/createinputsTES.py` | `--samples FILE [FILE ...]` | same | done |
+
+- With the option, the SampleSet gets exactly the calls the tables would make for the same era
+  (`Tests/Plotter/sample_model`, BBB `plotter.sample_model`), except the debug print of the data dataset for
+  `2022_preEE` muon channels.
+- `createinputsTES.py` keeps importing `config.samples_v15` (known import debt): the option goes through that
+  function, so the Fitter imports nothing new.

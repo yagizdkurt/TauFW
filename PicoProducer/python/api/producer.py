@@ -26,6 +26,7 @@ Public API:
   iter_plan                                                  plan() as a stream, one PlannedSample at a time
   request(**fields)                                          build a JobRequest
   tuple_pattern(request)                                     where merge() writes the tuples
+  sample_names(request)                                      the samples a first submission makes (catalogs only)
 """
 
 # ===== Imports =====
@@ -41,6 +42,7 @@ from TauFW.PicoProducer.jobs.pipeline import iter_plans, submit_plan, record_sub
 from TauFW.PicoProducer.jobs.status import check_sample
 from TauFW.PicoProducer.jobs.merge import merge_sample, MERGE_ACTIONS, TUPLE_LAYOUT
 from TauFW.PicoProducer.jobs.local import iter_local_runs, execute_run
+from TauFW.PicoProducer.datasets.catalog import getsamples
 from TauFW.PicoProducer.api.types import (JobPlan, PlannedSample, Submission, SubmittedSample, StageStatus,
                                           SampleStatus, MergeReport, TupleArtifact, LocalResult, request_from_dict)
 
@@ -158,6 +160,23 @@ class PicoProducer(object):
     """A JobRequest from keyword fields; unknown fields raise KeyError. Lets callers (e.g. the Framework) build
     requests without importing the jobs package."""
     return request_from_dict(fields)
+
+  def sample_names(self,request):
+    """(era, channel, sample name) of every sample a first submission of the request makes, selected as
+    iter_plans() selects them (the request's tag, dtypes, samples, vetoes and DAS filters; testrun: the first two
+    per era and channel). Side effects: none; reads only the sample catalogs (no storage, DAS or job files)."""
+    found = [ ]
+    with self._workdir():
+      for era in request.eras:
+        moddict = { } # load each catalog once, as iter_plans() does
+        for channel in request.channels:
+          samples = getsamples(era,channel=channel,tag=request.tag,dtype=request.dtypes,filter=request.samples,
+                               veto=request.vetoes,dasfilter=request.dasfilters,dasveto=request.dasvetoes,
+                               moddict=moddict)
+          if request.testrun:
+            samples = samples[:2]
+          found.extend((era,channel,sample.name) for sample in samples)
+    return tuple(found)
 
   def tuple_pattern(self,request):
     """Where merge() writes the tuples, as a pattern with $ERA, $GROUP (and whatever else picodir uses):

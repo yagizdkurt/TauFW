@@ -1,6 +1,7 @@
 """Fitter API: the commands equal those of run_inputs.sh and run_workflow_zmm.sh; outputs are checked (no ROOT)."""
 import glob
 import os
+import shlex
 import shutil
 import sys
 import tempfile
@@ -225,6 +226,19 @@ class ShapesTests(TauESIDTestCase):
         self.assertIn("output directory %s is not empty" % (outdir), " ".join(self.fitter.preflight_shapes(request)))
         placeholder = os.path.join("<run_dir>", "stages", "histograms")  # a plan before the run exists: kept as given
         self.assertEqual(self.fitter.plan_shapes(self.shapes(outdir=placeholder)).cwd, placeholder)
+
+
+class ShapesSampleFilesTests(TauESIDTestCase):  # CL §22: sample model files, --samples
+    def test_samples_option(self):
+        samples = (os.path.join(self.base, "v15_2025.yml"),)
+        commands = self.fitter.plan_shapes(self.shapes(samples=samples)).commands
+        self.assertEqual(self.lines(commands), [line + " --samples " + shlex.quote(samples[0]) for line in RUN_INPUTS])
+        self.assertNotIn("--samples", self.fitter.plan_shapes(self.shapes()).commands[0].argv)
+        self.assertIn("sample file %s not found" % (samples[0]),
+                      self.fitter.preflight_shapes(self.shapes(samples=samples)))
+        open(samples[0], "w").close()
+        self.assertNotIn("sample file %s not found" % (samples[0]),
+                         self.fitter.preflight_shapes(self.shapes(samples=samples)))
 
 
 class FitTests(TauESIDTestCase):

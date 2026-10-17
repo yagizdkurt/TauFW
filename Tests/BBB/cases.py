@@ -464,11 +464,21 @@ def _sample_model_recorder():
 
 
 def _sample_model_function(recorder):
-    """The sample-set function under test and the core functions the recorder replaces. Only this function changes
-    when the samples move to Configs/Plotter/samples/ (LocalR plan 14, S2): it then returns
-    TauFW.Plotter.sample.model.getsampleset with those templates and recorder.model_targets(utils)."""
-    old = recorder.load_samples_v15()
-    return old.getsampleset, recorder.old_targets(old)
+    """The sample-set function under test and the core functions the recorder replaces. Only this function changed
+    when the samples moved to Configs/Plotter/samples/: the case was locked with Plotter/config/samples_v15.py
+    (getsampleset, recorder.old_targets) and now runs TauFW.Plotter.sample.model.getsampleset with the templates."""
+    import importlib
+    utils = importlib.import_module("TauFW.Plotter.sample.utils")
+    from TauFW.Plotter.sample import model
+    templates = sorted(str(path) for path in
+                       (Path(__file__).resolve().parents[2] / "Configs" / "Plotter" / "samples").glob("v15_*.yml"))
+    models = {}
+
+    def getsampleset(channel, era, **kwargs):
+        if era not in models:
+            models[era] = model.pick(templates, era)
+        return model.getsampleset(channel, era, models[era], **kwargs)
+    return getsampleset, recorder.model_targets(utils)
 
 
 def plotter_sample_model(workspace):

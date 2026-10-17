@@ -14,6 +14,9 @@ What is checked here and what is not:
                   directory of a {path: <stage directory>} input: it exists, has a manifest of format 2 (its stage
                   is DONE), was not moved or copied, and its stage makes the kind of data the slot takes
                   (manifest.py; the same rule as between the stages of one recipe).
+    samples:      the `samples` option (plots, histograms) names files of the bundle (copies of the templates in
+                  Configs/Plotter/samples/) or absolute ones, not module files; they are read through the Plotter
+                  API (the format is the Plotter's): readable, exactly one per era of the stage.
     not checked:  path options a module resolves (e.g. Fitter/TauES_ID/config/...), and the environment (CMSSW,
                   ROOT, combine, tuples on disk): they are the machine's state, not the recipe's. The stages' plan
                   notes and preflight report them.
@@ -81,9 +84,10 @@ def _file_issues(pico_config, stage_specs, bundle_dir):
         for option, value, resolved, kind in path_rows(stage_spec.spec, bundle_dir):
             if kind == 'absolute' and not os.path.isfile(resolved):
                 issues.append(Issue("%s.%s" % (where, option), "file not found: %s" % (resolved)))
-            elif kind == 'module' and stage_spec.stage == 'python':
+            elif kind == 'module' and (stage_spec.stage == 'python' or option == 'samples'):
                 issues.append(Issue("%s.%s" % (where, option), "%s is not a file of the bundle (%s)"
                                     % (value, bundle_dir)))
+        issues.extend(_sample_issues(stage_spec, where, bundle_dir))
         for slot, pattern in stage_spec.external.items():
             if _external_problem({'external': pattern}, 'tuples'):
                 continue  # not a valid pattern: Recipe.parse reported it
@@ -97,6 +101,17 @@ def _file_issues(pico_config, stage_specs, bundle_dir):
             if problem:
                 issues.append(Issue("%s.inputs.%s" % (where, slot), problem))
     return issues
+
+
+def _sample_issues(stage_spec, where, bundle_dir):
+    """The problems of the sample model files of a stage's `samples` option (read through the Plotter API)."""
+    files = [resolved for option, _, resolved, kind in path_rows(stage_spec.spec, bundle_dir)
+             if option == 'samples' and kind != 'module']
+    if not files or len(files) != len(getattr(stage_spec.spec, 'samples', ())):
+        return []  # none, or a module path (reported above)
+    from TauFW.Plotter.api import ControlPlots  # the format of the files is the Plotter's
+    return [Issue("%s.samples" % (where), problem)
+            for problem in ControlPlots().samples_problems(files, stage_spec.spec.eras)]
 
 
 def source_problem(stage_spec, slot, path):

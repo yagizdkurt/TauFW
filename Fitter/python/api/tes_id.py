@@ -107,7 +107,8 @@ class TauESID:
 
     def preflight_shapes(self, request):
         """What is missing to make the shapes: CMSSW, ROOT, the tuple pattern's keys or else the PicoProducer
-        config, the config files."""
+        config, the config files, the sample model files (only that they exist: their content is the Plotter's,
+        which the Framework checks through the Plotter API)."""
         problems = self._environment(root=True)
         source = None if request.tuples else self.pico_config_source(request)
         if request.tuples:
@@ -115,6 +116,7 @@ class TauESID:
         elif not os.path.isfile(source):
             problems.append("no PicoProducer configuration %s: the scripts read $PICODIR from it" % (source))
         problems.extend(self._missing_configs(request.configs))
+        problems.extend("sample file %s not found" % (path) for path in request.samples if not os.path.isfile(path))
         if request.outdir is not None:
             problems.extend(output_dir_problems(request.outdir, source, tuples=request.tuples))
         return tuple(problems)
@@ -208,6 +210,9 @@ class TauESID:
             argv.append('-s')
         if request.tuples:
             argv += ['--tuples', request.tuples]
+        if request.samples:
+            argv += ['--samples'] + [path if request.outdir is None else os.path.abspath(path)
+                                     for path in request.samples]
         files = _shape_files(setup, era, jet_wp, ele_wp) if setup is not None else []
         channel = setup.get('channel', config) if setup is not None else config
         shapes = [{'kind': 'shapes', 'path': os.path.normpath(os.path.join(cwd, path)), 'era': era,

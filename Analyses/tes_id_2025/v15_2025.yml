@@ -1,0 +1,53 @@
+taufw_config:                     # set by the maintainers: analysts edit the values below, never these lines
+  id: plotter.samples_v15_2025
+  version: 1
+  schema: 1
+  description: samples of the v15 pico tuples for 2025 (MC table, data, MC weights, stitching)
+# The samples Plotter/config/samples_v15.py getsampleset() uses for era 2025, exported by
+# Tests/Plotter/sample_model/export.py. Format: Plotter/python/sample/model.py. The cross sections are the
+# values samples_v15.py computed (cross section times k-factor).
+era: "2025"
+cme: 13.6
+extraweights: {dyweight: "zptweight_nnlo", ttweight: "ttptweight"}   # defaults; plot/shape scripts may override them by name
+mc:
+  - {group: "DY", name: "DYto2Mu_Bin-MLL-10to50", title: "Drell-Yan 10-50", xsec: 6744.0, extraweight: dyweight}
+  - {group: "DY", name: "DYto2Mu_Bin-MLL-50to120", title: "Drell-Yan 50-120", xsec: 2070.871970992233, extraweight: dyweight}
+  - {group: "DY", name: "DYto2Mu_Bin-MLL-120to200", title: "Drell-Yan 120-200", xsec: 20.20476708967185, extraweight: dyweight}
+  - {group: "DY", name: "DYto2Tau_Bin-MLL-10to50", title: "Drell-Yan 10-50", xsec: 6744.0, extraweight: dyweight}
+  - {group: "DY", name: "DYto2Tau_Bin-MLL-50to120", title: "Drell-Yan 50-120", xsec: 2070.871970992233, extraweight: dyweight}
+  - {group: "DY", name: "DYto2Tau_Bin-MLL-120to200", title: "Drell-Yan 120-200", xsec: 20.20476708967185, extraweight: dyweight}
+  - {group: "DY", name: "DYto2E_Bin-MLL-10to50", title: "Drell-Yan 10-50", xsec: 6744.0, extraweight: dyweight}
+  - {group: "DY", name: "DYto2E_Bin-MLL-50to120", title: "Drell-Yan 50-120", xsec: 2070.871970992233, extraweight: dyweight}
+  - {group: "DY", name: "DYto2E_Bin-MLL-120to200", title: "Drell-Yan 120-200", xsec: 20.20476708967185, extraweight: dyweight}
+  - {group: "WJ", name: "WtoMuNu-2Jets", title: "Wmu + jets", xsec: 21079.38}
+  - {group: "WJ", name: "WtoTauNu-2Jets", title: "Wtau + jets", xsec: 21079.38}
+  - {group: "WJ", name: "WtoENu-2Jets", title: "We + jets", xsec: 21079.38}
+  - {group: "VV", name: "WWto2L2Nu", title: "WW 2l2#nu", xsec: 17.967959999999998}
+  - {group: "VV", name: "WWto4Q", title: "WW 4q", xsec: 77.40396}
+  - {group: "VV", name: "WWtoLNu2Q", title: "WW l#nu2q", xsec: 74.58456}
+  - {group: "VV", name: "ZZto2L2Nu", title: "ZZ 2l2#nu", xsec: 1.5712439999999999}
+  - {group: "VV", name: "ZZto2L2Q", title: "ZZ 2l2q", xsec: 10.344912}
+  - {group: "VV", name: "ZZto2Nu2Q", title: "ZZ 2#nu2q", xsec: 7.354824}
+  - {group: "VV", name: "ZZto4L", title: "ZZ 4l", xsec: 6.620256}
+  - {group: "VV", name: "WZ", title: "WZ", xsec: 41.1474}
+  - {group: "TT", name: "TTto2L2Nu", title: "ttbar 2l2#nu", xsec: 98.04387875606875, extraweight: ttweight}
+  - {group: "TT", name: "TTto4Q", title: "ttbar hadronic24", xsec: 419.8071644141188, extraweight: ttweight}
+  - {group: "TT", name: "TTtoLNu2Q", title: "ttbar semileptonic", xsec: 405.74895682981236, extraweight: ttweight}
+  - {group: "ST", name: "TBbarQ_t-channel", title: "ST t-channel t", xsec: 123.8}
+  - {group: "ST", name: "TbarBQ_t-channel", title: "ST t-channel at", xsec: 75.47}
+  - {group: "ST", name: "TWminustoLNu2Q", title: "ST tW semileptonic", xsec: 15.8}
+  - {group: "ST", name: "TWminusto2L2Nu", title: "ST tW 2l2#nu", xsec: 3.8}
+  - {group: "ST", name: "TbarWplustoLNu2Q", title: "ST atW semileptonic", xsec: 15.9}
+  - {group: "ST", name: "TbarWplusto2L2Nu", title: "ST atW 2l2#nu", xsec: 3.8}
+data:                             # dataset pattern by channel kind (tautau, muon, electron, emu)
+  tautau: "Tau_Run2025?"
+  muon: "Muon*Run2025*"
+  electron: "EGamma*Run2025*"
+  emu: "SingleMuon_Run2025?"
+weights:                          # MC weight by channel kind (semileptonic, ditau, other)
+  semileptonic: "genweight*puweight_2025_69p2_v3*trigweight_2025*idisoweight_1_2025*idweight_2*ltfweight_2"
+  ditau: "genweight*trigweight*puweight*idweight_1*idweight_2*ltfweight_1*ltfweight_2"
+  other: "genweight*puweight_2025_69p2_v3*idisoweight_1_2025*trigweight_2025*idisoweight_2_2025"
+stitch: []
+join:
+  - {patterns: ["Wto*Nu-2Jets"], name: "WJ"}

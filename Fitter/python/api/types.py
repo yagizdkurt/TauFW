@@ -43,7 +43,9 @@ class ShapesRequest:
     config). tuples: the directory pattern of the tuples (with $ERA, $GROUP), given to createinputsTES.py as
     --tuples; then the PicoProducer configuration is not used. pico_config: the PicoProducer configuration the
     scripts read $PICODIR from without tuples (None: its default).
-    outdir: the directory the scripts run in and write input_pt_less_region/ to (None: Fitter/)."""
+    outdir: the directory the scripts run in and write input_pt_less_region/ to (None: Fitter/).
+    samples: sample model files, one per era (Configs/Plotter/samples/v15_<era>.yml or a copy), given to
+    createinputsTES.py as --samples; empty: the tables of Plotter/config/samples_v15.py."""
     eras:    Tuple[str, ...]
     configs: Tuple[str, ...]
     jet_wps: Tuple[str, ...]
@@ -53,12 +55,14 @@ class ShapesRequest:
     tuples:  Optional[str] = None     # --tuples of the commands
     pico_config: Optional[str] = None # $TAUFW_PICO_CONFIG of the commands (without tuples)
     outdir:  Optional[str] = None     # working directory of the scripts (None: Fitter/)
+    samples: Tuple[str, ...] = ()     # --samples of the commands
 
     def __post_init__(self):
         for name in ('eras', 'configs', 'jet_wps', 'ele_wps'):
             object.__setattr__(self, name, _strings(getattr(self, name)))
             if not getattr(self, name):
                 raise ValueError("ShapesRequest: %s must not be empty" % (name))
+        object.__setattr__(self, 'samples', _strings(self.samples))
 
 
 @dataclass(frozen=True)

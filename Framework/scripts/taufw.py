@@ -103,6 +103,13 @@ def cmd_plan(args):
             _show_commands(reporter, stage_plan.plan)
         else:
             reporter.message(repr(stage_plan.plan))
+    _show_warnings(reporter, plan.sample_warnings)
+    if plan.sample_problems:  # start refuses these
+        reporter.warning("Samples: %d problem(s); `taufw.py start` refuses the recipe until they are fixed"
+                         % (len(plan.sample_problems)))
+        for problem in plan.sample_problems:
+            reporter.warning("  %s" % (problem))
+        return 1
     return 0
 
 
