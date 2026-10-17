@@ -243,6 +243,14 @@ Next-work proposals (not designed in detail yet):
       and job output still go to `jobdir`/`outdir` of the PicoProducer configuration (`PicoProducer/output/`), shared
       by every run with the same era, channel and tag. Needs PicoProducer to take them from the request, like
       `JobRequest.tupledir`. A prerequisite for production repeating (item above).
+- [ ] **Grid proxy check before production submits (idea).** The HTCondor template has `use_x509userproxy = true`;
+      without a valid proxy every job is held ("reading from file /tmp/x509up_u<uid>: No such file", seen on
+      lxplus 2026-10-17) and a held job looks "missing" to the status check, so `advance` resubmits it and spends
+      the tries. The production stage's preflight (or PicoProducer's `plan`/`submit`) could check
+      `voms-proxy-info --exists --valid H:M` (or the `$X509_USER_PROXY` file) and stop with a clear message; on lxplus
+      the proxy belongs on AFS (`voms-proxy-init --voms cms --out ~/private/x509up`, `export X509_USER_PROXY=...`),
+      since the schedd cannot read the `/tmp` of the login node. Related: held jobs could be reported as held, not
+      missing.
 - [ ] **EOS as `run_root`.** Accepted by the validator but not tested: the local stages (combine with many small
       files, ACLiC builds, `run.json` rewritten after every step, `run.log` appends) on EOS FUSE, and the merge of
       production there (the storage factory picks its EOS class for `/eos/` paths). Until then the documented home
