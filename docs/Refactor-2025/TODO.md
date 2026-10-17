@@ -21,7 +21,7 @@ Items marked **(verify)** may already be done; check before working on them.
       without error. (CL §14)
 - [ ] **BBB check after the expression helpers move:** `python3 Tests/run.py bbb check`, the `plotter.*` cases must
       pass unchanged (no re-lock); `python3 -c "import TauFW.Fitter.plot.datacard"` with `cmsenv`. (CL §12)
-- [x] Lock the new `drawing.canvas` case before the drawing code moves (locked 2026-10-14: 19 same, 1 added). (CL §12)
+- [x] `drawing.canvas` baseline locked on 2026-10-14. (CL §12)
 - [ ] **BBB check after the drawing move.** `python3 Tests/run.py bbb check`: every case, `drawing.canvas` included,
       must pass with no difference; no re-lock. Then `python3 Tests/run.py normal` (the `Tests/Plotter` scripts import
       the new paths) and, by eye, one `Plotter/plot.py` run and one Fitter postfit plot. (CL §12)
@@ -41,11 +41,7 @@ Items marked **(verify)** may already be done; check before working on them.
 - [ ] **Manual smoke runs:** `pico.py run -c mutau -y 2022_postEE -m 100`, `pico.py submit ... --dry`,
       `taufw.py plan` on `Analyses/example_mutau`, and one small real `taufw.py start` + `advance` until DONE on
       HTCondor. Check by eye that the status loading bar with 15+ outputs looks unchanged **(verify)**.
-- [ ] **Production end to end in the run (CL §18):** a small production (one sample) followed by plots. Production
-      must merge into `<run_dir>/stages/production/<era>/<group>/` and plots must look there (`--tuples`). Plots
-      cannot finish yet: `samples_v15.py` asks for every sample of the era, so it stops at the first sample that
-      was not produced, with a path inside the run (this is the check). Plots finish once the sample list is part
-      of the recipe (§6). Started 2026-10-17 (`~/tuples_test/prod.yml`).
+- [x] Production and run-local tuple routing verified on lxplus 2026-10-17; plots finishing awaits the recipe sample list (§6). (CL §18)
 - [ ] SGE adapter (S01) has never run on an SGE site; nice to have. ([PicoProducer BUGS](../PicoProducer/BUGS.md) S01)
 
 ## 2. Moving `common/python/tools/` into `TauFW.Utilities`
@@ -134,13 +130,15 @@ Each changes logs, so do each in its own commit, with a BBB re-lock where a base
       plus jsonpog/TauIDSFs payloads). Every A/C fix must be checked against it.
 - Legacy-only entries A11, A13, C10, W03 and the archived A01 copies moved to
   [Legacy/Bugs.md](../../Legacy/Bugs.md#picoproducer). Won't fix in maintained code: P15, S16, W01.
+- [ ] S17: `Sample.loadjson` drops `store`, so private-storage samples with short paths warn "DAS path ... has wrong
+      format" on every `status`/resubmit (message only; seen on lxplus, CL §18).
 
 **Fitter** ([BUGS.md](../Fitter/BUGS.md)), registered only, options 4–6 of the workflow:
 
 - [ ] F08: `merge_datacards_regions` called with 7 arguments, takes 6 (crash).
 - [ ] F09: `hasattr` on a dict is always false, so the Zmm card is never added (latent).
 - [ ] F10: the combined card is written to `output_{era}/` (wrong).
-- [x] F25 (fixed, CL §18): `find_spec('ROOT')` raises when ROOT is already imported (`api/tes_id.py`, default `find_module`; crash, like L13).
+- [x] F25: fixed ROOT detection when ROOT is already imported. (CL §18)
 
 **Plotter** ([BUGS.md](../Plotter/BUGS.md)):
 
@@ -149,17 +147,19 @@ Each changes logs, so do each in its own commit, with a BBB re-lock where a base
       the `drawing.canvas` baseline (`$.tools.sumhists`), so re-lock.
 - [ ] L04: `estimatelen` with several arguments raises `TypeError` (now `Utilities/python/Drawing/labels.py`).
 - [ ] L12: `getmcsample` ignores its `pico=` keyword (`python/sample/utils.py:119-120`; no callers, latent).
-- [x] L13 (fixed, CL §18): `find_spec('ROOT')` raises `ValueError` when ROOT is already imported (`python/api/control_plots.py`, default `find_module`): `plan`/`advance` of production + plots crash on lxplus.
+- [x] L13: fixed ROOT detection for production + plots planning and advancement. (CL §18)
 
 **Framework** ([BUGS.md](../Framework/BUGS.md)), registered only:
 
 - [ ] K01: a moved or copied run reads the artifacts of its `DONE` stages at the old location (latent).
 - [ ] K02: a crash between `manifest.json` and `run.json` leaves the stage `NEW` with a non-empty output directory
       (latent).
-- [x] K03: the `tuples` input slot selects no data; the scripts read `$PICODIR` (design limit). Fixed by CL §18 step 6.
+- [x] K03: `tuples` inputs now select the production stage outputs. (CL §18 step 6)
 - [ ] K04: production's tuple artifacts have no `kind`, so a filter by `kind='tuples'` finds none (latent).
 - [ ] K05: on Windows (Python 3.13) `/afs/...` is not absolute for `os.path.isabs`; an lxplus `pico.config` is joined to the bundle directory (latent, Windows only).
 - [ ] K06: `taufw.py plan`/`start` with a recipe path that does not exist ends with a traceback, not one line (`taufw.py check` reports it).
+- [ ] K07: `taufw.py status` shows the last `advance`'s message ("... failed or missing; resubmitting") next to a live
+      job table that says complete; reads as a contradiction (message only; seen on lxplus, CL §18).
 
 **Jobs/workers audit follow-ups** ([JobsWorkersAudit.md](JobsWorkersAudit.md) §7; none needed for correctness):
 
@@ -267,6 +267,8 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
       Framework gives it to the scripts as an option, as it gives `--tuples`. Acceptance: the Framework can compare
       the samples a production stage made with the samples its readers ask for, and a small production followed by
       plots finishes (§1, "Production end to end in the run").
+      Note: `samples_v15.py` has `DYto2TautoMuTauh_M-50` commented out (`:182`, `:215`), so taking over its list
+      is not enough for that check; the recipe's list must name the produced sample (seen in the CL §18 test).
 - [ ] Only the uncorrelated DeepTau option-3 fit is wrapped (no corrTES, fullcorr, PNet, UParT).
 - [ ] Trigger stage (was out of scope).
 - [ ] Plotter and Fitter are wrapped as they are; clean them up behind the same APIs.

@@ -867,10 +867,10 @@ differ by a grid step in the fitted POIs (the fit amplifies the 1e-13 difference
 
 ## 18. Framework: tuples as an input, production writes into the run, run_root
 
-**Date:** 2026-10-17 (steps 1-8 done; the end-to-end production check is in TODO §1)
+**Date:** 2026-10-17 (steps 1-8 done; the end-to-end production check passed on lxplus, TODO §1)
 **Details:** [Framework](../../Framework/README.md) "Concepts" and "Run directory", [Analyses](../../Analyses/README.md)
 "Where the runs go (`run_root`)", [scripts_arg_changes.md](scripts_arg_changes.md) "Tuple location", Framework BUGS
-K04, K05, Plotter BUGS L12
+K04, K05, K07, PicoProducer BUGS S17, Plotter BUGS L12
 
 The Framework, not the global `$PICODIR`, decides where the pico tuples are read and written, and everything is
 visible in the recipe. Plan, decisions D1-D13 and steps: `LocalR/architecture/12-tuples-plan.md`.
@@ -990,6 +990,25 @@ snapshots the merged tuples in `stages/production/` and masks the run ID (part o
 re-locked on lxplus: only this case changed (tuple paths, `pattern`, the manifest next to the tuples, the
 `run_root` lines of `plan`; the merged tuples are byte-identical), then `bbb check` 20/20.
 
+End to end on lxplus (2026-10-17, TODO §1): `~/tuples_test/prod.yml`, a production of one sample
+(`DYto2TautoMuTauh_M-50`, 2022_postEE, mutau, 4 jobs, `max_tries: 2`, `merge.clean: true`) followed by plots
+(`{tuples: production}`, mutau, `m_vis`, baseline), run `prod_test_20261017-023321`. The first 4 jobs were held
+for lack of a grid proxy ("reading from file /tmp/x509up_u<uid>: No such file"): the HTCondor template asks for one
+(`use_x509userproxy = true`) and the schedd cannot read the `/tmp` of the login node. The Framework saw the held
+jobs as missing, so that try was spent. With the proxy on AFS (`voms-proxy-init --voms cms --out
+~/private/x509up`, `export X509_USER_PROXY=...`) and the held cluster removed (`condor_rm`), `advance` resubmitted
+them (try 2 of 2) at 02:44; they ran 161-255 s each (exit code 0) and were done before 02:52. The next `advance`
+merged the 4 chunks from the configuration's EOS outdir with `hadd` into
+`<run_dir>/stages/production/2022_postEE/DY/DYto2TautoMuTauh_M-50_mutau.root` (16 MB, written 02:56), removed the
+chunks, and recorded one `pattern`, `<run_dir>/stages/production/$ERA/$GROUP`. Plots passed preflight, and
+`plot.py --tuples` stopped after 4 s at the first sample that was not produced,
+`<run_dir>/stages/production/2022_postEE/DY/DYto2L-4Jets_MLL-50_mutau.root`: inside the run, not `$PICODIR`, as
+intended. The run ends FAILED by design until the sample list is part of the recipe (TODO §6; `samples_v15.py`
+has the produced sample commented out). Found on the way, registered only: PicoProducer BUGS S17 (`loadjson` drops
+`store`, so a spurious "DAS path ... has wrong format" warning on every `status`/resubmit), Framework BUGS K07
+(`status` shows the last `advance`'s message next to a live job table that says complete); a proxy check before
+production submits is an idea in TODO §6.
+
 ### Fix on the way: Plotter L13, Fitter F25
 
 An exception to "no bug fixes until the refactor is finished", in its own commit: the Plotter and Fitter APIs asked
@@ -1004,7 +1023,7 @@ and a missing parent package).
 
 ### What is left (TODO)
 
-- TODO §1: production end to end in the run (a small production, then plots; plots stop at the first sample that was
-  not produced until the sample list is part of the recipe).
+- TODO §1: production end to end in the run passed (above); plots after a production in the run finish only once the
+  sample list is part of the recipe.
 - TODO §6: the `null` warning (and the production `tag` warning), production job files in the run, EOS as
-  `run_root`, the sample list in the recipe; R4 next.
+  `run_root`, the sample list in the recipe, a grid proxy check before production submits; R4 next.

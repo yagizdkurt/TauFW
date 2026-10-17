@@ -58,6 +58,20 @@ Commands 5-13 together take 41 s (3 %).
 
 The Plotter checks (`plot.py` with 2-3 variables) took minutes and were not timed.
 
+### Production in a Framework run (2026-10-17, CL §18)
+
+A small test, not a production-size measurement: one sample (`DYto2TautoMuTauh_M-50`, 2022_postEE, mutau), 4
+HTCondor jobs from lxplus925 (schedd `bigbird101`), chunks on EOS (`/eos/user/...`), run directory on AFS.
+
+| What | Duration |
+|---|---|
+| Job wall clock (`RemoteWallClockTime` from `condor_history`), 4 jobs | 161 s, 224 s, 241 s, 255 s |
+| Submit to all jobs done (idle time in the queue included) | under 8 min (02:44 - before 02:52) |
+| `hadd` of the 4 chunks into the run (16 MB tuple) | not timed: the Framework prints no time for the merge |
+
+The number of events per job was not recorded, so these give no rate. Next time: the events per chunk (job log),
+and a time for the merge (`date` around the `advance`).
+
 ## What the numbers say
 
 - **Making the shapes dominates.** In the Framework run the histograms stage is 90 % of the time (3 h 30 min of
