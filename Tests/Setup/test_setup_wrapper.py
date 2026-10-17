@@ -85,6 +85,10 @@ export TEST_ORIGINAL="$PWD/original clone"
 export TEST_RELEASE="$PWD/CMSSW_14_1_0_pre4"
 export TEST_INSTALLED="$TEST_RELEASE/src/TauFW"
 mkdir -p "$TEST_RELEASE/.SCRAM/el9_amd64_gcc12" "$TEST_RELEASE/src"
+python3() {
+  [[ $# == 1 && $1 == "$TEST_INSTALLED/taufw.py" && $PWD == "$TEST_INSTALLED" ]] || return 1
+  printf 'menu\n' >> "$TEST_ROOT/launches"
+}
 '''
         result = subprocess.run(
             [BASH, "-c", bootstrap + body],
@@ -107,6 +111,7 @@ source "$TEST_ORIGINAL/setup.sh"
 [[ $(type -t _taufw_setup_main || true) == '' ]]
 source ./setup.sh
 [[ $(wc -l < "$TEST_ROOT/runs") == 1 ]]
+[[ $(wc -l < "$TEST_ROOT/launches") == 2 ]]
 ''')
 
     def test_explicit_install_and_options_forwarded(self):
@@ -179,6 +184,7 @@ if source "$TEST_ORIGINAL/setup.sh"; then exit 1; else status=$?; fi
 [[ $status == {status} && $PWD == "$before" ]]
 [[ ${{CMSSW_BASE+x}} == "$before_cmssw_base_set" && ${{CMSSW_BASE-}} == "$before_cmssw_base" ]]
 [[ ! -e "$TEST_ORIGINAL/.git/taufw-setup-state" ]]
+[[ ! -e "$TEST_ROOT/launches" ]]
 ''')
 
     def test_copy_records_original_and_installed_locations(self):

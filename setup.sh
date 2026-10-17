@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# setup.sh: install TauFW once, then activate it in the current terminal.
+# setup.sh: install TauFW once, activate it, then open the interactive menu.
 #
 # Usage: source setup.sh [--install] [installer options]
 # Installation runs in a child process so the worker can use strict mode and
@@ -199,7 +199,10 @@ _taufw_setup_main() {
     IFS= read -r log_path < "$result.log-path" || true
     rm -f -- "$result" "$result.log-path"
   fi
-  _taufw_setup_activate "${state[1]}" "${state[2]}" "${state[3]}" "${state[4]}" "$log_path"
+  _taufw_setup_activate "${state[1]}" "${state[2]}" "${state[3]}" "${state[4]}" "$log_path" || return $?
+
+  # Use the verified installed checkout, even when setup moved the original.
+  python3 "${state[2]}/taufw.py"
 }
 
 # =============================================================================

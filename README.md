@@ -24,6 +24,7 @@ cd TauFW
 source setup.sh
 ```
 
+Setup activates the environment and opens the TauFW interactive menu.
 See the [FastSetup documentation](docs/FastSetup.md) for requirements and options.
 
 ### Manual
