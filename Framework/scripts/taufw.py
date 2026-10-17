@@ -13,7 +13,8 @@
                                                           (plots, histograms, fit, python: run locally)
   taufw.py status  RUN_DIR                                saved and live state of a run (read-only)
   taufw.py init    NAME [--from RECIPE] [--root DIR]      new analysis bundle Analyses/NAME/ (with copies of the
-                                                          module configs RECIPE uses, next to its recipe.yml)
+                                                          files of RECIPE's bundle and of the module configs it
+                                                          uses, next to its recipe.yml)
   taufw.py configs [update]                               the config templates of Configs/ to copy into a bundle;
                                                           update (maintainers): raise the versions of changed
                                                           templates and rewrite Configs/configs.lock
@@ -331,8 +332,8 @@ def build_parser():
     init = subparsers.add_parser('init', parents=[common], help="new analysis bundle")
     init.add_argument('name', help="name of the bundle directory and of its recipe")
     init.add_argument('--from', dest='source', default=None, metavar='RECIPE',
-                      help="start from this bundle or recipe file, with copies of the module configs it uses "
-                           "next to the new recipe.yml")
+                      help="start from this bundle or recipe file, with copies of its bundle's files and of the "
+                           "module configs it uses next to the new recipe.yml")
     init.add_argument('--root', default=None, metavar='DIR', help="parent directory, default=%s" % (ANALYSES_DIR))
     configs = subparsers.add_parser('configs', parents=[common], help="the config templates of Configs/")
     configs.add_argument('action', nargs='?', choices=('list', 'update'), default='list',

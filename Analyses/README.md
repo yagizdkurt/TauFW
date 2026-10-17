@@ -67,11 +67,14 @@ python3 taufw.py init my_tes --from Analyses/tes_id_2025  # a copy of a bundle o
                                                         # the module configs it uses next to recipe.yml
 ```
 
-`init --from` copies every Plotter or Fitter config the recipe takes from its
-module next to the new `recipe.yml` (a name that is taken becomes
-`plotter_<name>` or `fitter_<name>`) and points the new recipe at the copies, so
-you can edit them without touching the modules. Comments of the
-source recipe are not kept.
+`init --from` copies every file of the source bundle (its configs, its copies
+of `Configs/` templates with their `taufw_config` header, its Python steps) to
+the same place in the new bundle, and every Plotter or Fitter config the recipe
+takes from its module next to the new `recipe.yml` (a name that is taken
+becomes `plotter_<name>` or `fitter_<name>`), pointing the new recipe at those
+copies, so you can edit them without touching the modules. From a loose recipe
+file, only the files its options name are copied. Comments of the source recipe
+are not kept.
 
 For production alone, `Analyses/my_mutau/recipe.yml` could be:
 

@@ -56,7 +56,7 @@ from datetime import datetime
 from typing import Mapping, Optional, Tuple
 from TauFW.Framework.defaults import (DEFAULT_RUN_ROOT, RUN_LOG_NAME, DEFAULT_POLL_SECONDS, BUNDLE_DIR_NAME,
                                       timestamp, default_file_io)
-from TauFW.Framework.bundle import path_rows, snapshot, make_bundle
+from TauFW.Framework.bundle import path_rows, snapshot, make_bundle, source_files
 from TauFW.Framework.manifest import write_manifest, ManifestError
 from TauFW.Framework.recipe import Recipe, RecipeError, Issue
 from TauFW.Framework.samples import sample_issues
@@ -199,8 +199,9 @@ class Framework:
         return RunSummary(run_id=record.run_id, state=record.state, run_dir=record.run_dir, stages=tuple(summaries))
 
     def make_bundle(self, target, name=None):
-        """Write a new analysis bundle at `target` from this recipe: recipe.yml, copies of the module configs its
-        stages use (next to recipe.yml) with the recipe pointing at them, and steps/example.py.
+        """Write a new analysis bundle at `target` from this recipe: recipe.yml, the recipe's own files (every file
+        of its bundle, at the same relative paths), copies of the module configs its stages use (next to recipe.yml)
+        with the recipe pointing at them, and steps/example.py.
         name: the new recipe's name (default: the bundle directory's name). Returns the copied config paths.
         Raises BundleError if `target` exists."""
         sources = {}
@@ -212,7 +213,8 @@ class Framework:
                     sources[(stage_spec.id, option, value)] = (stage.group, found)
         data = self.recipe.to_dict()
         data['name'] = name or os.path.basename(os.path.abspath(target))
-        return make_bundle(data, sources, target, self.files)
+        extra = source_files(self.recipe) if self.recipe.bundle_dir else {}
+        return make_bundle(data, sources, target, self.files, extra=extra)
 
     # =========================================================================
     # ============================ STAGE DISPATCH =============================

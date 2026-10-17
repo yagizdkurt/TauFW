@@ -323,6 +323,24 @@ class MakeBundleTests(BundleTestCase):
         with self.assertRaises(BundleError):
             self.framework(Recipe.load(source)).make_bundle(target)
 
+    def test_make_bundle_copies_the_source_bundle(self):  # its own files too, e.g. copies of Configs/ templates
+        self.write("steps/check.py", "def run(ctx):\n    pass\n")
+        self.write("samples/v15_2025.yml", "taufw_config: {}\n")
+        self.write("__pycache__/x.pyc", "")
+        source = self.recipe(dict(PLOTS, configs=["mutau", "setup_mumu.yml"]), pico="pico.json")  # steps/: files
+        target = os.path.join(self.root, "Analyses", "copy")
+        copied = self.framework(source).make_bundle(target)
+        self.assertEqual(sorted(copied), sorted(os.path.normpath(path) for path in [
+            "mm.yml", "mutau", "pico.json", "samples/v15_2025.yml", "setup_mumu.yml", "steps/check.py", "tt.yml"]))
+        recipe = Recipe.load(target)
+        self.assertEqual(recipe.stage("plots").options["configs"], ["mutau", "setup_mumu.yml"])
+        self.assertEqual(where("setup_mumu.yml", target), "bundle")
+        self.assertEqual(recipe.pico_config, "pico.json")
+        self.assertFalse(os.path.exists(os.path.join(target, "__pycache__")))
+        self.assertFalse(os.path.exists(os.path.join(target, "steps", "example.py")))  # the source has steps
+        with open(os.path.join(target, "setup_mumu.yml")) as stream:
+            self.assertEqual(stream.read(), "original setup_mumu.yml\n")
+
     def test_copied_names_do_not_clash(self):
         from TauFW.Framework.bundle import _free_name
         taken = []

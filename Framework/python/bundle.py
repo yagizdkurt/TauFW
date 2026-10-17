@@ -32,7 +32,8 @@ Public API:
   bundle_files(recipe)              the bundle-relative files a recipe's options name
   snapshot(recipe, target)          copy the bundle (or those files) to a run's bundle/ directory
   is_bundle(directory)              True for a directory with a recipe.yml
-  make_bundle(recipe_dict, sources, target, files)   a new bundle with copies of the module configs
+  make_bundle(recipe_dict, sources, target, files, extra)   a new bundle with copies of the module configs and of
+                                    the source bundle's own files
 """
 import os
 import shutil
@@ -41,7 +42,7 @@ from dataclasses import replace
 from TauFW.Framework.defaults import RECIPE_NAME, DEFAULT_RUN_ROOT
 
 __all__ = ['resolve', 'where', 'leaves_bundle', 'resolve_spec', 'path_rows', 'bundle_files', 'snapshot',
-           'is_bundle', 'make_bundle', 'BundleError', 'STEP_TEMPLATE', 'MAX_BUNDLE_BYTES']
+           'is_bundle', 'make_bundle', 'source_files', 'BundleError', 'STEP_TEMPLATE', 'MAX_BUNDLE_BYTES']
 
 
 # =============================================================================
@@ -142,21 +143,25 @@ def is_bundle(directory):
 # ================================ NEW BUNDLE =================================
 
 
-def make_bundle(recipe_dict, sources, target, files):
-    """Write a new bundle: target/recipe.yml, the module configs it uses copied next to it, and
-    target/steps/example.py.
+def make_bundle(recipe_dict, sources, target, files, extra=None):
+    """Write a new bundle: target/recipe.yml, the files of the source bundle (extra), the module configs it uses
+    copied next to recipe.yml, and target/steps/example.py (unless the source bundle has a steps/ directory).
 
     recipe_dict: the recipe as a dict (Recipe.to_dict()); its path options are rewritten to the copies.
     sources:     {(stage id, option, value): (group, absolute source file)} for every module config to copy
                  (the Framework finds them through the stages' module APIs; see Framework.make_bundle).
     files:       a TauFW.Utilities FileIO.
+    extra:       {path relative to the bundle: absolute source file}: the source bundle's own files (its configs,
+                 copies of Configs/ templates with their taufw_config header, Python steps), copied to the same
+                 relative path, so the recipe's values stay valid.
     Raises BundleError if the target exists."""
     if os.path.exists(target):
         raise BundleError("%s exists already: choose another name" % (target))
+    extra = dict(extra or {})
     copies = {}  # absolute source -> path relative to the bundle
     for group, source in sorted(sources.values()):
         if source not in copies:
-            copies[source] = _free_name(copies.values(), group, source)
+            copies[source] = _free_name(list(copies.values()) + list(extra), group, source)
     for entry in recipe_dict['stages']:
         stage_id = entry['id']
         for option, value in list(entry.items()):
@@ -165,16 +170,26 @@ def make_bundle(recipe_dict, sources, target, files):
             elif isinstance(value, str):
                 entry[option] = _copied(sources, copies, stage_id, option, value)
     files.make_directory(os.path.join(target, 'steps'))
+    for relative, source in sorted(extra.items()):
+        copies[source] = relative
     for source, relative in copies.items():
         files.make_directory(os.path.dirname(os.path.join(target, relative)))
         files.copy_file(source, os.path.join(target, relative))
-    files.write_text(os.path.join(target, 'steps', 'example.py'), STEP_TEMPLATE)
+    if not any(relative.replace(os.sep, '/').startswith('steps/') for relative in extra):  # the source's steps instead
+        files.write_text(os.path.join(target, 'steps', 'example.py'), STEP_TEMPLATE)
     files.write_yaml(os.path.join(target, RECIPE_NAME), recipe_dict)
     return tuple(sorted(copies.values()))
 
 
 # =============================================================================
 # ================================== HELPERS ==================================
+
+
+def source_files(recipe):
+    """{relative path: absolute file} of a recipe's own files, for a new bundle made from it: every file of its
+    bundle (as a run copies it, without recipe.yml), or for a loose recipe file the files its options name."""
+    relatives = _bundle_tree(recipe.bundle_dir) if is_bundle(recipe.bundle_dir) else bundle_files(recipe)
+    return {relative: os.path.join(recipe.bundle_dir, relative) for relative in relatives if relative != RECIPE_NAME}
 
 
 def _path_fields(spec):

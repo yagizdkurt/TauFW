@@ -1348,3 +1348,13 @@ model with the templates. On Windows (stub utils) the snapshot of the case befor
   `Configs/Plotter/setups/` (from the script's directory); defaults are channel names. The Plotter API resolves a
   channel name the same way. `Plotter/config/` keeps the Python sample configs (`samples*.py`).
 - `READERS` of `Tests/Framework/test_configs.py`: `plotter.setup_` (yaml, with `channel` and `baselineCuts`).
+
+### `taufw.py init --from` copies the source bundle's own files
+
+`init --from` copied only the configs a recipe takes from the modules; the source bundle's own files (its setup and
+fit config copies, its sample files, its Python steps) were not copied, so `init new --from Analyses/tes_id_2025` made
+a recipe that named files the new bundle did not have. Now `Framework.make_bundle` copies every file of the source
+bundle to the same relative path (`bundle.source_files`: as a run copies a bundle, without `recipe.yml`, caches and
+runs; a loose recipe file: the files its options name), so copies of `Configs/` templates keep their header and the
+recipe's values stay valid. `steps/example.py` is written only when the source has no `steps/`. Test:
+`test_make_bundle_copies_the_source_bundle`.

@@ -128,7 +128,7 @@ taufw.py advance taufw_runs/mutau_2022_postEE_short_20261013-120000  # check; re
 taufw.py status  taufw_runs/mutau_2022_postEE_short_20261013-120000  # recorded and live state (read-only)
 taufw.py advance taufw_runs/... --wait --poll 900              # keep advancing every 15 minutes until done
 taufw.py plan    Analyses/tes_id_2025                          # the commands of the plots, histograms, fit and python steps
-taufw.py init    my_tes --from Analyses/tes_id_2025            # new bundle Analyses/my_tes/ with copies of its configs
+taufw.py init    my_tes --from Analyses/tes_id_2025            # new bundle Analyses/my_tes/: a copy of its files
 ```
 
 The same from Python:
