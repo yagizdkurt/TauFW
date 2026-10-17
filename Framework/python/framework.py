@@ -155,13 +155,16 @@ class Framework:
         Side effects: whatever the stages do (production: submit, resubmit, merge); run.json and run.log."""
         check_writable(record.run_dir, "run directory")
         self.reporter.attach_log(os.path.join(record.run_dir, RUN_LOG_NAME))
+        self.reporter.event('run', run_id=record.run_id, run_dir=record.run_dir)
         while True:
             self._advance_stages(record)
             record.save(self.files)
             self.reporter.message("Run %s: %s" % (record.run_id, record.state))
+            self.reporter.event('run_state', run_id=record.run_id, state=RunState(record.state).value)
             if not (wait and record.state == RunState.WAITING):
                 return record
             self.reporter.message("Waiting %s s before the next check..." % (poll))
+            self.reporter.event('wait', seconds=poll)
             self.sleep(poll)
 
     def run(self, recipe=None, run_root=None, wait=False, poll=DEFAULT_POLL_SECONDS):
@@ -254,6 +257,7 @@ class Framework:
         if stage_record.request is None and hasattr(stage_spec.spec, 'request_dict'):
             stage_record.request = stage_spec.spec.request_dict()  # save the request once, for run.json
         self.reporter.header("Stage %s (%s)" % (stage_spec.id, stage_record.state))
+        self.reporter.event('stage_step', stage=stage_spec.id, type=stage_spec.stage, state=stage_record.state)
         try:
             problems = _read_sources(stage_spec)[2]
             if problems:
@@ -287,6 +291,8 @@ class Framework:
         report = self.reporter.warning if outcome.state is StageState.FAILED else self.reporter.message
         report("Stage %s: %s%s" % (stage_record.name, outcome.state.value,
                                    " - " + outcome.message if outcome.message else ""))
+        self.reporter.event('stage_state', stage=stage_record.name, state=outcome.state.value,
+                            message=outcome.message)
 
     def _write_manifest(self, record, stage_spec, stage_record):
         """<run_dir>/stages/<id>/manifest.json of a stage that is DONE (see manifest.py): which stage of which run

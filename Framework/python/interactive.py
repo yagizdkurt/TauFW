@@ -19,7 +19,7 @@ from TauFW.Framework.validation import check_recipe
 from TauFW.Framework.framework import Framework
 from TauFW.Framework.reporting import SilentReporter
 from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation
-from TauFW.Utilities.Process import BackgroundProcess
+from TauFW.Utilities.Process import BackgroundProcess, EventWriter
 
 
 class _Operations:
@@ -194,7 +194,8 @@ class _Operations:
                                        events=str(logs / "events.jsonl"))
 
     def execute(self, command, **values):
-        args = dict(verbose=0, wait=False, poll=DEFAULT_POLL_SECONDS, run_root=None, local=False, maxevts=100)
+        args = dict(verbose=0, wait=False, poll=DEFAULT_POLL_SECONDS, run_root=None, local=False, maxevts=100,
+                    events=EventWriter(None))  # in the menu's own process: no events (taufw.py main sets them)
         args.update(values)
         return self.commands[command](Namespace(**args))
 

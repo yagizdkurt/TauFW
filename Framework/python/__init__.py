@@ -19,17 +19,18 @@ Public API:
   RunRecord, RunState, StageRecord              run.json (run_record.py)
   StageState, StageOutcome, STAGES              the stage contract (stages/); plots, histograms and fit call
                                                 the Plotter and Fitter APIs (TauFW.Plotter.api, TauFW.Fitter.api)
-  Reporter, FrameworkReporter, SilentReporter   reporting (reporting.py)
+  Reporter, FrameworkReporter, SilentReporter,  reporting (reporting.py); EventReporter also writes events for
+  EventReporter                                 the menu's screens
 """
 from TauFW.Framework.recipe import Recipe, StageSpec, Issue, RecipeError
 from TauFW.Framework.validation import check_recipe, RecipeCheck
 from TauFW.Framework.run_record import RunRecord, RunState, StageRecord
 from TauFW.Framework.stages import STAGES, StageState, StageOutcome
-from TauFW.Framework.reporting import Reporter, FrameworkReporter, SilentReporter
+from TauFW.Framework.reporting import Reporter, FrameworkReporter, SilentReporter, EventReporter
 from TauFW.Framework.framework import Framework, load_run, RunPlan, RunSummary, RunDirectoryError
 
 __all__ = ['Framework', 'load_run', 'RunPlan', 'RunSummary', 'RunDirectoryError',
            'Recipe', 'StageSpec', 'Issue', 'RecipeError',
            'check_recipe', 'RecipeCheck',
            'RunRecord', 'RunState', 'StageRecord', 'STAGES', 'StageState', 'StageOutcome',
-           'Reporter', 'FrameworkReporter', 'SilentReporter']
+           'Reporter', 'FrameworkReporter', 'SilentReporter', 'EventReporter']

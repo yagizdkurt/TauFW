@@ -8,17 +8,33 @@ messages go:
   FrameworkReporter(cli, files)   prints to the terminal (TauFW.Utilities CLI) and, once attach_log() names a
                                   file, also writes a plain-text copy to run.log
   SilentReporter()                prints nothing and keeps the messages in .messages (for tests and library use)
+  EventReporter(reporter, writer) passes everything on to `reporter` unchanged, and also writes it as events
+                                  (TauFW.Utilities.Process.EventWriter) for the menu's screens
 
 pico_reporter(stage) wraps a reporter so that PicoProducer can use it. PicoProducer's messages then go to the same
 terminal and run.log, tagged with the stage name.
 
+Besides the messages, the Framework reports what it does as events: reporter.event(kind, **fields). Only an
+EventReporter writes them; the other reporters ignore them (SilentReporter keeps them in .events), so the terminal
+output never changes. The kinds (the menu follows a command started beside its screen through them):
+
+  run         run_id, run_dir                     advance() starts on this run
+  stage_step  stage, type, state                  one step of a stage starts (its state before the step)
+  stage_state stage, state, message               the stage's state after the step
+  progress    stage, index, total, label, status  a local command starts (status "run") or ends ("ok"/"failed",
+              [seconds]                           with seconds)
+  run_state   run_id, state                       the run's state after advancing
+  wait        seconds                             advance(wait=True) sleeps before the next check
+  error       message                             taufw.py stops on a recipe or run directory problem
+An EventReporter also writes header, message and warning (text) and table (headers, rows) events.
+
 Public API:
-  Reporter, SilentReporter, FrameworkReporter
+  Reporter, SilentReporter, FrameworkReporter, EventReporter
 """
 import re
 from TauFW.Framework.defaults import default_file_io
 
-__all__ = ['Reporter', 'SilentReporter', 'FrameworkReporter']
+__all__ = ['Reporter', 'SilentReporter', 'FrameworkReporter', 'EventReporter']
 
 
 # =============================================================================
@@ -59,6 +75,9 @@ class Reporter:
     def attach_log(self, path):
         """From now on, also write the messages to this run.log. By default there is no log file."""
 
+    def event(self, kind, **fields):
+        """What the Framework does, for a screen (see the kinds above). By default it is ignored."""
+
     def pico_reporter(self, stage):
         """A PicoProducer reporter that forwards to this reporter, tagged with the stage name."""
         return _PicoAdapter(self, stage)
@@ -81,6 +100,9 @@ class SilentReporter(Reporter):
         self._record('table', "%s %s" % (list(headers), rows))
         return rows
 
+    def event(self, kind, **fields):
+        self.events.append((kind, fields))
+
     # =========================================================================
     # ================================ HELPERS ================================
 
@@ -89,6 +111,7 @@ class SilentReporter(Reporter):
 
     def __init__(self):
         self.messages = []
+        self.events = []  # (kind, fields)
 
 
 class FrameworkReporter(Reporter):
@@ -135,6 +158,47 @@ class FrameworkReporter(Reporter):
         self.files = files or default_file_io()
         self.logpath = None
         self.messages = []  # kept for callers that read .messages; the terminal reporter adds nothing to it
+
+
+class EventReporter(Reporter):
+    """Passes every call on to another reporter (its output does not change), and writes the messages and the
+    Framework's events to an events file through writer.emit(kind, **fields) (TauFW.Utilities.Process.EventWriter).
+    PicoProducer's own lines (raw) are not events: they stay in the output only."""
+
+    def header(self, title):
+        self.reporter.header(title)
+        self.writer.emit('header', text=title)
+
+    def message(self, text):
+        self.reporter.message(text)
+        self.writer.emit('message', text=text)
+
+    def warning(self, text):
+        self.reporter.warning(text)
+        self.writer.emit('warning', text=text)
+
+    def table(self, headers, rows):
+        rows = self.reporter.table(headers, rows)
+        self.writer.emit('table', headers=[str(h) for h in headers], rows=[[str(c) for c in row] for row in rows])
+        return rows
+
+    def raw(self, text):
+        self.reporter.raw(text)
+
+    def attach_log(self, path):
+        self.reporter.attach_log(path)
+
+    def event(self, kind, **fields):
+        self.reporter.event(kind, **fields)
+        self.writer.emit(kind, **fields)
+
+    @property
+    def messages(self):
+        return self.reporter.messages
+
+    def __init__(self, reporter, writer):
+        self.reporter = reporter
+        self.writer = writer
 
 
 # =============================================================================

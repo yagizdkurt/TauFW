@@ -1172,8 +1172,8 @@ infrastructure and moves the tests onto it; the run screens (start, advance, sta
 
 ### What is left
 
-- The run screens: `EventReporter` + `taufw.py` events (stage, progress, wait), `start`/`advance` detached with a run
-  lock that records the host (lxplus logins land on different machines), `status`/`plan`/`prepare_review` beside the
+- The run screens: `EventReporter` + `taufw.py` events (stage, progress, wait; done in §22), `start`/`advance`
+  detached with a run lock that records the host (lxplus logins land on different machines), `status`/`plan`/`prepare_review` beside the
   screen, one curses session for the whole menu, errors shown on screen instead of printed.
 
 ## 21. Configs: config templates with an id, a version and a lock
@@ -1220,3 +1220,30 @@ changed with CRLF kept, comment-only change, raised by hand, lowered, removed, p
 `check_recipe`. Two tests read this checkout's `Configs/`: the lock must be up to date (else: run
 `taufw.py configs update`), and every template must be readable by its module's reader (`READERS` in the test; the
 first template brings its reader). Framework tests: 151.
+
+
+## 22. Framework: events for the menu (EventReporter)
+
+**Date:** 2026-10-17 (Windows tests pass; lxplus check in TODO §1 "Test screen on lxplus")
+
+Stage 0 of the menu program (§20) for the Framework: `taufw.py` reports what it does as events, so a run screen can
+follow a `start`/`advance` started beside it the way the test screen follows `Tests/run.py`. Nothing reads these
+events yet; the run screens come next. The terminal output and `run.log` do not change.
+
+- `reporting.py`: `Reporter.event(kind, **fields)`, ignored by default (`FrameworkReporter` prints nothing new;
+  `SilentReporter` keeps them in `.events` for the tests). `EventReporter(reporter, writer)` passes every call on to
+  `reporter` unchanged and also writes header, message, warning, table and the events through an `EventWriter`
+  (§20). PicoProducer's own lines (`raw`) stay in the output only.
+- The events: `run` (run_id, run_dir) when `advance()` starts, `stage_step` (stage, type, state before the step),
+  `stage_state` (stage, state, message after it), `run_state` (run_id, state), `wait` (seconds) before
+  `advance --wait` sleeps; `LocalStage._progress`: `progress` (stage, index, total, label, status `run`/`ok`/
+  `failed`, seconds at the end) for every command of plots, histograms, fit and python; `taufw.py`: `error` (message)
+  on a recipe or run directory problem. The list is in the docstring of `reporting.py`.
+- `taufw.py`: `main` reads `$TAUFW_EVENTS` once and removes it from the environment (the commands the stages run, and
+  the batch jobs they submit, never see it); every command takes its reporter from `_reporter(args)`: the terminal
+  reporter, inside an `EventReporter` when the variable was set. `interactive.py` runs the commands in the menu's own
+  process without events.
+- Checked: `taufw.py check`/`plan`/`configs` print byte for byte the same with and without `$TAUFW_EVENTS` (Windows,
+  five commands); `Tests/Framework`: the event order of a waiting run, the progress events, `EventReporter` (same
+  terminal output and `run.log` as without it), `taufw.py start` with the variable (removed before a stage submits)
+  and the `error` event. BBB (`framework.*`) runs without the variable, so it still checks the plain output.

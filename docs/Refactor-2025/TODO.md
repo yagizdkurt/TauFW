@@ -55,11 +55,13 @@ Items marked **(verify)** may already be done; check before working on them.
       `prod_test_20261017-023321`'s production manifest converted the same way; `check` and `plan` of a plots recipe
       with `{tuples: {path: ...}}` (the `--tuples` pattern is that run's). (6) `taufw.py plan Analyses/tes_id_2025`
       as before.
-- [ ] **Test screen on lxplus (CL §20):** `python3 Tests/run.py checks` (all but `check_import_boundaries` pass), then
+- [ ] **Test screen on lxplus (CL §20, §22):** `python3 Tests/run.py checks` (all but `check_import_boundaries` pass), then
       in the menu (`taufw.py`): Tests > Normal tests > Run entire family: the cases fill in live, a running case's log
       grows in Details, Enter/L/End work, no line is printed over the screen. Stop a BBB check with S and with Esc + Y:
       the run ends within seconds and `ps -u $USER` shows no left-over worker. `Tests/Utilities/test_background.py`
-      runs the real process-group test there (skipped on Windows).
+      runs the real process-group test there (skipped on Windows). Framework events (§22): `python3 Tests/run.py bbb check`
+      for the `framework.*` cases passes unchanged; then `TAUFW_EVENTS=/tmp/$USER-ev.jsonl taufw.py advance <a run
+      with a local stage>` prints the same and the file holds run, stage_step, progress, stage_state, run_state.
 - [ ] SGE adapter (S01) has never run on an SGE site; nice to have. ([PicoProducer BUGS](../PicoProducer/BUGS.md) S01)
 
 ## 2. Moving `common/python/tools/` into `TauFW.Utilities`
@@ -302,10 +304,17 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
         `Configs/`, also when the analysis keeps the old version on purpose (e.g. to reproduce a published result).
         For now a plain warning (user, 2026-10-17); if it becomes noise, a recipe key that accepts a named
         id/version.
-      - Moving the existing module configs to `Configs/` (`Plotter/config/setup_*.yml`, the Fitter fit configs, the
-        PicoProducer sample lists once they are data): decided last (LocalR/architecture/13). Each moved file gets a
-        header; check that its reader ignores the `taufw_config` key; scripts, shell scripts, docs and BBB cases
-        name the old paths.
+      - Moving the existing module configs to `Configs/`. Decided (user, 2026-10-17): each module's YAML configs
+        move when the step that touches them is done, not in one separate move:
+        `Plotter/config/setup_*.yml` (and `Plotter/tutorial/config/setup_mutau.yml`) at the end of the sample-model
+        step; the Fitter fit configs (`Fitter/TauES/config/`, `Fitter/TauES_ID/config/`) inside the step that moves
+        histogram filling out of the Fitter (`config_coarse_TT.yml` is likely split there, so it moves once); the
+        PicoProducer sample lists (`PicoProducer/samples/*.py`, Python) when they become data. Python configs and
+        `PicoProducer/config/` (internal, user/machine settings) never move. For every move: a `taufw_config`
+        header; the reader must ignore that key; the default paths of the scripts (`plot.py`
+        `config/setup_%s.yml`, `createinputsTES.py`), the `run_*.sh` scripts, the API path resolution ("relative to
+        Plotter/ or Fitter/"), the bundle path rule (`module`), `taufw.py init --from`, docs and BBB cases name the
+        old paths (20-32 files per directory); the copies already in `Analyses/*/` have no header and need one.
       - Optional: a git pre-commit hook that runs `taufw.py configs update`, so the lock never needs a test failure
         to be noticed (hooks are per clone: needs a setup step).
       - The menu does not list the templates yet (`taufw.py configs` does).

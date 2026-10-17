@@ -1,17 +1,20 @@
 """Framework state machine, run record, recipes and taufw.py, driven by a fake PicoProducer (no ROOT, no batch)."""
 import importlib.util
+import io
 import json
 import os
 import shutil
 import tempfile
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime, timedelta
 from unittest import mock
 
 import checkout  # noqa: F401  (must precede TauFW imports)
 import fakes
 from TauFW.Framework import (Framework, Recipe, RecipeError, RunRecord, SilentReporter, StageState,
-                             RunDirectoryError)
+                             RunDirectoryError, EventReporter, FrameworkReporter)
+from TauFW.Utilities.Process import EVENTS_ENV, EventReader, EventWriter
 from TauFW.Framework.stages import ProductionStage, StageOutcome, decide_next, Action
 from TauFW.Framework.stages.production import StatusCounts
 
@@ -150,6 +153,23 @@ class StateMachineTests(FrameworkTestCase):
         self.assertEqual(record.state, "DONE")
         self.assertEqual(sleeps, [7, 7])
         self.assertEqual(pico.names(), ["plan", "submit", "status", "status", "status", "merge"])
+
+    def test_events_follow_the_run(self):
+        pico = fakes.FakePicoProducer(statuses=[fakes.pending("DY"), fakes.complete("DY")])
+        fw = framework(pico)
+        record = fw.run(run_root=self.root, wait=True, poll=7)
+        events = fw.reporter.events
+        self.assertEqual(events[0], ("run", {"run_id": record.run_id, "run_dir": record.run_dir}))
+        self.assertEqual([kind for kind, _ in events],
+                         ["run", "stage_step", "stage_state", "run_state",  # start(): submit
+                          "run", "stage_step", "stage_state", "run_state", "wait",  # advance(wait=True): pending
+                          "stage_step", "stage_state", "stage_step", "stage_state", "run_state"])  # merge, done
+        self.assertEqual(events[1], ("stage_step", {"stage": "production", "type": "production", "state": "NEW"}))
+        self.assertEqual([fields["state"] for kind, fields in events if kind == "run_state"],
+                         ["WAITING", "WAITING", "DONE"])
+        self.assertEqual(events[8], ("wait", {"seconds": 7}))
+        self.assertEqual(events[-2], ("stage_state", {"stage": "production", "state": "DONE",
+                                                      "message": "merged 2 tuple(s)"}))
 
     def test_stage_exception_is_recorded_and_raised(self):
         pico = fakes.FakePicoProducer(statuses=[fakes.pending("DY")])
@@ -476,6 +496,58 @@ class RecipeTests(FrameworkTestCase):
             Recipe.load(os.path.join(self.root, "recipe.txt"))
 
 
+class ReporterTests(FrameworkTestCase):
+    def setUp(self):
+        super().setUp()
+        self.path = os.path.join(self.root, "events.jsonl")
+
+    def test_event_reporter_passes_everything_on_and_writes_events(self):
+        inner = SilentReporter()
+        reporter = EventReporter(inner, EventWriter(self.path))
+        reporter.header("Stage plots (NEW)")
+        reporter.message("[plots] 1/2 plots ...")
+        reporter.warning("not ready")
+        self.assertEqual(reporter.table(["a", "b"], [(1, None)]), [[1, None]])
+        reporter.raw(">>> a PicoProducer line")
+        reporter.pico_reporter("production").warning("no proxy")
+        reporter.event("progress", stage="plots", index=1, total=2, label="plots", status="run")
+        self.assertIs(reporter.messages, inner.messages)
+        self.assertEqual([kind for kind, _ in inner.messages],
+                         ["header", "message", "warning", "table", "message", "warning"])  # raw: a message
+        self.assertEqual(inner.events, [("progress", dict(stage="plots", index=1, total=2, label="plots",
+                                                          status="run"))])
+        events = [{k: v for k, v in e.items() if k != "t"} for e in EventReader(self.path).read()]
+        self.assertEqual(events, [
+            {"kind": "header", "text": "Stage plots (NEW)"},
+            {"kind": "message", "text": "[plots] 1/2 plots ..."},
+            {"kind": "warning", "text": "not ready"},
+            {"kind": "table", "headers": ["a", "b"], "rows": [["1", "None"]]},
+            {"kind": "warning", "text": "[production] no proxy"},  # raw lines stay in the output only
+            {"kind": "progress", "stage": "plots", "index": 1, "total": 2, "label": "plots", "status": "run"}])
+
+    def test_terminal_output_and_run_log_do_not_change(self):
+        def report(reporter):
+            reporter.attach_log(os.path.join(self.root, "%d.log" % (len(os.listdir(self.root)))))
+            reporter.header("TauFW run x")
+            reporter.message("Run directory: here")
+            reporter.warning("careful")
+            reporter.table(["stage", "state"], [("plots", "DONE")])
+            reporter.raw(">>> raw")
+            reporter.event("run_state", run_id="x", state="DONE")
+        outputs = []
+        for wrap in (lambda r: r, lambda r: EventReporter(r, EventWriter(self.path))):
+            stream = io.StringIO()
+            with redirect_stdout(stream), redirect_stderr(stream):  # warnings go to stderr
+                report(wrap(FrameworkReporter()))
+            outputs.append(stream.getvalue())
+        self.assertIn("careful", outputs[0])
+        self.assertEqual(outputs[0], outputs[1])
+        logs = sorted(f for f in os.listdir(self.root) if f.endswith(".log"))
+        with open(os.path.join(self.root, logs[0])) as first, open(os.path.join(self.root, logs[1])) as second:
+            self.assertEqual(first.read(), second.read())
+        self.assertEqual(len(EventReader(self.path).read()), 5)
+
+
 class CommandLineTests(FrameworkTestCase):
     def setUp(self):
         super().setUp()
@@ -540,6 +612,45 @@ class CommandLineTests(FrameworkTestCase):
                             create=True):
                 self.assertEqual(self.cli.main(["start", recipe]), 1)  # the reason, no traceback
             self.assertIn("cannot write in the run root", [t for k, t in reporter.messages if k == "warning"][-1])
+
+    def test_events_from_the_environment(self):
+        pico = fakes.FakePicoProducer(statuses=[fakes.pending("DY")])
+        recipe = os.path.join(self.root, "r.json")
+        with open(recipe, "w") as stream:
+            json.dump(RECIPE, stream)
+        path = os.path.join(self.root, "events.jsonl")
+        real = Framework.from_recipe
+        seen = []
+        with mock.patch.object(self.cli.Framework, "from_recipe",
+                               side_effect=lambda r, reporter=None, fake=pico, **kw: real(r, reporter=reporter, pico=fake)), \
+             mock.patch.dict(os.environ, {EVENTS_ENV: path}):
+            pico.submit = mock.Mock(side_effect=lambda *a, **k: seen.append(os.environ.get(EVENTS_ENV)) or
+                                    fakes.FakePicoProducer.submit(pico, *a, **k))
+            self.assertEqual(self.cli.main(["start", recipe, "--run-root", self.root]), 0)
+            self.assertNotIn(EVENTS_ENV, os.environ)  # removed before any stage runs a command
+        self.assertEqual(seen, [None])
+        events = EventReader(path).read()
+        kinds = [event["kind"] for event in events]
+        self.assertEqual(kinds[kinds.index("run"):kinds.index("run") + 3], ["run", "header", "stage_step"])
+        self.assertIn({"kind": "message", "text": "Run root: %s (--run-root)" % (self.root)},
+                      [{k: v for k, v in e.items() if k != "t"} for e in events])
+        self.assertEqual([e["state"] for e in events if e["kind"] == "run_state"], ["WAITING"])
+
+    def test_error_event_and_nothing_without_the_variable(self):
+        path = os.path.join(self.root, "events.jsonl")
+        invalid = os.path.join(self.root, "invalid.json")
+        with open(invalid, "w") as stream:
+            json.dump({"name": "invalid"}, stream)  # no stages
+        with mock.patch.dict(os.environ, {EVENTS_ENV: path}):
+            self.assertEqual(self.cli.main(["plan", invalid]), 1)
+        errors = [event for event in EventReader(path).read() if event["kind"] == "error"]
+        self.assertEqual(len(errors), 1)
+        self.assertIn("stages", errors[0]["message"])
+        os.remove(path)
+        with mock.patch.dict(os.environ):
+            os.environ.pop(EVENTS_ENV, None)
+            self.assertEqual(self.cli.main(["plan", invalid]), 1)
+        self.assertFalse(os.path.exists(path))
 
     def test_parser(self):
         parser = self.cli.build_parser()

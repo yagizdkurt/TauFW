@@ -20,6 +20,10 @@
 
 RECIPE is an analysis bundle directory (Analyses/<name>, with recipe.yml) or a recipe file.
 
+With $TAUFW_EVENTS set (the menu does that for a command it runs beside its screen), every command also writes its
+messages and the Framework's events (TauFW.Framework.reporting) to that file; the output does not change. The
+variable is removed from the environment first, so the commands the stages run never see it.
+
 The runs go to the recipe's run_root (start --run-root DIR takes precedence; without both: taufw_runs/ here).
 
 Exit code: 1 if the run failed or the recipe is invalid (warnings do not count), otherwise 0. See
@@ -30,12 +34,13 @@ import shlex
 import sys
 from argparse import ArgumentParser
 try:
-    from TauFW.Framework import (Framework, Recipe, RecipeError, load_run, FrameworkReporter, RunState,
-                                 check_recipe, RunDirectoryError)
+    from TauFW.Framework import (Framework, Recipe, RecipeError, load_run, FrameworkReporter, EventReporter,
+                                 RunState, check_recipe, RunDirectoryError)
     from TauFW.Framework.bundle import BundleError, make_bundle
     from TauFW.Framework.configs import LOCK_NAME, lock_changes, update
     from TauFW.Framework.defaults import (DEFAULT_RUN_ROOT, DEFAULT_POLL_SECONDS, ANALYSES_DIR, CONFIGS_DIR,
                                           default_file_io)
+    from TauFW.Utilities.Process import EVENTS_ENV, EventWriter
 except ImportError as err:
     print("\033[1m\033[31mImportError for TauFW.Framework: please check if you compiled with `scram b`.\033[0m")
     raise err
@@ -47,7 +52,7 @@ except ImportError as err:
 
 def cmd_check(args):
     """List every problem and warning of a recipe."""
-    reporter = FrameworkReporter(verbosity=args.verbose)
+    reporter = _reporter(args)
     check = check_recipe(args.recipe)
     _show_warnings(reporter, check.warnings)
     if check.ok:
@@ -62,7 +67,7 @@ def cmd_check(args):
 
 def cmd_plan(args):
     """Show each stage's plan, or run a quick local test of the production stage."""
-    reporter = FrameworkReporter(verbosity=args.verbose)
+    reporter = _reporter(args)
     framework = Framework.from_recipe(args.recipe, reporter=reporter)
     if args.local:
         stage_spec = framework.recipe.first('production')
@@ -103,7 +108,7 @@ def cmd_plan(args):
 
 def cmd_start(args):
     """Start a new run."""
-    reporter = FrameworkReporter(verbosity=args.verbose)
+    reporter = _reporter(args)
     framework = Framework.from_recipe(args.recipe, reporter=reporter)
     if not args.run_root:  # --run-root chooses the place, so the recipe's run_root warnings do not apply
         _show_warnings(reporter, framework.recipe.warnings)
@@ -114,7 +119,7 @@ def cmd_start(args):
 
 def cmd_advance(args):
     """Continue a run."""
-    reporter = FrameworkReporter(verbosity=args.verbose)
+    reporter = _reporter(args)
     record = load_run(args.run_dir)
     framework = Framework.from_record(record, reporter=reporter)
     record = framework.advance(record, wait=args.wait, poll=args.poll)
@@ -123,7 +128,7 @@ def cmd_advance(args):
 
 def cmd_status(args):
     """Show the state of a run (nothing is saved or submitted)."""
-    reporter = FrameworkReporter(verbosity=args.verbose)
+    reporter = _reporter(args)
     record = load_run(args.run_dir)
     summary = Framework.from_record(record, reporter=reporter).status(record)
     reporter.header("Run %s: %s" % (summary.run_id, summary.state))
@@ -146,7 +151,7 @@ def cmd_status(args):
 def cmd_init(args):
     """Make a new analysis bundle: from a recipe (with copies of the module configs it uses), or a minimal one
     with an example Python step."""
-    reporter = FrameworkReporter(verbosity=args.verbose)
+    reporter = _reporter(args)
     target = os.path.join(args.root or ANALYSES_DIR, args.name)
     try:
         minimal = Recipe.from_dict({'name': args.name, 'pico': {'config': None},  # also checks the name
@@ -169,7 +174,7 @@ def cmd_init(args):
 def cmd_configs(args):
     """List the config templates of Configs/; with `update`, raise the versions of the changed templates and
     rewrite the lock (Framework/python/configs.py)."""
-    reporter = FrameworkReporter(verbosity=args.verbose)
+    reporter = _reporter(args)
     configs, changes = (update if args.action == 'update' else lock_changes)(CONFIGS_DIR)
     for problem in configs.problems:
         reporter.warning(problem)
@@ -196,6 +201,12 @@ def cmd_configs(args):
     reporter.message("Copy a template into your analysis bundle and edit its values (never its taufw_config "
                      "header); see Configs/README.md.")
     return 1 if configs.problems or lowered else 0
+
+
+def _reporter(args):
+    """The terminal reporter; with an events file (args.events, see main), it also writes events."""
+    reporter = FrameworkReporter(verbosity=args.verbose)
+    return EventReporter(reporter, args.events) if args.events.path else reporter
 
 
 def _show_warnings(reporter, warnings):
@@ -334,10 +345,13 @@ def main(argv=None):
         from TauFW.Framework.interactive import run_menu
         return run_menu(COMMANDS, build_parser())
     args = build_parser().parse_args(argv)
+    args.events = EventWriter(os.environ.pop(EVENTS_ENV, None))  # read once; the stages' commands never see it
     try:
         return COMMANDS[args.command](args)
     except (RecipeError, RunDirectoryError) as error:  # every problem of the recipe, without a traceback
-        FrameworkReporter().warning(str(error))
+        reporter = _reporter(args)
+        reporter.warning(str(error))
+        reporter.event('error', message=str(error))
         return 1
 
 

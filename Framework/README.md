@@ -276,7 +276,7 @@ of the stage) and in the reader's manifest.
 | `python/configs.py` | the config templates of `Configs/`: headers (`taufw_config`: id, version, schema), `configs.lock`, `update` (`taufw.py configs update`), the warnings for old copies in a bundle |
 | `python/step_runner.py` | runs a python step in its own process (standard library only): `context.json` → `run(ctx)` → `result.json` |
 | `python/run_record.py` | `RunRecord`, `RunState`, `StageRecord`: `run.json`, crash-safe save |
-| `python/reporting.py` | `Reporter` (interface), `FrameworkReporter` (terminal + `run.log`), `SilentReporter`; adapter for PicoProducer's messages |
+| `python/reporting.py` | `Reporter` (interface), `FrameworkReporter` (terminal + `run.log`), `SilentReporter`, `EventReporter` (also writes events for the menu, `$TAUFW_EVENTS`); adapter for PicoProducer's messages |
 | `python/defaults.py` | shared defaults: `taufw_runs`, `run.json`, `run.log`, `recipe.yml`, `bundle/`, `logs/`, `stages/`, `manifest.json`, `Analyses/`, `Configs/`, the polling interval (600 s), the time format |
 | `python/interactive.py` | the Framework side of the console menu (recipe/run discovery, dispatch to the commands) |
 | `python/stages/base.py` | the stage contract: `Stage`, `StageState`, `StageOutcome`, `StageContext`, `StageNotImplemented`, `PreflightError` |

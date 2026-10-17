@@ -188,13 +188,18 @@ class LocalStage(Stage):
         return StageOutcome(StageState.FAILED, message, 'failed', status=status)
 
     def _progress(self, reporter, stage_id):
-        """progress(index, total, command, result) for the runner: one line per command start and end."""
+        """progress(index, total, command, result) for the runner: one line and one progress event per command
+        start and end."""
         def progress(index, total, command, result):
             if result is None:
                 reporter.message("[%s] %d/%d %s ..." % (stage_id, index, total, command.label))
+                reporter.event('progress', stage=stage_id, index=index, total=total, label=command.label,
+                               status="run")
             else:
                 reporter.message("[%s] %d/%d %s %s (%.0f s)" % (stage_id, index, total, command.label,
                                                                "ok" if result.ok else "FAILED", result.seconds))
+                reporter.event('progress', stage=stage_id, index=index, total=total, label=command.label,
+                               status="ok" if result.ok else "failed", seconds=result.seconds)
         return progress
 
     # =========================================================================

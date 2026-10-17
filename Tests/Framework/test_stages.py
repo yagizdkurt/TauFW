@@ -141,6 +141,17 @@ class PipelineTests(LocalStageTestCase):
         self.assertIn("[plots] 1/2 plots mutau 2025 ...", messages)
         self.assertIn("[plots] 2/2 plots mumu 2025 ok (1 s)", messages)
 
+    def test_progress_events(self):
+        fw = self.framework(PLOTS)
+        fw.start(run_root=self.root)
+        progress = [fields for kind, fields in self.reporter.events if kind == "progress"]
+        self.assertEqual([(p["index"], p["total"], p["label"], p["status"]) for p in progress],
+                         [(1, 2, "plots mutau 2025", "run"), (1, 2, "plots mutau 2025", "ok"),
+                          (2, 2, "plots mumu 2025", "run"), (2, 2, "plots mumu 2025", "ok")])
+        self.assertEqual({p["stage"] for p in progress}, {"plots"})
+        self.assertNotIn("seconds", progress[0])
+        self.assertIn("seconds", progress[1])
+
     def test_failed_command_fails_the_stage(self):
         self.fitter.fail = "shapes 2025 Tight Tight %s" % (TT)
         record = self.framework(HISTOGRAMS, connected(FIT, shapes="histograms")).start(run_root=self.root)
