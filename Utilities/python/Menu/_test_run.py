@@ -49,9 +49,14 @@ CONTROL = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|[\x00-\x08\x0b-\x1f\x7f]")
 
 
 class TestRun:
-    """What the screen knows about a test run, from its events. cases: id ->
-    dict(id, group, status, started, seconds, exit, log, details), in the
-    order they were expected or started; messages: (role, text)."""
+    """What the screen knows about a test run, from its events. cases: key ->
+    dict(id, suite, label, group, status, started, seconds, exit, log, details),
+    in the order they were expected or started; messages: (role, text).
+
+    expected: case ids (one family), or [suite, id] pairs ("all": the same id
+    may be in two suites, e.g. plotter.unroll in normal and bbb). With pairs a
+    case is keyed and labelled "suite: id", and its events find it through the
+    suite that runs (the `suite` event)."""
 
     def feed(self, events):
         for event in events:
@@ -80,11 +85,11 @@ class TestRun:
         self.suites.append(event.get("name", ""))
 
     def _on_case_start(self, event):
-        case = self._case(event["id"])
+        case = self._case(event["id"], self.suites[-1] if self.suites else None)
         case.update(status="RUN", group=event.get("group", ""), started=event.get("t"), log=event.get("log"))
 
     def _on_case_end(self, event):
-        case = self._case(event["id"])
+        case = self._case(event["id"], self.suites[-1] if self.suites else None)
         case.update(status=event.get("status", "FAIL"), seconds=event.get("seconds"), exit=event.get("exit", ""),
                     log=event.get("log") or case["log"], details=list(event.get("details") or ()))
 
@@ -100,11 +105,14 @@ class TestRun:
     # =========================================================================
     # ================================ HELPERS ================================
 
-    def _case(self, name):
-        if name not in self.cases:
-            self.cases[name] = dict(id=name, group="", status="WAIT", started=None, seconds=None, exit="",
-                                    log=None, details=[])
-        return self.cases[name]
+    def _case(self, name, suite=None):
+        key = "%s: %s" % (suite, name) if self.paired and suite else name
+        if key not in self.cases and name in self.cases:
+            key = name  # expected without a suite
+        if key not in self.cases:
+            self.cases[key] = dict(id=name, suite=suite, label=key, group="", status="WAIT", started=None,
+                                   seconds=None, exit="", log=None, details=[])
+        return self.cases[key]
 
     def _message(self, role, text):
         self.messages.append((role, text))
@@ -119,8 +127,12 @@ class TestRun:
         self.suites = []
         self.summaries = []
         self.messages = []
-        for name in expected:
-            self._case(name)
+        self.paired = any(not isinstance(item, str) for item in expected)
+        for item in expected:
+            if isinstance(item, str):
+                self._case(item)
+            else:
+                self._case(item[1], item[0])
 
 
 # =============================================================================
@@ -205,7 +217,7 @@ def _draw(ui, screen, title, process, run, view, state):
         _log(ui, screen, view, "Output of Tests/run.py", lines, height, width)
     elif view.mode == "case":
         case = _focused(run, view)
-        _log(ui, screen, view, "Log: %s" % case["id"], _case_lines(view, case), height, width)
+        _log(ui, screen, view, "Log: %s" % case["label"], _case_lines(view, case), height, width)
     else:
         _cases(ui, screen, run, view, height, width)
     ui._footer(screen, _footer(run, view, state))
@@ -224,14 +236,14 @@ def _cases(ui, screen, run, view, height, width):
     view.focus = min(view.focus, len(cases) - 1)
     first = max(0, view.focus - rows + 1)
     for index, case in enumerate(cases[first:first + rows], first):
-        label = "%s %s" % (MARKERS[case["status"]], case["id"])
+        label = "%s %s" % (MARKERS[case["status"]], case["label"])
         time_text = _case_time(case)
         line = label[:max(1, columns - len(time_text) - 1)].ljust(max(1, columns - len(time_text))) + time_text
         ui._line(screen, row + index - first, left, line[:columns], index == view.focus,
                  ui.styles.get(ROLES.get(case["status"]), 0))
     case = cases[view.focus]
     details = ui._panel(screen, top + list_height, 1, height - top - list_height - 3, width - 2,
-                        "Details: %s" % case["id"])
+                        "Details: %s" % case["label"])
     lines = [_case_state(case)] + [_printable(line) for line in case["details"]]
     log = _case_lines(view, case)
     if log:

@@ -247,7 +247,8 @@ class ScreenTests(unittest.TestCase):
             ui.test_selection.return_value = ["reviewed"]
             operations.start_tests.return_value.configure_mock(data={"expected": []}, running=False)
             MenuNavigation(ui, operations).tests()
-            operations.start_tests.assert_called_once_with(family, [], mock.ANY, [])
+            expected = [[name, name] for name in ("checks", "normal", "bbb")] if family == "all" else []
+            operations.start_tests.assert_called_once_with(family, [], mock.ANY, expected)  # all: the total at once
             ui.test_run.assert_called_once_with(mock.ANY, operations.start_tests.return_value, [])
             self.assertTrue(ui.test_selection.call_args.kwargs["review"])
             if family == "all":

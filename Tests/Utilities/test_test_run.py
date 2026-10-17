@@ -77,6 +77,17 @@ class TestRunStateTests(unittest.TestCase):
         self.assertEqual(run.cases["c"]["status"], "STOP")
         self.assertEqual(run.messages, [])
 
+    def test_all_families_with_the_same_id_in_two_of_them(self):
+        run = TestRun([["normal", "plotter.unroll"], ["bbb", "plotter.unroll"], ["bbb", "fitter.fit"]])
+        self.assertEqual([case["label"] for case in run.cases.values()],
+                         ["normal: plotter.unroll", "bbb: plotter.unroll", "bbb: fitter.fit"])
+        run.feed([dict(kind="suite", name="normal", total=1), start("plotter.unroll"), end("plotter.unroll", "PASS"),
+                  dict(kind="suite", name="bbb", total=2), start("plotter.unroll")])
+        self.assertEqual([case["status"] for case in run.cases.values()], ["PASS", "RUN", "WAIT"])
+        run.feed([start("extra")])
+        self.assertEqual(list(run.cases)[-1], "bbb: extra")  # an unexpected case of the running suite
+        self.assertEqual(TestRun(["a"]).cases["a"]["label"], "a")  # one family: ids as before
+
     def test_messages_and_a_run_that_reported_nothing(self):
         run = TestRun()
         run.feed([dict(kind="warning", message="shadowing")] * (MESSAGES + 5) + [dict(kind="error", message="bad")])

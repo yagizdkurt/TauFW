@@ -199,8 +199,11 @@ class MenuNavigation:
                     raise ValueError("No automated tests available in this family.")
                 if self.ui.test_selection("Review / " + titles[family], items, review=True) is None:
                     continue
-                # "all" lists families, not cases; the environment check runs no cases.
-                expected = [] if family in ("all", "environment") else [item["id"] for item in items]
+                # "all": [family, id] pairs (an id may be in two families); the environment check runs no cases.
+                if family == "all":
+                    expected = [[name, item["id"]] for name in ("checks", "normal", "bbb") for item in catalog[name]]
+                else:
+                    expected = [] if family == "environment" else [item["id"] for item in items]
                 operation = self.operations.start_tests(family, selected, titles[family], expected)
                 if self._follow_tests(operation):
                     return
