@@ -347,14 +347,14 @@ def _check_moved_configs(spec, where, bundle_dir, issues):
         value = getattr(spec, option)
         for item in (value if isinstance(value, tuple) else (value,)):
             if isinstance(item, str) and os.path.normpath(item) in moved and path_kind(item, bundle_dir) == 'module':
-                issues.append(Issue("%s.%s" % (where, option), "%s moved to %s (CL §25): name the template, or a "
+                issues.append(Issue("%s.%s" % (where, option), "%s moved to %s (CL §22): name the template, or a "
                                     "copy of it in the bundle" % (item, moved[os.path.normpath(item)])))
 
 
 def _check_module_paths(spec, where, bundle_dir, issues):
     """A path option that takes no module-relative path (the Spec's _no_module_paths) names a bundle file, a
     Configs/ template or an absolute path: the shapes stage's API is the Histogrammer's, while its configs were
-    Fitter files (CL §25 H3). An old path of stages.MOVED_CONFIGS has its own message (_check_moved_configs)."""
+    Fitter files (CL §22 H3). An old path of stages.MOVED_CONFIGS has its own message (_check_moved_configs)."""
     moved = {os.path.normpath(old) for old in MOVED_CONFIGS}
     for option in getattr(type(spec), '_no_module_paths', ()):
         value = getattr(spec, option)

@@ -1,6 +1,6 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """TESShapes: the public API for the input histograms (shapes) of the combined tau energy scale (TES) + tau ID fit.
-Until CL §25 (H3) this was the shapes half of the Fitter API (TauFW.Fitter.api.TauESID); the fit stays there and
+Until CL §22 (H3) this was the shapes half of the Fitter API (TauFW.Fitter.api.TauESID); the fit stays there and
 reads the files by the contract docs/contracts/tes-shapes.md (the two modules never import each other).
 
 shapes/TauES/createinputsTES.py fills them. This API runs it as a separate process, one run per era, working point
@@ -42,7 +42,7 @@ from TauFW.Histogrammer.api.control_hists import _default_basedir, _module_exist
 
 __all__ = ['TESShapes']
 
-SCRIPT = os.path.join('shapes', 'TauES', 'createinputsTES.py')  # the script this API runs (Fitter/TauES/ until CL §25)
+SCRIPT = os.path.join('shapes', 'TauES', 'createinputsTES.py')  # the script this API runs (Fitter/TauES/ until CL §22)
 INPUTS = 'input_pt_less_region'  # the shape tree (createinputsTES.py -O default; the fit scripts read this name)
 
 

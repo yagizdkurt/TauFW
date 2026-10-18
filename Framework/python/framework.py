@@ -378,11 +378,11 @@ class Framework:
                  Framework's reporter).
         fitter:  the Fitter API of the fit stage (default: TauFW.Fitter.api.TauESID()).
         histogrammer: the API of the controlhists stage, which also reads the sample files of the shapes stage
-                 (default: TauFW.Histogrammer.api.ControlHists(); CL §24).
-        plotter: the API of the controlplots stage (default: TauFW.Plotter.api.ControlPlots(); CL §24 S4).
+                 (default: TauFW.Histogrammer.api.ControlHists(); CL §21).
+        plotter: the API of the controlplots stage (default: TauFW.Plotter.api.ControlPlots(); CL §21 S4).
         runner:  the ProcessRunner of the python steps (default: new).
         tes_shapes: the API of the shapes stage (default: TauFW.Histogrammer.api.TESShapes(); the Fitter's until
-                 CL §25 H3).
+                 CL §22 H3).
         Only the APIs of the stages in the recipe are built. Only reads files."""
         if isinstance(recipe, str):
             recipe = Recipe.load(recipe)
@@ -575,20 +575,20 @@ def _fitter():
 
 def _histogrammer():
     """The API of the controlhists stage and the reader of the shapes stage's sample files: the Histogrammer's
-    ControlHists (CL §24; imported only here; it does not import ROOT)."""
+    ControlHists (CL §21; imported only here; it does not import ROOT)."""
     from TauFW.Histogrammer.api import ControlHists
     return ControlHists()
 
 
 def _tes_shapes():
-    """The API of the shapes stage: the Histogrammer's TESShapes (CL §25 H3; imported only here; it does not import
+    """The API of the shapes stage: the Histogrammer's TESShapes (CL §22 H3; imported only here; it does not import
     ROOT)."""
     from TauFW.Histogrammer.api import TESShapes
     return TESShapes()
 
 
 def _plotter():
-    """The API of the controlplots stage: the Plotter's ControlPlots (CL §24 S4; imported only here; it does not
+    """The API of the controlplots stage: the Plotter's ControlPlots (CL §21 S4; imported only here; it does not
     import ROOT)."""
     from TauFW.Plotter.api import ControlPlots
     return ControlPlots()

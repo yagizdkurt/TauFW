@@ -20,19 +20,17 @@ What is still open is listed in [TODO.md](TODO.md). Other documents cite its sec
 | 9 | [Framework: the TauFW orchestrator](#9-framework-the-taufw-orchestrator) |
 | 10 | [Framework: plots, histograms and fit stages](#10-framework-plots-histograms-and-fit-stages) |
 | 11 | [Framework: analysis bundles and Python steps](#11-framework-analysis-bundles-and-python-steps) |
-| 12 | [Shared code moved to Utilities](#12-shared-code-moved-to-utilities) (merged into §4) |
-| 13 | [Import-boundary test and coupling inventory](#13-import-boundary-test-and-coupling-inventory) |
-| 14 | [Fitter imports drawing helpers from their own home](#14-fitter-imports-drawing-helpers-from-their-own-home) (merged into §4) |
-| 15 | [Framework: explicit stage ids, inputs and recipe validation](#15-framework-explicit-stage-ids-inputs-and-recipe-validation) |
-| 16 | [Framework: run directory with logs/ and stages/, stage manifests](#16-framework-run-directory-with-logs-and-stages-stage-manifests) |
-| 17 | [Framework: Plotter and Fitter outputs in the run directory](#17-framework-plotter-and-fitter-outputs-in-the-run-directory) |
-| 18 | [Framework: tuples as an input, production writes into the run, run_root](#18-framework-tuples-as-an-input-production-writes-into-the-run-run_root) |
-| 19 | [Framework: inputs from another run's stage directory, repeated stages](#19-framework-inputs-from-another-runs-stage-directory-repeated-stages) |
-| 20 | [Menu and UI](#20-menu-and-ui) |
-| 21 | [Configs: config templates with an id, a version and a lock](#21-configs-config-templates-with-an-id-a-version-and-a-lock) |
-| 22 | [Sample lists as data: the sample model](#22-sample-lists-as-data-the-sample-model) |
-| 23 | [Menu: operations run behind the menu](#23-menu-operations-run-behind-the-menu) (merged into §20) |
-| 24 | [Plotter becomes Histogrammer; a clean Plotter is extracted](#24-plotter-becomes-histogrammer-a-clean-plotter-is-extracted) |
+| 12 | [Import-boundary test and coupling inventory](#12-import-boundary-test-and-coupling-inventory) |
+| 13 | [Framework: explicit stage ids, inputs and recipe validation](#13-framework-explicit-stage-ids-inputs-and-recipe-validation) |
+| 14 | [Framework: run directory with logs/ and stages/, stage manifests](#14-framework-run-directory-with-logs-and-stages-stage-manifests) |
+| 15 | [Framework: Plotter and Fitter outputs in the run directory](#15-framework-plotter-and-fitter-outputs-in-the-run-directory) |
+| 16 | [Framework: tuples as an input, production writes into the run, run_root](#16-framework-tuples-as-an-input-production-writes-into-the-run-run_root) |
+| 17 | [Framework: inputs from another run's stage directory, repeated stages](#17-framework-inputs-from-another-runs-stage-directory-repeated-stages) |
+| 18 | [Menu and UI](#18-menu-and-ui) |
+| 19 | [Configs: config templates with an id, a version and a lock](#19-configs-config-templates-with-an-id-a-version-and-a-lock) |
+| 20 | [Sample lists as data: the sample model](#20-sample-lists-as-data-the-sample-model) |
+| 21 | [Plotter becomes Histogrammer; a clean Plotter is extracted](#21-plotter-becomes-histogrammer-a-clean-plotter-is-extracted) |
+| 22 | [TES shapes leave the Fitter for the Histogrammer (in progress)](#22-tes-shapes-leave-the-fitter-for-the-histogrammer-in-progress) |
 
 The reference environment for all of this is `CMSSW_14_1_0_pre4` (Python 3.9, ROOT 6.30).
 
@@ -134,7 +132,6 @@ All deleted files remain in Git history. The Python 3 migration of the retained 
 ## 4. Utilities package for future development
 
 Everything about the shared `TauFW.Utilities` packages: the package itself, then the code moved onto it.
-Former §12 and §14 are merged here.
 
 ### The package: CLI and FileIO
 
@@ -160,7 +157,7 @@ Provide shared, tested I/O implementations with explicit remote paths, safe writ
 replacing duplicated helpers incrementally. Each later migration can be reviewed separately and checked
 against the existing BBB baselines for unchanged covered outputs.
 
-### Shared code moved to Utilities (former §12)
+### Shared code moved to Utilities
 
 Moves from `common` and Plotter into shared Utilities packages. The rule for all of them: Utilities does not import
 `TauFW.common`, callers are updated and the old module is deleted (or keeps only what is not moved), and the output
@@ -256,7 +253,7 @@ back for its star-importers; the helpers that know pico branch names (`shift`, `
 Registered, not fixed: [Histogrammer BUGS](../Histogrammer/BUGS.md) L05 (`joinweights` with weight `0`), L06
 (`replacepattern` applies only the last pattern), L07 (`joincuts` does not bracket `(x)||y`).
 
-### Fitter imports drawing helpers from their own home (former §14)
+### Fitter imports drawing helpers from their own home
 
 **Date:** 2026-10-14
 
@@ -419,7 +416,7 @@ PicoProducer, Plotter and Fitter commands.
   wait/resubmit/merge/fail with `max_tries`.
 - **Run record:** `taufw_runs/<name>_<time>/run.json` (schema 1) stores the recipe/config snapshot and each stage's
   state, attempts, requests, submissions, status, artifacts and history. Saved atomically after every stage step.
-  (The layout changed in §16.)
+  (The layout changed in §14.)
 - **Reporting:** terminal output and `run.log` share Framework/PicoProducer messages; silent reporting is supported.
 - **CLI:** `taufw.py plan RECIPE [--local -m N]`, `start RECIPE [--run-root DIR] [--wait --poll S]`,
   `advance RUN_DIR [--wait --poll S]`, `status RUN_DIR`; all delegate to Framework.
@@ -448,7 +445,7 @@ Later internal cleanup can preserve these APIs without changing Framework.
 - **Utilities.Process:** sequential commands without a shell, per-command logs and stop on failure.
   Success requires exit 0 and fresh expected outputs, catching ignored nested failures and stale files.
 - **Fitter.api.TauESID:** plan/make/preflight shapes (`run_inputs.sh`) and plan/run/preflight fits
-  (`run_workflow_zmm.sh`, option 3); parses fit values. A control-plots API wraps `plot.py` (split in two in §24).
+  (`run_workflow_zmm.sh`, option 3); parses fit values. A control-plots API wraps `plot.py` (split in two in §21).
 - **Stage context:** run directory and upstream artifacts flow between stages and plans. Preflight problems
   leave stages NEW for retry; local stages advance to DONE/FAILED, recording command exit codes/durations
   and showing failure log tails. Fit working points come from the recipe or histogram artifacts.
@@ -477,7 +474,7 @@ fit values and stage/artifact behavior. BBB `framework.production` was re-locked
 unchanged. Local script stages are outside BBB coverage.
 
 **Still open:** a full VTight/Tight `taufw.py start` run of `Analyses/tes_id_2025` compared with the shell drivers
-in a clean copy (TODO §1). The fit part on the same shapes was compared in §17.
+in a clean copy (TODO §1). The fit part on the same shapes was compared in §15.
 
 ---
 
@@ -515,13 +512,7 @@ cases stay unchanged.
 
 ---
 
-## 12. Shared code moved to Utilities
-
-Merged into [§4](#4-utilities-package-for-future-development).
-
----
-
-## 13. Import-boundary test and coupling inventory
+## 12. Import-boundary test and coupling inventory
 
 **Date:** 2026-10-14
 
@@ -532,18 +523,12 @@ are checked; legacy directories and Tests are excluded. Python 2 imports are rec
 The JSON inventory records known coupling and parse exemptions. **Known violations still fail**, as do stale
 entries and import-recovery errors, so the check measures isolation progress without hiding existing debt.
 
-Registered with the test runner; the repository check fails on known debt as intended (today's totals: §25).
+Registered with the test runner; the repository check fails on known debt as intended (today's totals: §22).
 Production code and baselines are unchanged.
 
 ---
 
-## 14. Fitter imports drawing helpers from their own home
-
-Merged into [§4](#4-utilities-package-for-future-development).
-
----
-
-## 15. Framework: explicit stage ids, inputs and recipe validation
+## 13. Framework: explicit stage ids, inputs and recipe validation
 
 **Date:** 2026-10-14
 **Details:** [Analyses](../../Analyses/README.md) "File format and validation", [Framework](../../Framework/README.md)
@@ -580,13 +565,13 @@ production` and `inputs: null`; its output changes on purpose: the `plan` lines 
 
 ---
 
-## 16. Framework: run directory with logs/ and stages/, stage manifests
+## 14. Framework: run directory with logs/ and stages/, stage manifests
 
 **Date:** 2026-10-15
 **Details:** [Framework](../../Framework/README.md) "Run directory", [Analyses](../../Analyses/README.md) "Outputs and logs"
 
 Second step of the recipe IO work: a stage's directory in the run now holds only what the stage makes, so the
-next step can run the Plotter and Fitter scripts inside it (§17).
+next step can run the Plotter and Fitter scripts inside it (§15).
 
 ### What changed
 
@@ -599,19 +584,19 @@ next step can run the Plotter and Fitter scripts inside it (§17).
 - **Manifest:** when a stage becomes `DONE`, the Framework writes `stages/<id>/manifest.json`
   (`{manifest: 1, run_id, stage_id, stage, description, inputs, finished, artifacts}`), before `run.json` is saved.
   It is a copy of the stage's record, so a stage directory describes itself (for a later input that names another
-  run's stage directory, §19); `run.json` stays the source of truth. A failed stage has none.
-- **`run.json` schema 2:** the recipe format of §15 and this layout. A run directory of schema 1 is refused when it is
+  run's stage directory, §17); `run.json` stays the source of truth. A failed stage has none.
+- **`run.json` schema 2:** the recipe format of §13 and this layout. A run directory of schema 1 is refused when it is
   loaded (no conversion: there are no runs to keep).
 
 ### Tests
 
 New unit cases: log and output directories of every stage, the manifest content of a DONE stage and its absence for
 a failed one, a python step's files split between `logs/` and `stages/`, the id `..` refused, schema 1 refused. BBB
-`framework.production` records `run.json`, so `"schema": 2` adds to the §15 difference.
+`framework.production` records `run.json`, so `"schema": 2` adds to the §13 difference.
 
 ---
 
-## 17. Framework: Plotter and Fitter outputs in the run directory
+## 15. Framework: Plotter and Fitter outputs in the run directory
 
 **Date:** 2026-10-15
 **Status:** checked on lxplus 2026-10-15
@@ -652,7 +637,7 @@ shapes + fit from the same tuples can differ by a grid step in the fitted POIs (
 
 ---
 
-## 18. Framework: tuples as an input, production writes into the run, run_root
+## 16. Framework: tuples as an input, production writes into the run, run_root
 
 **Date:** 2026-10-17
 **Status:** done; the end-to-end production check passed on lxplus
@@ -703,7 +688,7 @@ visible in the recipe.
 
 - New lxplus tests `Tests/Plotter/testTupleLocation.py` and `Tests/PicoProducer/testTupleDir.py`.
 - lxplus (2026-10-17): `check`/`plan` of `tes_id_2025` as expected; plots with `{external: ...}` made the same 8 plots
-  as the §17 check; a read-only `--run-root` stopped before anything was made. BBB `framework.production` now
+  as the §15 check; a read-only `--run-root` stopped before anything was made. BBB `framework.production` now
   snapshots the merged tuples in `stages/production/` and masks the run ID; re-locked (only this case changed; the
   merged tuples are byte-identical), then `bbb check` 20/20.
 - **End to end:** a production of one sample (`DYto2TautoMuTauh_M-50`, 2022_postEE, mutau, 4 jobs) followed by plots
@@ -721,7 +706,7 @@ plots or histograms crashed in `plan`. The lookup now counts an already imported
 
 ---
 
-## 19. Framework: inputs from another run's stage directory, repeated stages
+## 17. Framework: inputs from another run's stage directory, repeated stages
 
 **Date:** 2026-10-17
 **Status:** checked on lxplus
@@ -729,7 +714,7 @@ plots or histograms crashed in `plan`. The lookup now counts an already imported
 run"), "Outputs and logs", "Troubleshooting"; [Framework](../../Framework/README.md) "Run directory"; TODO §6
 "Revise: one rule for the paths in a recipe"
 
-The last part of the recipe IO work (§15-§18): a stage may read the output of another,
+The last part of the recipe IO work (§13–§16): a stage may read the output of another,
 finished run, and the built-in stages may repeat.
 
 ### Repeated stages, no fixed order
@@ -763,17 +748,17 @@ the known stages in messages.
   another run, provenance).
 - lxplus (2026-10-17): `bbb check` 19 cases unchanged; `framework.production` differed only in `schema` 2 → 3 and
   `sources`, and was re-locked.
-- **Fit on another run's shapes** (the §17 run, manifest converted to format 2): the 13 commands equal the §17 fit's;
+- **Fit on another run's shapes** (the §15 run, manifest converted to format 2): the 13 commands equal the §15 fit's;
   the fit parameter files and JSON corrections are byte-identical, the `tau_sf/*.root` files have the same content;
   the source directory is unchanged; `sources.shapes.manifest_sha256` matches `sha256sum` of the source manifest.
 - **Repeated stages:** two plots stages (`-V m_vis`, `-V pt_1`) each wrote their own plots in their own directory.
 - **Refused:** one `check` listed all four problems: a missing directory, `Fitter/`, a `cp -r` copy, and a plots
   directory given to a fit.
-- **Tuples from another run** (the §18 production run): `check` and `plan` pass and give the right `--tuples` pattern.
+- **Tuples from another run** (the §16 production run): `check` and `plan` pass and give the right `--tuples` pattern.
 
 ---
 
-## 20. Menu and UI
+## 18. Menu and UI
 
 **Dates:** 2026-10-17 to 2026-10-18
 **Status:** the test screen and the operations behind the menu are in use; the run screens exist only in the UI
@@ -795,8 +780,8 @@ screen, and leaving a screen does not stop it.
   environment, so stage commands and batch jobs never see it.
 - **Screens:** the test screen and the run screen share one core (`Utilities/python/Menu/_operation_screen.py`); the
   Menu imports no Framework module. Tests > UI preview shows every screen with made-up data.
-- The recipe list shows each recipe's problems and warnings (§15, §18); "Continue an existing run" also lists the
-  runs in every recipe's `run_root` (§18).
+- The recipe list shows each recipe's problems and warnings (§13, §16); "Continue an existing run" also lists the
+  runs in every recipe's `run_root` (§16).
 
 Checked: unit tests for the supervisor (exit codes, heartbeat, stop, kill, every state), the events and the screens;
 end to end, a test run behind the menu, followed from a second menu. Process groups, signals and curses on a real
@@ -804,7 +789,7 @@ terminal: TODO §1.
 
 ---
 
-## 21. Configs: config templates with an id, a version and a lock
+## 19. Configs: config templates with an id, a version and a lock
 
 **Date:** 2026-10-17
 **Status:** done; nothing to check on lxplus (no ROOT, no BBB case)
@@ -814,7 +799,7 @@ Analysts should not have to enter the module directories: everything an analysis
 and the modules' templates for those copies live in `Configs/<Module>/`. Every template starts with a `taufw_config`
 header (`id`, `version`, `schema`, `description`) that the copy keeps, so a later change of the template (e.g. a
 corrected cross section) does not go unnoticed. This section built the infrastructure only; the first templates came
-with §22.
+with §20.
 
 - **`TauFW.Framework.configs`:** `scan` finds the templates and their problems (id must start with the module
   directory in lower case, unique); `content_hash` hashes the parsed values without the header, so comments and layout
@@ -829,7 +814,7 @@ with §22.
 
 ---
 
-## 22. Sample lists as data: the sample model
+## 20. Sample lists as data: the sample model
 
 **Date:** 2026-10-17
 **Status:** verified on lxplus 2026-10-17 (details in TODO §1)
@@ -837,7 +822,7 @@ with §22.
 
 The recipe must say which samples an analysis reads; until now `Plotter/config/samples_v15.py` decided it out of sight
 (MC cross sections, data datasets, weights, stitching, joining and splitting, per era). Its samples became templates
-(§21), one per era, that an analysis copies into its bundle; they are in `Configs/Histogrammer/samples/` since §24.
+(§19), one per era, that an analysis copies into its bundle; they are in `Configs/Histogrammer/samples/` since §21.
 **No physics or data change:** every sample set built from a template gets exactly the calls the old function makes,
 and a test proves it.
 
@@ -872,13 +857,7 @@ RDataFrame noise; `data_obs` bit-identical); `plan` of `example_mutau_long` list
 
 ---
 
-## 23. Menu: operations run behind the menu
-
-Merged into [§20](#20-menu-and-ui).
-
----
-
-## 24. Plotter becomes Histogrammer; a clean Plotter is extracted
+## 21. Plotter becomes Histogrammer; a clean Plotter is extracted
 
 **Date:** 2026-10-18
 **Status:** done. S0-S4 checked on lxplus (BBB 22/22 without re-lock after every step, real plots identical).
@@ -893,7 +872,7 @@ data change:** the filling code is moved, not edited, and every step is proven b
 
 ### Result
 
-What the analysis code looks like after §24:
+What the analysis code looks like after §21:
 
 ```text
 pico tuples ──▶ Histogrammer ─────────────▶ hists/<era>/<channel><tag>.root ──▶ Plotter ──────▶ PNG
@@ -916,7 +895,7 @@ Framework:      controlhists                  the file is the artifact          
   names, both legacy `plot.py`, `RENAMED_IDS` of `configs.py`, `stages.RETIRED`, `fillhists.py` drawing by default.
 - **Registered, not fixed:** Histogrammer BUGS L17 (`m_ll` of the mumu variables), Framework BUGS K08 (the run-root
   message), the flaky `test_background` and the IOInventory generator (TODO §7).
-- **Next:** the TES shapes leave the Fitter for the Histogrammer (§25).
+- **Next:** the TES shapes leave the Fitter for the Histogrammer (§22).
 
 ### Lock and tools (S0)
 
@@ -963,8 +942,8 @@ Checked (lxplus, 2026-10-18): the new case was locked (22 cases) and the spike g
   Histogrammer and the Plotter never import each other, the Framework may import only `TauFW.Histogrammer.api`,
   the Fitter not the Histogrammer). The 13 aliases are new allowlist entries, removed at the migration point; the
   6 Fitter `config.samples*` imports now count as Fitter -> Histogrammer (the same debt at a new address, removed in
-  §25). Totals 30 / 28 / 26 (17 / 15 / 13 before + the 13 aliases), 0 new pairs. **No cross-stage import was removed
-  by this step**; it prepares §25.
+  §22). Totals 30 / 28 / 26 (17 / 15 / 13 before + the 13 aliases), 0 new pairs. **No cross-stage import was removed
+  by this step**; it prepares §22.
 - Tests: the Plotter unit tests moved to `Tests/Histogrammer/`; a new compat suite checks that each alias is the
   very same module object as its new name. BBB cases changed only their import lines and paths; their names stay
   `plotter.*`. The old scripts in `Tests/Plotter/` keep the old names, so they exercise the aliases.
@@ -979,7 +958,7 @@ directory and the timing; `Plotter/plot.py` prints the new command and exits wit
 **Date:** 2026-10-18
 
 The Plotter's config templates belong to the Histogrammer (they say which samples to fill and which selections), and a
-template's id must start with its module directory (§21). The new Plotter has no user config: drawing needs only
+template's id must start with its module directory (§19). The new Plotter has no user config: drawing needs only
 command-line options and the histogram file.
 
 - `git mv Configs/Plotter Configs/Histogrammer`: 8 sample model templates (`samples/v15_<era>.yml`) and 7 channel
@@ -1056,7 +1035,7 @@ called `histograms`, and S4 adds a second stage that fills histograms (the contr
   of the Framework, `taufw.py` and the stage messages ("connect inputs.shapes to a shapes stage", "run the shapes
   stage first" of the Fitter API).
 - New `TauFW.Framework.stages.RETIRED` (old name -> what replaces it): a recipe that still writes
-  `stage: histograms` fails the check with `stage 'histograms' no longer exists: renamed 'shapes' (CL §24)`; it runs
+  `stage: histograms` fails the check with `stage 'histograms' no longer exists: renamed 'shapes' (CL §21)`; it runs
   nothing. **Runs started before this change** (their `run.json` names `histograms`) can no longer be continued or
   shown with `status`/`advance`; start them again.
 - `Analyses/tes_id_2025/recipe.yml`: `stage: shapes`, `id: shapes` (its directory in a run is now
@@ -1121,7 +1100,7 @@ Checked (lxplus, 2026-10-18): `bbb check` 22/22 without re-lock. Against a refer
 `--hists --no-draw` equals that of `--hists` within the run-to-run noise of the multithreaded fill (~1e-13).
 `.gitignore` needed `!Plotter/python/api/__init__.py`, else the API would not import on lxplus.
 
-### Review fixes of §24
+### Review fixes of §21
 
 **Date:** 2026-10-18
 
@@ -1134,7 +1113,7 @@ before is written the same.
   clone `config` became a namespace package (merged with every `config/` directory on `sys.path`, e.g. the
   YAML-only `Fitter/TauES/config/` next to the Fitter scripts). `.gitignore` now whitelists
   `Histogrammer/config/__init__.py` and `Histogrammer/python/spec/__init__.py`, and both are tracked again, as before
-  §24.
+  §21.
 - `TauFW.Utilities.HistFile` refuses on writing what it could not read back: `taufw_histfile` as any part of an
   entry path (it was checked only as the whole path), a histogram whose name is also the directory of another entry
   (`baseline` holding `m_vis` next to the entry `baseline/m_vis`), an object that is not a histogram (a TGraph could
@@ -1149,7 +1128,7 @@ before is written the same.
 
 Checked (lxplus): `bbb check` 22/22 without re-lock, `checks`.
 
-## 25. TES shapes leave the Fitter for the Histogrammer (in progress)
+## 22. TES shapes leave the Fitter for the Histogrammer (in progress)
 
 **Date:** 2026-10-18
 **Status:** H0 (lock `f3079fa`), H1, H2 and H3 (`63f299c`) done and checked on lxplus; H4 (real-data comparison) to
@@ -1196,7 +1175,7 @@ as before: lock with the old code first, move byte for byte, prove equality.
   `python3 ../Histogrammer/shapes/TauES/createinputsTES.py` from `Fitter/`, so the shapes still land in
   `Fitter/input_pt_less_region/` where `run_workflow_zmm*.sh` reads them; the variants run from `Fitter/<Variant>/`,
   where their `sys.path` lines and configs are relative to.
-- **Backward compatibility (TODO §8):** the five old paths are LEGACY stubs (as the legacy `plot.py` of §24): they
+- **Backward compatibility (TODO §8):** the five old paths are LEGACY stubs (as the legacy `plot.py` of §21): they
   print the new command with the same arguments, relative to the working directory, and exit with status 2; they
   import and run nothing. No alias for `TauFW.Fitter.plot.datacard`/`.rebinning`: it would be a Fitter -> Histogrammer
   import. `Fitter/MuTauFR/createinputs.py` stays.
@@ -1243,7 +1222,7 @@ extension for the next legitimate re-lock.
   recipe names into the new bundle; `check` reports a template that does not exist.
 - **No recipe compat:** `stages.MOVED_CONFIGS` maps the four old module paths to their templates; a recipe naming
   an old path fails (in `check`, `plan` and `start`, a Recipe error) with "... moved to Configs/Fitter/tes_id/... (CL
-  §25): name the template, or a copy of it in the bundle". A bundle file with that relative path is the bundle's.
+  §22): name the template, or a copy of it in the bundle". A bundle file with that relative path is the bundle's.
 - Defaults: `DEFAULT_CONFIGS` of the `shapes` and `fit` stages are the two templates. Commands run by hand: the run
   scripts (`run_inputs*.sh`, `run_workflow_zmm*.sh`) and the default `-c` of `plot2DScan_MultiDimFit.py` and
   `makecombinedfitTES_SF_postfit_corrTES.py` name `../Configs/Fitter/tes_id/...` (the same files from `Fitter/`); a

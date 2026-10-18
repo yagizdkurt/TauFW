@@ -1,5 +1,5 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-"""Control histograms stage: pico tuples -> control-histogram files, through the Histogrammer API (CL §24, S4).
+"""Control histograms stage: pico tuples -> control-histogram files, through the Histogrammer API (CL §21, S4).
 
 The first half of the control plots: Histogrammer/fillhists.py --hists --no-draw fills the data/MC stacks of every
 variable and selection and writes them to one file per channel setup and era; the controlplots stage draws them

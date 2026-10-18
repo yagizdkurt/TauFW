@@ -1,7 +1,7 @@
 """Public API of the Histogrammer: the control histograms of pico tuples (the data/MC stacks of the control plots),
-filled by fillhists.py (the former Plotter plot.py, CL §24) and written to a control-histogram file that the Plotter
+filled by fillhists.py (the former Plotter plot.py, CL §21) and written to a control-histogram file that the Plotter
 draws (TauFW.Plotter.api.ControlPlots); and the input histograms (shapes) of the TES + tau ID fit, filled by
-shapes/TauES/createinputsTES.py and read by the Fitter (docs/contracts/tes-shapes.md; in the Fitter API until CL §25).
+shapes/TauES/createinputsTES.py and read by the Fitter (docs/contracts/tes-shapes.md; in the Fitter API until CL §22).
 
     from TauFW.Histogrammer.api import ControlHists, HistsRequest
     histogrammer = ControlHists()                                # Histogrammer/ of this CMSSW area; silent

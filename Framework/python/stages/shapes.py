@@ -1,6 +1,6 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Shapes stage: pico tuples -> input histograms (shapes) of the TES + tau ID fit, through the Histogrammer API
-TESShapes (the Fitter API's until CL §25 H3). It was called `histograms` until CL §24 (S4a): every stage is named
+TESShapes (the Fitter API's until CL §22 H3). It was called `histograms` until CL §21 (S4a): every stage is named
 after what it makes, and the control histograms of the Histogrammer are another stage (controlhists).
 
 It runs what Fitter/run_inputs.sh runs: Histogrammer/shapes/TauES/createinputsTES.py for every era, working point
@@ -13,7 +13,7 @@ pair and config. The fit stage reads the files by the contract docs/contracts/te
               <sample>_mutau_TES0p950.root).
     options:  ShapesSpec (eras, configs, jet and electron working points); the configs are bundle files,
               Configs/ templates or absolute: a module-relative path is a recipe error (the API resolves it against
-              Histogrammer/, the configs were Fitter files; CL §25 H3)
+              Histogrammer/, the configs were Fitter files; CL §22 H3)
     outputs:  one shapes artifact per shape file: {kind: 'shapes', path, era, channel, config, jet_wp, ele_wp,
               observable}; the scripts run in the stage's directory, so the files are in
               <run_dir>/stages/<id>/input_pt_less_region/againstjet_<J>/againstelectron_<E>/
@@ -37,7 +37,7 @@ __all__ = ['ShapesStage', 'ShapesSpec', 'DEFAULT_CONFIGS']
 
 
 # The configs of Fitter/run_inputs.sh: the mutau fit and the mumu control region, the templates in
-# Configs/Fitter/tes_id/ (CL §25; resolved by bundle.py, 'template')
+# Configs/Fitter/tes_id/ (CL §22; resolved by bundle.py, 'template')
 DEFAULT_CONFIGS = ('Configs/Fitter/tes_id/config_coarse_TT.yml', 'Configs/Fitter/tes_id/FitSetup_mumu.yml')
 
 
@@ -114,5 +114,5 @@ class ShapesSpec:
 
 
 ShapesSpec._paths = ('configs', 'samples')  # resolved against the bundle (bundle.py)
-ShapesSpec._no_module_paths = ('configs',)   # no module-relative path (recipe.py; CL §25 H3, E2)
+ShapesSpec._no_module_paths = ('configs',)   # no module-relative path (recipe.py; CL §22 H3, E2)
 ShapesStage.Spec = ShapesSpec

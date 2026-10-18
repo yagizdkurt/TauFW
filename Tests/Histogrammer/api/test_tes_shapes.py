@@ -1,4 +1,4 @@
-"""Histogrammer API TESShapes (the shapes half of the Fitter API until CL §25 H3): the createinputsTES.py commands of
+"""Histogrammer API TESShapes (the shapes half of the Fitter API until CL §22 H3): the createinputsTES.py commands of
 run_inputs.sh, run in the request's output directory; the shape files are checked (no ROOT)."""
 import os
 import shlex
@@ -13,7 +13,7 @@ import checkout  # noqa: F401  (must precede TauFW imports)
 from TauFW.Histogrammer.api import TESShapes, ShapesRequest
 from TauFW.Utilities.Process import ProcessRunner
 
-TT, MM = "../Configs/Fitter/tes_id/config_coarse_TT.yml", "../Configs/Fitter/tes_id/FitSetup_mumu.yml"  # as run_inputs.sh (CL §25)
+TT, MM = "../Configs/Fitter/tes_id/config_coarse_TT.yml", "../Configs/Fitter/tes_id/FitSetup_mumu.yml"  # as run_inputs.sh (CL §22)
 IN = "input_pt_less_region/againstjet_VTight/againstelectron_Tight"
 
 # Fitter/run_inputs.sh, one working point pair; the API gives the script and the configs as absolute paths
@@ -75,7 +75,7 @@ class ShapesTests(TESShapesTestCase):
         self.assertEqual(self.lines(self.shapes.plan_shapes(self.request(serial=True)).commands)[0],
                          self.run_inputs(" -s")[0])
 
-    def test_outdir_is_required(self):  # CL §25 H3, E1: the Histogrammer never writes into Fitter/
+    def test_outdir_is_required(self):  # CL §22 H3, E1: the Histogrammer never writes into Fitter/
         with self.assertRaises(ValueError) as context:
             ShapesRequest(eras=[2025], configs=[TT], jet_wps=["VTight"], ele_wps=["Tight"])
         self.assertIn("outdir is required", str(context.exception))
@@ -162,7 +162,7 @@ class ShapesTests(TESShapesTestCase):
                       " ".join(self.shapes.preflight_shapes(self.request(tuples="pico/$ERA"))))
 
 
-class ShapesSampleFilesTests(TESShapesTestCase):  # CL §22: sample model files, --samples
+class ShapesSampleFilesTests(TESShapesTestCase):  # CL §20: sample model files, --samples
     def test_samples_option(self):
         samples = (os.path.join(self.base, "v15_2025.yml"),)
         commands = self.shapes.plan_shapes(self.request(samples=samples)).commands

@@ -301,7 +301,7 @@ class FakePlotter(_FakeLocalAPI):
 
 
 class FakeTESShapes(_FakeLocalAPI):
-    """The Histogrammer's TESShapes (the shapes half of the Fitter API until CL §25 H3)."""
+    """The Histogrammer's TESShapes (the shapes half of the Fitter API until CL §22 H3)."""
     basedir: str = "/repo/Histogrammer"
 
     @staticmethod

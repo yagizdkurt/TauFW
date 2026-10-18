@@ -1,5 +1,5 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-"""BACKWARD COMPATIBILITY (CL §24): TauFW.Plotter.plot.Variable is now TauFW.Histogrammer.spec.Variable.
+"""BACKWARD COMPATIBILITY (CL §21): TauFW.Plotter.plot.Variable is now TauFW.Histogrammer.spec.Variable.
 
 The Plotter of before October 2026 became the Histogrammer; this old module name is an alias of the new module.
 Importing it gives the very same module object (same functions, classes, loggers and module state such as the era

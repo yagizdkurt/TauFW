@@ -31,7 +31,7 @@ tau_sf/TauCorrections_2024.json  (merged result)
 ```
 
 ## Configuration Files
-- **TES/TauID config:** `../Configs/Fitter/tes_id/config_coarse_TT.yml` (the template `Configs/Fitter/tes_id/`; `TauES_ID/config/` until changelog §25)
+- **TES/TauID config:** `../Configs/Fitter/tes_id/config_coarse_TT.yml` (the template `Configs/Fitter/tes_id/`; `TauES_ID/config/` until changelog §22)
 - **Mumu CR config:** `../Configs/Fitter/tes_id/FitSetup_mumu.yml`
 - **Year:** 2024 (edit scripts to change)
 

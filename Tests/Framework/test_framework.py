@@ -203,7 +203,7 @@ class RecoveryTests(FrameworkTestCase):
         return fw.advance(record)
 
     def test_run_with_a_retired_stage_is_refused_with_the_message(self):
-        """A run started before CL §24 names `plots` or `histograms` in its run.json: status/advance stop with the
+        """A run started before CL §21 names `plots` or `histograms` in its run.json: status/advance stop with the
         recipe error (taufw.py prints it), not a KeyError."""
         record = framework(fakes.FakePicoProducer(statuses=[fakes.pending("DY")])).start(run_root=self.root)
         for retired, expected in (("plots", "control plots are two stages now"), ("histograms", "renamed 'shapes'")):

@@ -1,5 +1,5 @@
 """Public API of the Plotter: data/MC control plots drawn from the control-histogram files of the Histogrammer
-(changelog §24, S4). The Histogrammer fills (TauFW.Histogrammer.api.ControlHists); the Plotter only draws.
+(changelog §21, S4). The Histogrammer fills (TauFW.Histogrammer.api.ControlHists); the Plotter only draws.
 
     from TauFW.Plotter.api import ControlPlots, PlotsRequest, HistFileInput
     plotter = ControlPlots()                                     # Plotter/ of this CMSSW area; silent

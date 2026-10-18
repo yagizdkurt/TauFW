@@ -1,5 +1,5 @@
 """Fitter API: the commands equal those of run_workflow_zmm.sh; outputs are checked (no ROOT). The shapes half
-(run_inputs.sh) is the Histogrammer's since CL §25 H3: Tests/Histogrammer/api/test_tes_shapes.py."""
+(run_inputs.sh) is the Histogrammer's since CL §22 H3: Tests/Histogrammer/api/test_tes_shapes.py."""
 import glob
 import os
 import shutil
@@ -13,7 +13,7 @@ import checkout  # noqa: F401  (must precede TauFW imports)
 from TauFW.Fitter.api import TauESID, FitRequest, FIT_STEPS, read_fit_values
 from TauFW.Utilities.Process import ProcessRunner
 
-TT, MM = "../Configs/Fitter/tes_id/config_coarse_TT.yml", "../Configs/Fitter/tes_id/FitSetup_mumu.yml"  # as run_workflow_zmm.sh (CL §25)
+TT, MM = "../Configs/Fitter/tes_id/config_coarse_TT.yml", "../Configs/Fitter/tes_id/FitSetup_mumu.yml"  # as run_workflow_zmm.sh (CL §22)
 IN = "input_pt_less_region/againstjet_VTight/againstelectron_Tight"
 OUT = "output_pt_less_region/againstjet_VTight/againstelectron_Tight"
 PLOTS = "plots_pt_less_region/againstjet_VTight/againstelectron_Tight"
@@ -179,7 +179,7 @@ class FitTests(TauESIDTestCase):
         self.assertEqual(self.fitter.plan_fit(self.fit_request()).commands[0].env, ())
         self.assertEqual(self.fitter.config_file(TT), os.path.normpath(os.path.join(self.fitter_dir, TT)))
 
-    def test_no_shapes_api(self):  # CL §25 H3: the shapes are the Histogrammer's; the Fitter names none of its paths
+    def test_no_shapes_api(self):  # CL §22 H3: the shapes are the Histogrammer's; the Fitter names none of its paths
         for name in ("plan_shapes", "make_shapes", "preflight_shapes", "shapes_request"):
             self.assertFalse(hasattr(self.fitter, name), name)
         import TauFW.Fitter.api as api

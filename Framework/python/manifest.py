@@ -15,7 +15,7 @@ recipe): the reader takes the artifacts from the manifest and never reads the ot
                 of the old place.
     sources:    the inputs read from other runs' stage directories: slot -> StageDir.summary() of the source.
 
-Format 2 (R4, CL §19). A manifest of another format is refused (there is no conversion).
+Format 2 (R4, CL §17). A manifest of another format is refused (there is no conversion).
 
 Inputs:  a DONE stage's record (write); a stage directory (read).
 Outputs: manifest.json (write); a StageDir (read).

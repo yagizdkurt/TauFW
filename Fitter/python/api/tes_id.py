@@ -12,7 +12,7 @@ every output inside the output directory:
                      CommandPlan      RunReport (fit and correction artifacts)      tid_SF per DM and pt region)
     preflight_fit(): what is missing in the environment (empty: ready)
 
-The shapes (input histograms) are not made here since CL §25 (H3): another module writes them (by hand
+The shapes (input histograms) are not made here since CL §22 (H3): another module writes them (by hand
 Fitter/run_inputs.sh, in the Framework the shapes stage), and the fit reads them by the file contract
 docs/contracts/tes-shapes.md (the INPUTS tree and the file names that preflight_fit() looks for).
 

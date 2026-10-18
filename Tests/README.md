@@ -78,7 +78,7 @@ Histogrammer API and Plotter API unit tests (`Tests/Fitter/api`, `Tests/Histogra
 process runner), the sample model tests
 (`Tests/Histogrammer/sample_model`: the templates of `Configs/Histogrammer/samples/` make the same
 core calls as `Histogrammer/config/samples_v15.py`, no ROOT), the old Plotter names
-(`Tests/Histogrammer/compat`: every alias shim, changelog §24), the control-histogram file
+(`Tests/Histogrammer/compat`: every alias shim, changelog §21), the control-histogram file
 (`Tests/Histogrammer/controlhists`, `Tests/Plotter/draw`, `Tests/Utilities/test_histfile.py`), the move check (`Tests/tools`), the harness and ROOT serializer checks, every normal case, and `bbb check` in
 quiet mode. Passing output is captured in logs; failures show their output tail
 and rerun command. Use `all --tail N` to change the tail length, or `all -v` for
@@ -244,7 +244,7 @@ fingerprinted, so changing the fixtures invalidates the lock. Coverage includes:
 - Common table/loading-bar text, chunking, partitioning, and path/argument formatting.
 - Histogrammer (the former Plotter; the case names keep `plotter.`) selection/context metadata, weighted 1D/2D histograms, normalization,
   flow bins, merging, splitting, DY stitching, QCD OS/SS estimation, and C++ unrolling.
-- `plot.py`'s path to drawn stacks (`plotter.stack`): since changelog §24 S3 through the control-histogram file
+- `plot.py`'s path to drawn stacks (`plotter.stack`): since changelog §21 S3 through the control-histogram file
   (Histogrammer writes, Plotter reads and draws), compared with the canvases locked from memory.
 - Histogrammer sample sets (`plotter.sample_model`): the core calls of `getsampleset` for
   every era, channel kind and caller option (recorded, no sample is built).
@@ -252,7 +252,7 @@ fingerprinted, so changing the fixtures invalidates the lock. Coverage includes:
   event IDs, cutflow, NanoAODTools selection/range bookkeeping, and synthetic SF lookup.
 - Fitter nominal/systematic shape names, negative-bin sanitation, adaptive
   rebinning, and non-ZTT subtraction.
-- `createinputsTES.py` end to end (`histogrammer.tes_inputs`, changelog §25): a mini
+- `createinputsTES.py` end to end (`histogrammer.tes_inputs`, changelog §22): a mini
   config and sample model on tuples of 100 copies of the fixture rows (`dm_2` cycling
   over 0, 1, 10, 11) plus variation tuples (`_TES*`, `_LTF*`, `m_vis` scaled), run serially in its own interpreter
   (`BBB/pico_entry.py`); the shape file, the rebinned file (TCanvas/TStyle by key and
@@ -358,7 +358,7 @@ python Tests/tools/move_check.py OLD=NEW [OLD=NEW ...] [--ref HEAD] [--allow REG
 python Tests/run.py checks --case unit.tools          # its unit tests
 ```
 
-`Tests/tools/roundtrip_spike.py` (lxplus, ROOT) is a one-off feasibility check of CL §24: it draws the BBB
+`Tests/tools/roundtrip_spike.py` (lxplus, ROOT) is a one-off feasibility check of CL §21: it draws the BBB
 fixtures from memory and from a histogram file and compares the canvases and PNG files.
 
 ### Existing offline and ROOT checks

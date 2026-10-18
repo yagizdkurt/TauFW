@@ -16,7 +16,7 @@ ATTRIBUTES = {"filename": "mvis", "title": "m_{vis} [GeV]", "xmin": 0, "xmax": 2
 
 
 def plotpy_name_and_text(outdir, channel, selection_filename, selection_title, era, extratext):
-    """The two lines of Histogrammer/fillhists.py (Plotter/plot.py before CL §24), copied as they are."""
+    """The two lines of Histogrammer/fillhists.py (Plotter/plot.py before CL §21), copied as they are."""
     fname  = "%s/$VAR_%s-%s-%s$TAG"%(outdir,channel.replace('mu','m').replace('tau','t'),selection_filename,era)
     text   = "%s: %s"%(channel.replace('mu',"#mu").replace('tau',"#tau_{h}"),selection_title)
     if extratext:

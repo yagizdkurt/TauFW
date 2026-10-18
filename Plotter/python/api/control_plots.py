@@ -1,5 +1,5 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-"""ControlPlots: the public API for data/MC control plots drawn from control-histogram files (changelog §24, S4).
+"""ControlPlots: the public API for data/MC control plots drawn from control-histogram files (changelog §21, S4).
 
 The Plotter fills nothing. The Histogrammer fills the histograms and writes them to a control-histogram file
 (TauFW.Histogrammer.api.ControlHists, fillhists.py --hists --no-draw); this API draws such files with

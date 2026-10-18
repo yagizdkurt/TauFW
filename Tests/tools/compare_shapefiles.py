@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-"""Compare the shape files of two runs of the TES shapes stage (CL §25, H4; lxplus, needs ROOT to read).
+"""Compare the shape files of two runs of the TES shapes stage (CL §22, H4; lxplus, needs ROOT to read).
 
 Two output directories of createinputsTES.py (a stage directory <run_dir>/stages/<id>/, or Fitter/ after
 run_inputs.sh) are compared file by file:
@@ -15,8 +15,8 @@ Keys are matched by name, so a missing histogram is named, never a shifted list.
     python3 Tests/tools/compare_shapefiles.py A/stages/shapes B/stages/shapes                # SAME, or the differences
     python3 Tests/tools/compare_shapefiles.py A/stages/shapes B/stages/shapes --rtol 1e-12
 
-Two fills of the same tuples differ in the last bits (the multithreaded fill adds in another order; CL §24 saw
-1.9e-13 between two control-histogram fills, CL §22 1.6e-13 in a derived QCD). Without --rtol only exact equality
+Two fills of the same tuples differ in the last bits (the multithreaded fill adds in another order; CL §21 saw
+1.9e-13 between two control-histogram fills, CL §20 1.6e-13 in a derived QCD). Without --rtol only exact equality
 counts; numbers that differ by at most rtol (relative to the larger) or atol (absolute) count as equal. The summary
 gives the largest relative difference per histogram family (nominal, TES points, LTF and JTF shapes), with how many
 histograms of each family have content: the LTF shapes are empty in the BBB fixture (TODO §7), so this is where they

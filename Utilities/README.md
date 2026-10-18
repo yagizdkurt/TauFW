@@ -222,7 +222,7 @@ operation.cancel()                 # stop it (from any menu, on any machine that
 store.latest("tests"), store.running(), store.prune("tests", keep=5)
 ```
 
-An operation is a command that runs behind the menu and outlives its screen and the menu itself (CL §23).
+An operation is a command that runs behind the menu and outlives its screen and the menu itself (CL §18).
 `OperationStore.start` makes `<root>/<kind>-<time>/`, writes `operation.json` (kind, title, argv, cwd, `data` for
 its screen, host, user, start time) and starts `_supervisor.py` by its path, in a session of its own. The
 supervisor (standard library only) starts the command in its own process group with its output in `output.log`
@@ -353,7 +353,7 @@ Ordered groups of ROOT histograms plus JSON metadata in one ROOT file (format 1,
 every histogram under its own name with all its attributes. Order comes from the headers, never from the keys.
 Writing checks everything first (unique paths and names, plain-JSON metadata) and leaves ROOT's current directory as
 it was; reading returns copies detached from the file. ROOT is imported only to write or read. The Histogrammer
-writes its filled histograms with it and the Plotter reads them (changelog §24, S3); what the metadata means is
+writes its filled histograms with it and the Plotter reads them (changelog §21, S3); what the metadata means is
 their contract, [docs/contracts/control-histograms.md](../docs/contracts/control-histograms.md).
 
 ## Inventory and validation

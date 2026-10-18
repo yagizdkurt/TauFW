@@ -150,7 +150,7 @@ class LocalStage(Stage):
         patterns = list(dict.fromkeys(artifact.get('pattern') for artifact in artifacts))
         if None in patterns:
             return None, ("the tuples of %s do not record where they are (made before the Framework chose "
-                          "their place, CL §18); start a new run, or name them with {external: <pattern>}"
+                          "their place, CL §16); start a new run, or name them with {external: <pattern>}"
                           % (context.input_name(slot)),)
         if len(patterns) > 1:
             return None, ("the tuples of %s are in several places (%s)" % (context.input_name(slot),

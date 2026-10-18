@@ -24,7 +24,7 @@ SHAPES = {"stage": "shapes", "id": "shapes", "inputs": {"tuples": None}, "eras":
               "jet_wps": ["VTight", "Tight"], "ele_wps": ["Tight"]}
 PLOTS = {"stage": "controlplots", "id": "plots", "inputs": {"hists": "hists"}, "pdf": True}
 FIT = {"stage": "fit", "id": "fit", "inputs": {"shapes": None}, "steps": ["fit", "corrections"]}
-TT, MM = "Configs/Fitter/tes_id/config_coarse_TT.yml", "Configs/Fitter/tes_id/FitSetup_mumu.yml"  # templates (CL §25)
+TT, MM = "Configs/Fitter/tes_id/config_coarse_TT.yml", "Configs/Fitter/tes_id/FitSetup_mumu.yml"  # templates (CL §22)
 
 
 def recipe(*stages):
@@ -333,7 +333,7 @@ class TupleInputTests(LocalStageTestCase):
         self.assertEqual(stage.tuples_pattern(context()), (None, ()))  # nothing planned yet
         self.assertEqual(stage.tuples_pattern(context({"path": "x"}, {"path": "y"}))[1],
                          ("the tuples of stage 'production' do not record where they are (made before the Framework "
-                          "chose their place, CL §18); start a new run, or name them with "
+                          "chose their place, CL §16); start a new run, or name them with "
                           "{external: <pattern>}",))
         self.assertIn("are in several places", stage.tuples_pattern(context({"pattern": "/a/$ERA"},
                                                                             {"pattern": "/b/$ERA"}))[1][0])
@@ -436,7 +436,7 @@ class PathInputTests(LocalStageTestCase):
 
 
 class ControlPlotsTests(LocalStageTestCase):
-    """CL §24 S4: controlplots draws the files of the controlhists stage its input names (the Plotter API)."""
+    """CL §21 S4: controlplots draws the files of the controlhists stage its input names (the Plotter API)."""
 
     def test_draws_the_files_of_its_input(self):
         record = self.framework(HISTS, PLOTS).start(run_root=self.root)
@@ -568,7 +568,7 @@ class CommandLineTests(LocalStageTestCase):
             self.cli.Framework.from_recipe = real
         tables = [text for kind, text in self.reporter.messages if kind == "table"]
         self.assertIn("['option', 'file', 'from']", tables[0])  # the files the stage reads come first
-        self.assertIn(repr(['configs', resolve(TT, None), 'template']), tables[0])  # a Configs/ template (CL §25)
+        self.assertIn(repr(['configs', resolve(TT, None), 'template']), tables[0])  # a Configs/ template (CL §22)
         commands = [text for text in tables if "['#', 'step', 'command']" in text]
         self.assertIn("shapes 2025 VTight Tight", commands[0])
         self.assertIn("Working directory: /repo/Fitter", [t for k, t in self.reporter.messages])

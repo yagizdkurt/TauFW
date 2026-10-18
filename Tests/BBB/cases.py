@@ -469,7 +469,7 @@ def framework_production(workspace):
     ws.execute(taufw, "advance", run_dir)  # complete: merged and cleaned; the run is DONE
     result["done"] = record()
     result["status"] = masked(ws.execute(taufw, "status", run_dir)["lines"])
-    # CL §18 step 5: the merged tuples are in the production stage's directory of the run, not in picodir
+    # CL §16 step 5: the merged tuples are in the production stage's directory of the run, not in picodir
     tuples = run_dir / "stages" / "production"
     result["merged"] = {name: file_snapshot(tuples / "2018" / group / name)
                         for group, name in (("DY", "DYJetsToLL_M-50_mutau.root"), ("TT", "TTTo2L2Nu_mutau.root"))}
@@ -478,7 +478,7 @@ def framework_production(workspace):
 
 
 def fitter_shapes(workspace):
-    from TauFW.Histogrammer.shapes.inputs import createinputs  # Fitter/python/plot/datacard.py until CL §25
+    from TauFW.Histogrammer.shapes.inputs import createinputs  # Fitter/python/plot/datacard.py until CL §22
     from TauFW.Histogrammer.spec.Variable import Variable
     from TauFW.Histogrammer.spec.Selection import Selection
     from BBB.snapshot import file_snapshot
@@ -500,7 +500,7 @@ def fitter_shapes(workspace):
 
 
 def fitter_rebin(workspace):
-    from TauFW.Histogrammer.shapes.rebinning import rebinning  # Fitter/python/plot/ until CL §25
+    from TauFW.Histogrammer.shapes.rebinning import rebinning  # Fitter/python/plot/ until CL §22
     from support.fixtures import write_shapes
     from BBB.snapshot import file_snapshot
     path = write_shapes(Path(workspace) / "input_shapes.root")
@@ -511,7 +511,7 @@ def fitter_rebin(workspace):
             "subtracted": subtract}
 
 
-# ===== TES INPUTS (createinputsTES.py end to end; plan 16, CL §25) =====
+# ===== TES INPUTS (createinputsTES.py end to end; plan 16, CL §22) =====
 
 # A mini channel config with every part createinputsTES.py reads: regions (one with its own binning), the YAML
 # anchor, an observable with an extra cut, TES variations, the samples block (filename, join, split, rename, data,
@@ -706,7 +706,7 @@ def histogrammer_tes_inputs(workspace):
 # ===== DRAWING (Plot, Stack, Ratio, Plot2D, CMSStyle, SampleStyle, histogram helpers, labels) =====
 
 _ADDRESS = re.compile(r"0x[0-9a-fA-F]+")
-# The old and the new module paths of the code (CL §24) normalise alike.
+# The old and the new module paths of the code (CL §21) normalise alike.
 _DRAWING_MODULE = re.compile(r"TauFW\.(?:Plotter\.(?:plot|sample)|Histogrammer\.(?:spec|sample)|Utilities\.Drawing)\.")
 
 

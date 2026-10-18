@@ -11,7 +11,7 @@ What is checked here and what is not:
     checked:      everything Recipe.load() checks, plus the files the recipe names that do not depend on a module:
                   pico.config, absolute path options, Configs/ templates (`Configs/...`, bundle.py; the old module
                   path of a config that became a template is a Recipe error, stages.MOVED_CONFIGS; so is a
-                  module-relative config of the shapes stage, whose API is not the configs' module, CL §25 H3),
+                  module-relative config of the shapes stage, whose API is not the configs' module, CL §22 H3),
                   the `file` of python steps (always a bundle file), the
                   directory of an {external: <pattern>} input (its part before the first $KEY), and the stage
                   directory of a {path: <stage directory>} input: it exists, has a manifest of format 2 (its stage

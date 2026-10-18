@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-"""LEGACY command: Fitter/TauES/createinputsTES.py moved to Histogrammer/shapes/TauES/createinputsTES.py (CL §25).
+"""LEGACY command: Fitter/TauES/createinputsTES.py moved to Histogrammer/shapes/TauES/createinputsTES.py (CL §22).
 
 The script fills histograms and writes the input shapes of the fit; it imports nothing of the fit, so it moved to
 the Histogrammer (step 2 of the isolation work). This stub runs nothing: it prints the command to type instead (the
@@ -21,7 +21,7 @@ NEW_SCRIPTS = (("Histogrammer", "shapes", "TauES", "createinputsTES.py"),)  # th
 EXIT_STATUS = 2                                                            # as for a usage error: nothing ran
 
 MESSAGE = """\
-LEGACY: %s moved to the Histogrammer (changelog §25). Run instead, with the same options and from the same
+LEGACY: %s moved to the Histogrammer (changelog §22). Run instead, with the same options and from the same
 directory:
 
 %s

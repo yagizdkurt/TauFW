@@ -1,4 +1,4 @@
-"""Histogrammer API ControlHists (the former Plotter API ControlPlots, CL §24): fillhists.py --hists --no-draw
+"""Histogrammer API ControlHists (the former Plotter API ControlPlots, CL §21): fillhists.py --hists --no-draw
 commands as a user types them; the control-histogram files are checked (no ROOT)."""
 import os
 import shutil
@@ -171,7 +171,7 @@ class ControlHistsTests(unittest.TestCase):
                                     "tuples relative to %s" % (os.path.join(self.base, "out")),))
         self.assertNotIn("--tuples", self.histogrammer.plan(HistsRequest(eras=["2025"])).commands[0].argv)
 
-    def test_sample_files(self):  # CL §22: sample model files, --samples
+    def test_sample_files(self):  # CL §20: sample model files, --samples
         templates = os.path.join(str(checkout.REPO), "Configs", "Histogrammer", "samples")
         samples = (os.path.join(templates, "v15_2025.yml"), os.path.join(templates, "v15_2024.yml"))
         outdir = os.path.join(self.base, "out")
@@ -222,7 +222,7 @@ class ControlHistsTests(unittest.TestCase):
         self.assertEqual(self.histogrammer.request(eras=[2025]).eras, ("2025",))
         with self.assertRaises(TypeError):
             self.histogrammer.request(eras=[2025], variable=["x"])
-        for option in ("fraction", "pdf", "text"):  # drawing options: the Plotter's PlotsRequest (CL §24 S4)
+        for option in ("fraction", "pdf", "text"):  # drawing options: the Plotter's PlotsRequest (CL §21 S4)
             with self.assertRaises(TypeError):
                 self.histogrammer.request(eras=[2025], **{option: True})
 

@@ -8,7 +8,7 @@ taufw_config:                     # set by the maintainers: analysts edit the va
 ## Decay-mode binning uses PNet decay modes (decayModePNet_2): 6 bins {0,1,2,10,11,rest}.
 ## Sibling of config_coarse_TT.yml (DeepTau). Drive with run_inputs_pnet.sh / run_workflow_zmm_pnet.sh.
 
-# The keys are grouped by who reads them (docs/contracts/tes-shapes.md, changelog §25); the order does not
+# The keys are grouped by who reads them (docs/contracts/tes-shapes.md, changelog §22); the order does not
 # matter to the readers. Keep a key in its group: a key in the first group is read by both sides.
 
 # ================================== Histogrammer + Fitter config (both read these) ==================================

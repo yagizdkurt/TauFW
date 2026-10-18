@@ -125,7 +125,7 @@ purposes. What is filled (eras, setups, variables, selections, samples, tag) is
 an option of `controlhists`; what only changes the picture (`fraction`, `pdf`,
 `text`) is an option of `controlplots`.
 
-Until changelog §24 (S4) one stage, `plots`, filled and drew in one script; a
+Until changelog §21 (S4) one stage, `plots`, filled and drew in one script; a
 recipe that still writes `stage: plots` (or `stage: histograms`, now `shapes`)
 fails the check with a message naming the new stages.
 
@@ -301,8 +301,8 @@ follow one rule:
 | --- | --- | --- |
 | Absolute path | Used as is. | `absolute` |
 | Relative path of a file in the bundle | That bundle file, e.g. `config_coarse_TT.yml` next to `recipe.yml`. | `bundle` |
-| `Configs/...`, not a bundle file | The template in `TauFW/Configs/` (changelog §25), e.g. `Configs/Fitter/tes_id/config_coarse_TT.yml`; the stage's module gets its absolute path. | `template` |
-| Any other relative path | Unchanged: the module resolves it as before, relative to `Fitter/` (e.g. the fit's `TauES/config/defaultFitSetupTES_mutau.yml`) or `Histogrammer/`. The old module paths of configs that became templates (`TauES_ID/config/config_coarse_TT.yml`, ...) fail the check with the template's name; the `shapes` stage's `configs` take no module path at all (changelog §25 H3). | `module` |
+| `Configs/...`, not a bundle file | The template in `TauFW/Configs/` (changelog §22), e.g. `Configs/Fitter/tes_id/config_coarse_TT.yml`; the stage's module gets its absolute path. | `template` |
+| Any other relative path | Unchanged: the module resolves it as before, relative to `Fitter/` (e.g. the fit's `TauES/config/defaultFitSetupTES_mutau.yml`) or `Histogrammer/`. The old module paths of configs that became templates (`TauES_ID/config/config_coarse_TT.yml`, ...) fail the check with the template's name; the `shapes` stage's `configs` take no module path at all (changelog §22 H3). | `module` |
 | `controlhists.configs` channel name | `mutau` selects `Configs/Histogrammer/setups/setup_mutau.yml` (the template; a bundle copy is better: `taufw.py init --from` makes one). | `module` |
 
 A bundle file **replaces** the module's config as a whole: the script reads the
@@ -510,7 +510,7 @@ when you intend to remove the intermediate job files after validation.
 ### `controlhists`
 
 The first half of the control plots. Runs `Histogrammer/fillhists.py --hists --no-draw` (the former
-`Plotter/plot.py`, changelog §24) locally, once per config and era, through
+`Plotter/plot.py`, changelog §21) locally, once per config and era, through
 `TauFW.Histogrammer.api.ControlHists`: it fills the data/MC stacks of every variable and selection and writes
 them, with what the drawing needs, to one control-histogram file
 ([contract](../docs/contracts/control-histograms.md)); it draws nothing. The `controlplots` stage draws them.
@@ -576,7 +576,7 @@ config. The `fit` stage reads the files by the contract [docs/contracts/tes-shap
 | `eras` | Required | Non-empty eras; `-y`. |
 | `jet_wps` | Required | Non-empty DeepTau VSjet working points, for example `[VTight]`; `-j`. |
 | `ele_wps` | Required | Non-empty DeepTau VSe working points, for example `[Tight]`; `-e`. |
-| `configs` | `[Configs/Fitter/tes_id/config_coarse_TT.yml, Configs/Fitter/tes_id/FitSetup_mumu.yml]` | Non-empty configs (bundle files, `Configs/` templates or absolute): by default the mutau fit and mumu control region. A module-relative path (e.g. `TauES/config/...`) fails the check: the stage's API is the Histogrammer's, the configs were Fitter files (changelog §25 H3); copy the file into the bundle. |
+| `configs` | `[Configs/Fitter/tes_id/config_coarse_TT.yml, Configs/Fitter/tes_id/FitSetup_mumu.yml]` | Non-empty configs (bundle files, `Configs/` templates or absolute): by default the mutau fit and mumu control region. A module-relative path (e.g. `TauES/config/...`) fails the check: the stage's API is the Histogrammer's, the configs were Fitter files (changelog §22 H3); copy the file into the bundle. |
 | `serial` | `false` | Serial shape creation; `-s`. |
 | `timeout` | `null` | Seconds per shape-creation command; unset means no time limit. |
 | `samples` | `[]` | Sample model files of the bundle (or absolute), one per era: copies of `Configs/Histogrammer/samples/v15_<era>.yml` (MC table, data, MC weights, stitching); `--samples`. Empty: the tables of `Histogrammer/config/samples_v15.py` (old recipes). See [Which samples](#which-samples). |
@@ -880,7 +880,7 @@ prints the last 20 lines of its log.
 | Local stage stays `NEW` with a preflight message | Fix the named missing environment/tool/config/input, then call `advance` on the same run. |
 | No working points to fit | Connect `inputs: {shapes: <shapes id or {path: ...}>}` to a shapes stage with both matching configs, or explicitly set eras and both WP lists (needed with `shapes: null`). |
 | Plots/shapes read unexpected or missing tuples | Check the `Inputs:` line and the `--tuples` pattern of the commands in `plan` (with `null`: `$PICODIR` in the run's PicoProducer configuration), then channel/setup naming, tags, and required variation tuples. |
-| `the tuples of stage 'production' do not record where they are` | The run's production finished before the Framework chose the tuples' place (CL §18). Start a new run, or name the tuples with `{external: <pattern>}`. |
+| `the tuples of stage 'production' do not record where they are` | The run's production finished before the Framework chose the tuples' place (CL §16). Start a new run, or name the tuples with `{external: <pattern>}`. |
 | `tuple directory ... not found` | The fixed part of an `{external: ...}` pattern does not exist on this machine (EOS not mounted, a typo). |
 | Exit code zero but the local stage fails | Read the command log for missing/stale expected outputs and nested ROOT/Combine failures. |
 | Editing YAML or a bundle file does not affect `advance` | The run uses the recipe stored in `run.json` and its bundle copy; start a new run to use edited settings. |

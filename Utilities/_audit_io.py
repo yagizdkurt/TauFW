@@ -150,7 +150,7 @@ def _responsibility(path):
         return "Correction helper/recipe: " + path.stem, "Payload schemas, correction evaluation and physics policy"
     if value.startswith("PicoProducer/"):
         return "Production command/configuration: " + path.stem, "Arguments, config defaults, job planning/status/merge validation"
-    if value.startswith(("Histogrammer/", "Plotter/")):  # the Plotter was renamed Histogrammer (CL §24)
+    if value.startswith(("Histogrammer/", "Plotter/")):  # the Plotter was renamed Histogrammer (CL §21)
         return "Plot/sample/histogram helper: " + path.stem, "Selections, histogram calculation, styles and canvas export"
     if value.startswith("Fitter/"):
         return "Fit/measurement helper: " + path.stem, "Model/shape policies, fit execution, diagnostics and scientific keys"

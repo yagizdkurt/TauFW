@@ -5,7 +5,7 @@
 import os
 import sys
 from collections import OrderedDict
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)),"..","..")) # Histogrammer/, for config.samples (Fitter/TauES/ until CL §25); BUGS F16: found from this file, not the working directory
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)),"..","..")) # Histogrammer/, for config.samples (Fitter/TauES/ until CL §22); BUGS F16: found from this file, not the working directory
 # from config.samples import *
 from config.samples_v15 import *
 from TauFW.Utilities.Drawing import LOG as PLOG

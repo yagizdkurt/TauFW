@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-"""Compare two histogram files (TauFW.Utilities.HistFile) entry by entry (CL §24, S4; lxplus, needs ROOT).
+"""Compare two histogram files (TauFW.Utilities.HistFile) entry by entry (CL §21, S4; lxplus, needs ROOT).
 
 ROOT files cannot be compared byte by byte: every write stores a new time stamp and UUID. This script reads both
 files and compares what they hold: the file metadata, the entries in order (path, metadata, groups) and every

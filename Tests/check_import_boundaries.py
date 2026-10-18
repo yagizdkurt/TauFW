@@ -15,7 +15,7 @@ import warnings
 
 REPO = Path(__file__).resolve().parent.parent
 ALLOWLIST = Path(__file__).with_name("import_boundary_allowlist.json")
-STAGES = ("PicoProducer", "Histogrammer", "Plotter", "Fitter")  # Histogrammer: the former Plotter (CL §24)
+STAGES = ("PicoProducer", "Histogrammer", "Plotter", "Fitter")  # Histogrammer: the former Plotter (CL §21)
 PACKAGES = STAGES + ("Framework", "Utilities", "common")
 EXCLUDED = {"Legacy", "legacy", "LegacyAnalyses", "Tests", "__pycache__"}
 IMPLICIT_ROOTS = {"config", "plot", "sample"}
@@ -126,7 +126,7 @@ def inspect_source(source, relative_file, root):
                     target = parts[1]
             elif importer in STAGES and parts[0] in IMPLICIT_ROOTS:
                 local = Path(root).joinpath(*path.parent.parts, *parts)
-                own = Path(root).joinpath(importer, *parts)  # in the module's own config/ (from a subdirectory, CL §25)
+                own = Path(root).joinpath(importer, *parts)  # in the module's own config/ (from a subdirectory, CL §22)
                 if not any(found.with_suffix(".py").is_file() or found.is_dir() for found in (local, own)):
                     candidates = []
                     for stage in STAGES:
@@ -265,7 +265,7 @@ class DetectorTests(unittest.TestCase):
         self.assertEqual(len(self.inspect("import TauFW.Plotter.api", "Utilities/example.py")[0]), 1)
 
     def test_histogrammer_and_plotter_are_separate_stages(self):
-        """CL §24: the Histogrammer (the former Plotter) and the new Plotter never import each other; the Framework
+        """CL §21: the Histogrammer (the former Plotter) and the new Plotter never import each other; the Framework
         may import the Histogrammer's API only; the Fitter takes histogram files, not the Histogrammer."""
         found, _, _ = self.inspect("import TauFW.Histogrammer.sample.utils as _module",
                                    "Plotter/python/sample/utils.py")
@@ -288,7 +288,7 @@ class DetectorTests(unittest.TestCase):
             self.assertEqual([item.module for item in found],
                              ["config.samples_v15", "plot.helpers", "sample.utils"])
             self.assertEqual(len(self.inspect(source, "Fitter/tutorial/example.py", directory)[0]), 4)
-            # a script in a subdirectory of the module that owns config/ (Histogrammer/shapes/TauES, CL §25)
+            # a script in a subdirectory of the module that owns config/ (Histogrammer/shapes/TauES, CL §22)
             own = Path(directory) / "Histogrammer/config"
             own.mkdir(parents=True)
             (own / "samples_v15.py").write_text("", encoding="utf-8")

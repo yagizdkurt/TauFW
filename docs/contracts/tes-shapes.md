@@ -1,14 +1,14 @@
 # Contract: TES shapes (the input histograms of the TES / tau ID fit)
 
 Written by `createinputsTES.py` (`Histogrammer/shapes/TauES/`, in `Fitter/TauES/` until step 2 of the isolation
-work, CL §25), read by the fit (`Fitter/TauES_ID/harvestDatacards_TES_idSF_MCStat.py`, `harvestDatacards_zmm.py`). The two
+work, CL §22), read by the fit (`Fitter/TauES_ID/harvestDatacards_TES_idSF_MCStat.py`, `harvestDatacards_zmm.py`). The two
 sides never import each other; this page and the channel config (below) are all they share. In a TauFW recipe the
 Framework carries the files from the `shapes` stage to the `fit` stage: the artifact `{kind: shapes, path, era,
 channel, config, jet_wp, ele_wp, observable}` names a file (`TauFW.Histogrammer.api.TESShapes`, `_shape_files`;
-the Fitter API's until CL §25 H3).
+the Fitter API's until CL §22 H3).
 
 Unlike `control-histograms.md` this format has no version field and no metadata in the file: it is the format the fit
-has read since 2021, written down as it is (CL §25, H0). Changing anything below means changing both sides together.
+has read since 2021, written down as it is (CL §22, H0). Changing anything below means changing both sides together.
 
 ## File
 
@@ -53,7 +53,7 @@ histograms of an earlier config).
 ## The channel config (read by both sides)
 
 One YAML file per channel: the templates `Configs/Fitter/tes_id/config_coarse_{TT,PNet,UParT}.yml` and
-`FitSetup_mumu.yml` (ids `fitter.tes_id_*`; `Fitter/TauES_ID/config/`, `Fitter/TauES/config/` until changelog §25
+`FitSetup_mumu.yml` (ids `fitter.tes_id_*`; `Fitter/TauES_ID/config/`, `Fitter/TauES/config/` until changelog §22
 H2). In each template the top-level keys are grouped under banners by reader, as in the table below; a ROOT-free
 test checks that every template has the keys both readers take without a default (`Tests/Framework/test_configs.py`,
 `read_tes_id`). H = `createinputsTES.py`, F = the fit side
@@ -89,7 +89,7 @@ read again from that file's cutflow. A missing file is only a warning when the s
 
 ## Checked by
 
-- BBB `histogrammer.tes_inputs` (CL §25): the script end to end on fixture tuples, the shape file, the rebinned file
+- BBB `histogrammer.tes_inputs` (CL §22): the script end to end on fixture tuples, the shape file, the rebinned file
   and the names of the control plots; locked with the code before step 2 moved it. Not covered there: the working-point
   substitution (no `idDeepTau*` branches in the fixture) and the content of the LTF shapes (`ZL`, `TTL` are empty in
   the fixture's selection; TODO §7).

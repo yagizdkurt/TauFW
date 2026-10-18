@@ -18,7 +18,7 @@ The path options of a stage (the fields named in its Spec's `_paths`) and `pico.
     relative, otherwise                 ─▶ unchanged: the module resolves it, as before       'module'
                                            (Fitter/ or Histogrammer/; a channel name such as mutau)
 
-A template (CL §25) is named the same way in every stage, e.g. `Configs/Fitter/tes_id/config_coarse_TT.yml` or
+A template (CL §22) is named the same way in every stage, e.g. `Configs/Fitter/tes_id/config_coarse_TT.yml` or
 `Configs/Histogrammer/samples/v15_2025.yml`: the stage's API gets the absolute path, so no module needs to know where
 another module's files are. A run reads a template where it is (like a module file); a bundle copy is what a run
 keeps (taufw.py init copies the templates a recipe names into the new bundle).

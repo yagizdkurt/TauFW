@@ -1,4 +1,4 @@
-"""compare_shapefiles.py without ROOT: file lists, keys by name, tolerances, the histogram families (CL §25, H4)."""
+"""compare_shapefiles.py without ROOT: file lists, keys by name, tolerances, the histogram families (CL §22, H4)."""
 import contextlib
 import io
 import os

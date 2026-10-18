@@ -1,5 +1,5 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-"""Records of the public Plotter API: what a caller asks for (changelog §24, S4).
+"""Records of the public Plotter API: what a caller asks for (changelog §21, S4).
 
   HistFileInput  one control-histogram file to draw, with the facts the plan needs before the file exists
   PlotsRequest   the files to draw and the drawing options of Plotter/draw.py (-F, -p, -T)

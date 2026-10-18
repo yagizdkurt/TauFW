@@ -1,6 +1,6 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """ControlHists: the public API for the control histograms of pico tuples (the data/MC stacks of the control
-plots, filled but not drawn). Until CL §24 (S4) this API was ControlPlots and its script also drew the plots.
+plots, filled but not drawn). Until CL §21 (S4) this API was ControlPlots and its script also drew the plots.
 
 Histogrammer/fillhists.py fills them; with --hists --no-draw it only writes them to a control-histogram file
 (contract taufw.control_histograms, docs/contracts/control-histograms.md), which the Plotter draws (its API
@@ -47,7 +47,7 @@ from TauFW.Histogrammer.sample import model as sample_model
 
 __all__ = ['ControlHists']
 
-SCRIPT = 'fillhists.py'                    # the script this API runs (Plotter/plot.py until CL §24)
+SCRIPT = 'fillhists.py'                    # the script this API runs (Plotter/plot.py until CL §21)
 SETUPS = ('Configs', 'Histogrammer', 'setups')  # the channel setups, next to Histogrammer/ (config templates, Configs/README.md)
 
 
@@ -258,7 +258,7 @@ class ControlHists:
 
 def _setup_file(config):
     """fillhists.py's rule: a name without .yml is a channel, Configs/Histogrammer/setups/setup_<channel>.yml (relative to
-    Histogrammer/; the setups are config templates since CL §22)."""
+    Histogrammer/; the setups are config templates since CL §20)."""
     return config if config.endswith('.yml') else os.path.join(os.pardir, *SETUPS, "setup_%s.yml" % (config))
 
 

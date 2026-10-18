@@ -1,4 +1,4 @@
-"""Plotter API ControlPlots (CL §24, S4): Plotter/draw.py commands as a user types them, the plots they are expected
+"""Plotter API ControlPlots (CL §21, S4): Plotter/draw.py commands as a user types them, the plots they are expected
 to write (the names of TauFW.Plotter.controlplots.plot_name), the plots artifact (no ROOT)."""
 import os
 import shutil

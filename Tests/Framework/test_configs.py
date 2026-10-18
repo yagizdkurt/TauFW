@@ -28,7 +28,7 @@ READERS = {
 
 def read_tes_id(path):
     """A TES / tau ID channel config with the keys its two readers take without a default (docs/contracts/
-    tes-shapes.md; CL §25 D1): createinputsTES.py (channel, baselineCuts, samples.filename/join/data, observables
+    tes-shapes.md; CL §22 D1): createinputsTES.py (channel, baselineCuts, samples.filename/join/data, observables
     with binning and fitRegions in regions, processes; regions with definition and title; TES variations and shape
     systematics with their fields) and the fit scripts (channel, tag, observables, processes, systematics)."""
     import yaml
@@ -248,7 +248,7 @@ class CopyWarningTests(ConfigsCase):
         self.assertIn("not in Configs/ any more", messages[os.path.join("sub", "b.yml")])
 
     def test_copy_with_the_id_from_before_a_rename(self):
-        """BACKWARD COMPATIBILITY (changelog §24): plotter.samples_* became histogrammer.samples_*."""
+        """BACKWARD COMPATIBILITY (changelog §21): plotter.samples_* became histogrammer.samples_*."""
         self.assertEqual(renamed_id("plotter.samples_v15_2025"), "histogrammer.samples_v15_2025")
         self.assertEqual(renamed_id("plotter.setup_mutau"), "histogrammer.setup_mutau")
         self.assertIsNone(renamed_id("fitter.tes_id"))

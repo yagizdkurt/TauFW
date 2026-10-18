@@ -1,4 +1,4 @@
-"""compare_histfiles.py without ROOT: what counts as a difference of two snapshots (CL §24, S4)."""
+"""compare_histfiles.py without ROOT: what counts as a difference of two snapshots (CL §21, S4)."""
 import struct
 import unittest
 

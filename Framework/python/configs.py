@@ -22,7 +22,7 @@ Analysts copy a template into their bundle (the header comes with it) and edit t
 start warn when the template of a copy has a newer version (copy_warnings): the maintainers changed it since the copy.
 The warning stays as long as the copy is older; keeping an old copy on purpose is allowed. A copy whose id belongs to
 a template that moved with a module rename (RENAMED_IDS) is compared with the renamed template and warned to update
-its header (backward compatibility, changelog §24).
+its header (backward compatibility, changelog §21).
 
 Only YAML templates (.yml, .yaml) are allowed in Configs/ (no Python, no JSON: *.json is ignored by git), besides
 README.md files and configs.lock.
@@ -69,7 +69,7 @@ LOCK_HEADER = ("# Configs/configs.lock: the content version and hash of every te
                "# Written by `taufw.py configs update` (Framework/python/configs.py); do not edit by hand.\n"
                "# id  version  sha256 of the values without the taufw_config header\n")
 
-# ===== BACKWARD COMPATIBILITY (changelog §24, TODO §8): delete at the migration point =====
+# ===== BACKWARD COMPATIBILITY (changelog §21, TODO §8): delete at the migration point =====
 # Templates that moved with a module rename: the start of an old id -> the start of the new one. Copies made before
 # the rename keep the old id in their header; copy_warnings() finds their template by the new id and asks for the
 # header to be updated, instead of reporting the template as gone.
@@ -175,7 +175,7 @@ def copy_warnings(bundle_dir, directory=None, files=None):
         template = templates.get(copy.id)
         if template is None and renamed_id(copy.id) in templates:  # BACKWARD COMPATIBILITY (RENAMED_IDS)
             template = templates[renamed_id(copy.id)]
-            warnings.append((relative, "copy of %s, which was renamed %s (Configs/%s, changelog §24): change the id "
+            warnings.append((relative, "copy of %s, which was renamed %s (Configs/%s, changelog §21): change the id "
                                        "in the copy's %s header to %s"
                              % (copy.id, template.header.id, _posix(template.path), HEADER_KEY, template.header.id)))
         if template is None:

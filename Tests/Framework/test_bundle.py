@@ -16,11 +16,11 @@ from TauFW.Framework.defaults import CONFIGS_DIR
 from TauFW.Framework.stages import ControlHistsStage, ShapesStage, FitStage
 from test_framework import Clock
 
-TEMPLATE = "Configs/Fitter/tes_id/config_coarse_TT.yml"  # a template of the repository (CL §25)
+TEMPLATE = "Configs/Fitter/tes_id/config_coarse_TT.yml"  # a template of the repository (CL §22)
 
 SHAPES = {"stage": "shapes", "id": "shapes", "inputs": {"tuples": None}, "eras": [2025],
               "jet_wps": ["VTight"], "ele_wps": ["Tight"], "configs": ["tt.yml", "mm.yml"]}
-LOOSE_SHAPES = dict(SHAPES, configs=[TEMPLATE])  # for recipes without a bundle: no module path (CL §25 H3)
+LOOSE_SHAPES = dict(SHAPES, configs=[TEMPLATE])  # for recipes without a bundle: no module path (CL §22 H3)
 FIT = {"stage": "fit", "id": "fit", "inputs": {"shapes": "shapes"}, "config": "tt.yml", "config_mumu": "mm.yml",
        "steps": ["fit"]}
 HISTS = {"stage": "controlhists", "id": "hists", "inputs": {"tuples": None}, "eras": [2025],
@@ -67,7 +67,7 @@ class PathRuleTests(BundleTestCase):
         self.assertEqual(where("TauES/config/defaultFitSetup_mumu.yml", self.bundle), "module")  # not in the bundle
         self.assertEqual(resolve("TauES/config/defaultFitSetup_mumu.yml", self.bundle),
                          "TauES/config/defaultFitSetup_mumu.yml")
-        template = "Configs/Fitter/tes_id/config_coarse_TT.yml"  # a Configs/ template (CL §25): its absolute path
+        template = "Configs/Fitter/tes_id/config_coarse_TT.yml"  # a Configs/ template (CL §22): its absolute path
         self.assertEqual((where(template, self.bundle), resolve(template, self.bundle)),
                          ("template", os.path.normpath(os.path.join(os.path.dirname(CONFIGS_DIR), template))))
         self.assertEqual(where(template, None), "template")  # also without a bundle
@@ -169,7 +169,7 @@ class RunSnapshotTests(BundleTestCase):
         self.assertEqual(record.bundle["files"], [])
         self.assertEqual(self.tes_shapes.call("make_shapes")[0]["configs"], [config])
 
-    def test_shapes_configs_are_never_module_paths(self):  # CL §25 H3 (E2): the API is not the configs' module
+    def test_shapes_configs_are_never_module_paths(self):  # CL §22 H3 (E2): the API is not the configs' module
         path = self.write("plain.json", json.dumps({"name": "plain", "stages": [
             dict(SHAPES, configs=["TauES/config/defaultFitSetupTES_mutau.yml", TEMPLATE])]}), base=self.root)
         with self.assertRaises(RecipeError) as context:
@@ -220,11 +220,11 @@ class StageIdTests(BundleTestCase):
         self.assertEqual([s.stage for s in recipe.stages], ["fit", "python", "shapes"])  # no fixed order (R4)
         self.assertIn("unknown stage 'pyhton' (known: production, controlhists, controlplots, shapes, fit, python)",
                       self.error({"stage": "pyhton"}))
-        self.assertIn("stages[0]: stage 'histograms' no longer exists: renamed 'shapes' (CL §24)",
-                      self.error(dict(LOOSE_SHAPES, stage="histograms")))  # the name before CL §24 (S4a)
+        self.assertIn("stages[0]: stage 'histograms' no longer exists: renamed 'shapes' (CL §21)",
+                      self.error(dict(LOOSE_SHAPES, stage="histograms")))  # the name before CL §21 (S4a)
         self.assertIn("stages[0]: stage 'plots' no longer exists: control plots are two stages now: controlhists "
-                      "(tuples -> histogram files) and controlplots (files -> plots) (CL §24)",
-                      self.error(dict(HISTS, stage="plots")))  # the one-step stage before CL §24 (S4)
+                      "(tuples -> histogram files) and controlplots (files -> plots) (CL §21)",
+                      self.error(dict(HISTS, stage="plots")))  # the one-step stage before CL §21 (S4)
         self.assertIn("file must be a .py file", self.error(dict(STEP, file="steps/check.sh")))
         self.assertIn("missing required option 'file'", self.error({"stage": "python", "id": "x", "inputs": None}))
         self.assertIn("description: must be text", self.error(dict(STEP, description=["a"])))
@@ -331,7 +331,7 @@ class MakeBundleTests(BundleTestCase):
         for path in ("Fitter/TauES/config/defaultFitSetup_mumu.yml", "Histogrammer/mutau"):
             self.write(path, "module %s\n" % (path), base=self.modules)
 
-    def test_make_bundle_copies_the_module_configs(self):  # and the Configs/ templates (CL §25)
+    def test_make_bundle_copies_the_module_configs(self):  # and the Configs/ templates (CL §22)
         source = self.write("old.json", json.dumps({"name": "old", "stages": [
             dict(HISTS, configs=["mutau"]),
             dict(SHAPES, configs=[TEMPLATE]),
@@ -348,7 +348,7 @@ class MakeBundleTests(BundleTestCase):
         self.assertEqual(set(bundle_files(recipe)), {os.path.normpath(p) for p in copied})
         with open(os.path.join(target, "config_coarse_TT.yml"), "rb") as stream, \
                 open(os.path.join(os.path.dirname(CONFIGS_DIR), TEMPLATE), "rb") as original:
-            self.assertEqual(stream.read(), original.read())  # a template (CL §25) is copied as it is, header and all
+            self.assertEqual(stream.read(), original.read())  # a template (CL §22) is copied as it is, header and all
         with open(os.path.join(target, "defaultFitSetup_mumu.yml")) as stream:
             self.assertEqual(stream.read(), "module Fitter/TauES/config/defaultFitSetup_mumu.yml\n")
         self.assertTrue(os.path.isfile(os.path.join(target, "steps", "example.py")))

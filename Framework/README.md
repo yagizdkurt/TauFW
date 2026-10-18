@@ -117,7 +117,7 @@ transitions, back behavior, refresh loops, and operation feedback; `faq.py` owns
 help content.
 `_test_run.py` is the test screen. What runs behind the menu is an operation
 (`Utilities/python/Process/_operations.py`, `_supervisor.py`): a directory under `.artifacts/menu/operations/`
-that a supervisor process fills while it runs the command, and that any menu reads again (CL §23).
+that a supervisor process fills while it runs the command, and that any menu reads again (CL §18).
 `python/interactive.py` keeps recipe/run discovery, validation, record access,
 read-only recipe previews and plan preparation, test runs (`start_tests`, `tests_operation`), and command
 dispatch. Recipe previews (with their problems)
@@ -302,7 +302,7 @@ usage reference), `Analyses/example_mutau_short/` (a small production), `Analyse
 tau ID fit on existing tuples: control histograms and plots, shapes, fit, and a Python summary step).
 
 Dependencies point one way: `Framework → PicoProducer.api, Histogrammer.api, Plotter.api, Fitter.api` (the
-Histogrammer is the former Plotter; the new Plotter only draws, changelog §24). No other package imports the
+Histogrammer is the former Plotter; the new Plotter only draws, changelog §21). No other package imports the
 Framework, and the stages never import each other: the Framework carries the control-histogram files from the
 Histogrammer to the Plotter. The Framework imports each API only when its stage is built, and the module APIs never import
 ROOT (they run the scripts as separate processes, through `TauFW.Utilities.Process`), so recipes, run records and the

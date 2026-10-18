@@ -1,6 +1,6 @@
 # Script option changes for per-run output directories (R3)
 
-**Status:** implemented and checked on lxplus against the shell scripts (October 2026, CL §17 of
+**Status:** implemented and checked on lxplus against the shell scripts (October 2026, CL §15 of
 [Refactor-2025.md](Refactor-2025.md); results below).
 
 Since R3 the Framework runs the Plotter and Fitter scripts with the stage's output directory
@@ -93,7 +93,7 @@ TES/LTF/JTF variations). Baseline commit: `f951dc0` (the last one with the scrip
     DM11_pt2 failed in the baseline (initial fit did not converge, `combineTool.py` traceback inside `os.system`,
     the script still exits 0) and succeeded in the Framework run, again because of the 1e-13 shape differences.
 
-## Tuple location (CL §18)
+## Tuple location (CL §16)
 
 **Status:** steps 2, 3 and 6 of the tuple-location work (`LocalR/architecture/archive/12-tuples-plan.md`): the options
 exist, the APIs pass them (`PlotsRequest.tuples`, `ShapesRequest.tuples`) and the Framework gives them (plots and
@@ -125,7 +125,7 @@ same directory.
 - Test: `Tests/Plotter/testTupleLocation.py` (ROOT; tiny local tuples: MC, merged data glob, a variation, and the
   default through a mocked configuration).
 
-## Sample model files (CL §22)
+## Sample model files (CL §20)
 
 **Status:** steps S3-S5 of the sample model (`LocalR/architecture/archive/14-sample-model-plan.md`): the options exist, the
 APIs pass them (`PlotsRequest.samples`, `ShapesRequest.samples`) and the Framework gives them (the `samples` option of
@@ -148,7 +148,7 @@ templates of `Configs/Plotter/samples/` (one per era, exported from those tables
 - `createinputsTES.py` keeps importing `config.samples_v15` (known import debt): the option goes through that
   function, so the Fitter imports nothing new.
 
-## Channel setups in Configs (CL §22, S7)
+## Channel setups in Configs (CL §20, S7)
 
 The channel setups moved from `Plotter/config/setup_<channel>.yml` to `Configs/Plotter/setups/setup_<channel>.yml`
 (config templates with a `taufw_config` header; the scripts ignore that key).
@@ -161,7 +161,7 @@ The channel setups moved from `Plotter/config/setup_<channel>.yml` to `Configs/P
 - Not kept: `-c config/setup_mutau.yml` (an explicit path to the old place) no longer exists. Use the channel name
   (`-c mutau`) or the new path. `Plotter/tutorial/` keeps its own `config/setup_mutau.yml`.
 
-## Plotter becomes Histogrammer (changelog §24, S1)
+## Plotter becomes Histogrammer (changelog §21, S1)
 
 The module directory `Plotter/` is now `Histogrammer/`; a new `Plotter/` keeps the old names working until the
 migration point (TODO §8). Options, defaults and outputs of every script are unchanged.
@@ -202,7 +202,7 @@ migration point (TODO §8). Options, defaults and outputs of every script are un
 | `TauFW.Histogrammer.api.ControlPlots`, `PlotsRequest` | renamed `ControlHists`, `HistsRequest` (no `fraction`, `pdf`, `text`); the artifact is the file (`kind: control_histograms`) | none (only the Framework used it) |
 | `TauFW.Plotter.api` (new) | `ControlPlots`, `PlotsRequest`, `HistFileInput`: `draw.py` once per file | - |
 
-## TES shapes move to the Histogrammer (changelog §25, H1)
+## TES shapes move to the Histogrammer (changelog §22, H1)
 
 The scripts that make input shapes import nothing of the fit; they moved to `Histogrammer/shapes/`, unchanged except
 for their import lines. They are run from the same directories as before, so relative config paths and the outputs
@@ -216,7 +216,7 @@ stay where they were.
 | `TauFW.Fitter.plot.rebinning` | `TauFW.Histogrammer.shapes.rebinning` | none |
 | `Fitter/MuTauFR/createinputs.py` | unchanged (its import `TauFW.Plotter.plot.datacard` was already broken, TODO §8) | - |
 
-## TES/ID channel configs to Configs/ (changelog §25, H2)
+## TES/ID channel configs to Configs/ (changelog §22, H2)
 
 The four maintained channel configs of the TES + tau ID fit are templates now: `Configs/Fitter/tes_id/` (ids
 `fitter.tes_id_coarse_tt`, `_coarse_pnet`, `_coarse_upart`, `fitter.tes_id_mumu`). Same values (`yaml.safe_load` of

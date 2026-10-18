@@ -1,5 +1,5 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-"""BACKWARD COMPATIBILITY (CL §24): TauFW.Plotter.sample.ResultDict is now TauFW.Histogrammer.sample.ResultDict.
+"""BACKWARD COMPATIBILITY (CL §21): TauFW.Plotter.sample.ResultDict is now TauFW.Histogrammer.sample.ResultDict.
 
 The Plotter of before October 2026 became the Histogrammer; this old module name is an alias of the new module.
 Importing it gives the very same module object (same functions, classes, loggers and module state such as the era

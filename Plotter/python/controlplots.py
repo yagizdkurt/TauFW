@@ -1,5 +1,5 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-"""Control plots drawn from a control-histogram file of the Histogrammer (changelog §24, S3).
+"""Control plots drawn from a control-histogram file of the Histogrammer (changelog §21, S3).
 
 The Plotter does not fill histograms: it reads the file that `Histogrammer/fillhists.py --hists` wrote
 (docs/contracts/control-histograms.md) and draws each stack with the shared drawing library, exactly as

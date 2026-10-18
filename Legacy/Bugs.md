@@ -215,5 +215,5 @@ file passes syntax parsing. This grammar check is not execution under Python
 remote dataset access was performed. At the time of the original report, only that Markdown report was added.
 
 The Python 2 cases `common.loadingbar` and `common.table` were removed when
-`LoadingBar` and `Table` moved to `TauFW.Utilities.CLI` (changelog §15, §17);
+`LoadingBar` and `Table` moved to `TauFW.Utilities.CLI` (changelog §13, §15);
 unit tests in `Tests/Utilities/test_cli.py` replace them.

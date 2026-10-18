@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # Author: Izaak Neutelings (August 2020)
 # Description: Simple plotting script for pico analysis tuples
-# Renamed from Plotter/plot.py (CL §24, Yagizhan Dinckurt, October 2026): it fills the histograms and, by default,
+# Renamed from Plotter/plot.py (CL §21, Yagizhan Dinckurt, October 2026): it fills the histograms and, by default,
 # also draws them, exactly as plot.py did. With --hists it writes them to a file for Plotter/draw.py; with
 # --hists --no-draw it only writes the file (the controlhists stage of the Framework runs it so).
 # Instructions:
@@ -16,9 +16,9 @@ import os
 from config.samples_v15 import *
 from TauFW.Histogrammer.spec.string import filtervars
 from TauFW.Utilities.Drawing import LOG as PLOG
-from TauFW.Histogrammer.controlhists import stack_entry, write_control_hists # --hists (CL §24, S3)
+from TauFW.Histogrammer.controlhists import stack_entry, write_control_hists # --hists (CL §21, S3)
 import yaml
-SETUPS = os.path.join(os.path.dirname(os.path.abspath(__file__)),"..","Configs","Histogrammer","setups") # channel setups (CL §22)
+SETUPS = os.path.join(os.path.dirname(os.path.abspath(__file__)),"..","Configs","Histogrammer","setups") # channel setups (CL §20)
 
 
 def plot(sampleset,setup,parallel=True,tag="",extratext="",outdir="plots",era="",
@@ -26,7 +26,7 @@ def plot(sampleset,setup,parallel=True,tag="",extratext="",outdir="plots",era=""
   """Test plotting of SampleSet class for data/MC comparison.
   With histfile (a path; $ERA, $CHANNEL replaced), the histograms of every stack are also written to that file as
   they were filled, before they are drawn (TauFW.Histogrammer.controlhists; Plotter/draw.py draws them).
-  With draw=False (--no-draw, CL §24 S4) nothing is drawn and no plot directory is made: only the file is written."""
+  With draw=False (--no-draw, CL §21 S4) nothing is drawn and no plot directory is made: only the file is written."""
   LOG.header("plot")
   
   channel  = setup["channel"]
@@ -201,10 +201,10 @@ if __name__ == "__main__":
                                               "or a copy), instead of the tables of config/samples_v15.py" )
   parser.add_argument('--hists',         action='store_true',
                                          help="also write the filled histograms of every plot to "
-                                              "hists/<era>/<channel><tag>.root, for Plotter/draw.py (CL §24)" )
+                                              "hists/<era>/<channel><tag>.root, for Plotter/draw.py (CL §21)" )
   parser.add_argument('--no-draw',       dest='draw', action='store_false',
                                          help="with --hists: only write the histogram file, draw nothing "
-                                              "(Plotter/draw.py draws it; CL §24)" )
+                                              "(Plotter/draw.py draws it; CL §21)" )
   parser.add_argument('-v', '--verbose', dest='verbosity', type=int, nargs='?', const=1, default=0, action='store',
                                          help="set verbosity" )
   args = parser.parse_args()

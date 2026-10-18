@@ -1,5 +1,5 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-"""Control plots stage: control-histogram files -> data/MC control plots, through the Plotter API (CL §24, S4).
+"""Control plots stage: control-histogram files -> data/MC control plots, through the Plotter API (CL §21, S4).
 
 The second half of the control plots: Plotter/draw.py draws every file of the controlhists stage its input names,
 with the same file names and texts as fillhists.py gives its own plots. The Plotter fills nothing, so this stage

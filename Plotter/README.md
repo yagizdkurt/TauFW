@@ -1,6 +1,6 @@
 # TauFW Plotter
 
-> **Being rebuilt (October 2026, changelog §24 of [Refactor-2025.md](../docs/Refactor-2025/Refactor-2025.md)).**
+> **Being rebuilt (October 2026, changelog §21 of [Refactor-2025.md](../docs/Refactor-2025/Refactor-2025.md)).**
 > The module that was called Plotter until now is the [Histogrammer](../Histogrammer/README.md): it fills
 > histograms from pico tuples. This directory is the new, small Plotter that only **draws**. Since step S3 it draws
 > control plots from a histogram file, since S4 also as the Framework's `controlplots` stage (through its API,
@@ -128,6 +128,6 @@ commands, the expected plot names, the artifacts), BBB `plotter.stack` (with ROO
 
 ## Plan
 
-LocalR/architecture/18 (local notes), changelog §24: S1 rename, S2 configs to `Configs/Histogrammer/`, S3 the
+LocalR/architecture/18 (local notes), changelog §21: S1 rename, S2 configs to `Configs/Histogrammer/`, S3 the
 histogram file and `draw.py` (done), S4 Framework stages `controlhists` and `controlplots` (done), S5 checks on
 lxplus.

@@ -1,4 +1,4 @@
-"""The old paths of the shape scripts (CL §25, H1): each is a LEGACY stub that imports nothing of TauFW, runs nothing,
+"""The old paths of the shape scripts (CL §22, H1): each is a LEGACY stub that imports nothing of TauFW, runs nothing,
 prints the command of the moved script (same arguments, from the same working directory) and exits with status 2;
 and the moved script exists there. ROOT-free.
 """

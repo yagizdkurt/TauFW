@@ -1,4 +1,4 @@
-"""The old Plotter module names (CL §24): every shim in Plotter/python/ is exactly the alias of its new module.
+"""The old Plotter module names (CL §21): every shim in Plotter/python/ is exactly the alias of its new module.
 
   ShimFileTests       ROOT-free: the shim files, their targets and the shim list of the plan (13 names)
   AliasMechanismTests ROOT-free: the alias pattern on a throw-away package (same object, shared module state)
@@ -56,14 +56,14 @@ class ShimFileTests(unittest.TestCase):
 
     def test_no_other_code_in_the_old_package(self):
         """The old subpackages of Plotter/python/ (sample, plot, methods) hold only the shims; the new Plotter's own
-        code lives beside them (e.g. controlplots.py, CL §24 S3)."""
+        code lives beside them (e.g. controlplots.py, CL §21 S3)."""
         found = {path for sub in ("sample", "plot", "methods") for path in (SHIM_DIR / sub).rglob("*.py")
                  if "__pycache__" not in path.parts}
         self.assertEqual(found, {shim_file(old) for old in SHIMS})
 
     def test_no_shim_for_removed_or_broken_names(self):
         self.assertFalse((SHIM_DIR / "plot" / "datacard.py").exists())  # would repair Fitter/MuTauFR (TODO §8)
-        # no alias for TauFW.Plotter.api (only the Framework used it): since CL §24 S4 it is the new Plotter's own
+        # no alias for TauFW.Plotter.api (only the Framework used it): since CL §21 S4 it is the new Plotter's own
         # API (it draws), never the Histogrammer's under the old name
         for path in (SHIM_DIR / "api").glob("*.py"):
             tree = ast.parse(path.read_text(encoding="utf-8"))

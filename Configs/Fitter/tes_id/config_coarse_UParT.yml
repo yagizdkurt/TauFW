@@ -9,7 +9,7 @@ taufw_config:                     # set by the maintainers: analysts edit the va
 ## Sibling of config_coarse_PNet.yml / config_coarse_TT.yml. Drive with run_inputs_pnet.sh
 ## (point CONFIG at this file) / a UParT workflow.
 
-# The keys are grouped by who reads them (docs/contracts/tes-shapes.md, changelog §25); the order does not
+# The keys are grouped by who reads them (docs/contracts/tes-shapes.md, changelog §22); the order does not
 # matter to the readers. Keep a key in its group: a key in the first group is read by both sides.
 
 # ================================== Histogrammer + Fitter config (both read these) ==================================

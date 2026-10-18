@@ -1,6 +1,6 @@
 # Run times (input for a possible C++ migration)
 
-**Status:** measurements only, no decision. Collected during the R3 checks on lxplus (October 2026, CL §17 of
+**Status:** measurements only, no decision. Collected during the R3 checks on lxplus (October 2026, CL §15 of
 [Refactor-2025.md](Refactor-2025.md), [scripts_arg_changes.md](scripts_arg_changes.md)).
 
 This file records how long the steps of the TauES/ID measurement take, so that a decision to move parts of it to
@@ -58,7 +58,7 @@ Commands 5-13 together take 41 s (3 %).
 
 The Plotter checks (`plot.py` with 2-3 variables) took minutes and were not timed.
 
-### Production in a Framework run (2026-10-17, CL §18)
+### Production in a Framework run (2026-10-17, CL §16)
 
 A small test, not a production-size measurement: one sample (`DYto2TautoMuTauh_M-50`, 2022_postEE, mutau), 4
 HTCondor jobs from lxplus925 (schedd `bigbird101`), chunks on EOS (`/eos/user/...`), run directory on AFS.

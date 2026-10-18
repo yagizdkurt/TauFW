@@ -205,7 +205,7 @@ class CheckRecipeTests(unittest.TestCase):
 
     def test_templates_and_moved_configs(self):
         """A Configs/ template must exist; the old module path of a config that became a template is an error naming
-        the template (CL §25), also in plan and start (a Recipe error), not a module path for the module to look for."""
+        the template (CL §22), also in plan and start (a Recipe error), not a module path for the module to look for."""
         missing = "Configs/Fitter/tes_id/no_such.yml"
         check = self.check(dict(FIT, config=missing, config_mumu="Configs/Fitter/tes_id/FitSetup_mumu.yml"))
         self.assertEqual(self.messages(check), ["stages[0] (fit).config: no such template: %s"
@@ -214,9 +214,9 @@ class CheckRecipeTests(unittest.TestCase):
         moved = dict(FIT, config="TauES_ID/config/config_coarse_TT.yml", config_mumu="TauES/config/FitSetup_mumu.yml")
         self.assertEqual(self.messages(self.check(moved)), [
             "stages[0] (fit).config: TauES_ID/config/config_coarse_TT.yml moved to "
-            "Configs/Fitter/tes_id/config_coarse_TT.yml (CL §25): name the template, or a copy of it in the bundle",
+            "Configs/Fitter/tes_id/config_coarse_TT.yml (CL §22): name the template, or a copy of it in the bundle",
             "stages[0] (fit).config_mumu: TauES/config/FitSetup_mumu.yml moved to "
-            "Configs/Fitter/tes_id/FitSetup_mumu.yml (CL §25): name the template, or a copy of it in the bundle"])
+            "Configs/Fitter/tes_id/FitSetup_mumu.yml (CL §22): name the template, or a copy of it in the bundle"])
         self.assertTrue(self.check(dict(FIT, config="Configs/Fitter/tes_id/config_coarse_TT.yml",
                                         config_mumu="Configs/Fitter/tes_id/FitSetup_mumu.yml")).ok)
 

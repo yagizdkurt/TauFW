@@ -2,7 +2,7 @@
 
 Written by the **Histogrammer** (`Histogrammer/fillhists.py --hists`, `TauFW.Histogrammer.controlhists`), read by
 the **Plotter** (`Plotter/draw.py`, `TauFW.Plotter.controlplots`). The two modules never import each other; this file
-is all they share. Introduced in changelog §24 (S3). In a TauFW recipe the Framework carries it from the
+is all they share. Introduced in changelog §21 (S3). In a TauFW recipe the Framework carries it from the
 `controlhists` stage to the `controlplots` stage (S4): the artifact `{kind: control_histograms, era, config, channel,
 tag, file}` names the file and the facts a plan needs before the file exists. The storage layout is `TauFW.Utilities.HistFile` format 1; this
 page says what the content means.

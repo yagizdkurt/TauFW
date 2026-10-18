@@ -2,7 +2,7 @@
 """Records of the public Fitter API: what a caller asks for and what each call returns.
 
   FitRequest      the fit: (era, jet WP, electron WP) points, configs, which steps to run (the shapes are made
-                  by another module since CL §25 H3: docs/contracts/tes-shapes.md)
+                  by another module since CL §22 H3: docs/contracts/tes-shapes.md)
   plan_fit() returns a CommandPlan, fit() a RunReport (TauFW.Utilities.Process).
 
 Artifacts are plain dicts (JSON-ready), so a caller such as the TauFW Framework can store them in run.json:

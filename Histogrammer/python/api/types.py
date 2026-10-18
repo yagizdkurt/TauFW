@@ -2,9 +2,9 @@
 """Records of the public Histogrammer API: what a caller asks for and what each call returns.
 
   HistsRequest   control histograms: eras, channel setups, filters and fillhists.py options (no drawing
-                 options: the Plotter draws, CL §24 S4)
+                 options: the Plotter draws, CL §21 S4)
   ShapesRequest  input histograms (shapes) of the TES + tau ID fit: eras, configs, working points (in the Fitter API
-                 until CL §25 H3)
+                 until CL §22 H3)
   plan*() return a CommandPlan, make*() a RunReport (TauFW.Utilities.Process).
 
 Artifacts (JSON-ready dicts):
@@ -27,7 +27,7 @@ __all__ = ['HistsRequest', 'ShapesRequest']
 @dataclass(frozen=True)
 class HistsRequest:
     """Control histograms: one fillhists.py --hists --no-draw run per channel setup and era (PlotsRequest until
-    CL §24 S4; its drawing options -F, -p, -T went to the Plotter's PlotsRequest).
+    CL §21 S4; its drawing options -F, -p, -T went to the Plotter's PlotsRequest).
     configs: channel names (Configs/Histogrammer/setups/setup_<channel>.yml) or .yml files (relative to Histogrammer/, or
     absolute).
     variables, selections: -V and -S filters (glob patterns); empty: all.
@@ -60,7 +60,7 @@ class HistsRequest:
 @dataclass(frozen=True)
 class ShapesRequest:
     """Input histograms: one createinputsTES.py run per era, working point pair and config (the fields of the
-    Fitter's ShapesRequest until CL §25 H3).
+    Fitter's ShapesRequest until CL §22 H3).
     configs: config files, relative to Histogrammer/ or absolute (the mutau fit config and the mumu control-region
     config, e.g. the templates in Configs/Fitter/tes_id/). tuples: the directory pattern of the tuples (with $ERA,
     $GROUP), given to createinputsTES.py as --tuples; then the PicoProducer configuration is not used. pico_config:
@@ -86,7 +86,7 @@ class ShapesRequest:
             if not getattr(self, name):
                 raise ValueError("ShapesRequest: %s must not be empty" % (name))
         object.__setattr__(self, 'samples', _strings(self.samples))
-        if self.outdir is None:  # the Histogrammer never writes into another module's directory (CL §25 H3, E1)
+        if self.outdir is None:  # the Histogrammer never writes into another module's directory (CL §22 H3, E1)
             raise ValueError("ShapesRequest: outdir is required (the Framework gives <run_dir>/stages/<id>/; by "
                              "hand, Fitter/run_inputs.sh makes the shapes in Fitter/)")
 

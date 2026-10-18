@@ -9,7 +9,7 @@ See [the README.md in the parent directory](../../../#taufw).
 * important information about samples, processes, systematics, variations etc. given in config file in yaml format
 * an example yaml file is given in TauES/config/defaultFitSetupTES_mutau.yml 
   -- explanations are given as comments within the file
-* this file is currently being used in createinputsTES.py (`Histogrammer/shapes/TauES/` since changelog §25; `TauES/createinputsTES.py` is a legacy stub that prints the new command) and as the default `-c` of the TauES_ID harvest/fit scripts
+* this file is currently being used in createinputsTES.py (`Histogrammer/shapes/TauES/` since changelog §22; `TauES/createinputsTES.py` is a legacy stub that prints the new command) and as the default `-c` of the TauES_ID harvest/fit scripts
   -- it can (and will) be used in further scipts / routines in the future
 * each config file defines the setup for one specific channel
   -- combinations of channels can be done at datacard level, e.g. to include a mumu-CR

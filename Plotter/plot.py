@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-"""LEGACY command: Plotter/plot.py was renamed to Histogrammer/fillhists.py (CL §24).
+"""LEGACY command: Plotter/plot.py was renamed to Histogrammer/fillhists.py (CL §21).
 
 This script used to fill and draw the control plots. That code is now Histogrammer/fillhists.py, with the same
 options. This stub runs nothing: it prints the command to type instead (the same arguments, from the same working
@@ -19,7 +19,7 @@ NEW_SCRIPTS = (("Histogrammer", "fillhists.py"),)  # the new command(s), relativ
 EXIT_STATUS = 2                                    # as for a usage error: nothing ran
 
 MESSAGE = """\
-LEGACY: %s was renamed (changelog §24). Run instead, with the same options:
+LEGACY: %s was renamed (changelog §21). Run instead, with the same options:
 
 %s
 

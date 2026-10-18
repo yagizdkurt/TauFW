@@ -1,5 +1,5 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-"""Control histograms: the filled histograms of fillhists.py, written to a file that the Plotter draws (CL §24, S3).
+"""Control histograms: the filled histograms of fillhists.py, written to a file that the Plotter draws (CL §21, S3).
 
     entry = stack_entry(stack, variable, selection)      after SampleSet.getstack, BEFORE the stack is drawn
     write_control_hists(path, entries, channel, era, tag)

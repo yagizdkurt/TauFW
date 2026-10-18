@@ -51,14 +51,14 @@ STAGES = {
 ORDER = ('production', 'controlhists', 'controlplots', 'shapes', 'fit')
 # Stage names that no longer exist -> what to write instead (the recipe check says so; nothing runs them).
 RETIRED = {
-    'histograms': "renamed 'shapes' (CL §24)",
+    'histograms': "renamed 'shapes' (CL §21)",
     'plots':      "control plots are two stages now: controlhists (tuples -> histogram files) and controlplots "
-                  "(files -> plots) (CL §24)",
+                  "(files -> plots) (CL §21)",
 }
 # Module configs that moved to Configs/ (old path as a recipe writes it -> the template to write instead). A recipe
 # naming the old path fails the check with the new one; nothing maps it (recipes take the clean design).
 MOVED_CONFIGS = {
-    'TauES_ID/config/config_coarse_TT.yml':    'Configs/Fitter/tes_id/config_coarse_TT.yml',     # CL §25 (H2)
+    'TauES_ID/config/config_coarse_TT.yml':    'Configs/Fitter/tes_id/config_coarse_TT.yml',     # CL §22 (H2)
     'TauES_ID/config/config_coarse_PNet.yml':  'Configs/Fitter/tes_id/config_coarse_PNet.yml',
     'TauES_ID/config/config_coarse_UParT.yml': 'Configs/Fitter/tes_id/config_coarse_UParT.yml',
     'TauES/config/FitSetup_mumu.yml':          'Configs/Fitter/tes_id/FitSetup_mumu.yml',
