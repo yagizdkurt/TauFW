@@ -1,10 +1,13 @@
 """The run screen's model: stages from run.json data and the Framework's events, its words, the result card."""
+import os
+import tempfile
 import unittest
 from unittest import mock
 
 import checkout  # noqa: F401  (must precede TauFW.Utilities imports)
 from TauFW.Utilities.Menu import ConsoleUI
-from TauFW.Utilities.Menu._run_screen import RunProgress, LOST_TEXT
+from TauFW.Utilities.Menu._preview import _advance
+from TauFW.Utilities.Menu._run_screen import RunProgress, LOST_TEXT, run_summary
 
 T = 1000.0
 DATA = dict(run_id="tes_2025", run_dir="/eos/runs/tes_2025",
@@ -125,6 +128,88 @@ class RunProgressTests(unittest.TestCase):
         drawn = [call.args[2] for call in screen.addnstr.call_args_list]
         self.assertTrue(any(" Stages " in line for line in drawn))
         self.assertIn("Up/Down Stage | Enter Stage log | L Output | S Stop | Esc Back (keeps running)", drawn)
+
+
+
+def fake_curses(keys):
+    curses = mock.Mock(KEY_UP=1001, KEY_DOWN=1002, KEY_ENTER=1003, A_REVERSE=256)
+    curses.error = RuntimeError
+    screen = mock.Mock()
+    screen.getmaxyx.return_value = (24, 90)
+    screen.getch.side_effect = keys
+    curses.wrapper.side_effect = lambda action: action(screen)
+    return curses, screen
+
+
+class RunLabelTests(unittest.TestCase):
+    """The menus' words for advances behind the menu (made-up advances of the UI preview)."""
+
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.root, self.count = directory.name, 0
+
+    def advance(self, kind="advancing", **options):
+        self.count += 1
+        return _advance(os.path.join(self.root, str(self.count)), kind, **options)
+
+    def test_run_summary_of_every_state(self):
+        cases = [(self.advance(ago=14.0), ("3/5 plots, 5/7", "waiting")),
+                 (self.advance("jobs", ago=8.0), ("1/5 ntuples, waiting for jobs", "waiting")),
+                 (self.advance("complete"), ("Done", "good")),
+                 (self.advance("waiting"), ("Waiting for jobs", "waiting")),
+                 (self.advance("failed"), ("Failed at plots", "error")),
+                 (self.advance("stopped"), ("Stopped at plots", "warning")),
+                 (self.advance("lost"), ("Lost - Continue to resume", "error"))]
+        for operation, expected in cases:
+            with self.subTest(expected=expected[0]):
+                self.assertEqual(run_summary(operation), expected)
+        stopping = self.advance()
+        stopping.cancel()
+        self.assertEqual(run_summary(stopping), ("Stopping", "warning"))
+
+    def test_main_menu_run_line(self):
+        ui = ConsoleUI(mock.Mock())
+        with mock.patch.object(ui, "choose", return_value=2) as choose:
+            self.assertEqual(ui.main_menu(runs=[self.advance("failed")]), "run")
+            self.assertEqual(choose.call_args.args[1][2], "Run tes_2025 (Failed at plots)")
+            self.assertEqual(choose.call_args.kwargs["row_colors"][2], "error")
+            self.assertEqual(choose.call_args.args[1][4], "Tests")  # the other lines move down
+            self.assertEqual(ui.main_menu(runs=[self.advance("jobs", ago=8.0), self.advance("complete")]), "runs")
+            self.assertEqual(choose.call_args.args[1][2], "Runs (1 active, 1 ended)")
+            self.assertEqual(choose.call_args.kwargs["row_colors"][2], "waiting")
+            ui.main_menu(runs=[self.advance(ago=1.0), self.advance("lost")])
+            self.assertEqual((choose.call_args.args[1][2], choose.call_args.kwargs["row_colors"][2]),
+                             ("Runs (1 active, 1 ended)", "error"))
+            ui.main_menu()
+            self.assertEqual(len(choose.call_args.args[1]), 7)  # no run: no line
+
+    def test_runs_chooser_and_the_run_list_marks_an_advance(self):
+        operations = [self.advance(ago=14.0), self.advance("failed", run_id="mutau_2024")]
+        curses, screen = fake_curses([1002, 10, 27])
+        self.assertEqual(ConsoleUI(curses).active_runs(operations), ("select", 1))
+        drawn = [call.args[2] for call in screen.addnstr.call_args_list]
+        self.assertTrue(any("tes_2025: 3/5 plots, 5/7  00:14" in line for line in drawn))
+        self.assertTrue(any("mutau_2024: Failed at plots" in line for line in drawn))
+        self.assertEqual(ConsoleUI(curses).active_runs(operations), ("back", None))
+        ui = ConsoleUI(mock.Mock())
+        with mock.patch.object(ui, "choose", return_value=0) as choose:
+            ui.select_run([("tes_2025", "WAITING", "today"), ("old", "DONE", "today")],
+                          advances=[operations[0], None])
+            self.assertEqual(choose.call_args.args[1][:2], ["tes_2025 | WAITING | updated today | advancing: "
+                                                            "3/5 plots, 5/7", "old      | DONE    | updated today"])
+            self.assertEqual(choose.call_args.kwargs["row_colors"][:2], ["waiting", "good"])
+
+    def test_run_lock_screens(self):
+        lock = dict(host="lxplus812.cern.ch", pid=23411, since="14:02", quiet=12.0)
+        for keys, lost, answer in (([ord("t"), 27], False, "back"), ([ord("x"), ord("T")], True, "take"),
+                                   ([10], True, "back"), ([KeyboardInterrupt()], True, "back")):
+            with self.subTest(keys=keys, lost=lost):
+                curses, screen = fake_curses(keys)
+                self.assertEqual(ConsoleUI(curses).run_lock("tes_2025", dict(lock, lost=lost)), answer)
+        drawn = [call.args[2] for call in screen.addnstr.call_args_list]
+        self.assertIn("T Take over | Esc Back", drawn)
+        self.assertIn("gave no sign of life for 00:12.", " ".join(drawn))
 
 
 if __name__ == "__main__":

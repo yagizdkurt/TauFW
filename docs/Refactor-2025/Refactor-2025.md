@@ -1003,6 +1003,22 @@ failed, stopped, lost). Its made-up operations now write their events with the t
 run shows real durations. `Tests/Utilities/test_run_screen.py` (new): stages from data and events, rows, Details,
 the countdown, every card and state line, the console screen.
 
+### Runs in the menus, in the preview only (2026-10-18)
+
+The menu screens for advances behind the menu, not wired yet (`Framework/python/interactive.py` does not pass
+them): `main_menu(runs=...)` shows one advance as a line of its own below Continue, "Run tes_2025 (3/5 plots, 5/7)",
+"(1/5 ntuples, waiting for jobs)", "(Failed at plots)", "(Lost - Continue to resume)" (action `run`), several as
+"Runs (1 active, 1 ended)" (action `runs`, red if one failed or was lost) with `active_runs()` to choose one;
+`select_run(summaries, advances=...)` adds "| advancing: 3/5 plots, 5/7" to the row of a run that advances;
+`run_lock(run_id, lock)` explains a held run lock ("An advance of this run is already running on <host> since ...
+(pid ...)", Esc) or offers to take over a lost one (T). `run_summary(operation)` (`_run_screen.py`) is the text of
+an advance for these menus and for the quit warning. The preview has 36 screens (the new ones: five main menus with
+runs, the runs chooser, the run list with an advance, the two lock screens, the quit warning with a run).
+
+Left for the wiring (with the run lock, TODO §6): which runs the menu passes (running advances, and ended ones until
+their card was seen once: a `seen` file in the operation directory), the `run`/`runs` actions, Continue on an
+advancing run opening its screen, and the lock record that `run_lock()` shows.
+
 ### Checked
 
 `Tests/Utilities/test_operations.py` (new): supervisor exit codes, heartbeat, stop, kill, SIGTERM, every state, a real

@@ -300,8 +300,8 @@ def _tests(directory, kind="running", **options):
     return _MockOperation(directory, "tests", "Normal tests", dict(expected=expected), script, **options)
 
 
-RUN_ID = "tes_2025_20261018-140211"
-RUN_DIR = "/eos/user/u/username/taufw_runs/" + RUN_ID
+RUN_ID = "tes_2025"
+RUN_DIR = "/eos/user/u/username/taufw_runs/tes_2025_20261018-140211"
 RUN_STAGES = (("ntuples", "production"), ("histograms", "histogrammer"), ("plots", "plotter"), ("fit", "fitter"),
               ("results", "local"))
 PLOTS = [("etau", "2025"), ("mutau", "2025"), ("mumu", "2025"), ("etau", "2024"), ("mutau", "2024"),
@@ -386,7 +386,7 @@ def _jobs_script(checks=4, poll=15.0, wait=True, first=0):
     return steps
 
 
-def _advance(directory, kind="advancing", **options):
+def _advance(directory, kind="advancing", run_id=None, **options):
     """A made-up advance of RUN_ID: advancing (live; ends complete), jobs (live, Keep checking), complete,
     waiting (an Advance once that ended), failed, stopped or lost."""
     local = ("plots", "fit", "results")
@@ -402,7 +402,9 @@ def _advance(directory, kind="advancing", **options):
     else:
         script, end = _advance_script(local), DONE
     options = dict(dict(end=end, ago=0.0 if kind in ("advancing", "jobs") else 3600.0), **options)
-    return _MockOperation(directory, "run", "Runs / tes_2025", data, script, **options)
+    if run_id:
+        data["run_id"] = run_id
+    return _MockOperation(directory, "run", "Run %s" % data["run_id"], data, script, **options)
 
 
 # =============================================================================
@@ -438,6 +440,19 @@ def _review(ui, directory):
     return ui.confirm_recipe("recipes/tes_2025.yml", review=review, position={})
 
 
+def _runs(directory, *kinds):
+    """Made-up advances of different runs (kind, or (kind, run_id, ago)), each in a directory of its own."""
+    operations = []
+    for index, kind in enumerate(kinds):
+        kind, run_id, ago = kind if isinstance(kind, tuple) else (kind, None, None)
+        options = dict(ago=ago) if ago is not None else {}
+        operations.append(_advance(os.path.join(directory, str(index)), kind, run_id=run_id, **options))
+    return operations
+
+
+LOCK = dict(host=REMOTE_HOST, pid=23411, since="2026-10-18 14:02")
+
+
 def _run(kind, **options):
     def show(ui, directory):
         operation = _advance(directory, kind, **options)
@@ -458,7 +473,23 @@ SCENARIOS = [
              lambda ui, directory: ui.main_menu(tests=_tests(directory, ago=12.0))),
     Scenario("Start a run", "select a recipe", _recipes),
     Scenario("Start a run", "review", _review),
-    Scenario("Continue", "select a run", lambda ui, directory: ui.select_run(RUNS)),
+    Scenario("Main menu", "a run advancing",
+             lambda ui, directory: ui.main_menu(True, runs=_runs(directory, ("advancing", None, 14.0)))),
+    Scenario("Main menu", "a run waiting for jobs",
+             lambda ui, directory: ui.main_menu(True, runs=_runs(directory, ("jobs", None, 8.0)))),
+    Scenario("Main menu", "a run failed (until its card is seen)",
+             lambda ui, directory: ui.main_menu(True, runs=_runs(directory, "failed"))),
+    Scenario("Main menu", "a run lost", lambda ui, directory: ui.main_menu(True, runs=_runs(directory, "lost"))),
+    Scenario("Main menu", "two runs, one failed",
+             lambda ui, directory: ui.main_menu(True, runs=_runs(directory, ("jobs", None, 8.0),
+                                                                 ("failed", "etau_fr_2024", None)))),
+    Scenario("Runs", "behind the menu",
+             lambda ui, directory: ui.active_runs(_runs(directory, ("advancing", None, 14.0),
+                                                        ("jobs", "etau_fr_2024", 8.0),
+                                                        ("failed", "mutau_2024", None)))),
+    Scenario("Continue", "select a run (one advancing)",
+             lambda ui, directory: ui.select_run(RUNS, advances=_runs(directory, ("advancing", None, 14.0))
+                                                 + [None] * (len(RUNS) - 1))),
     Scenario("Continue", "actions", lambda ui, directory: ui.continue_actions("tes_2025")),
     Scenario("Continue", "polling interval", lambda ui, directory: ui.poll_interval()),
     Scenario("Continue", "run that cannot advance", lambda ui, directory: ui.terminal_run_actions("DONE")),
@@ -480,7 +511,14 @@ SCENARIOS = [
     Scenario("Run result", "failed", _run("failed")),
     Scenario("Run result", "stopped", _run("stopped")),
     Scenario("Run result", "lost", _run("lost")),
+    Scenario("Run lock", "an advance runs elsewhere",
+             lambda ui, directory: ui.run_lock("tes_2025", dict(LOCK, quiet=12.0))),
+    Scenario("Run lock", "the advance is lost, take over",
+             lambda ui, directory: ui.run_lock("tes_2025", dict(LOCK, quiet=420.0, lost=True))),
     Scenario("Quit", "while tests run", lambda ui, directory: ui.quit_running([_tests(directory, ago=12.0)])),
+    Scenario("Quit", "while tests and a run run",
+             lambda ui, directory: ui.quit_running([_tests(os.path.join(directory, "tests"), ago=12.0)]
+                                                   + _runs(directory, ("jobs", None, 8.0)))),
     Scenario("Help", "topics", lambda ui, directory: ui.help()),
     Scenario("FastSetup", "installer checklist",
              lambda ui, directory: ui.setup_checklist(COMPONENTS, ["tauidsfs", "combine"])),

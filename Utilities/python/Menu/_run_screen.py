@@ -31,9 +31,10 @@ import time
 
 from ._menu import _clock
 from ._operation_screen import ScreenModel, follow
+from ..Process import EventReader
 from ..Process._operations import DONE, FAILED, LOST, RUNNING, STOPPED, STOPPING
 
-__all__ = ["RunProgress", "follow_run"]
+__all__ = ["RunProgress", "follow_run", "run_summary"]
 
 
 # =============================================================================
@@ -299,6 +300,38 @@ def follow_run(ui, screen, title, process):
     """Draw the advance until the user leaves; it goes on behind the menu.
     Return its exit code, None while it runs (or once it was lost)."""
     return follow(ui, screen, title, process, RunProgress(process.data))
+
+
+def run_summary(operation):
+    """(text, role) of an advance for the menus: "3/5 plots, 5/7", "1/5 ntuples, waiting for jobs", "Stopping",
+    "Done", "Waiting for jobs", "Blocked at fit", "Failed at plots", "Stopped at plots", "Lost - Continue to
+    resume"; role: a style name of ConsoleUI."""
+    state = operation.state()
+    run = RunProgress(operation.data)
+    run.feed(EventReader(operation.events_path).read())  # a reader of its own: the screen's stays at the top
+    stage = run._working()
+    name = stage["id"] if stage else ""
+    if state == RUNNING:
+        if stage is None:
+            return "Running", "waiting"
+        position = "%d/%d %s" % (list(run.stages).index(name) + 1, len(run.stages), name)
+        command = _running(stage)
+        if command:
+            return "%s, %d/%d" % (position, command["index"], command["total"]), "waiting"
+        return position + (", waiting for jobs" if stage["state"] in JOBS else ""), "waiting"
+    if state == STOPPING:
+        return "Stopping", "warning"
+    if state == LOST:
+        return "Lost - Continue to resume", "error"
+    if state == STOPPED:
+        return ("Stopped at %s" % name if stage else "Stopped"), "warning"
+    if state == DONE and run.run_state == "WAITING":
+        return "Waiting for jobs", "waiting"
+    if state == DONE and run.run_state == "BLOCKED":
+        return "Blocked at %s" % name, "warning"
+    if state == DONE:
+        return "Done", "good"
+    return ("Failed at %s" % name if stage and stage["state"] == "FAILED" else "Failed"), "error"
 
 
 # =============================================================================

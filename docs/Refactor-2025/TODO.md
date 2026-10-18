@@ -305,8 +305,11 @@ Parts 1–5 are done (CL §5–§8; the Part 2 changelog section was removed).
       unit tests only check that each scenario draws), then the shared core, then the run screens in the preview,
       wired to Start/Continue only after (1). Done 2026-10-18: the UI preview and the shared core (CL §23); the run
       model stays in the Menu (K2 revised: events only, Framework supplies the `run.json` stages as data). Done
-      2026-10-18: the run screen and its result cards in the preview (`_run_screen.py`, CL §23). Next: the main
-      menu run line, run list labels and the lock screens in the preview; then (1) and the wiring.
+      2026-10-18: the run screen and its result cards in the preview (`_run_screen.py`, CL §23), and the main
+      menu run line, the runs chooser, the run list label and the lock screens (CL §23 "Runs in the menus").
+      Left: (1), then the wiring (CL §23 lists what): `interactive.py` starts start/advance as operations
+      (`kind="run"`, data run_id/run_dir/stages from `run.json`), passes the runs to `main_menu`/`select_run`, the
+      `seen` file, Continue on an advancing run opens it, the lock record to `run_lock()`.
 
 Next-work proposals (not designed in detail yet):
 

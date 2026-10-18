@@ -448,28 +448,63 @@ class ConsoleUI:
         selected = self.choose(title, choices, welcome=welcome, **layout)
         return back if selected is None else actions[selected]
 
-    def main_menu(self, proxy_valid=False, tests=None):
+    def main_menu(self, proxy_valid=False, tests=None, runs=()):
         """tests: the last test run (a TauFW.Utilities.Process.Operation) or None; its state is shown next to
-        Tests ("Tests (Running 12/40)"), as it was when the menu was drawn."""
+        Tests ("Tests (Running 12/40)"), as it was when the menu was drawn. runs: the advances to show (Operations
+        of kind "run": those behind the menu and those that ended unseen): one is a line of its own, "Run tes_2025
+        (3/5 plots)" (action "run"), more are "Runs (2 active)" (action "runs")."""
         certificate = "Grid Certificate  " + ("\u2713" if proxy_valid else "Warning: Proxy Failed!")
         label, role = "Tests", None
         if tests is not None:
             text, role = self._operation_summary(tests)
             label = "Tests (%s)" % text
-        return self._action("TauFW", ["Start a new run", "Continue an existing run",
-                                     "Inspect run status", label, certificate, "Help", "Exit"],
-                            ["start", "continue", "inspect", "tests", "grid_certificate", "help", "exit"],
-                            back="exit", row_colors=[None, None, None, role,
-                                                     "good" if proxy_valid else "warning", None, None],
-                            welcome="Welcome to TauFW!", descriptions=[
-                                "Choose an analysis recipe and review its pipeline before starting.",
-                                "Resume a saved run, once or with repeated checking.",
-                                "Inspect the recorded and live status of an existing run.",
-                                "Run automated checks or choose individual tests.",
-                                "Create or renew your CMS grid proxy using your grid certificate password.",
-                                "Browse workflow explanations and frequently asked questions.",
-                                "Close the menu and return to your terminal.",
-                            ])
+        choices = ["Start a new run", "Continue an existing run", "Inspect run status", label, certificate, "Help",
+                   "Exit"]
+        actions = ["start", "continue", "inspect", "tests", "grid_certificate", "help", "exit"]
+        colors = [None, None, None, role, "good" if proxy_valid else "warning", None, None]
+        descriptions = [
+            "Choose an analysis recipe and review its pipeline before starting.",
+            "Resume a saved run, once or with repeated checking.",
+            "Inspect the recorded and live status of an existing run.",
+            "Run automated checks or choose individual tests.",
+            "Create or renew your CMS grid proxy using your grid certificate password.",
+            "Browse workflow explanations and frequently asked questions.",
+            "Close the menu and return to your terminal.",
+        ]
+        if runs:
+            label, role, action, description = self._runs_line(runs)
+            choices.insert(2, label)
+            actions.insert(2, action)
+            colors.insert(2, role)
+            descriptions.insert(2, description)
+        return self._action("TauFW", choices, actions, back="exit", row_colors=colors, welcome="Welcome to TauFW!",
+                            descriptions=descriptions)
+
+    def _runs_line(self, runs):
+        """(label, role, action, description) of the main menu line of the advances behind the menu."""
+        summaries = [self._operation_summary(operation) for operation in runs]
+        if len(runs) == 1:
+            return ("Run %s (%s)" % (runs[0].data.get("run_id", runs[0].title), summaries[0][0]), summaries[0][1],
+                    "run", "Follow the run: its stages, their commands and logs; it goes on behind the menu.")
+        active = sum(operation.running for operation in runs)
+        parts = ["%d active" % active] if active else []
+        if len(runs) > active:
+            parts.append("%d ended" % (len(runs) - active))
+        roles = [role for _, role in summaries]
+        role = "error" if "error" in roles else "waiting" if active else "good"
+        return "Runs (%s)" % ", ".join(parts), role, "runs", "Choose one of the runs behind the menu to follow it."
+
+    def active_runs(self, operations):
+        """Choose one of several advances behind the menu: ("select", index) or ("back", None)."""
+        labels, colors = [], []
+        for operation in operations:
+            text, role = self._operation_summary(operation)
+            where = " on %s" % operation.host if operation.remote else ""
+            labels.append("%s: %s  %s%s" % (operation.data.get("run_id", operation.title), text,
+                                             _clock(operation.elapsed()), where))
+            colors.append(role)
+        selected = self.choose("Runs behind the menu", labels + ["Back"], row_colors=colors + ["accent"])
+        return ("back", None) if selected is None or selected == len(labels) else ("select", selected)
 
     def tests_menu(self, last=None):
         """last: the last test run (an Operation that ended) or None; "last" opens its screen."""
@@ -627,6 +662,9 @@ class ConsoleUI:
         if operation.kind == "tests":
             from ._test_run import test_summary  # imported here: see test_run()
             return test_summary(operation)
+        if operation.kind == "run":
+            from ._run_screen import run_summary  # imported here: see test_run()
+            return run_summary(operation)
         state = operation.state()
         return state.capitalize(), {"RUNNING": "accent", "DONE": "good", "FAILED": "error"}.get(state, "warning")
 
@@ -670,8 +708,10 @@ class ConsoleUI:
                                          lambda index: review, review=True, position=position)
         return "back" if selected is None else actions[selected]
 
-    def select_run(self, summaries):
-        """Summaries are (run_id, state, updated); state=None marks unreadable runs."""
+    def select_run(self, summaries, advances=None):
+        """Summaries are (run_id, state, updated); state=None marks unreadable runs. advances: an Operation (kind
+        "run") or None per summary: the advance of that run behind the menu, shown after its row
+        ("| advancing: 3/5 plots, 5/7")."""
         id_width = min(36, max([len(row[0]) for row in summaries] or [0]))
         labels = []
         for run_id, state, updated in summaries:
@@ -680,11 +720,57 @@ class ConsoleUI:
                           "%s | %-7s | updated %s" % (label, state, updated))
         colors = ["error" if state in (None, "FAILED", "BLOCKED") else
                   "good" if state == "DONE" else "waiting" for _, state, _ in summaries]
+        for index, operation in enumerate(advances or ()):
+            if operation is not None:
+                text, colors[index] = self._operation_summary(operation)
+                labels[index] += " | %s: %s" % ("advancing" if operation.running else "advance", text)
         selected = self.choose("Select an existing run", labels + ["Enter another run directory", "Back"],
                                row_colors=colors + ["accent", "accent"])
         if selected is None or selected == len(labels) + 1:
             return "back", None
         return ("manual", None) if selected == len(labels) else ("select", selected)
+
+    def run_lock(self, run_id, lock):
+        """The run is locked by an advance (the run lock that Framework.advance holds while it works). lock: host,
+        pid, since (text), quiet (seconds since its last sign of life), lost (True: none for too long).
+        Return "take" (take over the lock of a lost advance) or "back"."""
+        where = "on %s since %s (pid %s)" % (lock.get("host", "?"), lock.get("since", "?"), lock.get("pid", "?"))
+        quiet = _clock(lock.get("quiet", 0))
+        if lock.get("lost"):
+            title, footer = "Advance lost", "T Take over | Esc Back"
+            rows = [("The advance of this run %s gave no sign of life for %s." % (where, quiet), "warning"),
+                    ("", None),
+                    ("If it is really gone (logout, crash), take over its run lock and continue the run.", None),
+                    ("If it still runs, taking over could submit the same jobs twice.", "warning")]
+        else:
+            title, footer = "Advance running", "Esc Back"
+            rows = [("An advance of this run is already running %s; last sign of life %s ago." % (where, quiet),
+                     "waiting"), ("", None),
+                    ("Follow it where it was started, or wait until it ends: two advances at once could submit the "
+                     "same jobs twice.", None)]
+
+        def draw(screen):
+            self._setup(screen)
+            while True:
+                screen.erase()
+                height, width = screen.getmaxyx()
+                self._header(screen, "Run %s" % run_id)
+                top, left, lines, columns = self._panel(screen, 3, 1, height - 6, width - 2, title)
+                content = [(line, self.styles.get(role, 0)) for text, role in rows
+                           for line in self._wrap(text, columns)]
+                for row, (text, color) in enumerate(content[:lines]):
+                    self._line(screen, top + row, left, text[:columns], color=color)
+                self._footer(screen, footer)
+                screen.refresh()
+                try:
+                    key = screen.getch()
+                except KeyboardInterrupt:
+                    return "back"
+                if key in (ord("t"), ord("T")) and lock.get("lost"):
+                    return "take"
+                if key in (27, 10, 13, self.curses.KEY_ENTER):
+                    return "back"
+        return self.curses.wrapper(draw)
 
     def run_path(self, launch_dir):
         return self.prompt("Run directory (relative to %s)" % launch_dir)
