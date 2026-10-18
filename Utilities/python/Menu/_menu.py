@@ -9,7 +9,7 @@ import sys
 import textwrap
 
 from .faq import FAQ
-from .banner import BOXED, COMPACT, FULL, INTERACTIONS, VERSION, WIDTH
+from .banner import BADGE, BOXED, COMPACT, FULL, INTERACTIONS, VERSION, WIDTH
 
 
 QUIT_WARNING = ("If you quit, they keep running, but only while this login session lasts: closing the SSH "
@@ -69,7 +69,7 @@ class ConsoleUI:
 
     def _setup(self, screen):
         screen.keypad(True)
-        self.styles = dict(accent=0, good=0, waiting=0, warning=0, error=0)
+        self.styles = dict(accent=0, good=0, waiting=0, warning=0, error=0, brand=0, version=0)
         try:
             if self.colors_enabled() and self.curses.has_colors():
                 self.curses.start_color()
@@ -79,17 +79,21 @@ class ConsoleUI:
                     background = -1
                 except self.curses.error:
                     pass
+                rich = self.curses.COLORS >= 256  # the badge: purple and gold, else magenta and yellow
                 for role, pair, foreground in (
                     ("accent", 3, self.curses.COLOR_CYAN),
                     ("good", 1, self.curses.COLOR_GREEN),
                     ("waiting", 8, self.curses.COLOR_YELLOW),
                     ("error", 2, self.curses.COLOR_RED),
+                    ("brand", 9, 135 if rich else self.curses.COLOR_MAGENTA),
+                    ("version", 10, 178 if rich else self.curses.COLOR_YELLOW),
                 ):
                     self.curses.init_pair(pair, foreground, background)
                     self.styles[role] = self.curses.color_pair(pair)
                 self.styles["warning"] = self.styles["waiting"]
+                self.styles["brand"] |= self.curses.A_BOLD
         except self.curses.error:
-            self.styles = dict(accent=0, good=0, waiting=0, warning=0, error=0)
+            self.styles = dict(accent=0, good=0, waiting=0, warning=0, error=0, brand=0, version=0)
         try:
             self.curses.curs_set(0)
         except self.curses.error:
@@ -119,9 +123,19 @@ class ConsoleUI:
             return top + 1, left + 2, height - 2, width - 4
         return top, left, max(1, height), max(1, width)
 
-    def _header(self, screen, title):
-        self._line(screen, 0, 1, "TauFW " + VERSION, color=self.styles["accent"])
-        self._line(screen, 1, 1, title)
+    def _header(self, screen, title, badge=False):
+        """badge: the framed TauFW wordmark on rows 0-2, the title beside it. Return the column of the title."""
+        if not badge:
+            self._line(screen, 0, 1, "TauFW " + VERSION, color=self.styles["accent"])
+            self._line(screen, 1, 1, title)
+            return 1
+        for row, line in enumerate(BADGE):
+            self._line(screen, row, 1, line, color=self.styles["accent"])
+        self._line(screen, 1, 3, "TauFW", color=self.styles["brand"])
+        self._line(screen, 2, 3, VERSION, color=self.styles["version"])
+        column = len(BADGE[0]) + 3
+        self._line(screen, 1, column, title)
+        return column
 
     def _footer(self, screen, text):
         height, _ = screen.getmaxyx()

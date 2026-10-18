@@ -191,7 +191,7 @@ class TestScreenTests(unittest.TestCase):
         self.assertTrue(any(line.startswith("RUNNING on lxplus812.cern.ch | ") for line in drawn))
         self.assertIn("Up/Down Case | Enter Case log | L Output | S Stop | Esc Back (keeps running)", drawn)
         summary = [call.args for call in screen.addnstr.call_args_list if call.args[2].startswith("RUNNING on")]
-        self.assertEqual(summary[0][:2], (2, 1))  # too long for the title's line: below it
+        self.assertEqual(summary[0][:2], (2, 12))  # too long for the title's line: below it, beside the badge
 
     def test_a_run_without_cases_shows_its_output_and_scrolls(self):
         with open(self.output, "w") as stream:

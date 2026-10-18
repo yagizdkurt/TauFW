@@ -126,6 +126,22 @@ class OperationScreenTests(unittest.TestCase):
                     self.assertEqual(fact[0][1], 3)  # the first line of the Details
                     self.assertTrue(any(line.startswith("Output  a very long output") for line in drawn))
 
+    def test_the_badge_in_the_corner_and_the_state_line_beside_it(self):
+        from TauFW.Utilities.Menu.banner import BADGE, VERSION, _badge
+        self.assertEqual(BADGE, _badge(VERSION))
+        self.assertEqual(_badge("V0.0"), ("+-------+", "| TauFW |", "+-V0.0--+"))
+        self.assertEqual(_badge("V1.2.3"), ("+---------+", "| TauFW   |", "+-V1.2.3--+"))  # a longer version widens it
+        for size, row, column in (((24, 90), 1, 90 - 2 - len("RUNNING | 01:01 | 2 stage(s)")), ((24, 40), 2, 12)):
+            with self.subTest(size=size):
+                ui, screen = self.screen([-1, 27], size=size)
+                follow(ui, screen, "Runs / tes_2025", Process(self.output, ["RUNNING"]), Stages(self.log))
+                calls = [call.args[:3] for call in screen.addnstr.call_args_list]
+                frame = calls[:calls.index((1, 12, "Runs / tes_2025")) + 1]
+                self.assertEqual(frame, [(0, 1, BADGE[0]), (1, 1, BADGE[1]), (2, 1, BADGE[2]),
+                                         (1, 3, "TauFW"), (2, 3, VERSION), (1, 12, "Runs / tes_2025")])
+                self.assertIn((row, column, "RUNNING | 01:01 | 2 stage(s)"), calls)
+                self.assertFalse(any(args[2].startswith("TauFW V") for args in calls))  # the plain header is gone
+
     def test_printable(self):
         self.assertEqual(printable("\x1b[1ma\tb\x07"), "a   b")
 

@@ -162,12 +162,12 @@ class _View:
 def _draw(ui, screen, title, process, model, view, state):
     screen.erase()
     height, width = screen.getmaxyx()
-    ui._header(screen, title)
+    start = ui._header(screen, title, badge=True)
     text, role = _state(model, process, state)
     summary = "%s | %s | %s" % (text, _clock(process.elapsed()), model.summary())
     column = width - len(summary) - 2
-    row = 1 if column > len(title) + 3 else 2  # no room next to the title: on the free line below it
-    ui._line(screen, row, max(1, column) if row == 1 else 1, summary, color=ui.styles.get(role, 0))
+    row = 1 if column > start + len(title) + 2 else 2  # no room next to the title: on the free line below it
+    ui._line(screen, row, column if row == 1 else start, summary, color=ui.styles.get(role, 0))
     items = model.items()
     if height < 12 or width < 40:
         ui._line(screen, 3, 1, "Enlarge terminal (at least 40 x 12).")

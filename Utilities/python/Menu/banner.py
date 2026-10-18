@@ -68,3 +68,18 @@ BOXED = tuple(
     + ["*" * 64]
 )
 COMPACT = ("TauFW", "Tau analysis framework", VERSION)
+
+
+# =============================================================================
+# ================================ SCREEN BADGE ===============================
+
+
+def _badge(version):
+    """The framed wordmark of the operation screens: three rows, the version on the lower edge."""
+    inner = max(len("TauFW"), len(version) + 1)
+    return ("+" + "-" * (inner + 2) + "+",
+            "| " + "TauFW".ljust(inner) + " |",
+            "+-" + version + "-" * (inner + 1 - len(version)) + "+")
+
+
+BADGE = _badge(VERSION)

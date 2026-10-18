@@ -1019,6 +1019,18 @@ facts at the top of the Details instead. A stage row is now marker, id and state
 box. `RunProgress.info()` takes them from `operation.data`: the Framework will choose them per stage type at the
 wiring; the preview makes them up. The test screen draws the same.
 
+### Operation screens: a TauFW badge in the corner (2026-10-18)
+
+The test and run screens draw a small framed wordmark on rows 0-2 instead of "TauFW V0.0": `+-------+` /
+`| TauFW |` / `+-V0.0--+` (`banner.BADGE`, wider for a longer version). The title moves beside it (column 12), the
+state line stays on the right of row 1, and one too long for it goes to row 2 beside the badge (was column 1). The
+panels still start on row 3, so no screen loses a line; no width rule (9 columns fit every terminal the screen
+accepts). `_header(..., badge=True)` draws it; the other menu screens keep the plain header for now. Colors: frame
+`accent`, TauFW purple and bold, the version gold (256-color 135 and 178, else magenta and yellow: on an 8-color
+terminal the version shares the `warning` yellow); new roles `brand` and `version`, pairs 9 and 10. Only the TauFW
+name: no CERN or CMS name or logo. The UI preview frames differ from before on rows 0-2 of the operation screens
+only.
+
 ### Checked
 
 `Tests/Utilities/test_operations.py` (new): supervisor exit codes, heartbeat, stop, kill, SIGTERM, every state, a real

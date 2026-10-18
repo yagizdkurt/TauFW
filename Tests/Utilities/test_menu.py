@@ -83,7 +83,7 @@ class ScreenTests(unittest.TestCase):
         screen.getch.side_effect = keys
         curses = mock.Mock()
         curses.error = RuntimeError
-        curses.A_REVERSE = 256
+        curses.A_REVERSE, curses.A_BOLD, curses.COLORS = 256, 128, 8
         curses.COLOR_BLACK, curses.COLOR_GREEN, curses.COLOR_RED, curses.COLOR_CYAN = 0, 2, 1, 6
         curses.color_pair.side_effect = lambda pair: pair * 512
         for name, value in (("KEY_UP", 1001), ("KEY_DOWN", 1002), ("KEY_ENTER", 1003),
@@ -672,6 +672,19 @@ ConsoleUI(None)
                 ui._viewport(screen, (1, 1, end - start + 1, 24), lines, start, line_colors=colors)
                 for call in screen.addnstr.call_args_list[:end - start]:
                     self.assertEqual(call.args[4], ui.styles["warning"])
+
+    def test_badge_colors_purple_and_gold_on_256_colors_else_magenta_and_yellow(self):
+        for colors, brand, version in ((256, 135, 178), (8, 5, 3)):
+            with self.subTest(colors=colors):
+                curses, screen = self.curses([])
+                curses.COLORS, curses.COLOR_MAGENTA, curses.COLOR_YELLOW = colors, 5, 3
+                ui = ConsoleUI(curses)
+                with mock.patch.object(ui, "colors_enabled", return_value=True):
+                    ui._setup(screen)
+                pairs = {call.args[0]: call.args[1] for call in curses.init_pair.call_args_list}
+                self.assertEqual((pairs[9], pairs[10]), (brand, version))
+                self.assertEqual(ui.styles["brand"], 9 * 512 | 128)  # bold
+                self.assertEqual(ui.styles["version"], 10 * 512)
 
     def test_framed_screens_without_color_and_with_color_failure(self):
         for fail in (False, True):
