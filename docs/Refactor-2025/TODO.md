@@ -59,13 +59,12 @@ Items marked **(verify)** may already be done; check before working on them.
       second CMSSW area) and twice with HEAD: old against new 43 files, every key the same, 775 histograms SAME within
       1e-12 (largest 5e-13; LTF 96 histograms with content); new against new (the noise) largest 1.07e-12. `check`/
       `plan` of `tes_id_2025` and `example_mutau_long`: no problems.
-- [ ] **Variation tuples in the shapes preflight (CL §23).** After `git pull` and `scram b`, in `TauFW/` with `cmsenv`:
-      (1) `python3 Tests/tools/check_variation_files.py -c Analyses/tes_id_2025/config_coarse_TT.yml --samples
-      Analyses/tes_id_2025/v15_2025.yml -y 2025 --tuples '<the tes_id_2025 tuple pattern>'`: SAME, 144 files (also
-      with `FitSetup_mumu.yml`: SAME, 0); (2) `python3 taufw.py check` and `plan` of `tes_id_2025`: no variation
-      problem; (3) a copy of the bundle whose tuple pattern points to a symlink copy of the tuple directories with one
-      `_LTF1p030` file left out: `check`/`plan` name that file, `start` stops in the shapes preflight before any
-      command (the hists stage of that copy runs first: use a shapes-only copy); (4) `python3 Tests/run.py checks`.
+- [x] **Variation tuples in the shapes preflight (CL §23).** Done 2026-10-19 on lxplus: `check_variation_files.py`
+      SAME 144 (mutau) and SAME 0 (mumu) against the real `SampleSet`; `check`/`plan` of `tes_id_2025` no variation
+      problem; a shapes-only copy on a symlink mirror without `TT/TTtoLNu2Q_mutau_LTF1p030.root`: `plan` warns "1 of
+      144 ... (_LTF1p030: 1): <that file>", `start` leaves the stage NEW ("Stage shapes is not ready: ...", no command
+      run); `check` does not run stage preflights (recipe only), so it says nothing; `checks` 14/15
+      (`check_import_boundaries` known debt, 25 / 23 / 21, 0 new pairs).
 - [ ] **Bug fixes of 2026-10-18:** `python3 Tests/Utilities/test_background.py` five times in a row and once inside
       `python3 Tests/run.py checks` (the flaky cancel test, §7); `taufw.py plan Analyses/no_such_recipe` prints one
       line, no traceback (Framework BUGS K06).
