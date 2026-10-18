@@ -43,9 +43,9 @@ machine, Python API, and run-record internals, see the
 | Bundle | Pipeline | Inputs and purpose |
 | --- | --- | --- |
 | [example_mutau_short](example_mutau_short/recipe.yml) | `production` | Produce `2022_postEE` mutau tuples for sample names matching `DY*` or `TT*`: a quick production example (no plots: a few MC samples without data are not enough for them). |
-| [example_mutau_long](example_mutau_long/recipe.yml) | `production` → `plots` | Produce every `2022_postEE` mutau tuple the control plots read (data and the 22 MC samples of its `v15_2022_postEE.yml`), then the plots; `plan` checks that production makes every sample the plots ask for. A full production: tens of GB, hours of batch jobs. |
+| [example_mutau_long](example_mutau_long/recipe.yml) | `production` → `controlhists` → `controlplots` | Produce every `2022_postEE` mutau tuple the control plots read (data and the 22 MC samples of its `v15_2022_postEE.yml`), then the plots; `plan` checks that production makes every sample the plots ask for. A full production: tens of GB, hours of batch jobs. |
 | [example_broken](example_broken/recipe.yml) | (invalid on purpose) | A demonstration of the validation: `taufw.py check Analyses/example_broken` lists its four problems; the menu shows it in red. Do not fix it. |
-| [tes_id_2025](tes_id_2025/recipe.yml) | `plots` → `shapes` → `fit` → `fit_summary` (python) | Use existing 2025 tuples for the combined tau energy scale (TES) and tau ID scale factor fit, with the Z→μμ control region; DeepTau VSjet `VTight`, VSe `Tight`; then a table of the fitted values. |
+| [tes_id_2025](tes_id_2025/recipe.yml) | `controlhists` → `controlplots` → `shapes` → `fit` → `fit_summary` (python) | Use existing 2025 tuples for the combined tau energy scale (TES) and tau ID scale factor fit, with the Z→μμ control region; DeepTau VSjet `VTight`, VSe `Tight`; then a table of the fitted values. |
 
 Each bundle carries copies of the Histogrammer and Fitter configs it uses, next to
 its `recipe.yml`. The examples still need the corresponding sample catalog,
@@ -101,22 +101,33 @@ NanoAOD processing jobs, checks and resubmits failed chunks as needed, then
 merges successful output into pico tuples. An empty `samples: []` means no sample
 name restriction; it does not mean "run no samples."
 
-To make control plots after production, append this entry under the same
-`stages:` list:
+To make control plots after production, append these two entries under the
+same `stages:` list. The Histogrammer fills the histograms and writes them to a
+file; the Plotter draws that file:
 
 ```yaml
-  - stage: plots
-    id: plots
+  - stage: controlhists
+    id: hists
     inputs: {tuples: production}   # the tuples of the stage with id production
     eras: [2022_postEE]
     configs: [mutau]
     variables: [m_vis, pt_1, pt_2]
     selections: [baseline]
+  - stage: controlplots
+    id: plots
+    inputs: {hists: hists}         # the control-histogram files of the stage with id hists
 ```
 
 Each stage has its own options. Setting `eras` on production does not set the
-eras for plots or shapes. Likewise, production `channels: [mutau]` and plot
-`configs: [mutau]` belong to different packages and serve different purposes.
+eras for controlhists or shapes. Likewise, production `channels: [mutau]` and
+controlhists `configs: [mutau]` belong to different packages and serve different
+purposes. What is filled (eras, setups, variables, selections, samples, tag) is
+an option of `controlhists`; what only changes the picture (`fraction`, `pdf`,
+`text`) is an option of `controlplots`.
+
+Until changelog §24 (S4) one stage, `plots`, filled and drew in one script; a
+recipe that still writes `stage: plots` (or `stage: histograms`, now `shapes`)
+fails the check with a message naming the new stages.
 
 For plots of tuples you already have, omit the production entry and name
 them: `inputs: {tuples: {external: /eos/.../$ERA/$GROUP}}` (see
@@ -149,12 +160,12 @@ The stages run in the order they are written; the order is your choice. The
 usual one is:
 
 ```text
-production → plots → shapes → fit
+production → controlhists → controlplots → shapes → fit
 ```
 
 The only order rule comes from `inputs`: a stage reads only stages written above
 it (a `fit` above the `shapes` it reads is an error). Any non-empty subset is
-allowed, and `plots`, `shapes`, `fit` and [Python steps](#python-steps) may
+allowed, and `controlhists`, `controlplots`, `shapes`, `fit` and [Python steps](#python-steps) may
 appear any number of times, each with its own `id` (for example a `shapes`
 and a `fit` for one set of working points, then another pair for a second set).
 `production` may appear at most once: its job files are outside the run and a run
@@ -168,7 +179,7 @@ Every stage has these keys besides its options:
 
 | Key | Required | Meaning |
 | --- | --- | --- |
-| `stage` | Yes | The stage type: `production`, `plots`, `shapes`, `fit`, `python`. |
+| `stage` | Yes | The stage type: `production`, `controlhists`, `controlplots`, `shapes`, `fit`, `python`. |
 | `id` | Yes | The stage's name in the run: its record in `run.json`, its directories `taufw_runs/<run>/stages/<id>/` (output) and `logs/<id>/`, and what `inputs:` refer to. Unique; letters, digits, `_`, `.`, `-` (not `.` or `..`). Any stage may have any id (`id: shapes_tight`). |
 | `inputs` | Yes | Which earlier stage's output the stage reads (see the table below). Never left out and never `{}`: a stage without inputs says `inputs: null`. |
 | `description` | No | Free text, shown by `plan` and in the menu. Nothing depends on it. |
@@ -192,7 +203,8 @@ or `tuples <- outside this run (the tuples in $PICODIR ...)`.
 | Stage | `inputs` | `null` means (old recipes) | Makes |
 | --- | --- | --- | --- |
 | `production` | `null` (no slots) | - | `tuples` |
-| `plots` | `{tuples: <id, {path: ...}, {external: <pattern>} or null>}` | the tuples in `$PICODIR` of `pico.config` | `plots` |
+| `controlhists` | `{tuples: <id, {path: ...}, {external: <pattern>} or null>}` | the tuples in `$PICODIR` of `pico.config` | `control_histograms` |
+| `controlplots` | `{hists: <id or {path: ...}>}` | not allowed (control-histogram files have no default place) | `plots` |
 | `shapes` | `{tuples: <id, {path: ...}, {external: <pattern>} or null>}` | the same | `shapes` |
 | `fit` | `{shapes: <id, {path: ...} or null>}` | **temporary exception:** the shapes already in `Fitter/input_pt_less_region/`, made outside the Framework | `fit`, `corrections` |
 | `python` | `null`, or `{<any name>: <id or {path: ...}>, ...}` | no inputs (a named input must name a stage or a directory; `null` is not allowed) | anything |
@@ -225,7 +237,7 @@ once**. Each problem names its location:
 ```text
 my_mutau.yml: 2 problems
   stages[0] (production): unknown option 'samplez' ...
-  stages[1] (plots).inputs.tuples: no stage 'prodution' in the recipe
+  stages[1] (controlhists).inputs.tuples: no stage 'prodution' in the recipe
 ```
 
 `taufw.py check <bundle>` lists every problem without running anything, and
@@ -257,7 +269,8 @@ running the shapes stage (hours) again:
   `DONE`, with its `manifest.json`. The artifacts come from that manifest (never
   from the other run's `run.json`), and the stage works as with an input of the
   same run: the fit's points and shape directories, the `--tuples` pattern of a
-  production stage for plots and shapes, `ctx.input()` of a python step.
+  production stage for controlhists and shapes, the files of a controlhists
+  stage for controlplots, `ctx.input()` of a python step.
 - The path must be absolute. A relative path is refused, and `~` and
   `$VARIABLES` are not expanded (unlike `run_root`). It must not point inside the
   bundle: data is never part of a bundle. (The rules of all paths in a recipe
@@ -280,7 +293,7 @@ running the shapes stage (hours) again:
 
 ## Paths and configuration
 
-The path options of the stages (`plots.configs`, `shapes.configs`,
+The path options of the stages (`controlhists.configs`, `shapes.configs`,
 `fit.config`, `fit.config_mumu`, a python step's `file`) and `pico.config`
 follow one rule:
 
@@ -289,7 +302,7 @@ follow one rule:
 | Absolute path | Used as is. | `absolute` |
 | Relative path of a file in the bundle | That bundle file, e.g. `config_coarse_TT.yml` next to `recipe.yml`. | `bundle` |
 | Any other relative path | Unchanged: the module resolves it as before, relative to `Fitter/` (e.g. `TauES_ID/config/config_coarse_TT.yml`) or `Histogrammer/` (e.g. `config/setup_mutau.yml`). | `module` |
-| `plots.configs` channel name | `mutau` selects `Configs/Histogrammer/setups/setup_mutau.yml` (the template; a bundle copy is better: `taufw.py init --from` makes one). | `module` |
+| `controlhists.configs` channel name | `mutau` selects `Configs/Histogrammer/setups/setup_mutau.yml` (the template; a bundle copy is better: `taufw.py init --from` makes one). | `module` |
 
 A bundle file **replaces** the module's config as a whole: the script reads the
 bundle's copy instead, nothing is merged. `taufw.py plan` lists every file each
@@ -372,8 +385,8 @@ to `$PICODIR` of the PicoProducer configuration, so they need the space of
 [`run_root`](#where-the-runs-go-run_root). Every tuple artifact records where
 they are as a pattern, `.../stages/<id>/$ERA/$GROUP`.
 
-**Plots and shapes read the tuples their input names.** The Framework gives
-the scripts the pattern as `--tuples <pattern>` (`plot.py`,
+**Controlhists and shapes read the tuples their input names.** The Framework gives
+the scripts the pattern as `--tuples <pattern>` (`fillhists.py`,
 `createinputsTES.py`): with `{tuples: <production id>}` the pattern on that
 stage's artifacts (in `plan`: `<run_dir>/stages/<id>/$ERA/$GROUP`), with
 `{tuples: {external: <pattern>}}` that pattern. The PicoProducer configuration
@@ -385,8 +398,8 @@ does not reach the readers: they look for `<sample>_<channel>.root`.
 #### Tuples made outside TauFW
 
 ```yaml
-  - stage: plots
-    id: plots
+  - stage: controlhists
+    id: hists
     inputs:
       tuples: {external: /eos/cms/store/group/phys_tau/TauFW/pico2024/TES_variations/$ERA/$GROUP}
 ```
@@ -406,7 +419,7 @@ does not reach the readers: they look for `<sample>_<channel>.root`.
 
 ### Which samples
 
-The `samples` option of `plots` and `shapes` names the sample model files:
+The `samples` option of `controlhists` and `shapes` names the sample model files:
 for every era, which MC samples are read (with their cross sections, titles and
 extra weights), which data datasets, the MC weight of each channel kind, and
 how samples are stitched and joined. Copy the file of each era from
@@ -417,7 +430,7 @@ exported from `Histogrammer/config/samples_v15.py` and give exactly the same sam
 sets (checked by `Tests/Histogrammer/sample_model`).
 
 ```yaml
-  - stage: plots
+  - stage: controlhists
     inputs: {tuples: production}
     eras: [2025]
     samples: &samples [v15_2025.yml]    # one file per era
@@ -493,36 +506,62 @@ completion before entering its merge step. It is not a recipe switch to skip
 failed jobs immediately. `merge.clean` performs actual cleanup, so enable it
 when you intend to remove the intermediate job files after validation.
 
-### `plots`
+### `controlhists`
 
-Runs `Histogrammer/fillhists.py` (the former `Plotter/plot.py`, changelog §24) locally, once per config and
-era, through `TauFW.Histogrammer.api.ControlPlots`. This is the pipeline's control-plot stage;
-the `plots` entry in `fit.steps` instead makes plots of fit results.
+The first half of the control plots. Runs `Histogrammer/fillhists.py --hists --no-draw` (the former
+`Plotter/plot.py`, changelog §24) locally, once per config and era, through
+`TauFW.Histogrammer.api.ControlHists`: it fills the data/MC stacks of every variable and selection and writes
+them, with what the drawing needs, to one control-histogram file
+([contract](../docs/contracts/control-histograms.md)); it draws nothing. The `controlplots` stage draws them.
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `eras` | Required | Non-empty eras; forwarded as `plot.py -y`. |
+| `eras` | Required | Non-empty eras; forwarded as `fillhists.py -y`. |
 | `configs` | `[mutau]` | Non-empty channel names, bundle files, or setup `.yml` paths relative to `Histogrammer/`; `-c`. |
 | `variables` | `[]` | Variable glob filters; `-V`. Empty selects all variables defined by the script. |
 | `selections` | `[]` | Selection glob filters; `-S`. Empty includes baseline and the setup's regions. |
 | `serial` | `false` | Serial processing; `-s`. |
-| `fraction` | `false` | Fraction stack in the ratio plot; `-F`. |
-| `pdf` | `false` | Also save PDF files; `-p`. |
 | `notauidsf` | `false` | Remove DeepTau ID scale factors; `-r`. |
-| `tag` | `""` | Plot tag; `-t`. |
-| `text` | `""` | Additional plot text; `-T`. |
+| `tag` | `""` | Tag of the file and of the plot names; `-t`. |
 | `timeout` | `null` | Seconds allowed per command; unset means no time limit. |
 | `samples` | `[]` | Sample model files of the bundle (or absolute), one per era: copies of `Configs/Histogrammer/samples/v15_<era>.yml` (MC table, data, MC weights, stitching); `--samples`. Empty: the tables of `Histogrammer/config/samples_v15.py` (old recipes). See [Which samples](#which-samples). |
 
-`fillhists.py` runs in the stage's directory, so the plots are written under
-`taufw_runs/<run>/stages/<id>/plots/<era>/` (nothing is written to
-`Histogrammer/plots/`). The run records one artifact per channel setup and era,
-including the directory and the number of plots this run made. File names carry
-the setup's `tag` plus `tag` of the stage; two setups with the same channel and
-tag (e.g. `setup_mutau.yml` and `setup_mutau_inclusive.yml`) write the same
-names, and `plan` says so.
+`fillhists.py` runs in the stage's directory, so the files are written to
+`taufw_runs/<run>/stages/<id>/hists/<era>/<channel><tag>.root` (nothing is written
+to `Histogrammer/`). The run records one `control_histograms` artifact per channel
+setup and era (era, config, channel, tag, file). File names carry the setup's
+`tag` plus `tag` of the stage; two setups with the same channel and tag (e.g.
+`setup_mutau.yml` and `setup_mutau_inclusive.yml`) write the same file, and
+`plan` says so.
 The selected setup controls the physics samples and regions; a production
 sample filter does not automatically restrict the Histogrammer's sample collection.
+
+### `controlplots`
+
+The second half of the control plots. Runs `Plotter/draw.py` locally, once per file of the `controlhists`
+stage its input names, through `TauFW.Plotter.api.ControlPlots`. The plots get the names and texts
+`fillhists.py` gives its own plots (`<variable>_<channel short>-<selection>-<era><tag>.png`), so the same
+options give the same files as filling and drawing in one `fillhists.py` run. This is the pipeline's
+control-plot stage; the `plots` entry in `fit.steps` instead makes plots of fit results.
+
+```yaml
+  - stage: controlplots
+    id: plots
+    inputs: {hists: hists}   # a controlhists stage above, or {path: <run_dir>/stages/<id>} of another run
+    pdf: true
+```
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `fraction` | `false` | Fraction stack in the ratio plot; `draw.py -F`. |
+| `pdf` | `false` | Also save PDF files; `-p`. |
+| `text` | `""` | Additional plot text; `-T`. |
+| `timeout` | `null` | Seconds allowed per command; unset means no time limit. |
+
+There is nothing to choose about what is drawn: eras, channels, variables, selections and the tag are in
+the files. `draw.py` runs in the stage's directory, so the plots are written under
+`taufw_runs/<run>/stages/<id>/plots/<era>/`. The run records one `plots` artifact per file (era, config,
+channel, directory, the number of plots it made), the same form as the former `plots` stage.
 
 ### `shapes`
 
@@ -799,7 +838,8 @@ artifacts, history, and local command results.
 | Stage | Output location | Recorded artifacts |
 | --- | --- | --- |
 | `production` | `taufw_runs/<run>/stages/<id>/<era>/<group>/` | Merged tuple path, sample/group, era, channel, tag, data type, event count, tree, cutflow, and `pattern` (`.../stages/<id>/$ERA/$GROUP`, where the readers look). |
-| `plots` | `taufw_runs/<run>/stages/<id>/plots/<era>/` | `kind: plots`, era, config, channel, directory, matching file count. |
+| `controlhists` | `taufw_runs/<run>/stages/<id>/hists/<era>/<channel><tag>.root` | `kind: control_histograms`, era, config, channel, tag, file. |
+| `controlplots` | `taufw_runs/<run>/stages/<id>/plots/<era>/` | `kind: plots`, era, config, channel, directory, matching file count. |
 | `shapes` | `taufw_runs/<run>/stages/<id>/input_pt_less_region/againstjet_<J>/againstelectron_<E>/` | `kind: shapes`, path, era, channel, config, WP pair, observable. |
 | `fit` | `taufw_runs/<run>/stages/<id>/<era>/` (`output_*`, `postfit_*`, plot directories, `tau_sf/`, `data/tau/`) | `kind: fit` per point, output/postfit directories, fitted values, correction paths; when summary runs, two `kind: corrections` per era: the merged JSON, and the combined TES + ID file (`combined: true`). |
 | `python` | `taufw_runs/<run>/stages/<id>/` (`ctx.stage_dir`) | What the step returns. |
@@ -828,7 +868,7 @@ prints the last 20 lines of its log.
 | `has no manifest.json` | The `{path: ...}` directory is not a finished stage directory: its stage is not `DONE`, or it is not `<run_root>/<run>/stages/<id>` (e.g. `Fitter/`). |
 | `has manifest format 1, expected 2` | The source run was started before inputs from other runs existed; run that stage again in a new run. |
 | `was moved or copied from` | The source directory is not where its manifest was written, so its artifacts name files elsewhere. Use the original directory. |
-| `it makes plots, not shapes` | The `{path: ...}` directory belongs to a stage that makes another kind of data than the slot takes. |
+| `it makes control_histograms, not shapes` | The `{path: ...}` directory belongs to a stage that makes another kind of data than the slot takes. |
 | A config change has no effect | Run `plan` and check the `from` column: `module` means the file is not in the bundle (typo in the path), so the module's own config is used. |
 | Python step `NEW` with "no top-level function" | Define `def run(ctx):` at the top level of the file, or set `function:`. |
 | Python step `FAILED` | Read `taufw_runs/<run>/logs/<id>/01_<id>.log` for the traceback; `context.json` next to it shows what the step was given. |

@@ -1,4 +1,4 @@
-"""Local stages (plots, shapes, fit) and the stage context, driven by fake module APIs (no ROOT, no scripts)."""
+"""Local stages (controlhists, controlplots, shapes, fit) and the stage context, driven by fake module APIs (no ROOT, no scripts)."""
 import importlib.util
 import json
 import os
@@ -10,16 +10,18 @@ import checkout  # noqa: F401  (must precede TauFW imports)
 import fakes
 import hashlib
 from TauFW.Framework import Framework, Recipe, RecipeError, RunRecord, SilentReporter
-from TauFW.Framework.stages import (ProductionStage, PlotStage, ShapesStage, FitStage, StageContext,
+from TauFW.Framework.stages import (ProductionStage, ControlHistsStage, ControlPlotsStage, ShapesStage, FitStage,
+                                    StageContext,
                                     PreflightError)
 from test_framework import Clock
 
 PRODUCTION = {"stage": "production", "id": "production", "inputs": None, "eras": ["2025"], "channels": ["mutau"],
               "samples": ["DY*"]}
-PLOTS = {"stage": "plots", "id": "plots", "inputs": {"tuples": None}, "eras": [2025], "configs": ["mutau", "mumu"],
+HISTS = {"stage": "controlhists", "id": "hists", "inputs": {"tuples": None}, "eras": [2025], "configs": ["mutau", "mumu"],
          "variables": ["m_vis"]}
 SHAPES = {"stage": "shapes", "id": "shapes", "inputs": {"tuples": None}, "eras": [2025],
               "jet_wps": ["VTight", "Tight"], "ele_wps": ["Tight"]}
+PLOTS = {"stage": "controlplots", "id": "plots", "inputs": {"hists": "hists"}, "pdf": True}
 FIT = {"stage": "fit", "id": "fit", "inputs": {"shapes": None}, "steps": ["fit", "corrections"]}
 TT, MM = "TauES_ID/config/config_coarse_TT.yml", "TauES/config/FitSetup_mumu.yml"
 
@@ -33,7 +35,7 @@ def connected(stage, **inputs):
     return dict(stage, inputs=inputs)
 
 
-PIPELINE = (PRODUCTION, connected(PLOTS, tuples="production"), connected(SHAPES, tuples="production"),
+PIPELINE = (PRODUCTION, connected(HISTS, tuples="production"), connected(SHAPES, tuples="production"),
             connected(FIT, shapes="shapes"))
 
 
@@ -42,12 +44,14 @@ class LocalStageTestCase(unittest.TestCase):
         self.root = tempfile.mkdtemp(prefix="taufw-test-")
         self.addCleanup(shutil.rmtree, self.root, ignore_errors=True)
         self.pico = fakes.FakePicoProducer(samples=("DY",), statuses=[fakes.complete("DY")])
+        self.histogrammer = fakes.FakeHistogrammer()
         self.plotter = fakes.FakePlotter()
         self.fitter = fakes.FakeFitter()
         self.reporter = SilentReporter()
 
     def framework(self, *stages):
-        built = {"production": ProductionStage(self.pico), "plots": PlotStage(self.plotter),
+        built = {"production": ProductionStage(self.pico), "controlhists": ControlHistsStage(self.histogrammer),
+                 "controlplots": ControlPlotsStage(self.plotter),
                  "shapes": ShapesStage(self.fitter), "fit": FitStage(self.fitter)}
         stages = recipe(*stages)  # the stage objects by type: a repeated stage shares its module API
         return Framework(stages, {s.id: built[s.stage] for s in stages.stages}, reporter=self.reporter,
@@ -62,18 +66,18 @@ class PipelineTests(LocalStageTestCase):
         fw = self.framework(*PIPELINE)
         record = fw.start(run_root=self.root)
         self.assertEqual(record.state, "WAITING")
-        self.assertEqual(self.plotter.calls, [])  # nothing local runs before production is DONE
+        self.assertEqual(self.histogrammer.calls, [])  # nothing local runs before production is DONE
         record = fw.advance(record)
         self.assertEqual(record.state, "DONE")
-        self.assertEqual([record.stage(s).state for s in ("plots", "shapes", "fit")], ["DONE"] * 3)
+        self.assertEqual([record.stage(s).state for s in ("hists", "shapes", "fit")], ["DONE"] * 3)
         # each stage logs to <run_dir>/logs/<stage id>, and gets a manifest in <run_dir>/stages/<stage id> when DONE
         logs = os.path.join(record.run_dir, "logs")
-        self.assertEqual(self.plotter.logdirs, [os.path.join(logs, "plots")])
+        self.assertEqual(self.histogrammer.logdirs, [os.path.join(logs, "hists")])
         # the Framework decides where a stage writes: its scripts run in <run_dir>/stages/<stage id>
-        self.assertEqual(self.plotter.call("make")[0]["outdir"], os.path.join(record.run_dir, "stages", "plots"))
+        self.assertEqual(self.histogrammer.call("make")[0]["outdir"], os.path.join(record.run_dir, "stages", "hists"))
         self.assertEqual(self.fitter.logdirs, [os.path.join(logs, "shapes"), os.path.join(logs, "fit")])
         self.assertEqual(sorted(os.listdir(os.path.join(record.run_dir, "stages"))),
-                         ["fit", "plots", "production", "shapes"])
+                         ["fit", "hists", "production", "shapes"])
         with open(os.path.join(record.run_dir, "stages", "shapes", "manifest.json")) as stream:
             manifest = json.load(stream)
         self.assertEqual({key: manifest[key] for key in ("manifest", "run_id", "stage_id", "stage", "inputs",
@@ -85,12 +89,12 @@ class PipelineTests(LocalStageTestCase):
         production_dir = os.path.join(record.run_dir, "stages", "production")  # the tuples, below <era>/<group>
         self.assertEqual(sorted(os.listdir(production_dir)), ["2018", "manifest.json"])
         dy = os.path.join(production_dir, "2018", "DY", "DY_mutau.root")
-        # plots and shapes read the production stage's tuples, through the pattern on its artifacts
+        # hists and shapes read the production stage's tuples, through the pattern on its artifacts
         pattern = os.path.join(production_dir, "$ERA", "$GROUP")
-        self.assertEqual(self.plotter.call("make")[0]["tuples"], pattern)
-        self.assertIsNone(self.plotter.call("make")[0]["pico_config"])
+        self.assertEqual(self.histogrammer.call("make")[0]["tuples"], pattern)
+        self.assertIsNone(self.histogrammer.call("make")[0]["pico_config"])
         self.assertEqual(self.fitter.call("make_shapes")[0]["tuples"], pattern)
-        self.assertEqual(record.stage("plots").last_status["tuples"], pattern)
+        self.assertEqual(record.stage("hists").last_status["tuples"], pattern)
         # the shapes stage records the production tuples as inputs, and its shape files as artifacts
         histograms = record.stage("shapes")
         self.assertEqual(histograms.last_status["inputs"], [dy])
@@ -114,41 +118,41 @@ class PipelineTests(LocalStageTestCase):
                          [("VTight", "tes", 0.98), ("Tight", "tes", 0.98)])
 
     def test_repeated_stages_run_in_their_own_directories(self):
-        """R4: two shapes stages and two fits (each fit reads its own shapes), two plots, in any order."""
+        """R4: two shapes stages and two fits (each fit reads its own shapes), two hists, in any order."""
         hist_vt = dict(SHAPES, id="hist_vt", jet_wps=["VTight"])
         hist_t = dict(SHAPES, id="hist_t", jet_wps=["Tight"])
         stages = (hist_vt, connected(dict(FIT, id="fit_vt"), shapes="hist_vt"), hist_t,
                   connected(dict(FIT, id="fit_t"), shapes="hist_t"),
-                  dict(PLOTS, id="plots_mvis"), dict(PLOTS, id="plots_pt", variables=["pt_1"]))
+                  dict(HISTS, id="hists_mvis"), dict(HISTS, id="hists_pt", variables=["pt_1"]))
         record = self.framework(*stages).start(run_root=self.root)
         self.assertEqual(record.state, "DONE")
         directories = os.path.join(record.run_dir, "stages")
-        self.assertEqual(sorted(os.listdir(directories)), ["fit_t", "fit_vt", "hist_t", "hist_vt", "plots_mvis",
-                                                           "plots_pt"])
+        self.assertEqual(sorted(os.listdir(directories)), ["fit_t", "fit_vt", "hist_t", "hist_vt", "hists_mvis",
+                                                           "hists_pt"])
         self.assertEqual([request["outdir"] for request, in [c[1:] for c in self.fitter.calls if c[0] == "fit"]],
                          [os.path.join(directories, "fit_vt"), os.path.join(directories, "fit_t")])
         self.assertEqual([request["points"] for request, in [c[1:] for c in self.fitter.calls if c[0] == "fit"]],
                          [(("2025", "VTight", "Tight"),), (("2025", "Tight", "Tight"),)])
-        self.assertEqual([request["variables"] for request, in [c[1:] for c in self.plotter.calls if c[0] == "make"]],
+        self.assertEqual([request["variables"] for request, in [c[1:] for c in self.histogrammer.calls if c[0] == "make"]],
                          [["m_vis"], ["pt_1"]])
-        for stage_id in ("fit_vt", "fit_t", "plots_mvis", "plots_pt"):
+        for stage_id in ("fit_vt", "fit_t", "hists_mvis", "hists_pt"):
             self.assertTrue(os.path.isfile(os.path.join(directories, stage_id, "manifest.json")))
 
     def test_progress_lines(self):
-        fw = self.framework(PLOTS)
+        fw = self.framework(HISTS)
         fw.start(run_root=self.root)
         messages = [text for kind, text in self.reporter.messages if kind == "message"]
-        self.assertIn("[plots] 1/2 plots mutau 2025 ...", messages)
-        self.assertIn("[plots] 2/2 plots mumu 2025 ok (1 s)", messages)
+        self.assertIn("[hists] 1/2 controlhists mutau 2025 ...", messages)
+        self.assertIn("[hists] 2/2 controlhists mumu 2025 ok (1 s)", messages)
 
     def test_progress_events(self):
-        fw = self.framework(PLOTS)
+        fw = self.framework(HISTS)
         fw.start(run_root=self.root)
         progress = [fields for kind, fields in self.reporter.events if kind == "progress"]
         self.assertEqual([(p["index"], p["total"], p["label"], p["status"]) for p in progress],
-                         [(1, 2, "plots mutau 2025", "run"), (1, 2, "plots mutau 2025", "ok"),
-                          (2, 2, "plots mumu 2025", "run"), (2, 2, "plots mumu 2025", "ok")])
-        self.assertEqual({p["stage"] for p in progress}, {"plots"})
+                         [(1, 2, "controlhists mutau 2025", "run"), (1, 2, "controlhists mutau 2025", "ok"),
+                          (2, 2, "controlhists mumu 2025", "run"), (2, 2, "controlhists mumu 2025", "ok")])
+        self.assertEqual({p["stage"] for p in progress}, {"hists"})
         self.assertNotIn("seconds", progress[0])
         self.assertIn("seconds", progress[1])
 
@@ -171,18 +175,18 @@ class PipelineTests(LocalStageTestCase):
         self.assertNotIn("line 9\n", warning)  # only the last 20 lines
 
     def test_preflight_problem_leaves_the_stage_new(self):
-        self.plotter.problems = ("CMSSW_BASE is not set (run cmsenv first)",)
-        fw = self.framework(PLOTS)
+        self.histogrammer.problems = ("CMSSW_BASE is not set (run cmsenv first)",)
+        fw = self.framework(HISTS)
         record = fw.start(run_root=self.root)
-        stage = RunRecord.load(record.run_dir).stage("plots")
+        stage = RunRecord.load(record.run_dir).stage("hists")
         self.assertEqual(stage.state, "NEW")
         self.assertEqual(stage.message, "not ready: CMSSW_BASE is not set (run cmsenv first)")
         self.assertEqual(stage.history[-1]["event"], "preflight")
-        self.assertNotIn("make", self.plotter.names())
-        self.assertIn("plots is not ready", self.warnings()[-1])
-        self.plotter.problems = ()  # fixed: advance again
+        self.assertNotIn("make", self.histogrammer.names())
+        self.assertIn("hists is not ready", self.warnings()[-1])
+        self.histogrammer.problems = ()  # fixed: advance again
         record = fw.advance(record)
-        self.assertEqual(record.stage("plots").state, "DONE")
+        self.assertEqual(record.stage("hists").state, "DONE")
 
     def test_fit_without_points_fails(self):
         record = self.framework(FIT).start(run_root=self.root)
@@ -213,7 +217,7 @@ class PipelineTests(LocalStageTestCase):
 
 class RecoveryTests(LocalStageTestCase):
     def test_reload_keeps_completed_stages_and_passes_saved_artifacts_downstream(self):
-        # Stop at shapes preflight after production and plots genuinely finish.
+        # Stop at shapes preflight after production and hists genuinely finish.
         self.fitter.problems = ("combine is not on PATH",)
         fw = self.framework(*PIPELINE)
         record = fw.advance(fw.start(run_root=self.root))
@@ -224,9 +228,9 @@ class RecoveryTests(LocalStageTestCase):
         self.assertEqual(loaded.stage("production").artifacts[0]["path"], dy)
 
         pico = fakes.FakePicoProducer()
-        plotter = fakes.FakePlotter()
+        histogrammer = fakes.FakeHistogrammer()
         fitter = fakes.FakeFitter()
-        resumed = Framework.from_record(loaded, pico=pico, plotter=plotter, fitter=fitter,
+        resumed = Framework.from_record(loaded, pico=pico, histogrammer=histogrammer, fitter=fitter,
                                         reporter=SilentReporter())
         resumed.clock = Clock()
         record = resumed.advance(loaded)
@@ -234,7 +238,7 @@ class RecoveryTests(LocalStageTestCase):
         self.assertEqual(saved.state, "DONE")
         self.assertEqual(saved.to_dict()["stages"][:2], upstream)
         self.assertEqual(pico.calls, [])
-        self.assertEqual(plotter.calls, [])
+        self.assertEqual(histogrammer.calls, [])
         self.assertEqual(saved.stage("shapes").last_status["inputs"], [dy])
         self.assertEqual(len(saved.stage("shapes").artifacts), 4)
         self.assertEqual(fitter.call("fit")[0]["points"],
@@ -242,12 +246,12 @@ class RecoveryTests(LocalStageTestCase):
         self.assertIs(fitter.call("preflight_fit")[1], False)  # uses the upstream shapes
 
         # Reload the now-complete multi-stage run with another set of fresh services.
-        pico, plotter, fitter = fakes.FakePicoProducer(), fakes.FakePlotter(), fakes.FakeFitter()
+        pico, histogrammer, fitter = fakes.FakePicoProducer(), fakes.FakeHistogrammer(), fakes.FakeFitter()
         completed_stages = saved.to_dict()["stages"]
-        completed = Framework.from_record(saved, pico=pico, plotter=plotter, fitter=fitter,
+        completed = Framework.from_record(saved, pico=pico, histogrammer=histogrammer, fitter=fitter,
                                           reporter=SilentReporter())
         completed.advance(saved)
-        self.assertEqual([pico.calls, plotter.calls, fitter.calls], [[], [], []])
+        self.assertEqual([pico.calls, histogrammer.calls, fitter.calls], [[], [], []])
         self.assertEqual(RunRecord.load(saved.run_dir).to_dict()["stages"], completed_stages)
 
 
@@ -273,7 +277,7 @@ class PlanTests(LocalStageTestCase):
 
 
 class TupleInputTests(LocalStageTestCase):
-    """Where plots and shapes read their tuples: the pattern of the production stage their input names,
+    """Where hists and shapes read their tuples: the pattern of the production stage their input names,
     {external: <pattern>}, or (null, old recipes) $PICODIR of the PicoProducer configuration."""
 
     def external(self, stage, pattern):
@@ -282,42 +286,42 @@ class TupleInputTests(LocalStageTestCase):
     def test_external_pattern(self):
         os.makedirs(os.path.join(self.root, "tuples", "2025"))
         pattern = os.path.join(self.root, "tuples", "$ERA", "$GROUP")
-        fw = self.framework(self.external(PLOTS, pattern), self.external(SHAPES, pattern))
-        self.assertEqual(fw.recipe.stage("plots").connections, {"tuples": None})
-        self.assertEqual(fw.recipe.stage("plots").external, {"tuples": pattern})
+        fw = self.framework(self.external(HISTS, pattern), self.external(SHAPES, pattern))
+        self.assertEqual(fw.recipe.stage("hists").connections, {"tuples": None})
+        self.assertEqual(fw.recipe.stage("hists").external, {"tuples": pattern})
         record = fw.start(run_root=os.path.join(self.root, "runs"))
-        self.assertEqual([record.stage(s).state for s in ("plots", "shapes")], ["DONE", "DONE"])
-        request = self.plotter.call("make")[0]
+        self.assertEqual([record.stage(s).state for s in ("hists", "shapes")], ["DONE", "DONE"])
+        request = self.histogrammer.call("make")[0]
         self.assertEqual((request["tuples"], request["pico_config"]), (pattern, None))
         self.assertEqual(self.fitter.call("make_shapes")[0]["tuples"], pattern)
-        self.assertEqual(record.stage("plots").last_status["tuples"], pattern)
-        self.assertNotIn("inputs", record.stage("plots").last_status)  # no tuple files are known
+        self.assertEqual(record.stage("hists").last_status["tuples"], pattern)
+        self.assertNotIn("inputs", record.stage("hists").last_status)  # no tuple files are known
         self.assertEqual(record.recipe["stages"][0]["inputs"], {"tuples": {"external": pattern}})  # as written
 
     def test_external_directory_must_exist(self):
         pattern = os.path.join(self.root, "missing", "$ERA", "$GROUP")
-        record = self.framework(self.external(PLOTS, pattern)).start(run_root=os.path.join(self.root, "runs"))
-        stage = record.stage("plots")
+        record = self.framework(self.external(HISTS, pattern)).start(run_root=os.path.join(self.root, "runs"))
+        stage = record.stage("hists")
         self.assertEqual(stage.state, "NEW")
         self.assertEqual(stage.message, "not ready: tuple directory %s (of {external: %s}) not found"
                          % (os.path.join(self.root, "missing"), pattern))
-        self.assertNotIn("make", self.plotter.names())
+        self.assertNotIn("make", self.histogrammer.names())
 
     def test_null_reads_the_pico_configuration(self):
-        record = self.framework(PLOTS).start(run_root=self.root)
-        request = self.plotter.call("make")[0]
+        record = self.framework(HISTS).start(run_root=self.root)
+        request = self.histogrammer.call("make")[0]
         self.assertIsNone(request["tuples"])
         self.assertIn("pico_config", request)
-        self.assertNotIn("tuples", record.stage("plots").last_status)
+        self.assertNotIn("tuples", record.stage("hists").last_status)
 
     def test_plan_gives_the_planned_pattern(self):
-        plan = self.framework(PRODUCTION, connected(PLOTS, tuples="production")).plan()
-        self.assertEqual(self.plotter.call("plan")[0]["tuples"],
+        plan = self.framework(PRODUCTION, connected(HISTS, tuples="production")).plan()
+        self.assertEqual(self.histogrammer.call("plan")[0]["tuples"],
                          os.path.join("<run_dir>", "stages", "production", "$ERA", "$GROUP"))
         self.assertEqual(plan.stages[1].plan.notes, ())  # no problem with the planned pattern
 
     def test_pattern_problems(self):
-        stage = PlotStage(self.plotter)
+        stage = ControlHistsStage(self.histogrammer)
 
         def context(*artifacts):
             return StageContext(inputs={"tuples": "production"}, upstream={"production": artifacts})
@@ -407,58 +411,110 @@ class PathInputTests(LocalStageTestCase):
 
     def test_plots_read_the_tuples_of_another_run(self):
         source = os.path.join(self.source_run(PRODUCTION).run_dir, "stages", "production")
-        plots = dict(PLOTS, inputs={"tuples": {"path": source}})
+        plots = dict(HISTS, inputs={"tuples": {"path": source}})
         record = self.framework(plots).start(run_root=os.path.join(self.root, "reader"))
-        self.assertEqual(record.state, "DONE", record.stage("plots").message)
+        self.assertEqual(record.state, "DONE", record.stage("hists").message)
         pattern = os.path.join(source, "$ERA", "$GROUP")
-        self.assertEqual(self.plotter.call("make")[0]["tuples"], pattern)
-        self.assertIsNone(self.plotter.call("make")[0]["pico_config"])
-        self.assertEqual(record.stage("plots").last_status["tuples"], pattern)
-        self.assertEqual(record.stage("plots").sources["tuples"]["stage"], "production")
+        self.assertEqual(self.histogrammer.call("make")[0]["tuples"], pattern)
+        self.assertIsNone(self.histogrammer.call("make")[0]["pico_config"])
+        self.assertEqual(record.stage("hists").last_status["tuples"], pattern)
+        self.assertEqual(record.stage("hists").sources["tuples"]["stage"], "production")
 
     def test_wrong_kind_is_refused(self):
-        source = os.path.join(self.source_run(PLOTS).run_dir, "stages", "plots")
+        source = os.path.join(self.source_run(HISTS).run_dir, "stages", "hists")
         fw = self.framework(dict(FIT, inputs={"shapes": {"path": source}}))
-        self.assertIn("is stage 'plots' (plots) of run", fw.plan().stages[0].note)
-        self.assertIn("it makes plots, not shapes", fw.plan().stages[0].note)
+        self.assertIn("is stage 'hists' (controlhists) of run", fw.plan().stages[0].note)
+        self.assertIn("it makes control_histograms, not shapes", fw.plan().stages[0].note)
 
     def test_no_sources_is_an_empty_record(self):
         record = self.framework(SHAPES).start(run_root=self.root)
         self.assertEqual(record.stage("shapes").sources, {})
 
 
+class ControlPlotsTests(LocalStageTestCase):
+    """CL §24 S4: controlplots draws the files of the controlhists stage its input names (the Plotter API)."""
+
+    def test_draws_the_files_of_its_input(self):
+        record = self.framework(HISTS, PLOTS).start(run_root=self.root)
+        self.assertEqual(record.state, "DONE", record.stage("plots").message)
+        stages = os.path.join(record.run_dir, "stages")
+        hists = os.path.join(stages, "hists", "hists", "2025")
+        request = self.plotter.call("make")[0]
+        self.assertEqual(request["files"], [
+            {"path": os.path.join(hists, "mutau.root"), "era": "2025", "channel": "mutau", "config": "mutau", "tag": ""},
+            {"path": os.path.join(hists, "mumu.root"), "era": "2025", "channel": "mumu", "config": "mumu", "tag": ""}])
+        self.assertEqual((request["outdir"], request["pdf"], request["fraction"], request["text"]),
+                         (os.path.join(stages, "plots"), True, False, ""))
+        self.assertNotIn("pdf", self.histogrammer.call("make")[0])  # a drawing option is not the Histogrammer's
+        plots = record.stage("plots")
+        self.assertEqual([(a["kind"], a["channel"], a["directory"]) for a in plots.artifacts],
+                         [("plots", "mutau", os.path.join(stages, "plots", "plots", "2025")),
+                          ("plots", "mumu", os.path.join(stages, "plots", "plots", "2025"))])
+        self.assertEqual(plots.request, {"fraction": False, "pdf": True, "text": "", "timeout": None})
+        self.assertEqual(self.plotter.logdirs, [os.path.join(record.run_dir, "logs", "plots")])
+
+    def test_plan_before_the_files_exist(self):
+        plan = self.framework(HISTS, PLOTS).plan()
+        self.assertEqual([c.label for c in plan.stages[1].plan.commands],
+                         ["controlplots mutau 2025", "controlplots mumu 2025"])
+        self.assertEqual(self.plotter.call("plan")[0]["files"][0]["path"],  # the planned file of the stage above
+                         os.path.join("<run_dir>", "stages", "hists", "hists", "2025", "mutau.root"))
+
+    def test_input_must_be_control_histograms(self):
+        with self.assertRaises(RecipeError) as caught:
+            recipe(HISTS, dict(PLOTS, inputs={"hists": None}))
+        self.assertIn("inputs.hists: must name an earlier stage that makes control_histograms (null is not "
+                      "allowed for this input)", str(caught.exception))
+        with self.assertRaises(RecipeError) as caught:
+            recipe(SHAPES, dict(PLOTS, inputs={"hists": "shapes"}))
+        self.assertIn("stage 'shapes' (shapes) makes shapes, not control_histograms", str(caught.exception))
+        with self.assertRaises(RecipeError) as caught:
+            recipe(dict(PLOTS, inputs={"hists": {"external": "/eos/x/$ERA/$GROUP"}}))
+        self.assertIn("{external: ...} is only for a tuples input", str(caught.exception))
+        with self.assertRaises(RecipeError) as caught:
+            recipe(dict(HISTS, pdf=True))  # drawing options are the controlplots stage's (plan 18 §14 K7)
+        self.assertIn("unknown option 'pdf'", str(caught.exception))
+
+    def test_files_of_another_run(self):
+        source = os.path.join(PathInputTests.source_run(self, HISTS).run_dir, "stages", "hists")
+        record = self.framework(dict(PLOTS, inputs={"hists": {"path": source}})).start(run_root=self.root)
+        self.assertEqual(record.state, "DONE", record.stage("plots").message)
+        self.assertEqual([f["path"] for f in self.plotter.call("make")[0]["files"]],
+                         [os.path.join(source, "hists", "2025", "%s.root" % (c)) for c in ("mutau", "mumu")])
+
+
 class ContextTests(LocalStageTestCase):
     def test_only_done_upstream_stages_are_passed(self):
-        plots = connected(PLOTS, tuples="production")
+        plots = connected(HISTS, tuples="production")
         fw = self.framework(PRODUCTION, plots)
         record = fw.start(run_root=self.root)  # production SUBMITTED
-        context = fw._context(record, recipe(PRODUCTION, plots).stage("plots"))
+        context = fw._context(record, recipe(PRODUCTION, plots).stage("hists"))
         self.assertEqual(context.upstream, {})
         self.assertEqual(context.run_dir, record.run_dir)
         record = fw.advance(record)
-        context = fw._context(record, recipe(PRODUCTION, plots).stage("plots"))
+        context = fw._context(record, recipe(PRODUCTION, plots).stage("hists"))
         self.assertEqual([a["path"] for a in context.artifacts("production")],
                          [os.path.join(record.run_dir, "stages", "production", "2018", "DY", "DY_mutau.root")])
         self.assertEqual(context.input_artifacts("tuples"), context.artifacts("production"))
         self.assertEqual(context.artifacts(kind="shapes"), ())
 
     def test_a_stage_sees_only_the_stages_its_inputs_name(self):
-        fw = self.framework(PRODUCTION, PLOTS)  # plots: tuples null, although the recipe has a production stage
+        fw = self.framework(PRODUCTION, HISTS)  # hists: tuples null, although the recipe has a production stage
         record = fw.advance(fw.start(run_root=self.root))
         self.assertEqual(record.stage("production").state, "DONE")
-        context = fw._context(record, fw.recipe.stage("plots"))
+        context = fw._context(record, fw.recipe.stage("hists"))
         self.assertEqual((context.upstream, context.input_artifacts("tuples")), ({}, ()))
-        self.assertNotIn("inputs", record.stage("plots").last_status)  # no production tuples recorded
+        self.assertNotIn("inputs", record.stage("hists").last_status)  # no production tuples recorded
 
     def test_output_dir_in_a_plan(self):  # no run yet: a placeholder, as for python steps
-        self.framework(PLOTS).plan()
-        self.assertEqual(self.plotter.call("plan")[0]["outdir"], os.path.join("<run_dir>", "stages", "plots"))
+        self.framework(HISTS).plan()
+        self.assertEqual(self.histogrammer.call("plan")[0]["outdir"], os.path.join("<run_dir>", "stages", "hists"))
 
     def test_stage_dir(self):
-        context = StageContext(run_dir="runs/x", stage_id="plots")
+        context = StageContext(run_dir="runs/x", stage_id="hists")
         self.assertEqual(context.stage_dir("fit"), os.path.join("runs/x", "stages", "fit"))
-        self.assertEqual(context.stage_dir(), os.path.join("runs/x", "stages", "plots"))
-        self.assertEqual(context.log_dir(), os.path.join("runs/x", "logs", "plots"))
+        self.assertEqual(context.stage_dir(), os.path.join("runs/x", "stages", "hists"))
+        self.assertEqual(context.log_dir(), os.path.join("runs/x", "logs", "hists"))
 
 
 class SpecTests(unittest.TestCase):
@@ -471,17 +527,17 @@ class SpecTests(unittest.TestCase):
         spec = recipe(SHAPES).stage("shapes").spec
         self.assertEqual(spec.eras, ("2025",))  # numbers from YAML become strings
         self.assertEqual(spec.configs, (TT, MM))  # default: the configs of run_inputs.sh
-        self.assertEqual(recipe(dict(PLOTS, configs="mutau")).stage("plots").spec.configs, ("mutau",))
+        self.assertEqual(recipe(dict(HISTS, configs="mutau")).stage("hists").spec.configs, ("mutau",))
         fit = recipe({"stage": "fit", "id": "fit", "inputs": {"shapes": None}}).stage("fit").spec
         self.assertEqual(fit.steps, ("fit", "postfit", "plots", "corrections", "summary"))
         self.assertTrue(fit.impacts)
 
     def test_spec_errors(self):
-        self.assertIn("missing required option 'eras'", self.error({"stage": "plots"}))
+        self.assertIn("missing required option 'eras'", self.error({"stage": "controlhists"}))
         self.assertIn("jet_wps must not be empty", self.error(dict(SHAPES, jet_wps=[])))
         self.assertIn("give both jet_wps and ele_wps", self.error({"stage": "fit", "jet_wps": ["Tight"]}))
         self.assertIn("unknown step 'scan'", self.error({"stage": "fit", "steps": ["fit", "scan"]}))
-        self.assertIn("unknown option 'variable'", self.error({"stage": "plots", "eras": [2025], "variable": []}))
+        self.assertIn("unknown option 'variable'", self.error({"stage": "controlhists", "eras": [2025], "variable": []}))
 
 
 class CommandLineTests(LocalStageTestCase):
@@ -519,9 +575,9 @@ class CommandLineTests(LocalStageTestCase):
         os.makedirs(os.path.join(self.root, "tuples"))
         pattern = os.path.join(self.root, "tuples", "$ERA", "$GROUP")
         with open(path, "w") as stream:
-            json.dump({"name": "tes", "stages": [dict(PLOTS, inputs={"tuples": {"external": pattern}})]}, stream)
+            json.dump({"name": "tes", "stages": [dict(HISTS, inputs={"tuples": {"external": pattern}})]}, stream)
         self.cli.Framework.from_recipe = lambda r, reporter=None, **kw: real(r, reporter=reporter,
-                                                                              plotter=self.plotter)
+                                                                              histogrammer=self.histogrammer)
         try:
             self.assertEqual(self.cli.main(["plan", path]), 0)
         finally:
@@ -560,9 +616,9 @@ class CommandLineTests(LocalStageTestCase):
     def test_command_line_shows_python3_and_environment(self):
         import sys
         from TauFW.Utilities.Process import Command
-        command = Command("plots", (sys.executable, "plot.py", "-S", "a b"), "/repo/Plotter")
+        command = Command("hists", (sys.executable, "plot.py", "-S", "a b"), "/repo/Plotter")
         self.assertEqual(self.cli._command_line(command), "python3 plot.py -S 'a b'")
-        command = Command("plots", (sys.executable, "plot.py"), "/repo/Plotter",
+        command = Command("hists", (sys.executable, "plot.py"), "/repo/Plotter",
                           env=(("TAUFW_PICO_CONFIG", "/b/pico.json"),))
         self.assertEqual(self.cli._command_line(command), "TAUFW_PICO_CONFIG=/b/pico.json python3 plot.py")
 

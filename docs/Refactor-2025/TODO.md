@@ -33,6 +33,21 @@ Items marked **(verify)** may already be done; check before working on them.
       After `git pull`, in `TauFW/`: the same into `~/s4a_plan.txt`, then
       `diff <(sed 's#stages/histograms#stages/shapes#g; s#(histograms)#(shapes)#g; s#Stage histograms#Stage shapes#g; s#<- histograms#<- shapes#g' ~/s4ref/plan_tes_id_2025.txt) ~/s4a_plan.txt`:
       no difference (or only lines naming the stage, to be looked at); `python3 Tests/run.py checks`.
+- [ ] **Control plots as two stages (CL §24, S4): the same plots.** Reference (done 2026-10-18, code before S4):
+      `~/s4ref/` holds the PNGs of the old `plots` stage of a copy of `tes_id_2025` (`~/s4ref_bundle`: mutau all
+      variables, mumu the 18 variables of the S3 check, baseline; 31 + 19 PNGs) and `png.md5`. After `git pull`
+      and `scram b -j4` (new package `TauFW.Plotter.api`), in `TauFW/`: (1) `python3 Tests/run.py checks` and
+      `python3 Tests/run.py bbb check` (22/22, no re-lock). (2) `~/s4new_bundle`: the same bundle with each `plots`
+      stage replaced by a `controlhists` (id `hists_<channel>`, the same filling options) and a `controlplots` (id
+      `plots_<channel>`, `inputs: {hists: hists_<channel>}`); `taufw.py start ~/s4new_bundle --run-root
+      ~/s4new_runs`: all four stages DONE; every PNG of `stages/plots_<channel>/plots/2025/` equals the reference
+      (`cmp`), the same number of files and `nfiles`.
+      (3) `--no-draw` changes nothing in the file: in an empty directory, `fillhists.py ... -t _s3 --hists
+      --no-draw` (mutau, all variables) and `python3 Tests/tools/compare_histfiles.py` against
+      `Histogrammer/hists/2025/mutau_s3.root` of the S3 check: SAME (if only last bits differ, rerun with
+      `--rtol 1e-12` and note it: two fills, multithreaded sums). No `plots/` directory is made. (4)
+      `taufw.py check Analyses/example_broken` lists `stages[1] (controlhists).inputs.tuples`; a recipe with
+      `stage: plots` fails with the message naming the two stages.
 - [x] **Configs to `Configs/Histogrammer/` (CL §24, S2).** Done 2026-10-18 on lxplus: `bbb check` 22/22
       without re-lock, `checks`, `taufw.py configs` (15 templates `histogrammer.*`, lock ok), `check`/`plan` of
       `tes_id_2025` and `example_mutau_long` without copy warnings; a copy with the old ids gets exactly the three
@@ -417,6 +432,10 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
       in `Fitter/TauES_ID/README.md:115`) still fill and draw in one script (they work through the old names). Decide:
       Legacy (with their config and macro paths) if nobody uses them, else the two-step form (`--hists`, `draw.py`).
       `Histogrammer/tutorial/` becomes an example of the two steps after S4.
+- [ ] **Control plots, later (CL §24 S4 decisions, plan 18 §14):** `controlplots` draws every file of its input
+      (no era/channel filter); one file cannot be drawn again with another tag (the tag is in the file); external
+      control-histogram files (`{external: <file>}`) are not an input (`{path: <run_dir>/stages/<id>}` of another
+      run works through the general mechanism and is tested with fakes only).
 - [ ] **Variable list as a template (CL §24 observation):** the variables users actually edit are Python code inside
       `Plotter/plot.py` (`:44-95`, later `Histogrammer/fillhists.py`); a `Configs/Histogrammer/` template for them is a
       new feature (not part of the rename/extraction).
@@ -444,6 +463,10 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
       names `plotter.*` can be renamed at the same point (one re-lock). Also `RENAMED_IDS` in
       `Framework/python/configs.py` (bundle copies with the ids `plotter.samples_*` / `plotter.setup_*` from before
       S2) and its test `test_copy_with_the_id_from_before_a_rename`.
+- [ ] **At the migration point, after S4 (CL §24):** `fillhists.py` still draws by default (commands typed by hand
+      keep their result, user rule of S4); then drawing leaves it (`--hists --no-draw` becomes the default, the
+      legacy `plot.py` texts show the two commands). Remove `stages.RETIRED` (the messages for `plots` and
+      `histograms` in old recipes) and decide whether `controlplots` is renamed `plots` (one recipe change).
 
 - [ ] Python 2 scripts kept for migration (CL §3): high priority `Fitter/ETauFR/writedatacard.py` (its
       `prefitFR.json` is read by `text2wp.py`), `Fitter/Zpt/utils.py`, `Fitter/Zpt/config/samples.py` (imported by

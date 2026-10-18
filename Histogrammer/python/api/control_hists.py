@@ -1,14 +1,17 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-"""ControlPlots: the public API for data/MC control plots of pico tuples.
+"""ControlHists: the public API for the control histograms of pico tuples (the data/MC stacks of the control
+plots, filled but not drawn). Until CL §24 (S4) this API was ControlPlots and its script also drew the plots.
 
-The plots are still made by Histogrammer/fillhists.py (Plotter/plot.py until CL §24: it fills the histograms and,
-until the clean Plotter draws them, also draws them). This API runs it as a separate process, one run per
-(config, era), with the arguments a user would type, and checks that it wrote plots. fillhists.py runs in the
+Histogrammer/fillhists.py fills them; with --hists --no-draw it only writes them to a control-histogram file
+(contract taufw.control_histograms, docs/contracts/control-histograms.md), which the Plotter draws (its API
+TauFW.Plotter.api.ControlPlots runs Plotter/draw.py). This API runs fillhists.py as a separate process, one run per
+(config, era), with the arguments a user would type, and checks that it wrote the file. fillhists.py runs in the
 request's output directory (outdir; the TauFW Framework gives <run_dir>/stages/<id>/), or in Histogrammer/ if there
 is none:
 
-    PlotsRequest ─▶ plan() ─▶ make()        = python3 fillhists.py -y ERA -c CONFIG [-V ...] [-S ...] [options]
-                    CommandPlan  RunReport (one plots artifact per config and era)
+    HistsRequest ─▶ plan() ─▶ make()        = python3 fillhists.py -y ERA -c CONFIG [-V ...] [-S ...] [options]
+                                                                   --hists --no-draw
+                    CommandPlan  RunReport (one control_histograms artifact per config and era)
     preflight(): what is missing in the environment (empty: ready)
     sample_names(), samples_problems(), sample_file_problems(): the sample model files (no ROOT; also used by the
     Framework for the shapes stage and to compare with what production makes)
@@ -18,14 +21,14 @@ Inputs:  pico tuples in the request's tuple pattern (--tuples), or else found by
          PicoProducer/config/config.json); the channel setups
          Configs/Histogrammer/setups/setup_<channel>.yml (or any .yml, relative to Histogrammer/ or absolute); the sample model
          files (--samples; without them the tables of config/samples_v15.py).
-Outputs: <outdir>/plots/<era>/<variable>_<channel>-<selection>-<era><tag>.png, where <tag> is the setup's tag
-         plus request.tag (without outdir: Histogrammer/plots/<era>/, shared by all runs; pdf on request), and one log
-         file per command in the caller's log directory.
+Outputs: <outdir>/hists/<era>/<channel><tag>.root, where <tag> is the setup's tag plus request.tag (without
+         outdir: Histogrammer/hists/<era>/, shared by all runs), and one log file per command in the caller's log
+         directory. Artifact: {kind: control_histograms, era, config, channel, tag, file}.
 
 Public API:
-  ControlPlots(basedir, runner, read_yaml, python, find_module)
+  ControlHists(basedir, runner, read_yaml, python, find_module)
   plan, make, preflight         pipelines
-  request(**fields)             a PlotsRequest
+  request(**fields)             a HistsRequest
   config_file(config)           the setup file of a channel name or .yml config
   pico_config_source(request)   where $PICODIR is read from (a request without tuples)
   sample_names(files, era, channel)                 (MC sample names, data pattern) of a channel
@@ -39,30 +42,30 @@ import sys
 
 from TauFW.Utilities.Process import (Command, CommandPlan, ProcessRunner, RunReport, output_dir_problems,
                                      tuple_pattern_problems)
-from TauFW.Histogrammer.api.types import PlotsRequest
+from TauFW.Histogrammer.api.types import HistsRequest
 from TauFW.Histogrammer.sample import model as sample_model
 
-__all__ = ['ControlPlots']
+__all__ = ['ControlHists']
 
 SCRIPT = 'fillhists.py'                    # the script this API runs (Plotter/plot.py until CL §24)
 SETUPS = ('Configs', 'Histogrammer', 'setups')  # the channel setups, next to Histogrammer/ (config templates, Configs/README.md)
 
 
-class ControlPlots:
-    """Control plots with Histogrammer/fillhists.py; see the module docstring.
+class ControlHists:
+    """Control histograms with Histogrammer/fillhists.py --hists --no-draw; see the module docstring.
 
     Pipelines:    plan(request)                     -> CommandPlan   changes nothing
                   make(request, logdir, progress)   -> RunReport     runs fillhists.py
                   preflight(request)                -> tuple of problems (empty: ready)
-    Requests:     request(**fields)                 -> PlotsRequest
-    Construction: ControlPlots(basedir, runner, read_yaml, python, find_module)
+    Requests:     request(**fields)                 -> HistsRequest
+    Construction: ControlHists(basedir, runner, read_yaml, python, find_module)
     """
 
     # =========================================================================
     # =============================== PIPELINES ===============================
 
     def plan(self, request):
-        """One fillhists.py command per config and era, and the plot directories they fill."""
+        """One fillhists.py command per config and era, and the control-histogram files they write."""
         commands, artifacts, notes = [], [], []
         cwd = self._cwd(request)
         names = {}  # (channel, tag) -> configs: the same file names
@@ -74,28 +77,27 @@ class ControlPlots:
             names.setdefault((channel, tag), []).append(config)
             for era in request.eras:
                 commands.append(self._command(request, config, era, channel, tag, cwd))
-                artifacts.append({'kind': 'plots', 'era': era, 'config': config, 'channel': channel,
-                                  'directory': os.path.normpath(os.path.join(cwd, 'plots', era)), 'nfiles': 0})
-        notes.extend("configs %s write the same file names: the later run overwrites the plots of the earlier "
+                path = os.path.normpath(os.path.join(cwd, _hist_file(channel, era, tag)))
+                artifacts.append({'kind': 'control_histograms', 'era': era, 'config': config, 'channel': channel,
+                                  'tag': tag, 'file': path})
+        notes.extend("configs %s write the same file names: the later run overwrites the file of the earlier "
                      "(BUGS L10; give one of them a tag)" % (', '.join(same)) for same in names.values() if len(same) > 1)
         return CommandPlan(cwd=cwd, commands=tuple(commands), artifacts=tuple(artifacts),
                            notes=tuple(dict.fromkeys(notes)))
 
     def make(self, request, logdir, progress=None):
-        """Run plan(); stops at the first failure. The artifacts count the plots of each config and era.
-        Side effects: the output directory (made if needed) with the plots in plots/<era>/, the logs."""
+        """Run plan(); stops at the first failure (a command whose file is missing fails too). The artifacts are the
+        files. Side effects: the output directory (made if needed) with the files in hists/<era>/, the logs."""
         plan = self.plan(request)
         if request.outdir is not None:
             os.makedirs(plan.cwd, exist_ok=True)
         report = RunReport(results=self.runner.run_all(plan.commands, logdir, progress), total=len(plan.commands))
         if not report.ok:
             return report
-        artifacts = tuple(dict(artifact, nfiles=len(glob.glob(os.path.join(command.cwd, command.expects[0]))))
-                          for command, artifact in zip(plan.commands, plan.artifacts))
-        return RunReport(results=report.results, total=report.total, artifacts=artifacts)
+        return RunReport(results=report.results, total=report.total, artifacts=plan.artifacts)
 
     def preflight(self, request):
-        """What is missing to plot: CMSSW, ROOT, the tuple pattern's keys or else the PicoProducer config, the
+        """What is missing to fill: CMSSW, ROOT, the tuple pattern's keys or else the PicoProducer config, the
         channel setups, the sample model files and (with both a tuple pattern and sample files) the tuple files of
         the requested samples."""
         problems = []
@@ -168,8 +170,8 @@ class ControlPlots:
         return ("%d tuple file(s) of the requested samples not found: %s" % (len(missing), shown),)
 
     def request(self, **fields):
-        """A PlotsRequest (unknown fields are an error), so callers need not import the records."""
-        return PlotsRequest(**fields)
+        """A HistsRequest (unknown fields are an error), so callers need not import the records."""
+        return HistsRequest(**fields)
 
     def config_file(self, config):
         """The channel setup file of a config (a channel name or a .yml file), as an absolute path."""
@@ -185,8 +187,9 @@ class ControlPlots:
     # ================================ HELPERS ================================
 
     def _command(self, request, config, era, channel, tag, cwd):
-        """One fillhists.py run. With an output directory, the script and the setup are given as absolute paths (a
-        .yml setup is opened relative to the script's working directory)."""
+        """One fillhists.py run that only writes the file (--hists --no-draw). With an output directory, the script
+        and the setup are given as absolute paths (a .yml setup is opened relative to the script's working
+        directory)."""
         if request.outdir is None:
             argv = [self.python, SCRIPT, '-y', era, '-c', config]
         else:
@@ -195,19 +198,18 @@ class ControlPlots:
             argv += ['-V'] + list(request.variables)
         if request.selections:
             argv += ['-S'] + list(request.selections)
-        flags = (('-s', request.serial), ('-F', request.fraction), ('-p', request.pdf), ('-r', request.notauidsf))
+        flags = (('-s', request.serial), ('-r', request.notauidsf))
         argv += [flag for flag, wanted in flags if wanted]
         if request.tag:
             argv += ['-t', request.tag]
-        if request.text:
-            argv += ['-T', request.text]
         if request.tuples:
             argv += ['--tuples', request.tuples]
         if request.samples:
             argv += ['--samples'] + [path if request.outdir is None else os.path.abspath(path)
                                      for path in request.samples]
-        return Command("plots %s %s" % (channel, era), tuple(argv), cwd,
-                       expects=("plots/%s/%s" % (era, _plot_glob(channel, era, tag)),),
+        argv += ['--hists', '--no-draw']
+        return Command("controlhists %s %s" % (channel, era), tuple(argv), cwd,
+                       expects=(_hist_file(channel, era, tag),),
                        timeout=request.timeout, env=_pico_env(request))
 
     def _cwd(self, request):
@@ -247,7 +249,7 @@ class ControlPlots:
         self.find_module = find_module or _module_exists
 
     def __repr__(self):
-        return "<ControlPlots(basedir=%r)>" % (self.basedir)
+        return "<ControlHists(basedir=%r)>" % (self.basedir)
 
 
 # =============================================================================
@@ -276,10 +278,10 @@ def _tuple_file(tuples, era, group, sample, channel):
     return os.path.join(directory, "%s_%s.root" % (sample, channel))
 
 
-def _plot_glob(channel, era, tag):
-    """The png files of one channel and era: <var>_<channel short>-<selection>-<era><tag>.png (fillhists.py), where
-    tag is the setup's tag plus -t."""
-    return "*_%s-*-%s%s.png" % (channel.replace('mu', 'm').replace('tau', 't'), era, tag)
+def _hist_file(channel, era, tag):
+    """The control-histogram file of one channel and era, relative to the working directory: fillhists.py --hists
+    writes hists/<era>/<channel><tag>.root, where tag is the setup's tag plus -t."""
+    return "hists/%s/%s%s.root" % (era, channel, tag)
 
 
 # =============================================================================

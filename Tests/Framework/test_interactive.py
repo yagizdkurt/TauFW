@@ -291,8 +291,8 @@ class MenuTests(unittest.TestCase):
         operations = self.menu(FakeUI()).operations
         expected = {
             "example_mutau_short": (("production", "production"),),
-            "example_mutau_long": (("production", "production"), ("plots", "plots")),
-            "tes_id_2025": (("plots", "plots"), ("shapes", "shapes"),
+            "example_mutau_long": (("production", "production"), ("hists", "controlhists"), ("plots", "controlplots")),
+            "tes_id_2025": (("hists", "controlhists"), ("plots", "controlplots"), ("shapes", "shapes"),
                             ("fit", "fit"), ("fit_summary", "python")),
         }
         for bundle, stages in expected.items():
@@ -311,15 +311,15 @@ class MenuTests(unittest.TestCase):
             (steps / (name + ".py")).write_text("def run(ctx):\n    pass\n")
         path = self.recipe_file(self.recipes / "custom.json", stages=[
             {"stage": "python", "id": "prepare", "inputs": None, "file": "steps/prep.py"},
-            {"stage": "plots", "id": "plots", "inputs": {"tuples": None}, "eras": [2025]},
-            {"stage": "python", "id": "check", "description": "look at the plots", "inputs": {"plots": "plots"},
+            {"stage": "controlhists", "id": "hists", "inputs": {"tuples": None}, "eras": [2025]},
+            {"stage": "python", "id": "check", "description": "look at the hists", "inputs": {"hists": "hists"},
              "file": "steps/check.py"},
             FIT,
             {"stage": "python", "id": "report", "inputs": {"fit": "fit"}, "file": "steps/report.py"},
         ])
         view = self.menu(FakeUI()).operations.recipe_preview(path)
-        self.assertEqual(view["stages"], (("prepare", "python", ""), ("plots", "plots", ""),
-                                          ("check", "python", "look at the plots"), ("fit", "fit", ""),
+        self.assertEqual(view["stages"], (("prepare", "python", ""), ("hists", "controlhists", ""),
+                                          ("check", "python", "look at the hists"), ("fit", "fit", ""),
                                           ("report", "python", "")))
         self.assertEqual(view["problems"], ())
         self.framework.assert_not_called()
@@ -377,7 +377,7 @@ class MenuTests(unittest.TestCase):
             self.assertEqual(recipe.name, "after")
             return mock.Mock(plan=mock.Mock(return_value=mock.Mock(stages=[
                 mock.Mock(stage="fit", note="environment unavailable", plan=None),
-                mock.Mock(stage="plots", note="", plan=mock.Mock(notes=("missing ROOT",)))
+                mock.Mock(stage="hists", note="", plan=mock.Mock(notes=("missing ROOT",)))
             ])))
 
         self.framework.side_effect = build
@@ -386,7 +386,7 @@ class MenuTests(unittest.TestCase):
             review = operations.prepare_review(path)
         self.assertEqual(output.getvalue(), "")
         self.assertEqual(review["name"], "after")
-        self.assertEqual(review["notes"], ("fit: environment unavailable", "plots: missing ROOT",
+        self.assertEqual(review["notes"], ("fit: environment unavailable", "hists: missing ROOT",
                                           "configuration warning"))
         self.assertEqual(path.read_bytes(), before)
         self.assertFalse((self.root / "taufw_runs").exists())

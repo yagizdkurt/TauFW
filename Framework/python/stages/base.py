@@ -13,7 +13,7 @@ The states of one stage:
               ▲  │         │
               └──┴─────────┘ (resubmission)          FAILED, NOT_IMPLEMENTED: final
 
-    local stage (plots, shapes, fit):  NEW ─▶ DONE or FAILED, in one advance() call
+    local stage (controlhists, controlplots, shapes, fit):  NEW ─▶ DONE or FAILED, in one advance() call
 
 A stage declares what it reads and makes: `inputs` maps each of its input slots to the kind of data the slot
 takes (the fit: {'shapes': 'shapes'}), `outputs` lists the kinds it makes (shapes: ('shapes',)). A recipe

@@ -63,8 +63,13 @@ class ShimFileTests(unittest.TestCase):
 
     def test_no_shim_for_removed_or_broken_names(self):
         self.assertFalse((SHIM_DIR / "plot" / "datacard.py").exists())  # would repair Fitter/MuTauFR (TODO §8)
-        # no TauFW.Plotter.api (only the Framework used it); a checkout may keep an untracked api/__pycache__/
-        self.assertEqual(list((SHIM_DIR / "api").glob("*.py")), [])
+        # no alias for TauFW.Plotter.api (only the Framework used it): since CL §24 S4 it is the new Plotter's own
+        # API (it draws), never the Histogrammer's under the old name
+        for path in (SHIM_DIR / "api").glob("*.py"):
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            imported = [node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)]
+            imported += [alias.name for node in ast.walk(tree) if isinstance(node, ast.Import) for alias in node.names]
+            self.assertEqual([name for name in imported if name and name.startswith("TauFW.Histogrammer")], [], path)
 
 
 class AliasMechanismTests(unittest.TestCase):

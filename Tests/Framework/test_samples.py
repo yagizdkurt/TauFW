@@ -1,4 +1,4 @@
-"""Sample model files in recipes (CL §22): the `samples` option of plots and shapes (validation), and the
+"""Sample model files in recipes (CL §22): the `samples` option of hists and shapes (validation), and the
 comparison of what production makes with what its readers ask for (samples.py: plan lists, start refuses)."""
 import json
 import os
@@ -9,12 +9,12 @@ import unittest
 import checkout
 import fakes
 from TauFW.Framework import Framework, RecipeError, check_recipe
-from TauFW.Histogrammer.api import ControlPlots
+from TauFW.Histogrammer.api import ControlHists
 from TauFW.Histogrammer.sample.model import pick
 
 TEMPLATES = checkout.REPO / "Configs" / "Histogrammer" / "samples"
 PRODUCTION = {"stage": "production", "id": "production", "inputs": None, "eras": [2025], "channels": ["mutau"]}
-PLOTS = {"stage": "plots", "id": "plots", "inputs": {"tuples": "production"}, "eras": [2025], "configs": ["mutau"],
+HISTS = {"stage": "controlhists", "id": "hists", "inputs": {"tuples": "production"}, "eras": [2025], "configs": ["mutau"],
          "samples": ["samples_2025.yml"]}
 MC = [row["name"] for row in pick([str(TEMPLATES / "v15_2025.yml")], "2025").mc]
 
@@ -48,38 +48,38 @@ class SamplesTestCase(unittest.TestCase):
         return self.bundle
 
     def framework(self, made_samples, *stages):
-        plotter = ControlPlots(basedir=str(checkout.REPO / "Histogrammer"), find_module=lambda name: True)
-        return Framework.from_recipe(self.write_recipe(*stages), pico=Pico(made_samples), plotter=plotter)
+        histogrammer = ControlHists(basedir=str(checkout.REPO / "Histogrammer"), find_module=lambda name: True)
+        return Framework.from_recipe(self.write_recipe(*stages), pico=Pico(made_samples), histogrammer=histogrammer)
 
 
 class ValidationTests(SamplesTestCase):
     def test_bundle_copy_is_valid(self):
-        self.assertTrue(check_recipe(self.write_recipe(PRODUCTION, PLOTS)).ok)
+        self.assertTrue(check_recipe(self.write_recipe(PRODUCTION, HISTS)).ok)
 
     def test_module_path_is_refused(self):
-        check = check_recipe(self.write_recipe(PRODUCTION, dict(PLOTS, samples=["config/samples_v15_2025.yml"])))
-        self.assertIn("stages[1] (plots).samples: config/samples_v15_2025.yml is not a file of the bundle (%s)"
+        check = check_recipe(self.write_recipe(PRODUCTION, dict(HISTS, samples=["config/samples_v15_2025.yml"])))
+        self.assertIn("stages[1] (controlhists).samples: config/samples_v15_2025.yml is not a file of the bundle (%s)"
                       % (self.bundle), [str(issue) for issue in check.issues])
 
     def test_an_era_without_a_file(self):
-        check = check_recipe(self.write_recipe(PRODUCTION, dict(PLOTS, eras=[2025, 2024])))
+        check = check_recipe(self.write_recipe(PRODUCTION, dict(HISTS, eras=[2025, 2024])))
         self.assertFalse(check.ok)
         self.assertIn("no sample file(s) for era '2024'", " ".join(str(issue) for issue in check.issues))
 
     def test_a_broken_copy(self):
         with open(os.path.join(self.bundle, "samples_2025.yml"), "a") as stream:
             stream.write("lumi: 1\n")
-        check = check_recipe(self.write_recipe(PRODUCTION, PLOTS))
+        check = check_recipe(self.write_recipe(PRODUCTION, HISTS))
         self.assertIn("unknown key(s) lumi", " ".join(str(issue) for issue in check.issues))
 
 
 class ComparisonTests(SamplesTestCase):
     def test_production_makes_what_the_reader_asks_for(self):
-        plan = self.framework(made(*MC), PRODUCTION, PLOTS).plan()
+        plan = self.framework(made(*MC), PRODUCTION, HISTS).plan()
         self.assertEqual((plan.sample_problems, plan.sample_warnings), ((), ()))
 
     def test_missing_mc_sample_and_data(self):
-        fw = self.framework(made(*MC[1:], data=()), PRODUCTION, PLOTS)
+        fw = self.framework(made(*MC[1:], data=()), PRODUCTION, HISTS)
         problems = [str(issue) for issue in fw.plan().sample_problems]
         self.assertEqual(len(problems), 2)
         self.assertIn("1 MC sample(s) of 2025 mutau are not made by production stage 'production': %s" % (MC[0]),
@@ -91,18 +91,18 @@ class ComparisonTests(SamplesTestCase):
         self.assertFalse(os.path.exists(os.path.join(self.root, "runs")))
 
     def test_unread_sample_is_a_warning(self):
-        plan = self.framework(made(*MC + ["DYto2TautoMuTauh_M-50"]), PRODUCTION, PLOTS).plan()
+        plan = self.framework(made(*MC + ["DYto2TautoMuTauh_M-50"]), PRODUCTION, HISTS).plan()
         self.assertEqual(plan.sample_problems, ())
         self.assertEqual(len(plan.sample_warnings), 1)
         self.assertIn("1 sample(s) that no reader asks for: 2025 mutau DYto2TautoMuTauh_M-50",
                       str(plan.sample_warnings[0]))
 
     def test_readers_without_samples_are_not_compared(self):
-        old = dict(PLOTS, id="old_plots")
+        old = dict(HISTS, id="old_plots")
         old.pop("samples")
         plan = self.framework(made("DY"), PRODUCTION, old).plan()
         self.assertEqual((plan.sample_problems, plan.sample_warnings), ((), ()))
-        plan = self.framework(made(*MC + ["extra"]), PRODUCTION, PLOTS, old).plan()
+        plan = self.framework(made(*MC + ["extra"]), PRODUCTION, HISTS, old).plan()
         self.assertEqual(plan.sample_warnings, ())  # old_plots may read "extra" through samples_v15.py
 
 

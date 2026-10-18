@@ -34,10 +34,10 @@ stages:
     # Fix: rename samplez to samples; the list of sample globs is otherwise valid.
     samplez: ["DY*", "TT*"]
 
-  - stage: plots
-    id: plots
+  - stage: controlhists
+    id: hists
     description: "BROKEN: input refers to an unknown stage id"
-    # ERROR 3: stages[1] (plots).inputs.tuples: no stage 'prodution' in the recipe.
+    # ERROR 3: stages[1] (controlhists).inputs.tuples: no stage 'prodution' in the recipe.
     # Inputs refer to stage ids, not descriptions or stage types.
     # Fix: inputs: {tuples: production}, referring to the earlier stage above.
     inputs: {tuples: prodution}
@@ -46,9 +46,9 @@ stages:
     variables: [m_vis]
 
   - stage: python
-    id: inspect_plots
+    id: inspect_hists
     description: "BROKEN: Python step file is missing from the bundle"
-    inputs: {plots: plots}         # Correct: this id belongs to an earlier stage.
+    inputs: {hists: hists}         # Correct: this id belongs to an earlier stage.
     # ERROR 4: stages[2] (python).file: steps/missing_check.py is not a file
     # of this bundle. Relative Python step files must exist inside this directory.
     # Fix: add steps/missing_check.py defining def run(ctx), or point file at an

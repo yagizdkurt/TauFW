@@ -10,9 +10,10 @@ bundle ─▶ plan() ─▶ start() ─▶ advance() ─▶ … ─▶ advance()
              │          │            │
           RunPlan   RunRecord     RunRecord (run.json, saved after every stage step)
 
-stages:   production ──────▶ plots ─────────▶ shapes ──────────▶ fit
-          PicoProducer API   Histogrammer API  Fitter API         Fitter API
-          batch, stepwise    fillhists.py,     createinputsTES    run_workflow_zmm.sh steps, local
+stages:   production ──────▶ controlhists ────▶ controlplots ──▶ shapes ──────────▶ fit
+          PicoProducer API   Histogrammer API    Plotter API      Fitter API         Fitter API
+          batch, stepwise    fillhists.py        draw.py, local   createinputsTES    run_workflow_zmm.sh steps,
+                             --hists --no-draw,                   local              local
                              local
           python steps (a Python file of the bundle, step_runner.py, local) may be anywhere in between
 ```
@@ -29,12 +30,12 @@ The words below are used everywhere in the code and in this README.
 |---|---|---|
 | **analysis bundle** | A directory `Analyses/<name>/` with `recipe.yml`, the config files the recipe uses and its Python steps; every path is relative to the directory of `recipe.yml`. A stage's path option that names a bundle file uses it instead of the module's config. A run copies the bundle to `<run dir>/bundle/` and reads only that copy. | `bundle.py` |
 | **recipe** | A YAML file that says what to run: a name, the PicoProducer configuration and a list of stages with their options. You write it; the Framework checks it before anything runs. | `Recipe` (`recipe.py`) |
-| **stage** | One step of the analysis: `production` (NanoAOD → pico tuples), `plots` (control plots), `shapes` (fit input shapes), `fit` (TES + tau ID fit), `python` (a Python file of the bundle). Each stage calls the API of its own package. | `Stage` subclasses (`stages/`) |
+| **stage** | One step of the analysis: `production` (NanoAOD → pico tuples), `controlhists` (the histograms of the control plots, in a file), `controlplots` (the control plots drawn from that file), `shapes` (fit input shapes), `fit` (TES + tau ID fit), `python` (a Python file of the bundle). Each stage calls the API of its own package. | `Stage` subclasses (`stages/`) |
 | **stage id** | The name of a stage in a run, required for every stage (`id:`): `run.json` records, the stage's directories (`stages/<id>/`, `logs/<id>/`) and upstream artifacts are keyed by it, and `inputs:` refer to it. Unique; letters, digits, `_`, `.`, `-` (not `.` or `..`). Any stage may have any id. | `StageSpec.id` |
 | **inputs** | Required for every stage: which earlier stage's output each input slot reads (`inputs: {shapes: shapes}`), or `null` for a stage without slots. A slot is connected to the id of an earlier stage that makes that kind of data; a `tuples` slot may name tuples made outside TauFW (`{external: <pattern>}`); `null` is for old recipes only (the tuples in `$PICODIR`, the shapes already in `Fitter/`). Nothing is connected implicitly. | `Stage.inputs`, `Stage.outputs`, `StageSpec.inputs` |
 | **description** | Optional free text of a stage, shown by `plan` and in the menu; nothing depends on it. | `StageSpec.description` |
 | **validation** | Every problem of a recipe at once (structure, ids, inputs, order, the files it names), before anything runs: `taufw.py check`, the menu's recipe list (red) and preview. `Recipe.load` raises one `RecipeError` that lists all of them. A **warning** (e.g. no `run_root`) is not a problem: the recipe runs; `check`, `plan`, `start` and the menu preview show it. | `check_recipe` (`validation.py`), `Recipe.parse`, `recipe_warnings` |
-| **local stage** | A stage that runs commands on this machine, one after the other, and finishes in one `advance` (`plots`, `shapes`, `fit`: the package's scripts; `python`: the step runner). | `LocalStage` (`stages/local.py`) |
+| **local stage** | A stage that runs commands on this machine, one after the other, and finishes in one `advance` (`controlhists`, `controlplots`, `shapes`, `fit`: the package's scripts; `python`: the step runner). | `LocalStage` (`stages/local.py`) |
 | **stage context** | What a stage may know about its run: the run directory (for its logs), its inputs and the artifacts of those input stages that are `DONE`, the run's PicoProducer config and its bundle copy. | `StageContext` (`stages/base.py`) |
 | **preflight** | The check, before a local stage runs, that its environment is ready (`cmsenv`, ROOT, `combine`, configs). A problem leaves the stage `NEW`. | `PreflightError` |
 | **spec** | The options of one stage after checking, as a typed, read-only object. For example, `ProductionSpec` holds `eras`, `channels`, `max_tries`, ... | `ProductionSpec`, ... |
@@ -57,8 +58,8 @@ The words below are used everywhere in the code and in this README.
 2. `python/stages/base.py`: the stage contract, the stage states and the stage context (short).
 3. `python/framework.py`: `start` → `advance` → `_advance_stages`, the loop that drives the stages.
 4. `python/stages/production.py`: the batch stage; `decide_next` holds its policy.
-5. `python/stages/local.py`: the local stages (preflight, run the commands, DONE or FAILED); `plots.py`,
-   `shapes.py` and `fit.py` only map their options to the Histogrammer and Fitter APIs; `python_step.py` runs a
+5. `python/stages/local.py`: the local stages (preflight, run the commands, DONE or FAILED); `controlhists.py`,
+   `controlplots.py`, `shapes.py` and `fit.py` only map their options to the Histogrammer, Plotter and Fitter APIs; `python_step.py` runs a
    bundle's Python file through `step_runner.py`.
 6. `python/recipe.py` and `python/validation.py`: what a valid recipe is, and the checks of the files it names.
 7. `python/bundle.py`: the path rule (bundle file or module config) and the run's bundle copy.
@@ -136,7 +137,7 @@ taufw.py start   Analyses/example_mutau_short                  # creates taufw_r
 taufw.py advance taufw_runs/mutau_2022_postEE_short_20261013-120000  # check; resubmit failed chunks; merge when complete
 taufw.py status  taufw_runs/mutau_2022_postEE_short_20261013-120000  # recorded and live state (read-only)
 taufw.py advance taufw_runs/... --wait --poll 900              # keep advancing every 15 minutes until done
-taufw.py plan    Analyses/tes_id_2025                          # the commands of the plots, shapes, fit and python steps
+taufw.py plan    Analyses/tes_id_2025                          # the commands of the hists, plots, shapes, fit and python steps
 taufw.py init    my_tes --from Analyses/tes_id_2025            # new bundle Analyses/my_tes/: a copy of its files
 ```
 
@@ -174,7 +175,7 @@ The production stage:
 | | chunks failed or missing, attempt = `max_tries` | `FAILED` |
 | `MERGING` | merge (`hadd`) each sample into one tuple; with `merge.clean`, remove the job files after the merged tuple is validated | `DONE`, with one artifact per sample |
 
-The local stages (`plots`, `shapes`, `fit`, `python`) take one step, `NEW` → `DONE` or `FAILED`:
+The local stages (`controlhists`, `controlplots`, `shapes`, `fit`, `python`) take one step, `NEW` → `DONE` or `FAILED`:
 
 | Situation | Result |
 |---|---|
@@ -226,8 +227,8 @@ working directory; see [Analyses/README.md](../Analyses/README.md#where-the-runs
               outputs); a python step also has context.json (its input) and result.json (its output)
   stages/<stage id>/
               the stage's output and nothing else, and manifest.json once the stage is DONE. The scripts of the
-              plots, shapes and fit stages run in it (the fit: in stages/<id>/<era>/), so their plots, shapes
-              and fit results are here; a python step's own files (ctx.stage_dir); production's merged tuples,
+              controlhists, controlplots, shapes and fit stages run in it (the fit: in stages/<id>/<era>/), so
+              their control-histogram files, plots, shapes and fit results are here; a python step's own files (ctx.stage_dir); production's merged tuples,
               <era>/<group>/<sample>_<channel><tag>.root (JobRequest.tupledir; PicoProducer's layout), with the
               pattern .../stages/<id>/$ERA/$GROUP on every tuple artifact. Its job files stay in PicoProducer/output/.
 ```
@@ -292,17 +293,18 @@ of the stage) and in the reader's manifest.
 | `python/stages/base.py` | the stage contract: `Stage`, `StageState`, `StageOutcome`, `StageContext`, `StageNotImplemented`, `PreflightError` |
 | `python/stages/production.py` | `ProductionStage` and the pure `decide_next` policy |
 | `python/stages/local.py` | `LocalStage`: preflight, run the commands, `DONE` or `FAILED` (log tail) |
-| `python/stages/plots.py`, `shapes.py`, `fit.py` | the local stages and their specs (`fit.py` also picks the working points) |
+| `python/stages/controlhists.py`, `controlplots.py`, `shapes.py`, `fit.py` | the local stages and their specs (`fit.py` also picks the working points) |
 | `python/stages/python_step.py` | `PythonStage`, `PythonSpec`: a bundle's Python file as a recipe step |
 | `scripts/taufw.py` | the command line (no logic: argparse → `Framework`) |
 
 The analyses live outside this package, in `Analyses/` at the repository root: `Analyses/README.md` (authoring and
 usage reference), `Analyses/example_mutau_short/` (a small production), `Analyses/example_mutau_long/` (a full production with data, then control plots) and `Analyses/tes_id_2025/` (the TES +
-tau ID fit on existing tuples: plots, shapes, fit, and a Python summary step).
+tau ID fit on existing tuples: control histograms and plots, shapes, fit, and a Python summary step).
 
-Dependencies point one way: `Framework → PicoProducer.api, Histogrammer.api, Fitter.api` (the
-Histogrammer is the former Plotter, changelog §24). No other package imports the
-Framework. The Framework imports each API only when its stage is built, and the Histogrammer and Fitter APIs never import
+Dependencies point one way: `Framework → PicoProducer.api, Histogrammer.api, Plotter.api, Fitter.api` (the
+Histogrammer is the former Plotter; the new Plotter only draws, changelog §24). No other package imports the
+Framework, and the stages never import each other: the Framework carries the control-histogram files from the
+Histogrammer to the Plotter. The Framework imports each API only when its stage is built, and the module APIs never import
 ROOT (they run the scripts as separate processes, through `TauFW.Utilities.Process`), so recipes, run records and the
 stage logic can be tested without ROOT.
 
@@ -314,11 +316,11 @@ BBB check/lock also default to quiet output; see the [test runner instructions](
 - `python -m unittest discover -s Tests/Framework` (any Python 3.9+, no ROOT): the state machine with a fake
   PicoProducer (submit, wait, resubmit until `max_tries`, merge, not-implemented stages, errors), `decide_next`,
   `run.json` round trip and crash-safe save, recipe validation, and `taufw.py`; the local stages with fake
-  Histogrammer and Fitter APIs (`test_stages.py`: the whole pipeline, repeated stages, preflight, failures, fit points, planned
-  artifacts, inputs from another run); bundles (`test_bundle.py`: the path rule, stage ids, `{path}` inputs, the
+  Histogrammer, Plotter and Fitter APIs (`test_stages.py`: the whole pipeline, repeated stages, preflight, failures, fit
+  points, planned artifacts, inputs from another run, controlplots drawing the files of controlhists); bundles (`test_bundle.py`: the path rule, stage ids, `{path}` inputs, the
   run's bundle copy, `taufw.py init`); manifests (`test_manifest.py`); recipe checks with files
   (`test_validation.py`); python steps (`test_python_step.py`: real step files run by `step_runner.py`).
-- `Tests/Fitter/api`, `Tests/Histogrammer/api`: the commands of the APIs equal those of `run_inputs.sh`,
-  `run_workflow_zmm.sh` and `fillhists.py`, and outputs are checked (fake process runner, no ROOT).
+- `Tests/Fitter/api`, `Tests/Histogrammer/api`, `Tests/Plotter/api`: the commands of the APIs equal those of
+  `run_inputs.sh`, `run_workflow_zmm.sh`, `fillhists.py` and `draw.py`, and outputs are checked (fake process runner, no ROOT).
 - BBB case `framework.production` (lxplus): `taufw.py plan/start/advance/status` against the fake HTCondor of the
   PicoProducer BBB harness, with a resubmission and a merge; snapshots the normalized `run.json` and the merged tuples.

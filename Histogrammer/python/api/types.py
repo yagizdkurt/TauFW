@@ -1,17 +1,18 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Records of the public Histogrammer API: what a caller asks for and what each call returns.
 
-  PlotsRequest   control plots: eras, channel setups, filters and fillhists.py options
+  HistsRequest   control histograms: eras, channel setups, filters and fillhists.py options (no drawing
+                 options: the Plotter draws, CL §24 S4)
   plan() and make() return a CommandPlan and a RunReport (TauFW.Utilities.Process).
 
-Plots artifact (a JSON-ready dict): {kind: 'plots', era, config, channel, directory, nfiles}.
+Control-histograms artifact (a JSON-ready dict): {kind: 'control_histograms', era, config, channel, tag, file}.
 
 Public API: the records above.
 """
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
-__all__ = ['PlotsRequest']
+__all__ = ['HistsRequest']
 
 
 # =============================================================================
@@ -19,8 +20,9 @@ __all__ = ['PlotsRequest']
 
 
 @dataclass(frozen=True)
-class PlotsRequest:
-    """Control plots: one fillhists.py run per channel setup and era.
+class HistsRequest:
+    """Control histograms: one fillhists.py --hists --no-draw run per channel setup and era (PlotsRequest until
+    CL §24 S4; its drawing options -F, -p, -T went to the Plotter's PlotsRequest).
     configs: channel names (Configs/Histogrammer/setups/setup_<channel>.yml) or .yml files (relative to Histogrammer/, or
     absolute).
     variables, selections: -V and -S filters (glob patterns); empty: all.
@@ -28,17 +30,14 @@ class PlotsRequest:
     PicoProducer configuration is not used. None: the script reads $PICODIR of pico_config (None: its default).
     samples: sample model files, one per era (Configs/Histogrammer/samples/v15_<era>.yml or a copy), given as
     --samples; empty: the tables of config/samples_v15.py.
-    outdir: the directory the script runs in and writes plots/<era>/ to (None: Histogrammer/, as a user runs it)."""
+    outdir: the directory the script runs in and writes hists/<era>/ to (None: Histogrammer/, as a user runs it)."""
     eras:       Tuple[str, ...]
     configs:    Tuple[str, ...] = ('mutau',)
     variables:  Tuple[str, ...] = ()
     selections: Tuple[str, ...] = ()
     serial:     bool = False             # -s: no parallel histogramming
-    fraction:   bool = False             # -F: fraction stack in the ratio plot
-    pdf:        bool = False             # -p: pdf next to each png
     notauidsf:  bool = False             # -r: remove the DeepTau ID scale factors
     tag:        str = ""                 # -t: extra tag of the output files
-    text:       str = ""                 # -T: extra text on the plots
     timeout:    Optional[float] = None   # seconds per command
     tuples:     Optional[str] = None     # --tuples of the commands
     pico_config: Optional[str] = None    # $TAUFW_PICO_CONFIG of the commands (without tuples)
@@ -50,7 +49,7 @@ class PlotsRequest:
             object.__setattr__(self, name, _strings(getattr(self, name)))
         for name in ('eras', 'configs'):
             if not getattr(self, name):
-                raise ValueError("PlotsRequest: %s must not be empty" % (name))
+                raise ValueError("HistsRequest: %s must not be empty" % (name))
 
 
 # =============================================================================

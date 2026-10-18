@@ -1,7 +1,8 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Local stages: stages that run their module's scripts on this machine and finish in one advance() call.
 
-The plots, shapes, fit and python stages all work the same way. Their module API (Histogrammer, Fitter; the step
+The controlhists, controlplots, shapes, fit and python stages all work the same way. Their module API (Histogrammer,
+Plotter, Fitter; the step
 runner for python) turns a request into a list of commands, runs them one after the other and reports what they
 made. This base class does the part that is the same for all of them:
 
@@ -54,7 +55,8 @@ LOG_TAIL = 20  # lines of the failed command's log shown in the terminal
 
 class LocalStage(Stage):
     """Base class of the stages that run scripts locally; see the module docstring.
-    api: the module API object (a Fitter TauESID or a Histogrammer ControlPlots, or a fake one in the tests)."""
+    api: the module API object (a Fitter TauESID, a Histogrammer ControlHists, a Plotter ControlPlots, or a fake one
+    in the tests)."""
 
     # =========================================================================
     # =============================== PIPELINES ===============================
@@ -221,7 +223,7 @@ class LocalStage(Stage):
 
     def __init__(self, api, samples_api=None):
         """api: the module API object (None for a stage without one, e.g. python).
-        samples_api: what reads the sample model files of the `samples` option (a Histogrammer ControlPlots: the
+        samples_api: what reads the sample model files of the `samples` option (a Histogrammer ControlHists: the
         format is the Histogrammer's); None: the stage's own api."""
         self.api = api
         self.samples_api = samples_api or api

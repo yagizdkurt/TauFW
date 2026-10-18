@@ -1,8 +1,9 @@
 #! /usr/bin/env python
 # Author: Izaak Neutelings (August 2020)
 # Description: Simple plotting script for pico analysis tuples
-# Renamed from Plotter/plot.py (CL §24, Yagizhan Dinckurt, October 2026): it fills the histograms; until the clean
-# Plotter draws them from a file (CL §24, S3-S4) it also draws them, exactly as plot.py did.
+# Renamed from Plotter/plot.py (CL §24, Yagizhan Dinckurt, October 2026): it fills the histograms and, by default,
+# also draws them, exactly as plot.py did. With --hists it writes them to a file for Plotter/draw.py; with
+# --hists --no-draw it only writes the file (the controlhists stage of the Framework runs it so).
 # Instructions:
 #   ./fillhists.py -y 2018 -c mutau
 #   ./fillhists.py -y 2018 -c ../Configs/Histogrammer/setups/setup_mutau.yml
@@ -21,10 +22,11 @@ SETUPS = os.path.join(os.path.dirname(os.path.abspath(__file__)),"..","Configs",
 
 
 def plot(sampleset,setup,parallel=True,tag="",extratext="",outdir="plots",era="",
-         varfilter=None,selfilter=None,fraction=False,pdf=False,histfile=None):
+         varfilter=None,selfilter=None,fraction=False,pdf=False,histfile=None,draw=True):
   """Test plotting of SampleSet class for data/MC comparison.
   With histfile (a path; $ERA, $CHANNEL replaced), the histograms of every stack are also written to that file as
-  they were filled, before they are drawn (TauFW.Histogrammer.controlhists; Plotter/draw.py draws them)."""
+  they were filled, before they are drawn (TauFW.Histogrammer.controlhists; Plotter/draw.py draws them).
+  With draw=False (--no-draw, CL §24 S4) nothing is drawn and no plot directory is made: only the file is written."""
   LOG.header("plot")
   
   channel  = setup["channel"]
@@ -102,7 +104,8 @@ def plot(sampleset,setup,parallel=True,tag="",extratext="",outdir="plots",era=""
   variables  = filtervars(variables,varfilter)  # filter variable list with -V/--var flag
   
   # PLOT
-  outdir = ensuredir(repkey(outdir,CHANNEL=channel,ERA=era))
+  if draw:
+    outdir = ensuredir(repkey(outdir,CHANNEL=channel,ERA=era))
   exts   = ['png','pdf'] if pdf else ['png'] # extensions
   entries = [ ] # --hists: the histograms of every stack, as filled
   for selection in selections:
@@ -115,6 +118,8 @@ def plot(sampleset,setup,parallel=True,tag="",extratext="",outdir="plots",era=""
     for stack, variable in stacks.items():
       if histfile: # copies of the histograms BEFORE draw() changes them; variable = (Variable, Selection)
         entries.append(stack_entry(stack,*variable))
+      if not draw: # --no-draw: the file is the output
+        continue
       #position = "" #variable.position or 'topright'
       stack.draw(fraction=fraction)
       stack.drawlegend() #position)
@@ -159,7 +164,7 @@ def main(args):
       sampleset = getsampleset(setup['channel'],era,fname=fname,rmsf=rmsfs,addsf=addsfs,split=split,tuples=tuples,
                                samples=samples)
       plot(sampleset,setup,parallel=parallel,tag=tag,extratext=extratext,outdir=outdir,era=era,
-           varfilter=varfilter,selfilter=selfilter,fraction=fraction,pdf=pdf,histfile=histfile)
+           varfilter=varfilter,selfilter=selfilter,fraction=fraction,pdf=pdf,histfile=histfile,draw=args.draw)
       #sampleset.close()
   
 
@@ -197,9 +202,16 @@ if __name__ == "__main__":
   parser.add_argument('--hists',         action='store_true',
                                          help="also write the filled histograms of every plot to "
                                               "hists/<era>/<channel><tag>.root, for Plotter/draw.py (CL §24)" )
+  parser.add_argument('--no-draw',       dest='draw', action='store_false',
+                                         help="with --hists: only write the histogram file, draw nothing "
+                                              "(Plotter/draw.py draws it; CL §24)" )
   parser.add_argument('-v', '--verbose', dest='verbosity', type=int, nargs='?', const=1, default=0, action='store',
                                          help="set verbosity" )
   args = parser.parse_args()
+  if not args.draw and not args.hists: # nothing would be written
+    parser.error("--no-draw needs --hists (without the file nothing would be written)")
+  if not args.draw and (args.fraction or args.pdf or args.text):
+    print(">>> Warning: --no-draw: the drawing options -F/-p/-T are ignored (give them to Plotter/draw.py)")
   LOG.verbosity = args.verbosity
   PLOG.verbosity = args.verbosity
   main(args)

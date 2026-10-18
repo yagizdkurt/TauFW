@@ -50,10 +50,10 @@ class CheckRecipeTests(unittest.TestCase):
     def test_path_inputs(self):
         """R4: the stage directory of a {path: ...} input is checked; every problem is listed."""
         histograms = self.source("shapes", "shapes")
-        plots = self.source("plots", "plots")
+        plots = self.source("controlhists", "hists")
         fit = self.source("fit", "fit")
         check = self.check(dict(FIT, inputs={"shapes": {"path": histograms}}),
-                           dict(STEP, inputs={"fit": {"path": fit}, "plots": {"path": plots}}))
+                           dict(STEP, inputs={"fit": {"path": fit}, "hists": {"path": plots}}))
         self.write("steps/check.py", "def run(ctx):\n    pass\n")
         check = check_recipe(self.bundle)
         self.assertEqual(self.messages(check), [])
@@ -71,7 +71,7 @@ class CheckRecipeTests(unittest.TestCase):
             "stage directory of a TauFW run (<run_dir>/stages/<id>)" % (unfinished),
             "stages[2] (fit).inputs.shapes: %s was moved or copied from %s: its artifacts name the files there"
             % (copy, histograms),
-            "stages[3] (fit).inputs.shapes: %s is stage 'plots' (plots) of run r1: it makes plots, not shapes"
+            "stages[3] (fit).inputs.shapes: %s is stage 'hists' (controlhists) of run r1: it makes control_histograms, not shapes"
             % (plots)])
         self.assertIsNone(check.recipe)
 
@@ -111,15 +111,15 @@ class CheckRecipeTests(unittest.TestCase):
     def test_external_tuples(self):
         os.makedirs(os.path.join(self.root, "tuples", "2025"))
         pattern = os.path.join(self.root, "tuples", "$ERA", "$GROUP")
-        plots = {"stage": "plots", "id": "plots", "inputs": {"tuples": {"external": pattern}}, "eras": [2025]}
+        plots = {"stage": "controlhists", "id": "hists", "inputs": {"tuples": {"external": pattern}}, "eras": [2025]}
         check = self.check(plots)
         self.assertEqual(self.messages(check), [])
-        self.assertEqual(check.recipe.stage("plots").external, {"tuples": pattern})
+        self.assertEqual(check.recipe.stage("hists").external, {"tuples": pattern})
         missing = os.path.join(self.root, "missing", "$ERA")
         check = self.check(dict(plots, inputs={"tuples": {"external": missing}}))
-        self.assertEqual(self.messages(check), ["stages[0] (plots).inputs.tuples: tuple directory %s not found "
+        self.assertEqual(self.messages(check), ["stages[0] (controlhists).inputs.tuples: tuple directory %s not found "
                                                 "(external: %s)" % (os.path.join(self.root, "missing"), missing)])
-        where = "stages[0] (plots).inputs.tuples: "
+        where = "stages[0] (controlhists).inputs.tuples: "
         for value, message in (
                 ({"external": "tuples/$ERA"}, "external must be an absolute directory pattern (got tuples/$ERA; ~ "
                                               "and $VARIABLES at the start are not expanded)"),
@@ -138,7 +138,7 @@ class CheckRecipeTests(unittest.TestCase):
                 self.assertEqual(self.messages(self.check(dict(plots, inputs={"tuples": value}))),
                                  [where + message])
         self.assertEqual(self.messages(self.check(dict(FIT, inputs={"shapes": {"external": pattern}}))),
-                         ["stages[0] (fit).inputs.shapes: {external: ...} is only for a tuples input (plots, "
+                         ["stages[0] (fit).inputs.shapes: {external: ...} is only for a tuples input (controlhists, "
                           "shapes); name an earlier stage, or {path: <stage directory>}"])
         step = dict(STEP, inputs={"tuples": {"external": pattern}})
         self.write("steps/check.py", "def run(ctx):\n    pass\n")

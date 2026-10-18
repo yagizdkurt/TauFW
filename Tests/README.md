@@ -67,9 +67,10 @@ From the repository root, run:
 python3 Tests/run.py all
 ```
 
-This runs the Utilities, Framework, Setup, processor compatibility, Fitter API and
-Histogrammer API unit tests (`Tests/Fitter/api`, `Tests/Histogrammer/api`: the commands of the
-Fitter and Histogrammer scripts, with a fake process runner), the sample model tests
+This runs the Utilities, Framework, Setup, processor compatibility, Fitter API,
+Histogrammer API and Plotter API unit tests (`Tests/Fitter/api`, `Tests/Histogrammer/api`,
+`Tests/Plotter/api`: the commands of the Fitter, Histogrammer and Plotter scripts, with a fake
+process runner), the sample model tests
 (`Tests/Histogrammer/sample_model`: the templates of `Configs/Histogrammer/samples/` make the same
 core calls as `Histogrammer/config/samples_v15.py`, no ROOT), the old Plotter names
 (`Tests/Histogrammer/compat`: every alias shim, changelog §24), the control-histogram file

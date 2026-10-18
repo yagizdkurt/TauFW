@@ -11,10 +11,13 @@
         inputs: null                  # required; production reads no other stage's output
         eras: [2022_postEE]
         channels: [mutau]
-      - stage: plots                  # options: see PlotSpec (stages/plots.py); then shapes, fit
-        id: plots
+      - stage: controlhists           # options: see ControlHistsSpec (stages/controlhists.py)
+        id: hists
         inputs: {tuples: production}  # every input slot of the stage -> the id of an earlier stage, or null
         eras: [2022_postEE]
+      - stage: controlplots           # options: see ControlPlotsSpec (stages/controlplots.py); then shapes, fit
+        id: plots
+        inputs: {hists: hists}        # the control-histogram files of the stage above
       - stage: python                 # a Python file of the bundle (stages/python_step.py); anywhere, any number
         id: check_yields
         inputs: {plots: plots}        # any names; null: no inputs
@@ -26,7 +29,8 @@ Every stage has the keys `stage`, `id` and `inputs`, and may have `description`;
               <run_dir>/stages/<id>/ (output) and <run_dir>/logs/<id>/ (logs).
     inputs:   which earlier stage's output the stage reads, per input slot (Stage.inputs):
                 production    no slots                     inputs: null
-                plots         tuples   <- tuples           null: the tuples in $PICODIR of the PicoProducer config
+                controlhists  tuples   <- tuples           null: the tuples in $PICODIR of the PicoProducer config
+                controlplots  hists    <- control_histograms  (never null)
                 shapes        tuples   <- tuples           null: the same
                 fit           shapes   <- shapes           null: the shapes already in Fitter/ (temporary exception)
                 python        any names <- any stage       null: no inputs; a mapping names stages, never null
@@ -435,7 +439,7 @@ def _path_problem(path, bundle_dir):
 def _external_problem(value, kind):
     """What is wrong with an input written as {external: <pattern>} (None: nothing)."""
     if kind != 'tuples':
-        return ("{external: ...} is only for a tuples input (plots, shapes); name an earlier stage, or "
+        return ("{external: ...} is only for a tuples input (controlhists, shapes); name an earlier stage, or "
                 "{path: <stage directory>}")
     if set(value) != {'external'}:
         return "a mapping is {external: <absolute pattern>} (got keys %s)" % (', '.join(sorted(map(str, value))))

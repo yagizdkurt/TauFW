@@ -3,8 +3,8 @@
 > **Being rebuilt (October 2026, changelog §24 of [Refactor-2025.md](../docs/Refactor-2025/Refactor-2025.md)).**
 > The module that was called Plotter until now is the [Histogrammer](../Histogrammer/README.md): it fills
 > histograms from pico tuples. This directory is the new, small Plotter that only **draws**. Since step S3 it draws
-> control plots from a histogram file; the Framework stage follows in S4. It also keeps the old `Plotter` names
-> working until the migration point.
+> control plots from a histogram file, since S4 also as the Framework's `controlplots` stage (through its API,
+> `TauFW.Plotter.api`). It also keeps the old `Plotter` names working until the migration point.
 
 ## What the Plotter is
 
@@ -35,11 +35,44 @@ python3 ../Plotter/draw.py hists/2025/mutau.root -o drawn/2025    # the same plo
 `draw.py` options: `-o OUTDIR` (default `plots/$ERA`; `$ERA`, `$CHANNEL` are replaced), `-F` (fraction stack in
 the ratio panel), `-p` (pdf too), `-T TEXT` (extra text), `-v` (verbosity of the drawing code).
 
+In a TauFW recipe the two halves are two stages, each with the API of its own module; the Framework carries the
+files from one to the other ([Analyses/README.md](../Analyses/README.md)):
+
+```yaml
+  - stage: controlhists        # Histogrammer: fillhists.py --hists --no-draw, one file per setup and era
+    id: hists
+    inputs: {tuples: production}
+    eras: [2025]
+    configs: [setup_mutau.yml]
+  - stage: controlplots        # Plotter: draw.py, once per file
+    id: plots
+    inputs: {hists: hists}
+    pdf: true
+```
+
+## Public API (`TauFW.Plotter.api`)
+
+`ControlPlots` draws control-histogram files with `draw.py`, run as a separate process with the arguments a user
+would type, and checks that plots were written. It needs no ROOT and reads nothing until it runs; the Framework
+uses it for its `controlplots` stage. Each file comes with the facts a plan needs before the file exists (era,
+channel, tag: the Histogrammer's `control_histograms` artifact, `HistFileInput.from_artifact`).
+
+```python
+from TauFW.Plotter.api import ControlPlots, PlotsRequest, HistFileInput
+plotter = ControlPlots()                                     # Plotter/ of this CMSSW area; reads and runs nothing
+request = PlotsRequest(files=[HistFileInput(path='../Histogrammer/hists/2025/mutau.root', era='2025',
+                                            channel='mutau')], pdf=True)
+plotter.plan(request)       # CommandPlan: python3 draw.py ../Histogrammer/hists/2025/mutau.root -p; nothing runs
+plotter.preflight(request)  # problems (no cmsenv, no ROOT, a missing file); empty: ready
+plotter.make(request, logdir='logs')   # RunReport: ok, one log per command, one plots artifact per file
+```
+
 ## Layout
 
 | Path | What |
 |---|---|
 | `draw.py` | the command: draws every stack of one or more control-histogram files |
+| `python/api/` | `TauFW.Plotter.api`: `ControlPlots`, `PlotsRequest`, `HistFileInput` (the public API above) |
 | `python/controlplots.py` | `TauFW.Plotter.controlplots`: `read_control_hists`, `draw_control_plots`, `make_stack`, `draw_stack`, `plot_name`, `plot_text` |
 | `plot.py` | LEGACY: prints the command that replaces it (`Histogrammer/fillhists.py`, same options) and exits; nothing runs |
 | `python/sample/*.py`, `python/plot/*.py`, `python/methods/QCD_OSSS.py` | BACKWARD COMPATIBILITY: the 13 old module names, each an alias of its new module in the Histogrammer |
@@ -90,9 +123,11 @@ The new Plotter is meant as the example of how a TauFW module is written after t
 5. **Byte-identical output is proven, not assumed:** the BBB case `plotter.stack` locks what `plot.py` drew, and the
    drawing from the file must give the same canvases.
 
-Tests: `Tests/Plotter/draw` (no ROOT: names, texts, the contract), BBB `plotter.stack` (with ROOT).
+Tests: `Tests/Plotter/draw` (no ROOT: names, texts, the contract), `Tests/Plotter/api` (no ROOT: the `draw.py`
+commands, the expected plot names, the artifacts), BBB `plotter.stack` (with ROOT).
 
 ## Plan
 
 LocalR/architecture/18 (local notes), changelog §24: S1 rename, S2 configs to `Configs/Histogrammer/`, S3 the
-histogram file and `draw.py` (done), S4 Framework stages (the `plots` stage reads the file), S5 checks on lxplus.
+histogram file and `draw.py` (done), S4 Framework stages `controlhists` and `controlplots` (done), S5 checks on
+lxplus.

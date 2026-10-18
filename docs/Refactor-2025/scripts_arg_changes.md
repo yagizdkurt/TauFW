@@ -191,3 +191,13 @@ migration point (TODO §8). Options, defaults and outputs of every script are un
 |---|---|---|
 | `Histogrammer/fillhists.py` | new option `--hists`: also writes the filled histograms of every plot to `hists/<era>/<channel><tag>.root` ([contract](../contracts/control-histograms.md)), copied before they are drawn | without it nothing changes (no file, the same plots and log) |
 | `Plotter/draw.py` (new) | `draw.py FILE [FILE ...] [-o OUTDIR] [-F] [-p] [-T TEXT] [-v]`: draws the plots of such files, with the file names and texts of `fillhists.py` | `-o plots/$ERA` |
+
+### Framework stages controlhists and controlplots (S4)
+
+| Script / recipe | Change | Default (unchanged behaviour) |
+|---|---|---|
+| `Histogrammer/fillhists.py` | new option `--no-draw` (only with `--hists`, else an error): writes the file and draws nothing (no `plots/` directory); `-F`, `-p`, `-T` are then ignored with a warning | without it nothing changes: fills and draws as before |
+| recipe `stage: histograms` | renamed `stage: shapes` (S4a; options, commands and shapes unchanged) | none: the old name fails the check with a message (no recipe users yet) |
+| recipe `stage: plots` | two stages: `controlhists` (tuples -> files, `fillhists.py --hists --no-draw`; the options that change the histograms) and `controlplots` (files -> plots, `Plotter/draw.py`; `fraction`, `pdf`, `text`) | none: the old name fails the check with a message; runs started before cannot be continued |
+| `TauFW.Histogrammer.api.ControlPlots`, `PlotsRequest` | renamed `ControlHists`, `HistsRequest` (no `fraction`, `pdf`, `text`); the artifact is the file (`kind: control_histograms`) | none (only the Framework used it) |
+| `TauFW.Plotter.api` (new) | `ControlPlots`, `PlotsRequest`, `HistFileInput`: `draw.py` once per file | - |

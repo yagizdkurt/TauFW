@@ -1,8 +1,8 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Samples: does the production stage make the tuples its readers ask for? Checked before a run starts.
 
-A plots or shapes stage with the `samples` option (sample model files, copies of Configs/Histogrammer/samples/) says
-which samples it reads, per era and channel: MC sample names and one data dataset pattern. A production stage says
+A controlhists or shapes stage with the `samples` option (sample model files, copies of
+Configs/Histogrammer/samples/) says which samples it reads, per era and channel: MC sample names and one data dataset pattern. A production stage says
 which samples it makes (PicoProducer's sample catalogs, filtered as its first submission filters them). When a reader
 takes its tuples from a production stage of the same recipe, the two lists are compared:
 

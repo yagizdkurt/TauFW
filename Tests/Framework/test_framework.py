@@ -41,7 +41,7 @@ class Clock:
 
 class NotImplementedStage:
     """A stub stage that cannot run, like a future placeholder stage."""
-    name = 'plots'
+    name = 'controlhists'
 
     def plan(self, spec, context=None):
         from TauFW.Framework.stages import StageNotImplemented
@@ -132,12 +132,12 @@ class StateMachineTests(FrameworkTestCase):
 
     def test_placeholder_stage_does_not_break_production(self):
         pico = fakes.FakePicoProducer(statuses=[fakes.complete("DY", "TT")])
-        recipe = dict(RECIPE, stages=RECIPE["stages"] + [{"stage": "plots", "id": "plots",
+        recipe = dict(RECIPE, stages=RECIPE["stages"] + [{"stage": "controlhists", "id": "hists",
                                                           "inputs": {"tuples": "production"}, "eras": ["2018"]}])
-        fw = framework(pico, recipe, stages={"plots": NotImplementedStage()})
+        fw = framework(pico, recipe, stages={"hists": NotImplementedStage()})
         record = fw.advance(fw.start(run_root=self.root))
         self.assertEqual(record.stage("production").state, "DONE")
-        self.assertEqual(record.stage("plots").state, "NOT_IMPLEMENTED")
+        self.assertEqual(record.stage("hists").state, "NOT_IMPLEMENTED")
         self.assertEqual(record.state, "BLOCKED")
         self.assertEqual(len(record.stage("production").artifacts), 2)
         plan = fw.plan()
@@ -466,23 +466,23 @@ class RecipeTests(FrameworkTestCase):
                          "eras and channels in its lists, or use separate recipes)")
 
     def test_stages_in_any_order_and_repeated(self):
-        """R4: shapes A, fit A, shapes B, fit B; plots after the fit; production anywhere."""
+        """R4: shapes A, fit A, shapes B, fit B; hists after the fit; production anywhere."""
         histograms = {"stage": "shapes", "inputs": {"tuples": None}, "eras": [2025], "ele_wps": ["Tight"]}
         recipe = Recipe.from_dict({"name": "x", "stages": [
             dict(histograms, id="hist_vt", jet_wps=["VTight"]),
             {"stage": "fit", "id": "fit_vt", "inputs": {"shapes": "hist_vt"}},
             dict(histograms, id="hist_t", jet_wps=["Tight"]),
             {"stage": "fit", "id": "fit_t", "inputs": {"shapes": "hist_t"}},
-            {"stage": "plots", "id": "plots", "inputs": {"tuples": None}, "eras": [2025]},
+            {"stage": "controlhists", "id": "hists", "inputs": {"tuples": None}, "eras": [2025]},
             dict(RECIPE["stages"][0], id="production")]})
         self.assertEqual([s.stage for s in recipe.stages],
-                         ["shapes", "fit", "shapes", "fit", "plots", "production"])
+                         ["shapes", "fit", "shapes", "fit", "controlhists", "production"])
         self.assertEqual(recipe.stage("fit_t").connections, {"shapes": "hist_t"})
 
     def test_load_bundle_example_and_relative_config(self):
         example = os.path.join(checkout.REPO, "Analyses", "example_mutau_long")
         recipe = Recipe.load(example)  # a bundle directory: its recipe.yml
-        self.assertEqual([s.stage for s in recipe.stages], ["production", "plots"])
+        self.assertEqual([s.stage for s in recipe.stages], ["production", "controlhists", "controlplots"])
         self.assertIsNone(recipe.pico_config)
         self.assertEqual(recipe.bundle_dir, example)
         self.assertEqual(recipe.source, "example_mutau_long/recipe.yml")
@@ -504,26 +504,26 @@ class ReporterTests(FrameworkTestCase):
     def test_event_reporter_passes_everything_on_and_writes_events(self):
         inner = SilentReporter()
         reporter = EventReporter(inner, EventWriter(self.path))
-        reporter.header("Stage plots (NEW)")
-        reporter.message("[plots] 1/2 plots ...")
+        reporter.header("Stage hists (NEW)")
+        reporter.message("[hists] 1/2 hists ...")
         reporter.warning("not ready")
         self.assertEqual(reporter.table(["a", "b"], [(1, None)]), [[1, None]])
         reporter.raw(">>> a PicoProducer line")
         reporter.pico_reporter("production").warning("no proxy")
-        reporter.event("progress", stage="plots", index=1, total=2, label="plots", status="run")
+        reporter.event("progress", stage="hists", index=1, total=2, label="hists", status="run")
         self.assertIs(reporter.messages, inner.messages)
         self.assertEqual([kind for kind, _ in inner.messages],
                          ["header", "message", "warning", "table", "message", "warning"])  # raw: a message
-        self.assertEqual(inner.events, [("progress", dict(stage="plots", index=1, total=2, label="plots",
+        self.assertEqual(inner.events, [("progress", dict(stage="hists", index=1, total=2, label="hists",
                                                           status="run"))])
         events = [{k: v for k, v in e.items() if k != "t"} for e in EventReader(self.path).read()]
         self.assertEqual(events, [
-            {"kind": "header", "text": "Stage plots (NEW)"},
-            {"kind": "message", "text": "[plots] 1/2 plots ..."},
+            {"kind": "header", "text": "Stage hists (NEW)"},
+            {"kind": "message", "text": "[hists] 1/2 hists ..."},
             {"kind": "warning", "text": "not ready"},
             {"kind": "table", "headers": ["a", "b"], "rows": [["1", "None"]]},
             {"kind": "warning", "text": "[production] no proxy"},  # raw lines stay in the output only
-            {"kind": "progress", "stage": "plots", "index": 1, "total": 2, "label": "plots", "status": "run"}])
+            {"kind": "progress", "stage": "hists", "index": 1, "total": 2, "label": "hists", "status": "run"}])
 
     def test_terminal_output_and_run_log_do_not_change(self):
         def report(reporter):
@@ -531,7 +531,7 @@ class ReporterTests(FrameworkTestCase):
             reporter.header("TauFW run x")
             reporter.message("Run directory: here")
             reporter.warning("careful")
-            reporter.table(["stage", "state"], [("plots", "DONE")])
+            reporter.table(["stage", "state"], [("hists", "DONE")])
             reporter.raw(">>> raw")
             reporter.event("run_state", run_id="x", state="DONE")
         outputs = []

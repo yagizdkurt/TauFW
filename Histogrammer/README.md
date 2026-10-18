@@ -20,7 +20,7 @@ modules and macros under `Legacy/Plotter/python/`.
 
 | Path | What |
 |---|---|
-| `fillhists.py` | fills the histograms of a channel setup and era (formerly `Plotter/plot.py`, same options); until the clean Plotter draws them (S4) it also draws the control plots, exactly as `plot.py` did; with `--hists` it also writes the filled histograms to `hists/<era>/<channel><tag>.root` for `Plotter/draw.py` ([contract](../docs/contracts/control-histograms.md)) |
+| `fillhists.py` | fills the histograms of a channel setup and era (formerly `Plotter/plot.py`, same options); by default it also draws the control plots, exactly as `plot.py` did; with `--hists` it also writes the filled histograms to `hists/<era>/<channel><tag>.root` for `Plotter/draw.py` ([contract](../docs/contracts/control-histograms.md)); with `--hists --no-draw` it only writes the file (the Framework's `controlhists` stage) |
 | `plot.py` | LEGACY: prints the `fillhists.py` command to use instead and exits (nothing runs) |
 | `plot_postfit.py`, `plot_postfit_shift.py`, `plot_v10.py`, `tutorial/` | older fill-and-draw variants, unchanged (their future is decided in step S3 of the plan) |
 | `config/samples*.py` | sample lists as Python code (`samples_v15.py` is backward compatibility for runs without sample model files) |
@@ -39,7 +39,7 @@ modules and macros under `Legacy/Plotter/python/`.
 | `TauFW.Plotter.plot.Variable`, `.Selection`, `.Context`, `.string` | `TauFW.Histogrammer.spec.<module>` |
 | `TauFW.Plotter.plot.MultiDraw` | `TauFW.Histogrammer.sample.MultiDraw` |
 | `TauFW.Plotter.methods.QCD_OSSS` | `TauFW.Histogrammer.methods.QCD_OSSS` |
-| `TauFW.Plotter.api` | `TauFW.Histogrammer.api` (no old name kept: only the Framework used it) |
+| `TauFW.Plotter.api.ControlPlots` | `TauFW.Histogrammer.api.ControlHists` (no old name kept: only the Framework used it; `TauFW.Plotter.api` is the new Plotter's own API since S4) |
 | `Plotter/plot.py` | `Histogrammer/fillhists.py` |
 | `sys.path.append(".../Plotter")` + `from config.samples_v15 import *` | `.../Histogrammer` |
 
@@ -55,20 +55,22 @@ sed -i -e 's/TauFW\.Plotter\.plot\.MultiDraw/TauFW.Histogrammer.sample.MultiDraw
 
 ## Public API (`TauFW.Histogrammer.api`)
 
-`ControlPlots` makes data/MC control plots with `fillhists.py`, run as a separate process in `Histogrammer/` with the
-arguments a user would type, and checks that plots were written. The TauFW Framework uses it for its `plots` stage
-(see [Framework/README.md](../Framework/README.md)).
+`ControlHists` fills the histograms of the data/MC control plots with `fillhists.py --hists --no-draw`, run as a
+separate process in `Histogrammer/` with the arguments a user would type, and checks that the control-histogram file
+was written; the Plotter draws it (`TauFW.Plotter.api.ControlPlots`). The TauFW Framework uses it for its
+`controlhists` stage (see [Framework/README.md](../Framework/README.md)). Until changelog §24 (S4) this API was
+`ControlPlots` and also drew; the drawing options (`fraction`, `pdf`, `text`) are now the Plotter's.
 
 ```python
-from TauFW.Histogrammer.api import ControlPlots, PlotsRequest
-plotter = ControlPlots()                                       # Histogrammer/ of this CMSSW area; reads and runs nothing
-request = PlotsRequest(eras=['2025'], configs=['mutau', 'mumu'], variables=['m_vis', 'pt_2'])
-plotter.plan(request)       # CommandPlan: python3 fillhists.py -y 2025 -c mutau -V m_vis pt_2, ...; nothing runs
-plotter.preflight(request)  # problems (no cmsenv, no ROOT, missing setup); empty: ready
-plotter.make(request, logdir='logs')   # RunReport: ok, one log per command, plots per channel and era
+from TauFW.Histogrammer.api import ControlHists, HistsRequest
+histogrammer = ControlHists()                                  # Histogrammer/ of this CMSSW area; reads and runs nothing
+request = HistsRequest(eras=['2025'], configs=['mutau', 'mumu'], variables=['m_vis', 'pt_2'])
+histogrammer.plan(request)       # CommandPlan: python3 fillhists.py -y 2025 -c mutau -V m_vis pt_2 --hists --no-draw, ...
+histogrammer.preflight(request)  # problems (no cmsenv, no ROOT, missing setup); empty: ready
+histogrammer.make(request, logdir='logs')   # RunReport: ok, one log per command, one file per channel and era
 ```
 
-`PlotsRequest(samples=[...])` names sample model files (`Configs/Histogrammer/samples/v15_<era>.yml` or a copy, one per
+`HistsRequest(samples=[...])` names sample model files (`Configs/Histogrammer/samples/v15_<era>.yml` or a copy, one per
 era; `fillhists.py --samples`) instead of the tables of `config/samples_v15.py`. They are read by
 `TauFW.Histogrammer.sample.model` (no ROOT for reading); `sample_names`, `samples_problems` and
 `sample_file_problems` check them without running anything.

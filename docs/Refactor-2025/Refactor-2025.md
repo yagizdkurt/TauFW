@@ -1165,3 +1165,64 @@ Checked (Windows): `python Tests/run.py checks`: 12 of 14 suites pass as before 
 `check_import_boundaries` unchanged (30 / 28 / 26, 0 new pairs), `check_root` needs ROOT. On lxplus (TODO §1):
 `taufw.py plan Analyses/tes_id_2025` equals the one saved before the change except the stage name and its
 directory.
+
+### Control plots as two Framework stages (S4)
+
+**Date:** 2026-10-18, Windows. Decisions with the user: plan 18 §14 (K1-K11). The Framework now makes control
+plots in two stages, each through the API of its own module, and carries the control-histogram file between them;
+the Histogrammer never draws in a run, the Plotter never fills, and neither imports the other.
+
+```text
+tuples ──[controlhists: Histogrammer API, fillhists.py --hists --no-draw]──▶ hists/<era>/<channel><tag>.root
+       ──[controlplots: Plotter API, draw.py]──▶ plots/<era>/*.png   (the same files as fillhists.py draws)
+```
+
+- `Histogrammer/fillhists.py --no-draw` (new, only with `--hists`, else an error): writes the file, draws nothing,
+  makes no `plots/` directory; `-F`/`-p`/`-T` are then ignored with a warning. Without it nothing changes: a command
+  typed by hand fills and draws as before (user rule: plain commands keep their result; the default changes at the
+  migration point, TODO §8). The copies in the file are taken before drawing (S3), so the file is the same with and
+  without drawing (checked on lxplus, TODO §1).
+- Histogrammer API: `ControlPlots` -> `ControlHists`, `PlotsRequest` -> `HistsRequest` (`git mv
+  api/control_plots.py api/control_hists.py`), renamed in place (no shim: only the Framework used it). The command
+  ends in `--hists --no-draw`, the drawing options are gone (they are the Plotter's), the command is labelled
+  `controlhists <channel> <era>` and expects `hists/<era>/<channel><tag>.root`; the artifact is
+  `{kind: control_histograms, era, config, channel, tag, file}`. The sample functions are unchanged (they also serve
+  the shapes stage).
+- Plotter API (new, `Plotter/python/api/`): `ControlPlots`, `PlotsRequest(files, fraction, pdf, text, timeout,
+  outdir)`, `HistFileInput(path, era, channel, config, tag)` (`from_artifact` takes the Histogrammer's artifact). One
+  `draw.py FILE [-F] [-p] [-T TEXT]` per file, labelled `controlplots <channel> <era>`; it expects the plot names of
+  `TauFW.Plotter.controlplots.plot_name`; artifact `{kind: plots, era, config, channel, directory, nfiles}`, the form
+  of the old plots stage. It imports only `TauFW.Utilities` and the Plotter; no ROOT.
+- Framework: `stages/plots.py` -> `stages/controlhists.py` (`ControlHistsStage`, `ControlHistsSpec`: eras, configs,
+  variables, selections, serial, notauidsf, tag, timeout, samples; outputs `control_histograms`), new
+  `stages/controlplots.py` (`ControlPlotsStage`, `ControlPlotsSpec`: fraction, pdf, text, timeout; input slot
+  `hists <- control_histograms`, never null; outputs `plots`). It draws every file of its input (in a plan the
+  planned files `<run_dir>/stages/<id>/hists/...`); an input from another run (`{path: ...}`) works through the
+  general mechanism. `STAGES`, `ORDER` (production, controlhists, controlplots, shapes, fit),
+  `Framework.from_recipe(..., histogrammer=, plotter=)` (`plotter` was the Histogrammer's API until now), the
+  `samples_api` of the shapes stage is `ControlHists`. **The one-step `plots` stage is removed** (no recipe users
+  yet, user decision): `stage: plots` fails the check with "control plots are two stages now: controlhists (tuples
+  -> histogram files) and controlplots (files -> plots)" (`stages.RETIRED`). Runs started before this change cannot
+  be continued.
+- Bundles: `tes_id_2025`, `example_mutau_long` (`controlhists` id `hists`, `controlplots` id `plots`, so the plots
+  stay in `stages/plots/plots/<era>/`), `example_broken` (its error 3 now names `controlhists`).
+- Boundary: no new import edge (Framework -> `TauFW.Plotter.api` is an API); `Tests/Histogrammer/compat` now allows
+  `TauFW.Plotter.api` as long as it imports nothing of the Histogrammer (it is the new Plotter's own API, not an
+  alias of the old one).
+- Tests: `Tests/Plotter/api` (new suite `unit.plotter.api`: commands, expected names, artifacts, preflight with a
+  planned file), `Tests/Histogrammer/api/test_control_hists.py` (the renamed test: `--hists --no-draw`, the file
+  artifact, no drawing options), Framework tests with a fake Histogrammer and a fake Plotter (new
+  `ControlPlotsTests`: the files of the input, a plan before the files exist, the input kind, `{path}` of another
+  run; the retired name), `Tests/tools/compare_histfiles.py` + test (two histogram files entry by entry, for the
+  lxplus check).
+- Not changed: the legacy `plot.py` messages (`fillhists.py` is still one command, K6), the BBB cases, the old
+  variants (`plot_postfit*`, `plot_v10`, tutorial).
+- Docs: READMEs (Framework, Analyses, Histogrammer, Plotter, Tests), the contract page, `scripts_arg_changes.md`,
+  IOInventory rows (by hand: `python Utilities/_audit_io.py` regenerates a much smaller file than the committed one,
+  so it was not rerun), TODO §1 (lxplus), §6 (later), §8 (migration point).
+
+Checked (Windows): `python Tests/run.py checks`: 13 of 15 suites pass (`unit.plotter.api` new, `unit.framework`,
+`unit.histogrammer.api`, `unit.histogrammer.compat`, `unit.tools` included); `check_import_boundaries` unchanged
+(30 / 28 / 26, 0 new pairs), `check_root` needs ROOT. On lxplus (TODO §1): BBB 22/22 without re-lock, the PNGs of
+the two stages equal those of the old plots stage (reference `~/s4ref`, taken before this change), the file of
+`--hists --no-draw` equals that of `--hists`.

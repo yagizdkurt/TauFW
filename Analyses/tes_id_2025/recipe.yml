@@ -2,14 +2,14 @@
 # tuples. It runs what Fitter/run_inputs.sh and Fitter/run_workflow_zmm.sh run (option 3: 2D scan of tes and tid_SF
 # per decay mode and pt region, with the Z->mumu control region), control plots first, and a summary step last.
 #   taufw.py plan    Analyses/tes_id_2025                       # the commands of every stage (nothing runs)
-#   taufw.py start   Analyses/tes_id_2025                       # runs plots, shapes, fit, summary (hours)
+#   taufw.py start   Analyses/tes_id_2025                       # runs hists, plots, shapes, fit, summary (hours)
 #   taufw.py status  taufw_runs/tes_id_2025_<time>              # the fitted values
 # Everything this analysis reads is in this directory: the .yml configs next to this file replace the module
 # configs (whole files), steps/ holds its Python steps. Paths are relative to this directory. A run copies the
 # directory to taufw_runs/<run>/bundle/, so editing it later never changes a started run. Copy or send this
 # directory to hand over the analysis.
 # Needs cmsenv in a CMSSW area with combine and CombineHarvester (FastSetup.sh). The pico tuples are the TauFW
-# group's 2025 tuples, named in the inputs of plots and shapes below ({external: <pattern>}; the scripts get
+# group's 2025 tuples, named in the inputs of hists and shapes below ({external: <pattern>}; the scripts get
 # them as --tuples), including the variation tuples in the same directories (<sample>_mutau_TES0p950.root,
 # ..._LTF1p030, ..._JTF0p900, ...). Each stage's scripts run in, and write to,
 # taufw_runs/<run>/stages/<id>/ (the fit: stages/fit/<era>/); each command's log goes to taufw_runs/<run>/logs/<id>/.
@@ -25,9 +25,9 @@ pico:
                             # (not used for the tuples, which the inputs below name)
 
 stages:
-  - stage: plots            # data/MC control plots (Histogrammer/fillhists.py, run in stages/plots/)
-    id: plots
-    description: data/MC control plots of the mutau and mumu selections
+  - stage: controlhists     # the histograms of the data/MC control plots (Histogrammer/fillhists.py --hists
+    id: hists               # --no-draw, run in stages/hists/; one file per setup and era in hists/<era>/)
+    description: control histograms of the mutau and mumu selections
     inputs:
       tuples: &tuples_2025  # tuples made outside this recipe (no production stage here): <sample>_<channel>.root
         external: /eos/cms/store/group/phys_tau/TauFW/pico2024/TES_variations/$ERA/$GROUP
@@ -35,19 +35,24 @@ stages:
     configs: [setup_mutau.yml, setup_mumu.yml]   # channel setups (copies of Configs/Histogrammer/setups/)
     samples: &samples_2025 [v15_2025.yml]   # the samples (MC table, data, weights): a copy of
                             # Configs/Histogrammer/samples/v15_2025.yml, the same as Histogrammer/config/samples_v15.py
-    variables: [m_vis, pt_1, pt_2, eta_2, dm_2]   # plot.py -V; []: every variable
-    selections: [baseline]  # plot.py -S; []: baseline and every region
-    pdf: false
+    variables: [m_vis, pt_1, pt_2, eta_2, dm_2]   # fillhists.py -V; []: every variable
+    selections: [baseline]  # fillhists.py -S; []: baseline and every region
+
+  - stage: controlplots     # data/MC control plots drawn from those files (Plotter/draw.py, run in stages/plots/)
+    id: plots
+    description: data/MC control plots of the mutau and mumu selections
+    inputs: {hists: hists}  # the control-histogram files of the stage above
+    pdf: false              # also save pdf files; the plots: stages/plots/plots/2025/ of the run
 
   - stage: shapes           # input shapes (Fitter/TauES/createinputsTES.py, run in stages/shapes/)
     id: shapes
     description: TES and tau ID shapes, mutau and the mumu control region
-    inputs: {tuples: *tuples_2025}   # the same tuples as the plots (a YAML alias of the input above)
+    inputs: {tuples: *tuples_2025}   # the same tuples as the hists (a YAML alias of the input above)
     eras: [2025]
     jet_wps: [VTight]       # DeepTau VSjet working points (run_inputs.sh: J_VALUES)
     ele_wps: [Tight]        # DeepTau VSe working points (run_inputs.sh: E_VALUES)
     configs: [config_coarse_TT.yml, FitSetup_mumu.yml]   # mutau fit, mumu CR (copies of Fitter/TauES*/config/)
-    samples: *samples_2025  # the same samples as the plots (a YAML alias)
+    samples: *samples_2025  # the same samples as the hists (a YAML alias)
     serial: false           # createinputsTES.py -s
 
   - stage: fit              # Fitter/run_workflow_zmm.sh steps, run in stages/fit/<era>/

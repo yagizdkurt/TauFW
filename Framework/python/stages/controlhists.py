@@ -1,20 +1,25 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-"""Plots stage: data/MC control plots of the pico tuples, through the Histogrammer API (Histogrammer/fillhists.py, the
-former Plotter/plot.py; CL §24).
+"""Control histograms stage: pico tuples -> control-histogram files, through the Histogrammer API (CL §24, S4).
+
+The first half of the control plots: Histogrammer/fillhists.py --hists --no-draw fills the data/MC stacks of every
+variable and selection and writes them to one file per channel setup and era; the controlplots stage draws them
+with the Plotter. Until S4 one stage (plots) filled and drew in one script; filling and drawing are now two stages,
+each with the API of its own module, and the Framework carries the files between them.
 
     inputs:   tuples: pico tuples, given to the script as --tuples <pattern>: those of the production stage the slot
               names (the pattern on its artifacts), or {external: <pattern>}; with null (old recipes) the script reads
               $PICODIR of the run's PicoProducer config (passed as $TAUFW_PICO_CONFIG)
-    options:  PlotSpec (eras, channel setups (bundle files or the Histogrammer's), variable and selection filters, script
-              options)
-    outputs:  one plots artifact per channel setup and era: {kind: 'plots', era, config, channel, directory,
-              nfiles}; the script runs in the stage's directory, so the plots are in <run_dir>/stages/<id>/plots/<era>/
+    options:  ControlHistsSpec: what is filled (eras, channel setups (bundle files or the Histogrammer's), sample
+              files, variable and selection filters, the tag of the file names, the script's filling options); the
+              drawing options (-F, -p, -T) are the controlplots stage's
+    outputs:  one control_histograms artifact per channel setup and era: {kind: 'control_histograms', era, config,
+              channel, tag, file}; the script runs in the stage's directory, so the files are
+              <run_dir>/stages/<id>/hists/<era>/<channel><tag>.root
 
-The stage runs locally and finishes in one advance() call (see stages/local.py). It comes right after production,
-so the tuples can be checked by eye before the long histogram and fit stages.
+The stage runs locally and finishes in one advance() call (see stages/local.py).
 
 Public API:
-  PlotStage(plotter), PlotSpec
+  ControlHistsStage(histogrammer), ControlHistsSpec
 """
 from dataclasses import dataclass
 from typing import Optional, Tuple
@@ -22,22 +27,23 @@ from typing import Optional, Tuple
 from TauFW.Framework.stages.base import as_strings, spec_to_dict
 from TauFW.Framework.stages.local import LocalStage
 
-__all__ = ['PlotStage', 'PlotSpec']
+__all__ = ['ControlHistsStage', 'ControlHistsSpec']
 
 
 # =============================================================================
 # =================================== STAGE ===================================
 
 
-class PlotStage(LocalStage):
-    """Control plots with the Histogrammer API.
-    plotter: a TauFW.Histogrammer.api.ControlPlots, or any object with the same methods (tests pass a fake one)."""
-    name = 'plots'
+class ControlHistsStage(LocalStage):
+    """Control histograms with the Histogrammer API.
+    histogrammer: a TauFW.Histogrammer.api.ControlHists, or any object with the same methods (tests pass a fake
+    one)."""
+    name = 'controlhists'
     inputs = {'tuples': 'tuples'}
     null_inputs = {'tuples': "the tuples in $PICODIR of the run's PicoProducer config"}
-    outputs = ('plots',)
-    group = 'plotter'  # taufw.py init names a copied config <group>_<name> if its name is taken
-    # Spec = PlotSpec: set at the bottom of this file.
+    outputs = ('control_histograms',)
+    group = 'histogrammer'  # taufw.py init names a copied config <group>_<name> if its name is taken
+    # Spec = ControlHistsSpec: set at the bottom of this file.
 
     def request(self, spec, context):
         tuples = self.tuples_pattern(context)[0]
@@ -62,20 +68,18 @@ class PlotStage(LocalStage):
 
 
 @dataclass(frozen=True)
-class PlotSpec:
+class ControlHistsSpec:
     """Recipe options: eras, channel setups (bundle files, .yml files relative to Histogrammer/, or a channel name for
-    Configs/Histogrammer/setups/setup_<channel>.yml), the
-    script's filters -V (variables) and -S (selections), and its flags."""
+    Configs/Histogrammer/setups/setup_<channel>.yml), the script's filters -V (variables) and -S (selections), and its
+    filling options. Everything here changes what is in the files; what changes only the picture is an option of
+    the controlplots stage (plan 18 §14 K7)."""
     eras:       Tuple[str, ...]
     configs:    Tuple[str, ...] = ('mutau',)
     variables:  Tuple[str, ...] = ()
     selections: Tuple[str, ...] = ()
     serial:     bool = False
-    fraction:   bool = False
-    pdf:        bool = False
     notauidsf:  bool = False
-    tag:        str = ""
-    text:       str = ""
+    tag:        str = ""                 # in the file names and in the files: the plots are named with it
     timeout:    Optional[float] = None   # seconds per script run; None: no limit
     samples:    Tuple[str, ...] = ()     # sample model files (bundle copies of Configs/Histogrammer/samples/), one per
                                          # era; empty: the tables of Histogrammer/config/samples_v15.py
@@ -89,9 +93,9 @@ class PlotSpec:
             raise ValueError("configs must not be empty")
 
     def request_dict(self):
-        """The options as the Histogrammer PlotsRequest fields (saved in run.json)."""
+        """The options as the Histogrammer HistsRequest fields (saved in run.json)."""
         return spec_to_dict(self)
 
 
-PlotSpec._paths = ('configs', 'samples')  # resolved against the bundle (bundle.py)
-PlotStage.Spec = PlotSpec
+ControlHistsSpec._paths = ('configs', 'samples')  # resolved against the bundle (bundle.py)
+ControlHistsStage.Spec = ControlHistsSpec

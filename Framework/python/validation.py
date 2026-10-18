@@ -14,7 +14,7 @@ What is checked here and what is not:
                   directory of a {path: <stage directory>} input: it exists, has a manifest of format 2 (its stage
                   is DONE), was not moved or copied, and its stage makes the kind of data the slot takes
                   (manifest.py; the same rule as between the stages of one recipe).
-    samples:      the `samples` option (plots, shapes) names files of the bundle (copies of the templates in
+    samples:      the `samples` option (controlhists, shapes) names files of the bundle (copies of the templates in
                   Configs/Histogrammer/samples/) or absolute ones, not module files; they are read through the
                   Histogrammer API (the format is the Histogrammer's): readable, exactly one per era of the stage.
     not checked:  path options a module resolves (e.g. Fitter/TauES_ID/config/...), and the environment (CMSSW,
@@ -109,9 +109,9 @@ def _sample_issues(stage_spec, where, bundle_dir):
              if option == 'samples' and kind != 'module']
     if not files or len(files) != len(getattr(stage_spec.spec, 'samples', ())):
         return []  # none, or a module path (reported above)
-    from TauFW.Histogrammer.api import ControlPlots  # the format of the files is the Histogrammer's
+    from TauFW.Histogrammer.api import ControlHists  # the format of the files is the Histogrammer's
     return [Issue("%s.samples" % (where), problem)
-            for problem in ControlPlots().samples_problems(files, stage_spec.spec.eras)]
+            for problem in ControlHists().samples_problems(files, stage_spec.spec.eras)]
 
 
 def source_problem(stage_spec, slot, path):

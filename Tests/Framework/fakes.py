@@ -246,17 +246,50 @@ class _FakeLocalAPI:
         return [c[1:] for c in self.calls if c[0] == name][-1]
 
 
-class FakePlotter(_FakeLocalAPI):
+class FakeHistogrammer(_FakeLocalAPI):
+    """The Histogrammer's ControlHists: one file per config and era, hists/<era>/<config>.root in the output
+    directory (the config is used as the channel)."""
     @staticmethod
     def request(**fields):
         return dict(fields)
 
     def plan(self, request):
+        import os
         self.calls.append(("plan", request))
-        commands = tuple(Command("plots %s %s" % (c, e), ("python3", "plot.py", "-y", e, "-c", c))
+        commands = tuple(Command("controlhists %s %s" % (c, e), ("python3", "fillhists.py", "-y", e, "-c", c,
+                                                                 "--hists", "--no-draw"))
                          for c in request["configs"] for e in request["eras"])
-        artifacts = tuple({"kind": "plots", "era": e, "config": c} for c in request["configs"] for e in request["eras"])
-        return CommandPlan("/repo/Plotter", commands, artifacts)
+        outdir = request.get("outdir") or "/repo/Histogrammer"
+        artifacts = tuple({"kind": "control_histograms", "era": e, "config": c, "channel": c, "tag": "",
+                           "file": os.path.join(outdir, "hists", e, "%s.root" % (c))}
+                          for c in request["configs"] for e in request["eras"])
+        return CommandPlan(outdir, commands, artifacts)
+
+    def preflight(self, request):
+        self.calls.append(("preflight", request))
+        return self.problems
+
+    def make(self, request, logdir, progress):
+        self.calls.append(("make", request))
+        return self._run(self.plan(request), logdir, progress)
+
+
+class FakePlotter(_FakeLocalAPI):
+    """The Plotter's ControlPlots: one draw.py command and one plots artifact per file of the request."""
+    @staticmethod
+    def request(**fields):
+        return dict(fields)
+
+    def plan(self, request):
+        import os
+        self.calls.append(("plan", request))
+        commands = tuple(Command("controlplots %s %s" % (f["channel"], f["era"]), ("python3", "draw.py", f["path"]))
+                         for f in request["files"])
+        outdir = request.get("outdir") or "/repo/Plotter"
+        artifacts = tuple({"kind": "plots", "era": f["era"], "config": f["config"], "channel": f["channel"],
+                           "directory": os.path.join(outdir, "plots", f["era"]), "nfiles": 2}
+                          for f in request["files"])
+        return CommandPlan(outdir, commands, artifacts)
 
     def preflight(self, request):
         self.calls.append(("preflight", request))
