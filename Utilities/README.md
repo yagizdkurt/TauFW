@@ -18,7 +18,7 @@ The package `__init__.py` files contain the public exports, so they are tracked 
 
 ## Package boundaries
 
-CLI and FIO each export one class; Menu exports `ConsoleUI` and `MenuNavigation`; Process exports `Command`, `CommandResult`, `ProcessRunner` and `ParallelProcessor`, and for the menu `EventWriter`, `EventReader`, `LogTail`, `BackgroundProcess`, `Operation` and `OperationStore`; Math exports plain functions (`_math.py`). `_cli.py`, `_file_io.py`, and `_menu.py` implement those entry points; CLI and FIO use `_internal/` for formatting, filesystem, serialization, command, transport and ROOT functions. Application code should import only the owning package's public class. Underscores and `__all__` document Python's private API convention; they do not prevent access to internal modules.
+CLI and FIO each export one class; Menu exports `ConsoleUI` and `MenuNavigation`; Process exports `Command`, `CommandResult`, `ProcessRunner` and `ParallelProcessor`, and for the menu `EventWriter`, `EventReader`, `LogTail`, `BackgroundProcess`, `Operation` and `OperationStore`; Math exports plain functions (`_math.py`); HistFile exports `write_histfile`, `read_histfile` and their records (`_histfile.py`). `_cli.py`, `_file_io.py`, and `_menu.py` implement those entry points; CLI and FIO use `_internal/` for formatting, filesystem, serialization, command, transport and ROOT functions. Application code should import only the owning package's public class. Underscores and `__all__` document Python's private API convention; they do not prevent access to internal modules.
 
 These packages do not import existing analysis/startup modules or Framework. Construction is silent and does not open files, change directories, read configuration or launch commands; only `ProcessRunner.run`/`run_all`, `ParallelProcessor.start`, `BackgroundProcess.start` and `OperationStore.start` launch processes. There are no global utility instances, base classes or service registries. Pass instances explicitly to future framework components.
 The drawing library is the exception; see [Drawing](#drawing-cms-style-root-plots).
@@ -331,6 +331,23 @@ import them only from here, never from a copy. `LOG` and `SampleStyle.LOG` are t
 `LOG.verbosity = 2` in a script sets the verbosity of both. The library never imports the Histogrammer or the Plotter:
 a plot's variable is a string or any object with the attributes of the Histogrammer's `Variable` (`getedge`, `dividebins`, `binlabels`, ranges, titles). The old logger and five
 small helpers are verbatim copies in `Drawing/_internal/` (Utilities does not import `TauFW.common`).
+
+## Histogram files: exchange between modules
+
+```python
+from TauFW.Utilities.HistFile import write_histfile, read_histfile, HistFileEntry
+write_histfile("hists/2025/mutau.root", [HistFileEntry("baseline/m_vis", {"data": [h0], "exp": [h1, h2]}, {"title": "m"})],
+               meta={"era": "2025"})
+content = read_histfile("hists/2025/mutau.root")   # content.meta, content.entries: detached copies, in order
+```
+
+Ordered groups of ROOT histograms plus JSON metadata in one ROOT file (format 1, described in
+`HistFile/_histfile.py`): a `taufw_histfile` header (JSON in a `TNamed`) in the file and in one directory per entry;
+every histogram under its own name with all its attributes. Order comes from the headers, never from the keys.
+Writing checks everything first (unique paths and names, plain-JSON metadata) and leaves ROOT's current directory as
+it was; reading returns copies detached from the file. ROOT is imported only to write or read. The Histogrammer
+writes its filled histograms with it and the Plotter reads them (changelog §24, S3); what the metadata means is
+their contract, [docs/contracts/control-histograms.md](../docs/contracts/control-histograms.md).
 
 ## Inventory and validation
 

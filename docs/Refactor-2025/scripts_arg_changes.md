@@ -184,3 +184,10 @@ migration point (TODO §8). Options, defaults and outputs of every script are un
 | `Configs/Plotter/samples/v15_<era>.yml` (id `plotter.samples_v15_<era>`) | `Configs/Histogrammer/samples/` (id `histogrammer.samples_v15_<era>`; values and versions unchanged) | a bundle copy with the old id is compared with the renamed template and gets a warning to change its `id` line |
 | `Configs/Plotter/setups/setup_<channel>.yml` (id `plotter.setup_<channel>`) | `Configs/Histogrammer/setups/` (id `histogrammer.setup_<channel>`) | same |
 | `fillhists.py -c <channel>`, the API and the Framework resolve a channel name to `Configs/Plotter/setups/` | `Configs/Histogrammer/setups/setup_<channel>.yml` | none |
+
+### Histogram file and draw.py (S3)
+
+| Script | Change | Default (unchanged behaviour) |
+|---|---|---|
+| `Histogrammer/fillhists.py` | new option `--hists`: also writes the filled histograms of every plot to `hists/<era>/<channel><tag>.root` ([contract](../contracts/control-histograms.md)), copied before they are drawn | without it nothing changes (no file, the same plots and log) |
+| `Plotter/draw.py` (new) | `draw.py FILE [FILE ...] [-o OUTDIR] [-F] [-p] [-T TEXT] [-v]`: draws the plots of such files, with the file names and texts of `fillhists.py` | `-o plots/$ERA` |

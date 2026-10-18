@@ -20,7 +20,7 @@ modules and macros under `Legacy/Plotter/python/`.
 
 | Path | What |
 |---|---|
-| `fillhists.py` | fills the histograms of a channel setup and era (formerly `Plotter/plot.py`, same options); until the clean Plotter draws them it also draws the control plots, exactly as `plot.py` did |
+| `fillhists.py` | fills the histograms of a channel setup and era (formerly `Plotter/plot.py`, same options); until the clean Plotter draws them (S4) it also draws the control plots, exactly as `plot.py` did; with `--hists` it also writes the filled histograms to `hists/<era>/<channel><tag>.root` for `Plotter/draw.py` ([contract](../docs/contracts/control-histograms.md)) |
 | `plot.py` | LEGACY: prints the `fillhists.py` command to use instead and exits (nothing runs) |
 | `plot_postfit.py`, `plot_postfit_shift.py`, `plot_v10.py`, `tutorial/` | older fill-and-draw variants, unchanged (their future is decided in step S3 of the plan) |
 | `config/samples*.py` | sample lists as Python code (`samples_v15.py` is backward compatibility for runs without sample model files) |
@@ -28,6 +28,7 @@ modules and macros under `Legacy/Plotter/python/`.
 | `python/spec/` | what to fill: `Variable`, `Selection`, `Context` (contextual binning and titles), `string` (selection strings) |
 | `python/methods/` | data-driven methods added to `SampleSet` by name (`QCD_OSSS`) |
 | `python/macros/`, `python/corrections/` | ROOT macros loaded by path (e.g. `mapDecayModes.C`) |
+| `python/controlhists.py` | `TauFW.Histogrammer.controlhists`: `stack_entry` (copies of a stack's histograms as filled, with the drawing attributes) and `write_control_hists` (`--hists`) |
 | `python/api/` | the public API below |
 
 ## Old names (backward compatibility)

@@ -194,14 +194,13 @@ Each category in the Observed I/O column maps to the API table above. Representa
 | [PicoProducer/utils/vary.sh](../PicoProducer/utils/vary.sh) (shell text) | Shell setup/worker/measurement orchestration | **terminal** (2): text scan: echo L40 | Startup, environment and workflow decisions |
 
 ### Histogrammer
-
 | Source | Responsibility | Observed I/O and representative sites | Remains domain-owned |
 |---|---|---|---|
 | [Histogrammer/config/samples.py](../Histogrammer/config/samples.py) (AST) | Sample catalog/metadata | **terminal** (3): getsampleset: LOG.verb L173; getsampleset: sampleset.printtable L240 | Sample selection, dataset identities and normalization |
 | [Histogrammer/config/samples_HighPT.py](../Histogrammer/config/samples_HighPT.py) (AST) | Sample catalog/metadata | **terminal** (3): getsampleset: LOG.verb L67; getsampleset: sampleset.printtable L72 | Sample selection, dataset identities and normalization |
 | [Histogrammer/config/samples_v12.py](../Histogrammer/config/samples_v12.py) (AST) | Sample catalog/metadata | **terminal** (4): getsampleset: print L181; getsampleset: LOG.verb L224 | Sample selection, dataset identities and normalization |
 | [Histogrammer/config/samples_v15.py](../Histogrammer/config/samples_v15.py) (AST) | Sample catalog/metadata | **terminal** (4): getsampleset: print L233; getsampleset: LOG.verb L294 | Sample selection, dataset identities and normalization |
-| [Histogrammer/fillhists.py](../Histogrammer/fillhists.py) (AST) | Plot/sample/histogram helper: fillhists | **local** (9): plot: os.path.join L70; plot: os.path.dirname L70<br>**terminal** (4): plot: LOG.header L25; plot: print L105<br>**canvas** (1): plot: stack.saveas L116<br>**yaml** (1): main: yaml.safe_load L141<br>**arguments** (15): module: ArgumentParser L160; module: parser.add_argument L161 | Selections, histogram calculation, styles and canvas export |
+| [Histogrammer/fillhists.py](../Histogrammer/fillhists.py) (AST) | Plot/sample/histogram helper: fillhists | **local** (9): plot: os.path.join L73; plot: os.path.dirname L73<br>**terminal** (5): plot: LOG.header L28; plot: print L109<br>**canvas** (1): plot: stack.saveas L122<br>**yaml** (1): main: yaml.safe_load L150<br>**arguments** (16): module: ArgumentParser L170; module: parser.add_argument L171 | Selections, histogram calculation, styles and canvas export |
 | [Histogrammer/plot.py](../Histogrammer/plot.py) (AST) | Plot/sample/histogram helper: plot | **local** (5): new_commands: os.path.dirname L31; new_commands: os.path.abspath L31<br>**terminal** (1): main: print L44 | Selections, histogram calculation, styles and canvas export |
 | [Histogrammer/plot_postfit.py](../Histogrammer/plot_postfit.py) (AST) | Plot/sample/histogram helper: plot_postfit | **local** (6): plot: ensuredir L131; main: os.path.join L230<br>**terminal** (13): plot: LOG.header L23; plot: print L31<br>**canvas** (1): plot: stack.saveas L208<br>**yaml** (1): main: yaml.safe_load L233<br>**arguments** (13): module: ArgumentParser L267; module: parser.add_argument L268 | Selections, histogram calculation, styles and canvas export |
 | [Histogrammer/plot_postfit_shift.py](../Histogrammer/plot_postfit_shift.py) (AST) | Plot/sample/histogram helper: plot_postfit_shift | **local** (6): plot: ensuredir L141; main: os.path.join L231<br>**terminal** (10): plot: LOG.header L23; plot: print L31<br>**canvas** (1): plot: stack.saveas L209<br>**yaml** (1): main: yaml.safe_load L234<br>**arguments** (13): module: ArgumentParser L268; module: parser.add_argument L269 | Selections, histogram calculation, styles and canvas export |
@@ -267,10 +266,11 @@ Each category in the Observed I/O column maps to the API table above. Representa
 | [Legacy/Plotter/python/methods/ScaleVariations.py](../Legacy/Plotter/python/methods/ScaleVariations.py) (AST) | Plot/sample/histogram helper: ScaleVariations | **terminal** (10): getenvelope_scalevars: LOG.header L18; getenvelope_scalevars: print L19 | Selections, histogram calculation, styles and canvas export |
 
 ### Plotter
-
 | Source | Responsibility | Observed I/O and representative sites | Remains domain-owned |
 |---|---|---|---|
+| [Plotter/draw.py](../Plotter/draw.py) (AST) | Plot/sample/histogram helper: draw | **arguments** (8): parse: ArgumentParser L19; parse: parser.add_argument L20<br>**terminal** (1): main: print L38 | Selections, histogram calculation, styles and canvas export |
 | [Plotter/plot.py](../Plotter/plot.py) (AST) | Plot/sample/histogram helper: plot | **local** (5): new_commands: os.path.dirname L31; new_commands: os.path.abspath L31<br>**terminal** (1): main: print L44 | Selections, histogram calculation, styles and canvas export |
+| [Plotter/python/controlplots.py](../Plotter/python/controlplots.py) (AST) | Plot/sample/histogram helper: controlplots | **canvas** (1): draw_stack: stack.saveas L156<br>**local** (1): draw_control_plots: os.makedirs L166 | Selections, histogram calculation, styles and canvas export |
 
 ### Fitter
 
@@ -494,6 +494,7 @@ These files are included in the audit; delegated or dynamically selected I/O can
 - [Histogrammer/config/__init__.py](../Histogrammer/config/__init__.py)
 - [Histogrammer/python/api/__init__.py](../Histogrammer/python/api/__init__.py)
 - [Histogrammer/python/api/types.py](../Histogrammer/python/api/types.py)
+- [Histogrammer/python/controlhists.py](../Histogrammer/python/controlhists.py)
 - [Plotter/python/methods/QCD_OSSS.py](../Plotter/python/methods/QCD_OSSS.py)
 - [Plotter/python/plot/Context.py](../Plotter/python/plot/Context.py)
 - [Plotter/python/plot/MultiDraw.py](../Plotter/python/plot/MultiDraw.py)

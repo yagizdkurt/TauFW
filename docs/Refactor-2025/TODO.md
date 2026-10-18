@@ -16,6 +16,18 @@ Items marked **(verify)** may already be done; check before working on them.
 ## 1. Checks to run on lxplus
 
 
+- [ ] **Histogram file and `draw.py` (CL §24, S3): nothing may change.** After `git pull` (and `scram b -j4`), in
+      `TauFW/`: `python3 Tests/run.py bbb check` (22/22, **no re-lock**: `plotter.stack` now fills, writes the file,
+      reads it and draws with the Plotter, and must give the canvases locked from memory in S0);
+      `python3 Tests/run.py checks` (with ROOT `unit.utilities` also runs the file round trip). Real data, all
+      variables of `mutau` and `mumu` (baseline), in `Histogrammer/` with `T='--tuples
+      /eos/cms/store/group/phys_tau/TauFW/pico2024/TES_variations/$ERA/$GROUP --samples
+      ../Configs/Histogrammer/samples/v15_2025.yml'`: (1) `python3 fillhists.py -y 2025 -c mutau mumu -S baseline
+      -t _s3ref $T > ~/s3_ref.log 2>&1`; (2) the same with `-t _s3 --hists > ~/s3_hists.log 2>&1`; (3)
+      `python3 ../Plotter/draw.py hists/2025/mutau_s3.root hists/2025/mumu_s3.root -o drawn/2025`. Then `--hists`
+      changes no plot (`plots/2025/*_s3ref.png` vs `*_s3.png`), `draw.py` draws the same plots (`plots/2025/*_s3.png`
+      vs `drawn/2025/*_s3.png`, same number of files), and the logs of (1) and (2) differ only in the tag, the
+      "Wrote the histograms" line and the timing.
 - [ ] **Configs to `Configs/Histogrammer/` (CL §24, S2).** After `git pull`, in `TauFW/`: `python3 Tests/run.py bbb
       check` (22/22, no re-lock: `plotter.sample_model` reads the moved templates), `python3 Tests/run.py checks`,
       `python3 Framework/scripts/taufw.py configs` (15 templates, all `histogrammer.*`), `taufw.py check` and `plan` of
@@ -96,11 +108,11 @@ Items marked **(verify)** may already be done; check before working on them.
       `prod_test_20261017-023321`'s production manifest converted the same way; `check` and `plan` of a plots recipe
       with `{tuples: {path: ...}}` (the `--tuples` pattern is that run's). (6) `taufw.py plan Analyses/tes_id_2025`
       as before.
-- [ ] **Test screen on lxplus (CL §20, §22):** `python3 Tests/run.py checks` (all but `check_import_boundaries` pass), then
+- [ ] **Test screen on lxplus (CL §20):** `python3 Tests/run.py checks` (all but `check_import_boundaries` pass), then
       in the menu (`taufw.py`): Tests > Normal tests > Run entire family: the cases fill in live, a running case's log
       grows in Details, Enter/L/End work, no line is printed over the screen. Stop a BBB check with S and with Esc + Y:
       the run ends within seconds and `ps -u $USER` shows no left-over worker. `Tests/Utilities/test_background.py`
-      runs the real process-group test there (skipped on Windows). Framework events (§22): `python3 Tests/run.py bbb check`
+      runs the real process-group test there (skipped on Windows). Framework events (§20): `python3 Tests/run.py bbb check`
       for the `framework.*` cases passes unchanged; then `TAUFW_EVENTS=/tmp/$USER-ev.jsonl taufw.py advance <a run
       with a local stage>` prints the same and the file holds run, stage_step, progress, stage_state, run_state.
 - [ ] **Tests behind the menu on lxplus (CL §23):** `python3 Tests/Utilities/test_operations.py` (the two real
@@ -274,7 +286,7 @@ Parts 1–5 are done (CL §5–§8; the Part 2 changelog section was removed).
       have the same risk today. Fix in the production stage: record "submitting" in `run.json` before the submit;
       an `advance` that finds it without a submission stops and asks for a `condor_q` check. Not part of the menu
       work (user, 2026-10-17).
-- [ ] **Menu as a program, next steps** (CL §20, §22, §23; decisions in §23): (1) `advance` lock in the run
+- [ ] **Menu as a program, next steps** (CL §20, §23; decisions in §23): (1) `advance` lock in the run
       directory (O_EXCL file: pid, host, time; also the CLI; refused while held on another machine; taken over on
       request when its operation is Lost) and a safe stop in `taufw.py` (SIGINT waits for a job submission to finish
       and for `run.json`, a local command is stopped at once); (2) the run screen: the test screen split into a
@@ -398,6 +410,11 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
 - [ ] Trigger stage (was out of scope).
 - [ ] Plotter and Fitter are wrapped as they are; clean them up behind the same APIs.
 
+- [ ] **Old fill-and-draw variants (CL §24, S3 decision: left as they are):** `Histogrammer/plot_postfit.py`,
+      `plot_postfit_shift.py` (2024, `samples_v12`, TES shifts per decay mode hard-coded), `plot_v10.py` (v10 tuples;
+      in `Fitter/TauES_ID/README.md:115`) still fill and draw in one script (they work through the old names). Decide:
+      Legacy (with their config and macro paths) if nobody uses them, else the two-step form (`--hists`, `draw.py`).
+      `Histogrammer/tutorial/` becomes an example of the two steps after S4.
 - [ ] **Variable list as a template (CL §24 observation):** the variables users actually edit are Python code inside
       `Plotter/plot.py` (`:44-95`, later `Histogrammer/fillhists.py`); a `Configs/Histogrammer/` template for them is a
       new feature (not part of the rename/extraction).

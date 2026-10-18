@@ -15,13 +15,16 @@ import os
 from config.samples_v15 import *
 from TauFW.Histogrammer.spec.string import filtervars
 from TauFW.Utilities.Drawing import LOG as PLOG
+from TauFW.Histogrammer.controlhists import stack_entry, write_control_hists # --hists (CL §24, S3)
 import yaml
 SETUPS = os.path.join(os.path.dirname(os.path.abspath(__file__)),"..","Configs","Histogrammer","setups") # channel setups (CL §22)
 
 
 def plot(sampleset,setup,parallel=True,tag="",extratext="",outdir="plots",era="",
-         varfilter=None,selfilter=None,fraction=False,pdf=False):
-  """Test plotting of SampleSet class for data/MC comparison."""
+         varfilter=None,selfilter=None,fraction=False,pdf=False,histfile=None):
+  """Test plotting of SampleSet class for data/MC comparison.
+  With histfile (a path; $ERA, $CHANNEL replaced), the histograms of every stack are also written to that file as
+  they were filled, before they are drawn (TauFW.Histogrammer.controlhists; Plotter/draw.py draws them)."""
   LOG.header("plot")
   
   channel  = setup["channel"]
@@ -101,6 +104,7 @@ def plot(sampleset,setup,parallel=True,tag="",extratext="",outdir="plots",era=""
   # PLOT
   outdir = ensuredir(repkey(outdir,CHANNEL=channel,ERA=era))
   exts   = ['png','pdf'] if pdf else ['png'] # extensions
+  entries = [ ] # --hists: the histograms of every stack, as filled
   for selection in selections:
     print(">>> Selection %r: %r"%(selection.title,selection.selection))
     stacks = sampleset.getstack(variables,selection,method='QCD_OSSS',parallel=parallel)
@@ -109,13 +113,18 @@ def plot(sampleset,setup,parallel=True,tag="",extratext="",outdir="plots",era=""
     if extratext:
       text += ("" if '\n' in extratext[:3] else ", ") + extratext
     for stack, variable in stacks.items():
+      if histfile: # copies of the histograms BEFORE draw() changes them; variable = (Variable, Selection)
+        entries.append(stack_entry(stack,*variable))
       #position = "" #variable.position or 'topright'
       stack.draw(fraction=fraction)
       stack.drawlegend() #position)
       stack.drawtext(text)
       stack.saveas(fname,ext=exts,tag=tag)
       stack.close(keep=True)
-  
+  if histfile:
+    histfile = write_control_hists(repkey(histfile,CHANNEL=channel,ERA=era),entries,channel=channel,era=era,tag=tag)
+    print(">>> Wrote the histograms of %d stacks to %s (draw them with Plotter/draw.py)"%(len(entries),histfile))
+
 
 def main(args):
   configs   = args.configs
@@ -140,7 +149,8 @@ def main(args):
     with open(config, 'r') as file:
       setup = yaml.safe_load(file)
     tag = setup.get('tag',"")+args.tag
-    
+    histfile = "hists/$ERA/$CHANNEL%s.root"%(tag) if args.hists else None # --hists: next to plots/$ERA
+
     for era in eras:
       setera(era) # set era for plot style and lumi-xsec normalization
       addsfs = [ ] #"getTauIDSF(dm_2,genmatch_2)"]
@@ -149,7 +159,7 @@ def main(args):
       sampleset = getsampleset(setup['channel'],era,fname=fname,rmsf=rmsfs,addsf=addsfs,split=split,tuples=tuples,
                                samples=samples)
       plot(sampleset,setup,parallel=parallel,tag=tag,extratext=extratext,outdir=outdir,era=era,
-           varfilter=varfilter,selfilter=selfilter,fraction=fraction,pdf=pdf)
+           varfilter=varfilter,selfilter=selfilter,fraction=fraction,pdf=pdf,histfile=histfile)
       #sampleset.close()
   
 
@@ -184,6 +194,9 @@ if __name__ == "__main__":
   parser.add_argument('--samples',       default=None, nargs='+', metavar='FILE',
                                          help="sample model files, one per era (e.g. Configs/Histogrammer/samples/v15_2025.yml "
                                               "or a copy), instead of the tables of config/samples_v15.py" )
+  parser.add_argument('--hists',         action='store_true',
+                                         help="also write the filled histograms of every plot to "
+                                              "hists/<era>/<channel><tag>.root, for Plotter/draw.py (CL §24)" )
   parser.add_argument('-v', '--verbose', dest='verbosity', type=int, nargs='?', const=1, default=0, action='store',
                                          help="set verbosity" )
   args = parser.parse_args()

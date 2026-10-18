@@ -72,7 +72,8 @@ Histogrammer API unit tests (`Tests/Fitter/api`, `Tests/Histogrammer/api`: the c
 Fitter and Histogrammer scripts, with a fake process runner), the sample model tests
 (`Tests/Histogrammer/sample_model`: the templates of `Configs/Histogrammer/samples/` make the same
 core calls as `Histogrammer/config/samples_v15.py`, no ROOT), the old Plotter names
-(`Tests/Histogrammer/compat`: every alias shim, changelog §24), the move check (`Tests/tools`), the harness and ROOT serializer checks, every normal case, and `bbb check` in
+(`Tests/Histogrammer/compat`: every alias shim, changelog §24), the control-histogram file
+(`Tests/Histogrammer/controlhists`, `Tests/Plotter/draw`, `Tests/Utilities/test_histfile.py`), the move check (`Tests/tools`), the harness and ROOT serializer checks, every normal case, and `bbb check` in
 quiet mode. Passing output is captured in logs; failures show their output tail
 and rerun command. Use `all --tail N` to change the tail length, or `all -v` for
 full output from every suite. Check logs are in
@@ -237,6 +238,8 @@ fingerprinted, so changing the fixtures invalidates the lock. Coverage includes:
 - Common table/loading-bar text, chunking, partitioning, and path/argument formatting.
 - Histogrammer (the former Plotter; the case names keep `plotter.`) selection/context metadata, weighted 1D/2D histograms, normalization,
   flow bins, merging, splitting, DY stitching, QCD OS/SS estimation, and C++ unrolling.
+- `plot.py`'s path to drawn stacks (`plotter.stack`): since changelog §24 S3 through the control-histogram file
+  (Histogrammer writes, Plotter reads and draws), compared with the canvases locked from memory.
 - Histogrammer sample sets (`plotter.sample_model`): the core calls of `getsampleset` for
   every era, channel kind and caller option (recorded, no sample is built).
 - PicoProducer branch schema, defaults, aliases, fixed/variable arrays, 64-bit

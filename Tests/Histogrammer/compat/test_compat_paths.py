@@ -55,8 +55,10 @@ class ShimFileTests(unittest.TestCase):
                 self.assertTrue(module_file(new).is_file(), module_file(new))
 
     def test_no_other_code_in_the_old_package(self):
-        """Until the clean Plotter is extracted, Plotter/python/ holds only the shims."""
-        found = {path for path in SHIM_DIR.rglob("*.py") if "__pycache__" not in path.parts}
+        """The old subpackages of Plotter/python/ (sample, plot, methods) hold only the shims; the new Plotter's own
+        code lives beside them (e.g. controlplots.py, CL §24 S3)."""
+        found = {path for sub in ("sample", "plot", "methods") for path in (SHIM_DIR / sub).rglob("*.py")
+                 if "__pycache__" not in path.parts}
         self.assertEqual(found, {shim_file(old) for old in SHIMS})
 
     def test_no_shim_for_removed_or_broken_names(self):

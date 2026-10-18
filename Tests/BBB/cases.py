@@ -141,18 +141,24 @@ def plotter_qcd(workspace):
 
 
 def _stack_modules():
-    """The code under test of plotter.stack. Only this function changes when the Plotter becomes the Histogrammer
-    (LocalR/architecture/18, S1) and when the drawing moves to the histogram file (S3)."""
+    """The code under test of plotter.stack. Locked with plot.py drawing from memory (LocalR/architecture/18, S0);
+    since S3 the histograms go through a control-histogram file: the Histogrammer writes them, the Plotter reads and
+    draws them. The output must not change."""
     from TauFW.Histogrammer.sample.utils import Sample, SampleSet, setera
     from TauFW.Histogrammer.spec.Variable import Variable
     from TauFW.Histogrammer.spec.Selection import Selection
-    return SimpleNamespace(Sample=Sample, SampleSet=SampleSet, setera=setera, Variable=Variable, Selection=Selection)
+    from TauFW.Histogrammer.controlhists import stack_entry, write_control_hists
+    from TauFW.Plotter.controlplots import read_control_hists, make_stack, draw_stack
+    return SimpleNamespace(Sample=Sample, SampleSet=SampleSet, setera=setera, Variable=Variable, Selection=Selection,
+                           stack_entry=stack_entry, write_control_hists=write_control_hists,
+                           read_control_hists=read_control_hists, make_stack=make_stack, draw_stack=draw_stack)
 
 
 def plotter_stack(workspace):
-    """plot.py's path from samples to a drawn stack: setera without an explicit lumi on the samples (the module
+    """plot.py's path from samples to drawn stacks: setera without an explicit lumi on the samples (the module
     global), getstack with the QCD method loaded by name, and the draw calls of plot.py. Locked before the Plotter
-    became the Histogrammer (18, S0)."""
+    became the Histogrammer (18, S0); since S3 the filled histograms are written to a file (fillhists.py --hists)
+    and drawn from it by the Plotter (draw.py), which must give the same canvases."""
     from support.fixtures import sample_files
     from BBB.snapshot import drawn_snapshot, histogram_snapshot
     m = _stack_modules()
@@ -175,25 +181,27 @@ def plotter_stack(workspace):
     outdir.mkdir()
     result = {"lumi": samples.expsamples[0].lumi, "table": _clean(table.getvalue()).splitlines(),
               "samples": [_sample_state(sample) for sample in samples.samples], "stacks": []}
-    for selection in selections:  # as plot.py: one getstack per selection, then draw every stack
+    entries = []
+    for selection in selections:  # as plot.py: one getstack per selection
         stacks = samples.getstack(variables, selection, method="QCD_OSSS", nthreads=1)
-        fname = "%s/$VAR_mt-%s-2018$TAG" % (outdir, selection.filename)
         # getstack returns {Stack: (Variable, Selection)}; sorted by variable for a fixed order
         for stack, (variable, _) in sorted(stacks.items(), key=lambda item: item[1][0].filename):
-            # the histograms as filled (Stack.draw replaces the data histogram by a graph with Poisson errors)
-            histograms = [histogram_snapshot(hist) for hist in stack.hists]
-            stack.draw(fraction=False)
-            stack.drawlegend()
-            stack.drawtext("#mu#tau_{h}: %s" % selection.title)
-            stack.saveas(fname, ext=["png"], tag="_stack")
-            result["stacks"].append({
-                "selection": selection.selection, "variable": variable.filename,
-                "drawing": {name: getattr(variable, name) for name in (  # what Plot reads from the variable
-                    "filename", "title", "xmin", "xmax", "ymin", "ymax", "rmin", "rmax", "ratiorange", "binlabels",
-                    "logx", "logy", "ymargin", "logyrange", "position", "ncols", "dividebins")},
-                "histograms": histograms,
-                "canvas": drawn_snapshot(stack.canvas)})
-            stack.close(keep=True)
+            entries.append(m.stack_entry(stack, variable, selection))  # the histograms as filled, before drawing
+    histfile = m.write_control_hists(str(Path(workspace) / "hists" / "mutau.root"), entries,
+                                     channel="mutau", era="2018", tag="_stack")
+    hists = m.read_control_hists(histfile)
+    for entry in hists.entries:  # drawn as Plotter/draw.py draws them
+        histograms = [histogram_snapshot(hist) for hist in entry.hists]
+        stack = m.make_stack(entry)
+        m.draw_stack(stack, hists, entry, str(outdir), exts=["png"])
+        result["stacks"].append({
+            "selection": entry.selection_cut, "variable": entry.variable.filename,
+            "drawing": {name: getattr(entry.variable, name) for name in (  # what Plot reads from the variable
+                "filename", "title", "xmin", "xmax", "ymin", "ymax", "rmin", "rmax", "ratiorange", "binlabels",
+                "logx", "logy", "ymargin", "logyrange", "position", "ncols", "dividebins")},
+            "histograms": histograms,
+            "canvas": drawn_snapshot(stack.canvas)})
+        stack.close(keep=True)
     if not any("QCD" in hist["name"] for item in result["stacks"] for hist in item["histograms"]):
         raise RuntimeError("QCD histogram missing from the stacks; refusing a no-op baseline.")
     result["files"] = sorted(path.name for path in outdir.iterdir())
