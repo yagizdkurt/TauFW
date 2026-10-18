@@ -957,6 +957,32 @@ parent; now a supervisor runs them and keeps everything in files.
 - "Run all automated tests" (found on lxplus 2026-10-18): the total is now known from the start, and a case in two
   families is labelled "suite: id" ("normal: plotter.unroll", "bbb: plotter.unroll").
 
+### UI preview (2026-10-18)
+
+Tests > **UI preview (mock screens)** shows every menu screen with made-up data, so a screen can be looked at (and
+its design discussed) without a run: Left/Right switch screens, R shows the current one again (a made-up run starts
+over), Esc on a screen leaves the preview; any other answer shows the same screen again with the answer in the bar on
+the last line. `Utilities/python/Menu/_preview.py`: the screens are the real `ConsoleUI` methods, drawn in one curses
+session (the preview's curses stand-in hands its screen to each screen's `wrapper()`); a made-up test run is an
+`Operation` whose events, output and case logs a script writes while the screen reads them (running, failed, on
+another machine, lost; S stops it). Nothing is started and nothing is written outside a temporary directory. It is
+not a test family; `Tests/Utilities/test_preview.py` checks that every scenario draws, the keys, and the made-up
+runs. The run screens (TODO §6 "Menu as a program") are added to it as they are designed, before they are wired to
+Start and Continue.
+
+### Shared operation screen (2026-10-18)
+
+The test screen is split (K1): `Utilities/python/Menu/_operation_screen.py` holds the layout and keys of a screen
+that follows an operation (state line, list + Details + the focused item's log, Output view, stop question, Esc keeps
+it running); a model (`ScreenModel`) supplies the items and the words. `_test_run.py` keeps only `TestRun`, now the
+model of the test screen (cases, "Stop the tests?", PASSED for DONE), `follow_tests` and `test_summary`. The run
+screen will be a second model. The model lives in the Menu, not in the Framework (K2 revised, user 2026-10-18): it
+reads only the events (plain JSON), so the Menu still imports no Framework module; the Framework will supply the
+stages of `run.json` as plain data when the screen is wired. Checked: the test screen draws the same, character for
+character, in 172 preview frames with a frozen clock (before/after; all views, stop, lost, remote);
+`test_test_run.py` unchanged and passing; `Tests/Utilities/test_operation_screen.py` (new) drives the core with a
+model that is not about tests.
+
 ### Checked
 
 `Tests/Utilities/test_operations.py` (new): supervisor exit codes, heartbeat, stop, kill, SIGTERM, every state, a real

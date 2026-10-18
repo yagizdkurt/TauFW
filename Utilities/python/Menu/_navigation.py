@@ -12,6 +12,7 @@ files, validates values, or invokes commands. Grid callbacks are grid_proxy_vali
 and renew_grid_proxy(). Test callbacks are test_catalog(), start_tests(family, cases, title, expected), which
 returns the TauFW.Utilities.Process.Operation that the test screen follows, and tests_operation(), the last test
 run (or None). running_operations() lists what runs behind the menu, stop_operation(operation) stops one.
+The Tests menu also opens the UI preview (ConsoleUI.preview(), made-up screens; no operations are used).
 Operations run behind the menu: leaving a screen or quitting never stops them (quitting warns first).
 This class owns screen transitions.
 """
@@ -176,6 +177,9 @@ class MenuNavigation:
                     return
                 if family == "last":
                     self._follow_tests(last)
+                    continue
+                if family == "preview":
+                    self.ui.preview()  # made-up screens: nothing runs
                     continue
                 if family == "environment":
                     items = [dict(id="environment", description="Advisory CMSSW Python package-origin check; "

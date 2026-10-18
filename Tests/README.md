@@ -53,6 +53,11 @@ exit, not additional assertions. Full runs still require the reference software
 stack and an existing BBB lock; the menu does not install dependencies or create
 baselines. Integration tests and baseline changes remain CLI-only.
 
+**UI preview (mock screens)**, the last entry of the Tests menu, is not a test:
+it shows every menu screen with made-up data (Left/Right switch screens, R
+shows one again, Esc leaves), so the screens can be looked at without a run.
+Nothing is started; its made-up test runs write only to a temporary directory.
+
 For command-line suite selection, use `python3 Tests/run.py checks` or repeat
 `--case`, for example `python3 Tests/run.py checks --case unit.utilities`.
 `python3 Tests/run.py catalog` prints read-only JSON metadata (`checks`, `normal`,

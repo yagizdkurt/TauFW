@@ -293,6 +293,18 @@ Parts 1–5 are done (CL §5–§8; the Part 2 changelog section was removed).
       (4) one curses session for the whole menu, live labels, errors on screen instead of print + Enter, and a
       small panel over the current screen (`_modal()`) for the quit warning (now a full screen), errors such as
       "Tests are already running", and confirmations (stop, kill now) (user, 2026-10-18: deferred to this step).
+      Run screen design (user, 2026-10-18): Start/Continue in the menu run `advance --wait` behind the menu (to the
+      end: DONE or FAILED; "Advance once" only as a secondary action); a Lost run resumes with Continue (lock
+      takeover). The list shows stages (marker, id, type, state, time), Details by state (local commands from
+      `progress`, the wait countdown, the error), the log of the selected stage; the list comes from `run.json`, the
+      events only update the live part. A run that ends shows a result card (complete / failed / stopped / lost,
+      full run dir path). Main menu: a line per active run like Tests, "Run <id> (3/5 plots)", "Runs (2 active)";
+      a finished run keeps its line ("Done", "Failed at plots") until its card is opened once (a `seen` file in the
+      operation dir). Order: first a UI preview at the bottom of the Tests menu (mock screens, ←→ between them,
+      the real screen functions with fake operations; no process, no files under `.artifacts/`; not a test family;
+      unit tests only check that each scenario draws), then the shared core, then the run screens in the preview,
+      wired to Start/Continue only after (1). Done 2026-10-18: the UI preview and the shared core (CL §23); the run
+      model stays in the Menu (K2 revised: events only, Framework supplies the `run.json` stages as data).
 
 Next-work proposals (not designed in detail yet):
 

@@ -406,7 +406,7 @@ class ScreenTests(unittest.TestCase):
         ui = ConsoleUI(mock.Mock())
         cases = [
             (ui.main_menu, (), ["start", "continue", "inspect", "tests", "grid_certificate", "help", "exit"]),
-            (ui.tests_menu, (), ["all", "checks", "normal", "bbb", "environment", "back"]),
+            (ui.tests_menu, (), ["all", "checks", "normal", "bbb", "environment", "preview", "back"]),
             (ui.test_family, ("Normal",), ["all", "choose", "back"]),
             (ui.confirm_recipe, ("example.yml",), ["start", "plan", "back"]),
             (ui.status_actions, ("run",), ["refresh", "back"]),

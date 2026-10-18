@@ -474,14 +474,15 @@ class ConsoleUI:
     def tests_menu(self, last=None):
         """last: the last test run (an Operation that ended) or None; "last" opens its screen."""
         choices = ["Run all automated tests", "Unit and harness checks", "Normal tests", "BBB regression checks",
-                   "Check environment", "Back"]
-        actions = ["all", "checks", "normal", "bbb", "environment", "back"]
+                   "Check environment", "UI preview (mock screens)", "Back"]
+        actions = ["all", "checks", "normal", "bbb", "environment", "preview", "back"]
         descriptions = [
             "Run all unit, harness, normal and BBB checks; requires CMSSW/ROOT and a BBB lock.",
             "Select unit suites or harness checks.",
             "Run local scripts. PASS means successful process exit; missing dependencies may SKIP.",
             "Compare exact data/schema against saved expectations; needs Linux Python 3.9 and a lock.",
             "Advisory CMSSW Python package-origin diagnostics; does not install or repair packages.",
+            "Every menu screen with made-up data; nothing runs. Left/Right switch screens, Esc leaves.",
             "Return to the main menu."]
         colors = [None] * len(choices)
         if last is not None:
@@ -573,6 +574,11 @@ class ConsoleUI:
         # Imported here: FastSetup imports Menu on its own before TauFW is built, and never shows this screen.
         from ._test_run import follow_tests
         return self.curses.wrapper(lambda screen: follow_tests(self, screen, title, process, expected))
+
+    def preview(self):
+        """Every screen with made-up data (Tests > UI preview); Left/Right switch screens, Esc leaves."""
+        from ._preview import preview  # imported here: see test_run()
+        self.curses.wrapper(lambda screen: preview(self.curses, screen))
 
     def quit_running(self, operations):
         """Ask before the menu closes while operations run behind it. Return "cancel" (stay in the menu), "stop"
