@@ -1305,3 +1305,43 @@ drawing code changed; a file that was written before is written the same.
   (`PLOTTER_ROOT`/`PLOTTER_DATA_DIR`), TODO §9 (three docs that were stale before §24).
 
 Checked (Windows): `python Tests/run.py checks`. On lxplus: `bbb check` 22/22 without re-lock, `checks` (TODO §1).
+
+## 25. TES shapes leave the Fitter for the Histogrammer (in progress)
+
+**Date:** 2026-10-18
+**Status:** H0 done on Windows, the lock is on lxplus (TODO §1); H1-H4 to come.
+Plan: `LocalR/architecture/16-histograms-plan.md` (decisions §13).
+
+Step 2 of the isolation work (`LocalR/architecture/13`): the code that fills the TES/ID input histograms
+(`Fitter/TauES/createinputsTES.py`, `Fitter/python/plot/datacard.py`, `rebinning.py`) imports nothing of the fit;
+it moves to the Histogrammer, the Framework's `shapes` stage gets a Histogrammer API, and the four maintained channel
+configs move to `Configs/Fitter/tes_id/`. Decisions with the user (plan 16 §13): one config per channel with a
+written key contract, inside grouped under banners by reader (D1); `Histogrammer/python/shapes/{inputs,rebinning}.py`
+and `Histogrammer/shapes/<Variant>/` (D2); a `TESShapes` API, recipe unchanged (D3); run scripts keep their working
+directory, legacy stubs at the old script paths print the new command (D4); recipes naming the old config paths fail
+with a message, no name map (D5); `Fitter/MuTauFR/createinputs.py` stays (D11); out of scope and the variation-tuple
+preflight: TODO §0 (D7, D8). Same method as before: lock with the old code first, move byte for byte, prove equality.
+
+### Lock and contract (H0)
+
+- BBB case `histogrammer.tes_inputs` (new, locked on lxplus with the old script): `createinputsTES.py` end to end in
+  its own interpreter (`Tests/BBB/pico_entry.py` with the test mirror; in the BBB process it would leave the era
+  globals, `sys.path` and `sys.modules['config']` behind for the cases after it), serially (`-s`), on fixture tuples
+  of a mini sample model (era 2025, two samples per group so that the joins merge, data `Muon*Run2025*`) plus
+  variation tuples (`_TES0p970`, `_TES1p030`, `_LTF1p030`, `_LTF0p970`: the fixture rows with `m_vis` scaled, written
+  in the case, so `events.json` and the fixture fingerprint of the other locks do not change), with a mini config
+  (three regions, one with its own binning, the YAML anchor, an extra cut, TES points, `split`/`rename`/`removeSFs`,
+  a shape systematic with variation files, one with a weight replacement, an `lnN`). Snapshot: the shape file
+  (directories, histograms, TNamed; the TCanvas/TStyle of the control plots by key and class), the rebinned file and
+  the names of the PNG files; never the script's output text. The script path is one function,
+  `_tes_inputs_script()`, the line H1 changes. Not covered: the working-point substitution (the fixture has no
+  `idDeepTau*` branches); it moves byte for byte.
+- `docs/contracts/tes-shapes.md` (new): the shape file name (today defined in four places), what is inside and what
+  the fit reads, the config keys each side reads, the variation tuples.
+- Bugs registered, not fixed: Histogrammer BUGS L18-L21 (`createinputsTES.py`: control plots only with
+  `systematics`, `varprocs` only for mutau/mumu, shape files never recreated, rebinning of the first observable only;
+  they go to the Histogrammer with the script in H1), Fitter BUGS F26 (option 6 reads `tidRegions`).
+- Docs: `Tests/README.md` (the case, how to run it alone), TODO §1 (lock), §4 (bug ids).
+
+Checked (Windows): `python Tests/run.py checks`; `bbb list` shows 23 cases; the mini sample model loads with
+`load_sample_model`. The case needs ROOT: it runs only on lxplus (TODO §1).

@@ -32,6 +32,10 @@ fixed with `# BUGS <ID>` comments at the changed lines; others are registered on
 | L15 | `config/samples_v15.py:243` (`getsampleset`, data of `etau`/`ee`) | the last `else:` evaluates `"SingleElectron_Run%d?"%year` without assigning it, so `dataset` is undefined (`UnboundLocalError`) for electron channels of an era that matches none of the branches before it | latent (none of the eras samples_v15.py supports reaches it) | registered only; the exported templates have no such era | none |
 | L16 | `config/samples_v15.py:222,245` (`getsampleset`, data of `tautau`/`emu`) with `common/python/tools/string.py` `getyear` | for era `2526` `getyear` returns the text `'2526'` (no 20xx year in it), and `"Tau_Run%d?"%year` / `"SingleMuon_Run%d?"%year` raise `TypeError` | crash (tautau or emu with era 2526) | registered only; `Configs/Histogrammer/samples/v15_2526.yml` has no `tautau`/`emu` data, so the model raises too (an `IOError` naming the missing kind) | none |
 | L17 | `fillhists.py:94-97` (mumu variables `m_ll`, comment "alias: m_ll alias of m_vis") | no alias `m_ll` is defined (not in the 2025 tuples, not in the sample model), so RDataFrame cannot compile the expression (`use of undeclared identifier 'm_ll'`) and the mumu run of `fillhists.py` (the old `plot.py`) makes no plots | crash (`-c mumu` with these variables; found 2026-10-18 on the 2025 tuples, the same with and without `--hists`) | registered only (CL §24) | none |
+| L18 | `Fitter/TauES/createinputsTES.py:284-321` (moves to the Histogrammer in plan 16 H1) | the control plots of the inputs, `rebinning` and the plots of the rebinned file are indented inside `if "systematics" in setup:`, so a config without `systematics` makes no control plots and no rebinned file | latent (both maintained configs have `systematics`) | registered only (plan 16 §8, CL §25) | none |
+| L19 | `Fitter/TauES/createinputsTES.py:294-299` (moves in H1) | `varprocs` is defined only for channels containing `mumu` or `mutau`; for any other channel the control plots raise `NameError`, after the shapes were written | latent (only mutau and mumu configs) | registered only (plan 16 §8, CL §25) | none |
+| L20 | `Fitter/TauES/createinputsTES.py:247-272` with `Fitter/python/plot/datacard.py:69` `createinputs` (both move in H1) | `createinputs` never gets `recreate=True`, so the shape files are opened with `UPDATE`: a second run into the same directory keeps the histograms of the first one that the new config does not write again (a removed TES point stays in the file, and the fit finds it); the `TNamed selection` record is never written | wrong (standalone reruns in `Fitter/`; a Framework run writes into a fresh stage directory) | registered only (plan 16 §8, CL §25) | none in Framework runs |
+| L21 | `Fitter/TauES/createinputsTES.py:309-316` (moves in H1) | `rebinning` runs only for the first observable, but the plots of the rebinned file are made for every observable and open rebinned files that do not exist | latent (every config has one observable) | registered only (plan 16 §8, CL §25) | none |
 
 ## How old
 
@@ -63,3 +67,9 @@ Open bugs only; fixed ones are left out.
   `samples_Summer24.py`); the lines are older copies from config to config. Found by the sample-model export (CL §22).
 - **L16** era `2526` was added in `eb6b5b3` (2026-08-06, "2026 and 2025+2026 '2526'") to the era tests of
   `samples_v15.py`, but not to the `%d` year patterns of the tautau and emu data; `getyear` finds no year in `'2526'`.
+- **L18-L21** (createinputsTES.py, found in the step-2 planning, plan 16): the control-plot block under
+  `if "systematics"` (L18) is as old as the script, `9fd9d46` (2021-08-26, "TES combine"; the `systematics` test from
+  `409358f`, 2022-02-24); `varprocs` per channel (L19) from `5837e8c` (2023-03-20); `createinputs` without `recreate`
+  (L20): the nominal call had `recreate=True` from `9fd9d46` until `58d5fb2` (2022-01-26, "Started changing
+  createInput.py to avoid hard coding long lists"), which dropped it; the rebinning of the
+  first observable (L21) from `f66a886` (2025-12-04).

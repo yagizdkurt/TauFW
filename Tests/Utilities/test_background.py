@@ -152,6 +152,14 @@ class BackgroundProcessTests(unittest.TestCase):
             time.sleep(0.02)
         process.cancel()
         self.assertEqual(wait(process), _background.STOP_EXIT)
+        # the orphaned child can stay in the group for a moment until it is reaped: wait for it, with a deadline
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            try:
+                os.killpg(process.process.pid, 0)
+            except ProcessLookupError:
+                break
+            time.sleep(0.02)
         with self.assertRaises(ProcessLookupError):
             os.killpg(process.process.pid, 0)  # the whole group is gone
 

@@ -247,6 +247,14 @@ fingerprinted, so changing the fixtures invalidates the lock. Coverage includes:
   event IDs, cutflow, NanoAODTools selection/range bookkeeping, and synthetic SF lookup.
 - Fitter nominal/systematic shape names, negative-bin sanitation, adaptive
   rebinning, and non-ZTT subtraction.
+- `createinputsTES.py` end to end (`histogrammer.tes_inputs`, changelog §25): a mini
+  config and sample model on fixture tuples plus variation tuples (`_TES*`, `_LTF*`,
+  the fixture rows with `m_vis` scaled), run serially in its own interpreter
+  (`BBB/pico_entry.py`); the shape file, the rebinned file (TCanvas/TStyle by key and
+  class only) and the names of the control plots. The script path comes from
+  `_tes_inputs_script()`, the one line that changes when the script moves. To try
+  the case alone before a lock: `python3 Tests/support/launch.py bbb
+  histogrammer.tes_inputs <empty dir> <empty dir>/result.json`.
 
 Snapshots preserve object/key names and classes, key cycles, directory structure,
 histogram axes/labels, contents/errors/statistics, branch types/order, aliases,

@@ -511,6 +511,181 @@ def fitter_rebin(workspace):
             "subtracted": subtract}
 
 
+# ===== TES INPUTS (createinputsTES.py end to end; plan 16, CL §25) =====
+
+# A mini channel config with every part createinputsTES.py reads: regions (one with its own binning), the YAML
+# anchor, an observable with an extra cut, TES variations, the samples block (filename, join, split, rename, data,
+# removeSFs), processes, a shape systematic with variation files (sampleAppend), one with a weight replacement
+# (nomWeight/altWeights) and an lnN one (skipped by the script).
+_TES_CONFIG = """\
+channel: mutau
+tag: "_mutau"
+baselineCuts: "q_1*q_2<0 && pt_1>20"
+regions:
+    DM0:
+        definition: "dm_2==0"
+        title: "h^{#pm}"
+    DM1:
+        definition: "dm_2==1"
+        title: "h^{#pm}h^{0}"
+    DM10:
+        definition: "dm_2>=10"
+        title: "h^{#pm}h^{#mp}h^{#pm}"
+        binning: [4, 0, 200]
+plottingOrder: &region_list ["DM0", "DM1", "DM10"]
+observables:
+    m_vis:
+        binning: [8, 0, 200]
+        title: "m_{vis}"
+        extra:
+            cut: "0<m_vis && m_vis<200"
+        fitRegions: *region_list
+TESvariations:
+    values: [0.970, 1.030]
+    processes: ["ZTT"]
+samples:
+    filename: "$PICODIR/$SAMPLE_$CHANNEL$TAG.root"
+    join: ["VV", "TT", "ST"]
+    split:
+        DY: [["ZTT", "genmatch_2==5"], ["ZL", "genmatch_2>0 && genmatch_2<5"], ["ZJ", "genmatch_2==0"]]
+        TT: [["TTT", "genmatch_2==5"], ["TTL", "genmatch_2>0 && genmatch_2<5"], ["TTJ", "genmatch_2==0"]]
+    rename:
+        WJ: "W"
+    data: "data_obs"
+    removeSFs: ["idweight"]
+processes: ["ZTT", "ZL", "ZJ", "W", "VV", "ST", "TTT", "TTL", "TTJ", "QCD", "data_obs"]
+systematics:
+    LTF:
+        effect: "shape"
+        processes: ["ZL", "TTL"]
+        name: "shape_mTauFake_$BIN"
+        title: "+/- 3% LTF shape"
+        variations: ["Up", "Down"]
+        sampleAppend: ["_LTF1p030", "_LTF0p970"]
+    weight:
+        effect: "shape"
+        processes: ["W"]
+        name: "shape_weight_$BIN"
+        title: "weight up/down"
+        variations: ["Up", "Down"]
+        nomWeight: "genweight"
+        altWeights: ["weight_up", "weight_down"]
+    xsec_dy:
+        effect: "lnN"
+        processes: ["ZTT", "ZL", "ZJ"]
+        scaleFactor: 1.02
+"""
+
+# A mini sample model (Histogrammer/python/sample/model.py format) for era 2025: two samples per group, so that the
+# joins of the model (DY, WJ) and of the config (VV, TT, ST) really merge; weight genweight*idweight (idweight is
+# removed by the config's removeSFs).
+_TES_SAMPLES = """\
+era: "2025"
+cme: 13.6
+extraweights: {}
+mc:
+  - {group: "DY", name: "DYto2Tau_Bin-MLL-50to120", title: "Drell-Yan tautau", xsec: 2000.0}
+  - {group: "DY", name: "DYto2Mu_Bin-MLL-50to120", title: "Drell-Yan mumu", xsec: 2100.0}
+  - {group: "WJ", name: "WtoMuNu-2Jets", title: "Wmu + jets", xsec: 21000.0}
+  - {group: "WJ", name: "WtoTauNu-2Jets", title: "Wtau + jets", xsec: 20000.0}
+  - {group: "VV", name: "WZ", title: "WZ", xsec: 41.0}
+  - {group: "VV", name: "ZZto4L", title: "ZZ 4l", xsec: 6.6}
+  - {group: "TT", name: "TTto2L2Nu", title: "ttbar 2l2#nu", xsec: 98.0}
+  - {group: "TT", name: "TTtoLNu2Q", title: "ttbar semileptonic", xsec: 405.0}
+  - {group: "ST", name: "TWminusto2L2Nu", title: "ST tW 2l2#nu", xsec: 3.8}
+  - {group: "ST", name: "TbarWplusto2L2Nu", title: "ST atW 2l2#nu", xsec: 3.9}
+data:
+  muon: "Muon*Run2025*"
+weights:
+  semileptonic: "genweight*idweight"
+stitch: []
+join:
+  - {patterns: ["Wto*Nu-2Jets"], name: "WJ"}
+"""
+
+# Variation tuples: <sample>_mutau<tag>.root next to the nominal ones, the fixture rows with m_vis scaled (so the
+# shifted shapes differ); only the samples the script shifts (TES: the DY samples of ZTT; LTF: DY and TT).
+_TES_VARIATIONS = {"_TES0p970": (0.970, "DY"), "_TES1p030": (1.030, "DY"),
+                   "_LTF1p030": (1.030, "DY", "TT"), "_LTF0p970": (0.970, "DY", "TT")}
+
+
+def _tes_inputs_script():
+    """The script under test: the only line that changes when createinputsTES.py moves (plan 16, H1)."""
+    return Path(__file__).resolve().parents[2] / "Fitter" / "TauES" / "createinputsTES.py"
+
+
+def _tes_file_snapshot(path):
+    """A shape file: every directory and histogram in full, a TNamed's title; other objects (the TCanvas and TStyle
+    plotinputs writes) by key, cycle and class only."""
+    import ROOT
+    from BBB.snapshot import histogram_snapshot
+
+    def directory(folder):
+        result = []
+        for key in sorted(folder.GetListOfKeys(), key=lambda key: (key.GetName(), key.GetCycle())):
+            entry = {"key": key.GetName(), "cycle": key.GetCycle(), "class": key.GetClassName()}
+            obj = key.ReadObj()
+            if obj.InheritsFrom("TDirectory"):
+                entry["objects"] = directory(obj)
+            elif obj.InheritsFrom("TH1"):
+                entry["histogram"] = histogram_snapshot(obj)
+            elif obj.ClassName() == "TNamed":
+                entry["title"] = obj.GetTitle()
+            result.append(entry)
+        return result
+
+    source = ROOT.TFile.Open(str(path), "READ")
+    if not source or source.IsZombie():
+        raise RuntimeError("Cannot read ROOT output %s" % path)
+    try:
+        return directory(source)
+    finally:
+        source.Close()
+
+
+def histogrammer_tes_inputs(workspace):
+    """createinputsTES.py end to end on fixture tuples (nominal and variation files), a mini sample model and a mini
+    config: shape file, rebinned file and the names of the control plots. Run in its own interpreter (it sets the
+    era globals, sys.path and sys.modules['config'], and writes into its working directory), serially (-s: the
+    multithreaded fill differs in the last bits between runs)."""
+    import subprocess
+    import sys
+    from support.fixtures import rows, write_tree
+    base = Path(workspace) / "tes"
+    tuples = base / "tuples" / "2025"
+    groups = {}
+    for line in _TES_SAMPLES.splitlines():
+        if line.startswith("  - {group:"):
+            group, name = re.search(r'group: "(\w+)", name: "([\w-]+)"', line).groups()
+            groups.setdefault(group, []).append(name)
+            write_tree(tuples / group / ("%s_mutau.root" % name))
+    write_tree(tuples / "Data" / "Muon_Run2025C_mutau.root", data=True)
+    for tag, (scale, *shifted) in _TES_VARIATIONS.items():
+        events = [dict(row, m_vis=row["m_vis"] * scale) for row in rows()]
+        for group in shifted:
+            for name in groups[group]:
+                write_tree(tuples / group / ("%s_mutau%s.root" % (name, tag)), events=events)
+    (base / "tes_mutau.yml").write_text(_TES_CONFIG, encoding="utf-8")
+    (base / "samples_2025.yml").write_text(_TES_SAMPLES, encoding="utf-8")
+    entry = Path(__file__).resolve().parent / "pico_entry.py"  # a fresh interpreter with the test mirror attached
+    command = [sys.executable, "-B", str(entry), str(Path.cwd()), str(_tes_inputs_script()),
+               "-y", "2025", "-c", "tes_mutau.yml", "-s", "-O", "out", "-j", "Medium", "-e", "VVLoose",
+               "--tuples", str(base / "tuples" / "$ERA" / "$GROUP"), "--samples", "samples_2025.yml"]
+    result = subprocess.run(command, cwd=str(base), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                            universal_newlines=True)
+    sys.stdout.write(result.stdout)  # in the case log only; the snapshot holds files, never this text
+    if result.returncode:
+        raise RuntimeError("createinputsTES.py failed (exit %s); see the case log" % (result.returncode))
+    out = base / "out"
+    roots = sorted(path for path in out.rglob("*.root"))
+    shapes = [path for path in roots if path.parent.name != "rebinning"]
+    if not shapes or not any(path.parent.name == "rebinning" for path in roots):
+        raise RuntimeError("No shape file or no rebinned file under %s; refusing a no-op baseline." % (out))
+    return {"files": {path.relative_to(out).as_posix(): _tes_file_snapshot(path) for path in roots},
+            "other_files": sorted(path.relative_to(out).as_posix() for path in out.rglob("*")
+                                  if path.is_file() and path.suffix != ".root")}
+
+
 
 # ===== DRAWING (Plot, Stack, Ratio, Plot2D, CMSStyle, SampleStyle, histogram helpers, labels) =====
 
@@ -856,5 +1031,6 @@ CASES = {
     "framework.production": {"run": framework_production, "dependencies": PICO_DEPS, "description": "taufw.py start/advance/status: production stage through the PicoProducer API, resubmission, merge, run.json"},
     "fitter.shapes": {"run": fitter_shapes, "dependencies": ROOT_DEPS, "description": "Nominal/systematic shape naming and negative-bin sanitation"},
     "fitter.rebin": {"run": fitter_rebin, "dependencies": ROOT_DEPS, "description": "Adaptive rebinning and non-ZTT background subtraction"},
+    "histogrammer.tes_inputs": {"run": histogrammer_tes_inputs, "dependencies": ROOT_DEPS, "description": "createinputsTES.py end to end: config, sample model, splits, TES and shape variations (files and weights), QCD, shape file, rebinning, control-plot names"},
     "drawing.canvas": {"run": drawing_canvas, "dependencies": ROOT_DEPS, "description": "Drawn canvases, styles, histogram helpers, labels and verbose output of the drawing code"}
 }

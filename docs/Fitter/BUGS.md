@@ -30,6 +30,7 @@ only. The Fitter has no BBB case, so **Output impact** describes the change for 
 | F08 | `TauES_ID/makecombinedfitTES_SF.py` `run_combined_fit` | `merge_datacards_regions` is called with 7 arguments (with `mumu_input_file`) but takes 6 | crash (options 4-6) | registered only (option 3 does not reach it) | |
 | F09 | `TauES_ID/makecombinedfitTES_SF.py` `merge_datacards_regions` | `hasattr(setup, 'mumu_datacard_file')` on the setup dict is always false, so the Zmm card is never added | latent (options 4-6) | registered only | |
 | F10 | `TauES_ID/makecombinedfitTES_SF.py` `merge_datacards_regions` | the combined card is written to `output_{era}/` instead of the output directory | wrong (options 4-6) | registered only | |
+| F26 | `TauES_ID/makecombinedfitTES_SF.py:505` `run_combined_fit` (option 6) | reads `setup['tidRegions']`, but the configs name the key `tid_SFRegions` (the key `harvestDatacards_TES_idSF_MCStat.py` and `plotParabola_POI_region.py` read), so option 6 raises `KeyError` | latent (option 6; the workflow runs option 3) | registered only (plan 16 §8, CL §25) | none |
 
 ## Paths and working directory (R3 inventory)
 
@@ -109,3 +110,4 @@ Open bugs only; fixed ones are left out.
 - **F22** `_correction_glob` came with the Fitter API, `c27abb7` (2026-10-13, Part G).
 - **F23** `__mutau_` is from `27f31c6` (2025-10-20, "postfit Zmm plots").
 - **F24** see F17: `7589a86` (2026-05-19).
+- **F26** `tidRegions` came with option 6, `6dc9a0a` (2023-07-06); found in the step-2 planning (plan 16, CL §25).

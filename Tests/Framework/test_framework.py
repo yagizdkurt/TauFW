@@ -505,6 +505,10 @@ class RecipeTests(FrameworkTestCase):
         self.assertEqual(loaded.pico_config_path, os.path.join(self.root, "cfg", "config.json"))
         with self.assertRaises(RecipeError):
             Recipe.load(os.path.join(self.root, "recipe.txt"))
+        missing = os.path.join(self.root, "missing.yml")
+        with self.assertRaises(RecipeError) as raised:  # not FileNotFoundError (Framework BUGS K06)
+            Recipe.load(missing)
+        self.assertEqual(str(raised.exception), "%s: cannot read the recipe: no such file" % (missing))
 
 
 class ReporterTests(FrameworkTestCase):
@@ -584,6 +588,16 @@ class CommandLineTests(FrameworkTestCase):
             self.assertEqual(RunRecord.load(run_dir).state, "DONE")
             self.assertEqual(self.cli.main(["status", run_dir]), 0)
             self.assertEqual(self.cli.main(["plan", recipe]), 0)
+
+    def test_plan_and_start_of_a_missing_recipe_print_one_line(self):
+        reporter = SilentReporter()
+        self.cli.FrameworkReporter = lambda verbosity=0: reporter
+        missing = os.path.join(self.root, "missing.yml")
+        for command in (["plan", missing], ["start", missing, "--run-root", self.root]):
+            reporter.messages.clear()
+            self.assertEqual(self.cli.main(command), 1)  # no traceback (Framework BUGS K06)
+            self.assertEqual([t for k, t in reporter.messages if k == "warning"],
+                             ["%s: cannot read the recipe: no such file" % (missing)])
 
     def test_check_plan_and_start_show_the_run_root(self):
         reporter = SilentReporter()

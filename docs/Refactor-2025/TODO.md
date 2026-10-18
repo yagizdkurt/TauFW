@@ -1,7 +1,7 @@
 # Refactor-2025: still to do
 
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-**Last updated:** 2026-10-14
+**Last updated:** 2026-10-18
 
 Everything the `Refactor-2025` branch has left open: checks that need lxplus, the rest of the `common` → `Utilities`
 move, old output kept on purpose, open bugs, and planned next steps. The [change log](Refactor-2025.md) ("CL §N")
@@ -12,6 +12,20 @@ Items marked **(verify)** may already be done; check before working on them.
 
 ## 0. Custom (Special)
 - Stagese delete folder tarzı bir şey eklensin de analiz yapılırken silinmesi gereken dosyalar pipeline içinde stage olrak silinebilsin veya movelanabilsin.
+- **Left out of step 2 (plan 16 D7, user 2026-10-18: look at them when the refactor work is done):**
+  (1) `setera` in the four postfit scripts (`Fitter/python/plot/postfit.py`, `postfit_TES.py`,
+  `Fitter/tutorial/plotpostfit.py`, `Fitter/ETauFR/Plotter/plotpostfit.py`): drawing, not filling; they import
+  `TauFW.Plotter.sample.utils` (alias) only to set the CMS era/lumi; needs an era setter in `TauFW.Utilities.Drawing`
+  (and the `drawing.canvas` BBB case). (2) `Fitter/Zpt` (`compareZpt.py`, `Zpt/config/samples.py`, Python 2 parts): a
+  Histogrammer-like measurement inside the Fitter. (3) A shape-contract module both sides read (step 3 of
+  `LocalR/architecture/13`; today the contract is a doc, `docs/contracts/tes-shapes.md`). (4) `FitRequest.pico_config`:
+  the fit should not need a PicoProducer config once the shapes are made elsewhere. (5) `Fitter/MuTauFR/createinputs.py`
+  (D11): broken import, repair or Legacy (workflow owner).
+- **Variation tuples in preflight (plan 16 D8, user 2026-10-18: right after step 2):** the shapes stage checks only
+  `<sample>_<channel>.root`; a missing `_TES0p970` / `sampleAppend` (`_LTF1p030`, `_JTF0p900`) file fails hours into
+  the run (`Sample.appendfilename` only warns). Check every variation file from the config (TES values,
+  `sampleAppend`), the sample model and the split mapping before starting; after step 2 all of it is in the
+  Histogrammer.
 
 ## 1. Checks to run on lxplus
 
@@ -21,64 +35,32 @@ Items marked **(verify)** may already be done; check before working on them.
       `python3 Tests/run.py bbb check` (22/22, **no re-lock**: `plotter.stack` writes and reads the histogram file
       through the stricter checks); `python3 Tests/run.py checks` (with ROOT `test_histfile.py` also runs the header
       test).
-- [x] **Histogram file and `draw.py` (CL §24, S3): nothing may change.** Done 2026-10-18 on lxplus: `bbb check`
-      22/22 without re-lock (`plotter.stack` through the file equals the S0 lock from memory); `checks` with ROOT:
-      the file round trip of `Tests/Utilities/test_histfile.py` passes. Real data, baseline, in `Histogrammer/`:
-      mutau all variables: `--hists` changes no plot (31/31 identical PNGs) and `draw.py` draws the same plots
-      (31/31); mumu with every variable stops in both runs alike at `m_ll` (no such branch, BUGS L17, registered),
-      so it was checked with the 18 other variables: 19/19 identical with and without `--hists`, 19/19 `draw.py`.
-      The logs of the two runs were not compared line by line.
-- [x] **`histograms` stage renamed `shapes` (CL §24, S4a): the same commands.** Done 2026-10-18 on lxplus:
-      `taufw.py plan Analyses/tes_id_2025` saved before the pull (`~/s4ref/plan_tes_id_2025.txt`) vs after S4 (the
-      shapes, fit and python part; the control plots part changed in S4): 49 of 50 lines equal once the old name is
-      replaced by the new one; the one other line is the table's dashed separator, as wide as the longest command
-      was before the replacement (`histograms` -> `shapes` is 4 characters shorter per path).
-- [x] **Control plots as two stages (CL §24, S4): the same plots.** Done 2026-10-18 on lxplus. Reference taken
-      with the code before S4: `~/s4ref` (old `plots` stage of a copy of `tes_id_2025`, mutau all variables, mumu
-      the 18 variables of the S3 check, baseline: 31 + 19 PNGs). After the pull: `bbb check` 22/22 without re-lock;
-      `checks` 13/15 (`unit.plotter.api` passes; `check_import_boundaries` known debt as always, 30 / 28 / 26, 0 new
-      pairs; `unit.utilities` fails in `test_background` (CL §20), unrelated to S4, see the item below). The same
-      bundle as `controlhists` + `controlplots` pairs (`~/s4new_bundle`): all four stages DONE, **every PNG equal
-      to the reference (`cmp`: mutau 31/31, mumu 19/19)**, the `controlhists` directory holds only `hists/` and the
-      manifest. `--no-draw` changes nothing in the file: `compare_histfiles.py` S3 file vs `--hists --no-draw`
-      largest relative difference 4.6e-13, SAME with `--rtol 1e-12`; the control measurement (the old path,
-      `--hists` with drawing, run again) differs from the S3 file by 1.9e-13 and from the `--no-draw` file by
-      6.5e-13, so the last bits are run-to-run noise of the multithreaded fill, not `--no-draw`. `taufw.py check
-      Analyses/example_broken` names `stages[1] (controlhists).inputs.tuples`. Timing: mutau fill 388 s (fill and
-      draw 426 s before), drawing 5 s per file. The retired-name message is checked by the unit tests only.
-- [x] **`Tests/Utilities/test_background.py` on lxplus (CL §20):** `test_cancel_stops_a_real_command_and_its_children`
-      failed once in `checks` on 2026-10-18; alone it passed 5 of 5 times. A flaky test, registered in §7.
-- [x] **Configs to `Configs/Histogrammer/` (CL §24, S2).** Done 2026-10-18 on lxplus: `bbb check` 22/22
-      without re-lock, `checks`, `taufw.py configs` (15 templates `histogrammer.*`, lock ok), `check`/`plan` of
-      `tes_id_2025` and `example_mutau_long` without copy warnings; a copy with the old ids gets exactly the three
-      "renamed ... change the id" warnings; `fillhists.py -c mutau` reads the moved setup: 4 PNG byte-identical.
-- [x] **Plotter -> Histogrammer, S0 and S1 (CL §24).** Done 2026-10-18 on lxplus: BBB locked with `plotter.stack`
-      (22 cases; `bbb diff`: only the new case; `bbb check` twice 22/22); `roundtrip_spike.py` 12/12 SAME (drawing
-      from a histogram file, also with only the 17 drawing attributes, gives the same canvases and PNG bytes). After
-      the rename: `bbb check` 22/22 without re-lock, `checks` (the compat test was too strict about an untracked
-      `Plotter/python/api/__pycache__/`, fixed), `normal` `plotter.unroll` and `plotter.samples` pass through the
-      aliases; `fillhists.py` vs the old `plot.py` on the 2025 tuples: 4 PNG byte-identical, logs equal except the
-      ACLiC line of the macro in its new directory and the timing; the legacy `Plotter/plot.py` prints the new
-      command and exits with 2.
-- [x] **BBB lock with the new case `plotter.sample_model` (CL §22), before S2 switches it.** Done 2026-10-17: locked
-      with the old code, the case switched to the model, `bbb check` 21/21 with no difference (also after the S7 and
-      §23 pull); `unit.plotter.sample_model` passes on lxplus.
-- [x] **`example_mutau_long` (CL §22):** done 2026-10-17: `taufw.py plan Analyses/example_mutau_long` lists 25 samples
-      (22 MC, Muon_Run2022E/F/G), 478 jobs, no sample problem; after the S7 pull the `setup_mutau.yml` copy warning
-      is gone (only the `run_root` warning remains). A full `start` is optional (tens of GB).
-- [x] **Channel setups from Configs (CL §22, S7):** done 2026-10-17. With `Plotter/config/setup_*.yml` removed,
-      `plot.py -y 2025 -c mutau -V m_vis -S baseline --tuples '.../TES_variations/$ERA/$GROUP'` finishes (the channel
-      name reads `Configs/Plotter/setups/setup_mutau.yml`); `taufw.py init s7_test --from Analyses/tes_id_2025` copies
-      the setups (with their `taufw_config` header), `v15_2025.yml`, `config_coarse_TT.yml`, `FitSetup_mumu.yml` and
-      `steps/fit_summary.py`, and `check` of the new bundle has no problems.
-- [x] **Sample model end to end (CL §22, S6):** done 2026-10-17. `check`/`plan Analyses/tes_id_2025` clean (the
-      commands get `--samples`; the preflight did not refuse: the 60 tuple files exist). A plots + histograms run with
-      `samples:` (all 4 commands with `--samples bundle/v15_2025.yml`) against the same run without it (no
-      `--samples`), same EOS tuples: the 57 PNG files are byte-identical; the 4 shape files (2 raw, 2 rebinned) have
-      the same histograms and every `data_obs` is bit-identical; filled MC histograms differ by at most 6.6e-14
-      relative and the derived `QCD` and `data_obs_nonztt_subtratced` by 1.6e-13 (entries 3.1e-13): the multithreaded
-      RDataFrame noise of R3 (CL §17), amplified by the subtraction; slightly above the 1e-13 asked here, only in
-      derived histograms. Old and new SampleSets also print the same (`printtable`, 4/4).
+- [ ] **Lock the BBB case `histogrammer.tes_inputs` (CL §25, H0), with the code before step 2 moves anything.** Only
+      after the item above (22/22 `same` on that commit). After `git pull` of H0, in `TauFW/`: (1) try the case alone:
+      `rm -rf ~/tes_try && mkdir ~/tes_try && python3 Tests/support/launch.py bbb histogrammer.tes_inputs ~/tes_try
+      ~/tes_try/result.json; echo $?` (0, and `result.json` written); (2) `python3 Tests/run.py bbb lock --replace`;
+      (3) `python3 Tests/run.py bbb diff`: only `histogrammer.tes_inputs` is new, the 22 others unchanged; (4)
+      `python3 Tests/run.py bbb check` twice: 23/23. Commit the baselines on their own.
+- [ ] **Bug fixes of 2026-10-18:** `python3 Tests/Utilities/test_background.py` five times in a row and once inside
+      `python3 Tests/run.py checks` (the flaky cancel test, §7); `taufw.py plan Analyses/no_such_recipe` prints one
+      line, no traceback (Framework BUGS K06).
+- [x] **Done on lxplus** (details in the changelog sections):
+  - CL §24 S0/S1 (2026-10-18): `plotter.stack` locked (22 cases); `roundtrip_spike.py` 12/12 SAME; `fillhists.py`
+    equals the old `plot.py` (4 PNG byte-identical); the legacy `Plotter/plot.py` prints the new command, exit 2.
+  - CL §24 S2: `Configs/Histogrammer/` (15 templates), `bbb check` 22/22; a copy with the old ids gets the three
+    "renamed ... change the id" warnings.
+  - CL §24 S3: `--hists` and `draw.py` change no plot (mutau 31/31, mumu 19/19 with 18 variables, since `m_ll` has
+    no branch, BUGS L17); the logs were not compared line by line.
+  - CL §24 S4a: `taufw.py plan tes_id_2025` gives the same commands after `histograms` -> `shapes`.
+  - CL §24 S4: `controlhists` + `controlplots` give every PNG of the old `plots` stage (`~/s4ref`). **Noise:**
+    `--no-draw` vs fill-and-draw differ by 4.6e-13 relative, the same as two runs of the old path (1.9e-13,
+    6.5e-13): run-to-run noise of the multithreaded fill. Timing: mutau fill 388 s, drawing 5 s per file.
+  - CL §22: `plotter.sample_model` locked with the old code, switched with no difference; `example_mutau_long` plans
+    25 samples / 478 jobs; S7 setups read from `Configs/`; S6 sample model end to end: 57 PNG identical, shapes
+    within 6.6e-14 (MC) and 1.6e-13 (derived `QCD`, subtraction), the RDataFrame noise of CL §17.
+  - CL §19 (R4): the six checks passed; only `framework.production` re-locked (`"schema": 3`, `"sources"`).
+  - CL §18: production and run-local tuple routing; Fitter F07 confirmed (rebinned plots made, status 0).
+  - CL §12: `drawing.canvas` locked 2026-10-14.
 - [ ] **Confirm import-boundary reporting on lxplus:** `python3 Tests/run.py checks --case check_import_boundaries`.
       Nonzero status is expected while coupling remains; compare the debt report, do not rebaseline or fix production
       code to make this validation pass. Detector-only command: `python3 Tests/check_import_boundaries.py DetectorTests -q`. (CL §13)
@@ -87,7 +69,6 @@ Items marked **(verify)** may already be done; check before working on them.
       without error. (CL §14)
 - [ ] **BBB check after the expression helpers move:** `python3 Tests/run.py bbb check`, the `plotter.*` cases must
       pass unchanged (no re-lock); `python3 -c "import TauFW.Fitter.plot.datacard"` with `cmsenv`. (CL §12)
-- [x] `drawing.canvas` baseline locked on 2026-10-14. (CL §12)
 - [ ] **BBB check after the drawing move.** `python3 Tests/run.py bbb check`: every case, `drawing.canvas` included,
       must pass with no difference; no re-lock. Then `python3 Tests/run.py normal` (the `Tests/Plotter` scripts import
       the new paths) and, by eye, one `Plotter/plot.py` run and one Fitter postfit plot. (CL §12)
@@ -100,30 +81,14 @@ Items marked **(verify)** may already be done; check before working on them.
 - [ ] **Framework, TES/ID bundle:** `taufw.py plan Analyses/tes_id_2025`, then a VTight/Tight `taufw.py start` run
       compared with `run_inputs.sh` + `run_workflow_zmm.sh` in a clean copy (`FitparameterValues__mutau_*`,
       `tau_sf/*VSjetVTight_VSeleTight*`). (CL §10 "Tests", §11)
-- [x] **Confirm F07:** done 2026-10-17 (S6 runs): the rebinned control plots are made, in
-      `<outbase>/againstjet_<J>/againstelectron_<E>/plots/rebinning/` of the histograms stage directory, and the
-      command ends with status 0. ([Fitter BUGS](../Fitter/BUGS.md) F07)
 - [ ] **Runner validation:** `bbb check`, `bbb check -v`, `bbb lock --replace`, then `git diff --exit-code`
       on `Tests/BBB/baselines/` **(verify)**. (quiet-runner changelog section removed)
 - [ ] `python3 Tests/run.py normal` after the Plotter legacy move **(verify)**. (Plotter legacy cleanup; changelog section removed)
 - [ ] **Manual smoke runs:** `pico.py run -c mutau -y 2022_postEE -m 100`, `pico.py submit ... --dry`,
       `taufw.py plan` on `Analyses/example_mutau_short`, and one small real `taufw.py start` + `advance` until DONE on
       HTCondor. Check by eye that the status loading bar with 15+ outputs looks unchanged **(verify)**.
-- [x] Production and run-local tuple routing verified on lxplus 2026-10-17; plots finishing awaits the recipe sample list (§6). (CL §18)
-  - [ ] Once the sample list is in the recipe: plots with `{tuples: {path: <a production run>/stages/production}}`
-        finish (R4, CL §19; until then only `check` and `plan` are checked, below). The sample list is in the recipe
-        since CL §22 (2026-10-17), so this can now run; not run yet.
-- [x] **R4 on lxplus (CL §19), done 2026-10-17:** (1) `python3 Tests/run.py bbb check`: every case unchanged except
-      `framework.production` (`"schema": 3`, `"sources": {}` in every stage record), then `bbb lock --replace` for that
-      case. (2) A recipe with two plots stages (different `variables`, `{external}` tuples): two directories, both
-      `DONE`. (3) Fit on another run's shapes: the R3 run's `stages/histograms/manifest.json` converted by hand to format
-      2 (original kept outside the run), then a fit-only recipe `{shapes: {path: <R3 run>/stages/histograms}}`: the
-      fit results equal those of the R3 run's fit (if the fit commands did not change since), nothing written in the
-      source, `sources.shapes.manifest_sha256` = `sha256sum` of that manifest. (4) `check` refuses, in one output, a
-      missing directory, `Fitter/` (no manifest), a `cp -r` copy and a plots directory for a fit. (5) Tuples:
-      `prod_test_20261017-023321`'s production manifest converted the same way; `check` and `plan` of a plots recipe
-      with `{tuples: {path: ...}}` (the `--tuples` pattern is that run's). (6) `taufw.py plan Analyses/tes_id_2025`
-      as before.
+- [ ] **Plots on a production run's tuples (R4, CL §19):** `{tuples: {path: <a production run>/stages/production}}`
+      runs to the end (only `check` and `plan` were checked; possible since the sample list is in the recipe, CL §22).
 - [ ] **Test screen on lxplus (CL §20):** `python3 Tests/run.py checks` (all but `check_import_boundaries` pass), then
       in the menu (`taufw.py`): Tests > Normal tests > Run entire family: the cases fill in live, a running case's log
       grows in Details, Enter/L/End work, no line is printed over the screen. Stop a BBB check with S and with Esc + Y:
@@ -235,6 +200,7 @@ Each changes logs, so do each in its own commit, with a BBB re-lock where a base
 - [ ] F08: `merge_datacards_regions` called with 7 arguments, takes 6 (crash).
 - [ ] F09: `hasattr` on a dict is always false, so the Zmm card is never added (latent).
 - [ ] F10: the combined card is written to `output_{era}/` (wrong).
+- [ ] F26: option 6 reads `tidRegions`, the configs have `tid_SFRegions` (latent; CL §25).
 - [x] F25: fixed ROOT detection when ROOT is already imported. (CL §18)
 
 **Histogrammer** (the former Plotter, CL §24; [BUGS.md](../Histogrammer/BUGS.md)):
@@ -246,6 +212,10 @@ Each changes logs, so do each in its own commit, with a BBB re-lock where a base
 - [ ] L14: split `DM` in `samples_v15.py` (and the sample model, kept on purpose) uses the undefined `samples`.
 - [ ] L15: electron data `else:` without assignment in `samples_v15.py` (unreachable for its eras).
 - [ ] L16: era `2526` with tautau/emu: `getyear('2526')` is a text, the `%d` data pattern raises.
+- [ ] L17: no `m_ll` alias for the mumu variables of `fillhists.py` (crash with `-c mumu`; CL §24).
+- [ ] L18-L21 (`createinputsTES.py`, Histogrammer after step 2 H1; CL §25): control plots only with `systematics`
+      (latent), `varprocs` only for mutau/mumu (latent), shape files never recreated, so a rerun keeps old
+      histograms (wrong, standalone reruns), rebinning of the first observable only (latent).
 - [ ] L12: `getmcsample` ignores its `pico=` keyword (`python/sample/utils.py:119-120`; no callers, latent).
 - [x] L13: fixed ROOT detection for production + plots planning and advancement. (CL §18)
 
@@ -257,7 +227,7 @@ Each changes logs, so do each in its own commit, with a BBB re-lock where a base
 - [x] K03: `tuples` inputs now select the production stage outputs. (CL §18 step 6)
 - [ ] K04: production's tuple artifacts have no `kind`, so a filter by `kind='tuples'` finds none (latent).
 - [ ] K05: on Windows (Python 3.13) `/afs/...` is not absolute for `os.path.isabs`; an lxplus `pico.config` is joined to the bundle directory (latent, Windows only).
-- [ ] K06: `taufw.py plan`/`start` with a recipe path that does not exist ends with a traceback, not one line (`taufw.py check` reports it).
+- [x] K06: `taufw.py plan`/`start` with a recipe path that does not exist ends with a traceback, not one line (`taufw.py check` reports it). Fixed 2026-10-18 (`Recipe.load`).
 - [ ] K07: `taufw.py status` shows the last `advance`'s message ("... failed or missing; resubmitting") next to a live
       job table that says complete; reads as a contradiction (message only; seen on lxplus, CL §18).
 
@@ -391,19 +361,11 @@ Next-work proposals (not designed in detail yet):
 
 Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limitations"; CL §10, §11):
 
-- [x] Sample lists are not part of a bundle (`plot.py`, `createinputsTES.py` import `samples_v15`). **Done
-      2026-10-17 (CL §22, plan LocalR/architecture/14):** templates, model, `--samples`, APIs and the recipe option
-      `samples`; `tes_id_2025` and `example_mutau_long` use them; S6 and S7 verified on lxplus (§1). Still apart: the
-      production side's sample catalogs (`PicoProducer/samples/*.py`, Analyses README "Current limitations"), and
-      the acceptance run "a small production followed by plots finishes" (§1, the R4 sub-item under CL §18).
-      `example_mutau` (its production made `DY*` and `TT*` only, but the Plotter always needs data
-      and every background, so its plots could not run since CL §18) is split (user, 2026-10-17):
-      `example_mutau_short` (production only) and `example_mutau_long` (data and the 22 MC samples, then plots). Following CL §18, not an environment hook: the recipe names the list (a bundle file) and the
-      Framework gives it to the scripts as an option, as it gives `--tuples`. Acceptance: the Framework can compare
-      the samples a production stage made with the samples its readers ask for, and a small production followed by
-      plots finishes (§1, "Production end to end in the run").
-      Note: `samples_v15.py` has `DYto2TautoMuTauh_M-50` commented out (`:182`, `:215`), so taking over its list
-      is not enough for that check; the recipe's list must name the produced sample (seen in the CL §18 test).
+- [x] Sample lists are part of a bundle (CL §22, plan LocalR/architecture/14): templates, model, `--samples`, recipe
+      option `samples`. Still apart: the production side's catalogs (`PicoProducer/samples/*.py`). `example_mutau` is
+      split into `example_mutau_short` (production only) and `example_mutau_long` (data + 22 MC, then plots). Note:
+      `samples_v15.py` has `DYto2TautoMuTauh_M-50` commented out (`:182`, `:215`): the recipe's list must name the
+      produced sample.
 - [ ] **Config templates (CL §21), open points.**
       - Acknowledging an old copy: `taufw.py check` warns as long as a bundle copy is older than its template in
         `Configs/`, also when the analysis keeps the old version on purpose (e.g. to reproduce a published result).
@@ -447,12 +409,9 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
 - [ ] `Tests/PicoProducer/testSFs.py` still imports the legacy `MuonSFs_ROOT`. Nice to have.
 - [ ] Utilities menu tests depend on the terminal and colors (quiet-runner changelog section removed); the later menu commits may have fixed this
       **(verify)**.
-- [ ] **Flaky: `Tests/Utilities/test_background.py` `test_cancel_stops_a_real_command_and_its_children` (CL §20).**
-      On lxplus it failed once inside `python3 Tests/run.py checks` (`os.killpg(pid, 0)` still found the process
-      group right after the cancel; "subprocess ... is still running" warning) and passed 5 of 5 times alone
-      (2026-10-18). Likely a race: the test checks the group at once, while the orphaned child of the command can
-      still be in it until it is reaped. Fix later (the test should wait until the group is gone, with a deadline);
-      not a bug of `BackgroundProcess` as far as seen.
+- [x] **Flaky `Tests/Utilities/test_background.py` `test_cancel_stops_a_real_command_and_its_children` (CL §20):**
+      fixed 2026-10-18: the test checked the process group at once, while the orphaned child can stay in it until it
+      is reaped; it now waits for the group to go (5 s deadline). Confirm on lxplus (§1).
 - [ ] **`Utilities/IOInventory.md` and its generator disagree (seen in CL §24 S4):** `python Utilities/_audit_io.py`
       writes a much smaller file than the committed one (no author line; 349 instead of 425 files, the Legacy rows
       gone). The rows were edited by hand since. Find which scope the committed file was made with, then regenerate.

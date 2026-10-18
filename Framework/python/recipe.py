@@ -199,8 +199,14 @@ class Recipe:
     def load(cls, path, files=None):
         """Read and check a recipe: a bundle directory (its recipe.yml) or a .yml/.yaml/.json file. The file's
         directory is the bundle directory. files: a TauFW.Utilities FileIO (default: new).
-        Raises RecipeError listing every problem."""
-        data, source, directory = read_recipe(path, files)
+        Raises RecipeError listing every problem, also for a file that cannot be read (Framework BUGS K06)."""
+        try:
+            data, source, directory = read_recipe(path, files)
+        except RecipeError:
+            raise
+        except Exception as error:  # a missing or unreadable file, a YAML syntax error, ...
+            reason = "no such file" if not os.path.exists(path) else str(error)
+            raise RecipeError(path, [Issue("", "cannot read the recipe: %s" % (reason))]) from None
         recipe = cls.from_dict(data, source=source, bundle_dir=directory)
         if recipe.pico_config and not os.path.isabs(recipe.pico_config) and leaves_bundle(recipe.pico_config):
             # above the bundle (e.g. ../../PicoProducer/config/config.json): not copied into a run, so made absolute
