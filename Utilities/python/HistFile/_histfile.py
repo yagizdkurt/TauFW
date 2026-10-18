@@ -90,7 +90,11 @@ def write_histfile(path, entries, meta=None):
         raise HistFileError("cannot create %s" % (path))
     try:
         for entry, entry_header in zip(entries, entry_headers):
-            folder = output.mkdir(entry.path, "", True)  # makes the intermediate directories too
+            # mkdir makes the intermediate directories too, but for 'a/b' it returns 'a': take 'a/b' by its path
+            output.mkdir(entry.path, "", True)
+            folder = output.GetDirectory(entry.path)
+            if not folder:
+                raise HistFileError("cannot make the directory %s in %s" % (entry.path, path))
             folder.cd()
             for hist in entry.histograms():
                 hist.Write(hist.GetName())

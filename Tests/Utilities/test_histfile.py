@@ -67,6 +67,7 @@ class RoundTripTests(unittest.TestCase):
         meta = {"era": "2025", "tags": ["a", 1, 2.5, True, None]}
         entries = [HistFileEntry("baseline/m_vis", {"data": hists[:1], "exp": [hists[2], hists[1]], "sig": []},
                                  {"title": "m_{vis}", "ymin": None, "ratiorange": 0.5}),
+                   HistFileEntry("baseline/pt_1", {"exp": hists[1:2]}, {"title": "p_{T}"}),  # same parent directory
                    HistFileEntry("highpt/m_vis", {"exp": hists[1:]}, {})]
         before = ROOT.gDirectory.GetPath()
         with tempfile.TemporaryDirectory() as directory:
@@ -75,7 +76,9 @@ class RoundTripTests(unittest.TestCase):
             content = read_histfile(path)
             self.assertEqual(ROOT.gDirectory.GetPath(), before)
         self.assertEqual(content.meta, meta)  # read after the file is gone: the copies are detached
-        self.assertEqual([entry.path for entry in content.entries], ["baseline/m_vis", "highpt/m_vis"])
+        self.assertEqual([entry.path for entry in content.entries], ["baseline/m_vis", "baseline/pt_1", "highpt/m_vis"])
+        self.assertEqual(content.entry("baseline/pt_1").meta, {"title": "p_{T}"})
+        self.assertEqual([h.GetName() for h in content.entry("baseline/pt_1").histograms()], ["ZTT"])
         first = content.entry("baseline/m_vis")
         self.assertEqual(first.meta, entries[0].meta)
         self.assertEqual({group: [h.GetName() for h in hs] for group, hs in first.groups.items()},
