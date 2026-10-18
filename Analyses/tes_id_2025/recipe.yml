@@ -32,9 +32,9 @@ stages:
       tuples: &tuples_2025  # tuples made outside this recipe (no production stage here): <sample>_<channel>.root
         external: /eos/cms/store/group/phys_tau/TauFW/pico2024/TES_variations/$ERA/$GROUP
     eras: [2025]
-    configs: [setup_mutau.yml, setup_mumu.yml]   # channel setups (copies of Configs/Plotter/setups/)
+    configs: [setup_mutau.yml, setup_mumu.yml]   # channel setups (copies of Configs/Histogrammer/setups/)
     samples: &samples_2025 [v15_2025.yml]   # the samples (MC table, data, weights): a copy of
-                            # Configs/Plotter/samples/v15_2025.yml, the same as Histogrammer/config/samples_v15.py
+                            # Configs/Histogrammer/samples/v15_2025.yml, the same as Histogrammer/config/samples_v15.py
     variables: [m_vis, pt_1, pt_2, eta_2, dm_2]   # plot.py -V; []: every variable
     selections: [baseline]  # plot.py -S; []: baseline and every region
     pdf: false

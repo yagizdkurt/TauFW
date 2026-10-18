@@ -9,8 +9,8 @@ from unittest import mock
 
 import checkout
 from TauFW.Framework import check_recipe
-from TauFW.Framework.configs import (scan, lock_changes, update, copy_warnings, read_header, content_hash,
-                                     ConfigError, LOCK_NAME)
+from TauFW.Framework.configs import (scan, lock_changes, update, copy_warnings, read_header, renamed_id,
+                                     content_hash, ConfigError, LOCK_NAME)
 from TauFW.Framework.defaults import CONFIGS_DIR
 from TauFW.Histogrammer.sample.model import load_sample_model
 
@@ -20,13 +20,13 @@ STEP = {"stage": "python", "id": "check", "inputs": None, "file": "steps/check.p
 # file. Every template of Configs/ must have one (RepositoryConfigsTests); add the module's reader with its first
 # template.
 READERS = {
-    'plotter.samples_': lambda path: load_sample_model(path),  # Configs/Plotter/samples/ (TauFW.Histogrammer.sample.model)
-    'plotter.setup_': lambda path: read_setup(path),           # Configs/Plotter/setups/ (plot.py: yaml.safe_load)
+    'histogrammer.samples_': lambda path: load_sample_model(path),  # Configs/Histogrammer/samples/ (sample.model)
+    'histogrammer.setup_': lambda path: read_setup(path),           # Configs/Histogrammer/setups/ (fillhists.py)
 }
 
 
 def read_setup(path):
-    """A channel setup as plot.py reads it (yaml.safe_load), with the keys every plot.py run needs."""
+    """A channel setup as fillhists.py reads it (yaml.safe_load), with the keys every run needs."""
     import yaml
     with open(path) as stream:
         setup = yaml.safe_load(stream)
@@ -217,6 +217,23 @@ class CopyWarningTests(ConfigsCase):
         messages = dict(self.warnings())
         self.assertIn("never its taufw_config header", messages["a.yml"])
         self.assertIn("not in Configs/ any more", messages[os.path.join("sub", "b.yml")])
+
+    def test_copy_with_the_id_from_before_a_rename(self):
+        """BACKWARD COMPATIBILITY (changelog §24): plotter.samples_* became histogrammer.samples_*."""
+        self.assertEqual(renamed_id("plotter.samples_v15_2025"), "histogrammer.samples_v15_2025")
+        self.assertEqual(renamed_id("plotter.setup_mutau"), "histogrammer.setup_mutau")
+        self.assertIsNone(renamed_id("fitter.tes_id"))
+        self.write("Histogrammer/samples/new.yml", template("histogrammer.samples_new", version=2))
+        update(self.configs)
+        self.write("same.yml", template("plotter.samples_new", version=2), self.bundle)
+        self.write("older.yml", template("plotter.samples_new", version=1), self.bundle)
+        messages = {}
+        for relative, message in self.warnings():
+            messages.setdefault(relative, []).append(message)
+        self.assertEqual(len(messages["same.yml"]), 1)  # only the rename: same version
+        self.assertIn("renamed histogrammer.samples_new (Configs/Histogrammer/samples/new.yml", messages["same.yml"][0])
+        self.assertEqual(len(messages["older.yml"]), 2)  # the rename, and the template is newer
+        self.assertIn("version 1, but Configs/Histogrammer/samples/new.yml is version 2", messages["older.yml"][1])
 
     def test_invalid_header_and_plain_files(self):
         self.write("bad.yml", template(header="taufw_config:\n  id: plotter.x\n"), self.bundle)

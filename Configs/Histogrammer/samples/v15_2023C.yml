@@ -1,12 +1,12 @@
 taufw_config:                     # set by the maintainers: analysts edit the values below, never these lines
-  id: plotter.samples_v15_2023d
+  id: histogrammer.samples_v15_2023c
   version: 1
   schema: 1
-  description: samples of the v15 pico tuples for 2023D (MC table, data, MC weights, stitching)
-# The samples Plotter/config/samples_v15.py getsampleset() uses for era 2023D, exported by
-# Tests/Plotter/sample_model/export.py. Format: Plotter/python/sample/model.py. The cross sections are the
+  description: samples of the v15 pico tuples for 2023C (MC table, data, MC weights, stitching)
+# The samples Histogrammer/config/samples_v15.py getsampleset() uses for era 2023C, exported by
+# Tests/Histogrammer/sample_model/export.py. Format: Histogrammer/python/sample/model.py. The cross sections are the
 # values samples_v15.py computed (cross section times k-factor).
-era: "2023D"
+era: "2023C"
 cme: 13.6
 extraweights: {dyweight: "zptweight_nnlo", ttweight: "ttptweight"}   # defaults; plot/shape scripts may override them by name
 mc:

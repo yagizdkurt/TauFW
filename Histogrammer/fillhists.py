@@ -5,7 +5,7 @@
 # Plotter draws them from a file (CL §24, S3-S4) it also draws them, exactly as plot.py did.
 # Instructions:
 #   ./fillhists.py -y 2018 -c mutau
-#   ./fillhists.py -y 2018 -c ../Configs/Plotter/setups/setup_mutau.yml
+#   ./fillhists.py -y 2018 -c ../Configs/Histogrammer/setups/setup_mutau.yml
 #   ./fillhists.py -y 2018 -c mutau -S baseline -V m_vis
 #>>>>IMPORTANT!!
 #>>>>Run with --serial option if using py3:
@@ -16,7 +16,7 @@ from config.samples_v15 import *
 from TauFW.Histogrammer.spec.string import filtervars
 from TauFW.Utilities.Drawing import LOG as PLOG
 import yaml
-SETUPS = os.path.join(os.path.dirname(os.path.abspath(__file__)),"..","Configs","Plotter","setups") # channel setups (CL §22)
+SETUPS = os.path.join(os.path.dirname(os.path.abspath(__file__)),"..","Configs","Histogrammer","setups") # channel setups (CL §22)
 
 
 def plot(sampleset,setup,parallel=True,tag="",extratext="",outdir="plots",era="",
@@ -182,7 +182,7 @@ if __name__ == "__main__":
                                               "(files <sample>_<channel>.root), instead of $PICODIR of the "
                                               "PicoProducer configuration" )
   parser.add_argument('--samples',       default=None, nargs='+', metavar='FILE',
-                                         help="sample model files, one per era (e.g. Configs/Plotter/samples/v15_2025.yml "
+                                         help="sample model files, one per era (e.g. Configs/Histogrammer/samples/v15_2025.yml "
                                               "or a copy), instead of the tables of config/samples_v15.py" )
   parser.add_argument('-v', '--verbose', dest='verbosity', type=int, nargs='?', const=1, default=0, action='store',
                                          help="set verbosity" )

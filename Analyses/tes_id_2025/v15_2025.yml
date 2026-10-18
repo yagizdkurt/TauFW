@@ -1,10 +1,10 @@
 taufw_config:                     # set by the maintainers: analysts edit the values below, never these lines
-  id: plotter.samples_v15_2025
+  id: histogrammer.samples_v15_2025
   version: 1
   schema: 1
   description: samples of the v15 pico tuples for 2025 (MC table, data, MC weights, stitching)
-# The samples Plotter/config/samples_v15.py getsampleset() uses for era 2025, exported by
-# Tests/Plotter/sample_model/export.py. Format: Plotter/python/sample/model.py. The cross sections are the
+# The samples Histogrammer/config/samples_v15.py getsampleset() uses for era 2025, exported by
+# Tests/Histogrammer/sample_model/export.py. Format: Histogrammer/python/sample/model.py. The cross sections are the
 # values samples_v15.py computed (cross section times k-factor).
 era: "2025"
 cme: 13.6

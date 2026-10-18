@@ -1,5 +1,5 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-"""Sample model: the samples of one era as data (a template of Configs/Plotter/samples/, copied into a bundle).
+"""Sample model: the samples of one era as data (a template of Configs/Histogrammer/samples/, copied into a bundle).
 
     load_sample_model(path) ─▶ SampleModel (ROOT-free: YAML only)
     pick(paths, era)         ─▶ the model of one era from a list of files

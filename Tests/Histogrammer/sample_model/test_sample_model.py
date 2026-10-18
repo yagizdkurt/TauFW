@@ -1,6 +1,6 @@
 """The sample model (TauFW.Histogrammer.sample.model) against Histogrammer/config/samples_v15.py: for every era,
 channel kind and caller option of recorder.py, the new getsampleset with the template
-Configs/Plotter/samples/v15_<era>.yml must make exactly the core calls the old one makes (same arguments, same order). Where the old one raises, the new one must
+Configs/Histogrammer/samples/v15_<era>.yml must make exactly the core calls the old one makes (same arguments, same order). Where the old one raises, the new one must
 raise too, after the same calls (the message may differ). No ROOT: the recorder's stub utils module.
 Also the reader: format problems, pick() by era, sample_names()."""
 import glob
@@ -13,7 +13,7 @@ import checkout
 import recorder
 from TauFW.Histogrammer.sample import model
 
-TEMPLATES = sorted(glob.glob(str(checkout.REPO / "Configs" / "Plotter" / "samples" / "v15_*.yml")))
+TEMPLATES = sorted(glob.glob(str(checkout.REPO / "Configs" / "Histogrammer" / "samples" / "v15_*.yml")))
 
 
 def compare(old, new):

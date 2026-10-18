@@ -16,6 +16,14 @@ Items marked **(verify)** may already be done; check before working on them.
 ## 1. Checks to run on lxplus
 
 
+- [ ] **Configs to `Configs/Histogrammer/` (CL §24, S2).** After `git pull`, in `TauFW/`: `python3 Tests/run.py bbb
+      check` (22/22, no re-lock: `plotter.sample_model` reads the moved templates), `python3 Tests/run.py checks`,
+      `python3 Framework/scripts/taufw.py configs` (15 templates, all `histogrammer.*`), `taufw.py check` and `plan` of
+      `Analyses/tes_id_2025` and `Analyses/example_mutau_long` (no copy warning). Old-id copy: `cp -r
+      Analyses/tes_id_2025 /tmp/$USER/oldid && sed -i 's/id: histogrammer\./id: plotter./' /tmp/$USER/oldid/*.yml &&
+      python3 Framework/scripts/taufw.py check /tmp/$USER/oldid` must warn "renamed ... change the id" for the three
+      copies and nothing else. Real plots: in `Histogrammer/` the S1 command with `-t _h18s2` and `--samples
+      ../Configs/Histogrammer/samples/v15_2025.yml`; its 4 PNG files equal `../Plotter/plots/2025/*_h18old.png`.
 - [x] **Plotter -> Histogrammer, S0 and S1 (CL §24).** Done 2026-10-18 on lxplus: BBB locked with `plotter.stack`
       (22 cases; `bbb diff`: only the new case; `bbb check` twice 22/22); `roundtrip_spike.py` 12/12 SAME (drawing
       from a histogram file, also with only the 17 drawing attributes, gives the same canvases and PNG bytes). After
@@ -414,7 +422,9 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
       `Histogrammer/plot.py`. Callers of the old names left today: Fitter 8 files (`setera` in the postfit scripts,
       `Zpt`, `ETauFR/Plotter/plotpostfit.py`; they leave with step 2 of 13 / the setera TODO), Legacy 19 files (they
       break then; Legacy policy), the old scripts in `Tests/Plotter/` (retarget or retire them first). The BBB case
-      names `plotter.*` can be renamed at the same point (one re-lock).
+      names `plotter.*` can be renamed at the same point (one re-lock). Also `RENAMED_IDS` in
+      `Framework/python/configs.py` (bundle copies with the ids `plotter.samples_*` / `plotter.setup_*` from before
+      S2) and its test `test_copy_with_the_id_from_before_a_rename`.
 
 - [ ] Python 2 scripts kept for migration (CL §3): high priority `Fitter/ETauFR/writedatacard.py` (its
       `prefitFR.json` is read by `text2wp.py`), `Fitter/Zpt/utils.py`, `Fitter/Zpt/config/samples.py` (imported by

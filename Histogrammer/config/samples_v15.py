@@ -11,7 +11,7 @@ import json
 
 def getsampleset(channel,era,**kwargs):
   # BACKWARD COMPATIBILITY (CL §22): the tables below are used only without `samples`. With samples=[files] (sample
-  # model templates, Configs/Plotter/samples/v15_<era>.yml or a bundle's copy) the file of the era gives the samples;
+  # model templates, Configs/Histogrammer/samples/v15_<era>.yml or a bundle's copy) the file of the era gives the samples;
   # the templates were exported from this function and make exactly the same calls (Tests/Histogrammer/sample_model).
   samplefiles = kwargs.pop('samples', None) # not named `samples`: L14 below relies on that name being undefined
   if samplefiles:

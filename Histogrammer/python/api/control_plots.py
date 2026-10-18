@@ -16,7 +16,7 @@ is none:
 Inputs:  pico tuples in the request's tuple pattern (--tuples), or else found by fillhists.py through $PICODIR
          of the request's PicoProducer config (passed to fillhists.py as $TAUFW_PICO_CONFIG; default
          PicoProducer/config/config.json); the channel setups
-         Configs/Plotter/setups/setup_<channel>.yml (or any .yml, relative to Histogrammer/ or absolute); the sample model
+         Configs/Histogrammer/setups/setup_<channel>.yml (or any .yml, relative to Histogrammer/ or absolute); the sample model
          files (--samples; without them the tables of config/samples_v15.py).
 Outputs: <outdir>/plots/<era>/<variable>_<channel>-<selection>-<era><tag>.png, where <tag> is the setup's tag
          plus request.tag (without outdir: Histogrammer/plots/<era>/, shared by all runs; pdf on request), and one log
@@ -45,7 +45,7 @@ from TauFW.Histogrammer.sample import model as sample_model
 __all__ = ['ControlPlots']
 
 SCRIPT = 'fillhists.py'                    # the script this API runs (Plotter/plot.py until CL §24)
-SETUPS = ('Configs', 'Plotter', 'setups')  # the channel setups, next to Histogrammer/ (config templates, Configs/README.md)
+SETUPS = ('Configs', 'Histogrammer', 'setups')  # the channel setups, next to Histogrammer/ (config templates, Configs/README.md)
 
 
 class ControlPlots:
@@ -255,7 +255,7 @@ class ControlPlots:
 
 
 def _setup_file(config):
-    """fillhists.py's rule: a name without .yml is a channel, Configs/Plotter/setups/setup_<channel>.yml (relative to
+    """fillhists.py's rule: a name without .yml is a channel, Configs/Histogrammer/setups/setup_<channel>.yml (relative to
     Histogrammer/; the setups are config templates since CL §22)."""
     return config if config.endswith('.yml') else os.path.join(os.pardir, *SETUPS, "setup_%s.yml" % (config))
 

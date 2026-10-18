@@ -177,4 +177,10 @@ migration point (TODO §8). Options, defaults and outputs of every script are un
 | `$CMSSW_BASE/src/TauFW/Plotter/data/ff_HighPT/` (written and read by `Fitter/HighPT`) | `.../Histogrammer/data/ff_HighPT/` | none |
 | `docs/Plotter/BUGS.md` | `docs/Histogrammer/BUGS.md` (same IDs) | none |
 
-`Configs/Plotter/` (sample model templates, channel setups) stays until step S2.
+### Configs (S2)
+
+| Before | Now | Old name |
+|---|---|---|
+| `Configs/Plotter/samples/v15_<era>.yml` (id `plotter.samples_v15_<era>`) | `Configs/Histogrammer/samples/` (id `histogrammer.samples_v15_<era>`; values and versions unchanged) | a bundle copy with the old id is compared with the renamed template and gets a warning to change its `id` line |
+| `Configs/Plotter/setups/setup_<channel>.yml` (id `plotter.setup_<channel>`) | `Configs/Histogrammer/setups/` (id `histogrammer.setup_<channel>`) | same |
+| `fillhists.py -c <channel>`, the API and the Framework resolve a channel name to `Configs/Plotter/setups/` | `Configs/Histogrammer/setups/setup_<channel>.yml` | none |

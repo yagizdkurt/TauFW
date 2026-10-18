@@ -12,7 +12,7 @@ from TauFW.Framework import Framework, RecipeError, check_recipe
 from TauFW.Histogrammer.api import ControlPlots
 from TauFW.Histogrammer.sample.model import pick
 
-TEMPLATES = checkout.REPO / "Configs" / "Plotter" / "samples"
+TEMPLATES = checkout.REPO / "Configs" / "Histogrammer" / "samples"
 PRODUCTION = {"stage": "production", "id": "production", "inputs": None, "eras": [2025], "channels": ["mutau"]}
 PLOTS = {"stage": "plots", "id": "plots", "inputs": {"tuples": "production"}, "eras": [2025], "configs": ["mutau"],
          "samples": ["samples_2025.yml"]}

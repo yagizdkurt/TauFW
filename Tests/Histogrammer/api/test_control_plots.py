@@ -19,10 +19,10 @@ class ControlPlotsTests(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.base, ignore_errors=True)
         self.plotter_dir = os.path.join(self.base, "Histogrammer")
         os.makedirs(os.path.join(self.plotter_dir, "config"))
-        self.setups = os.path.join(self.base, "Configs", "Plotter", "setups")  # next to Histogrammer/, as in TauFW
+        self.setups = os.path.join(self.base, "Configs", "Histogrammer", "setups")  # next to Histogrammer/, as in TauFW
         os.makedirs(self.setups)
         for channel in ("mutau", "mumu"):
-            shutil.copy(os.path.join(str(checkout.REPO), "Configs", "Plotter", "setups", "setup_%s.yml" % channel),
+            shutil.copy(os.path.join(str(checkout.REPO), "Configs", "Histogrammer", "setups", "setup_%s.yml" % channel),
                         self.setups)
         self.calls = []
         self.cwds = []
@@ -170,7 +170,7 @@ class ControlPlotsTests(unittest.TestCase):
         self.assertNotIn("--tuples", self.plotter.plan(PlotsRequest(eras=["2025"])).commands[0].argv)
 
     def test_sample_files(self):  # CL §22: sample model files, --samples
-        templates = os.path.join(str(checkout.REPO), "Configs", "Plotter", "samples")
+        templates = os.path.join(str(checkout.REPO), "Configs", "Histogrammer", "samples")
         samples = (os.path.join(templates, "v15_2025.yml"), os.path.join(templates, "v15_2024.yml"))
         outdir = os.path.join(self.base, "out")
         command = self.plotter.plan(PlotsRequest(eras=["2025"], samples=samples, outdir=outdir)).commands[0]

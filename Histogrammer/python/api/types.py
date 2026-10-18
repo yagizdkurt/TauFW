@@ -21,12 +21,12 @@ __all__ = ['PlotsRequest']
 @dataclass(frozen=True)
 class PlotsRequest:
     """Control plots: one fillhists.py run per channel setup and era.
-    configs: channel names (Configs/Plotter/setups/setup_<channel>.yml) or .yml files (relative to Histogrammer/, or
+    configs: channel names (Configs/Histogrammer/setups/setup_<channel>.yml) or .yml files (relative to Histogrammer/, or
     absolute).
     variables, selections: -V and -S filters (glob patterns); empty: all.
     tuples: the directory pattern of the tuples (with $ERA, $GROUP), given as --tuples; then the
     PicoProducer configuration is not used. None: the script reads $PICODIR of pico_config (None: its default).
-    samples: sample model files, one per era (Configs/Plotter/samples/v15_<era>.yml or a copy), given as
+    samples: sample model files, one per era (Configs/Histogrammer/samples/v15_<era>.yml or a copy), given as
     --samples; empty: the tables of config/samples_v15.py.
     outdir: the directory the script runs in and writes plots/<era>/ to (None: Histogrammer/, as a user runs it)."""
     eras:       Tuple[str, ...]

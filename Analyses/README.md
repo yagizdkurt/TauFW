@@ -289,7 +289,7 @@ follow one rule:
 | Absolute path | Used as is. | `absolute` |
 | Relative path of a file in the bundle | That bundle file, e.g. `config_coarse_TT.yml` next to `recipe.yml`. | `bundle` |
 | Any other relative path | Unchanged: the module resolves it as before, relative to `Fitter/` (e.g. `TauES_ID/config/config_coarse_TT.yml`) or `Histogrammer/` (e.g. `config/setup_mutau.yml`). | `module` |
-| `plots.configs` channel name | `mutau` selects `Configs/Plotter/setups/setup_mutau.yml` (the template; a bundle copy is better: `taufw.py init --from` makes one). | `module` |
+| `plots.configs` channel name | `mutau` selects `Configs/Histogrammer/setups/setup_mutau.yml` (the template; a bundle copy is better: `taufw.py init --from` makes one). | `module` |
 
 A bundle file **replaces** the module's config as a whole: the script reads the
 bundle's copy instead, nothing is merged. `taufw.py plan` lists every file each
@@ -410,7 +410,7 @@ The `samples` option of `plots` and `histograms` names the sample model files:
 for every era, which MC samples are read (with their cross sections, titles and
 extra weights), which data datasets, the MC weight of each channel kind, and
 how samples are stitched and joined. Copy the file of each era from
-`Configs/Plotter/samples/` (`taufw.py configs` lists them) next to `recipe.yml`
+`Configs/Histogrammer/samples/` (`taufw.py configs` lists them) next to `recipe.yml`
 and name the copies; edit the values of your copy (never its `taufw_config`
 header, see [Config templates](#config-templates-configs)). The templates were
 exported from `Histogrammer/config/samples_v15.py` and give exactly the same sample
@@ -512,7 +512,7 @@ the `plots` entry in `fit.steps` instead makes plots of fit results.
 | `tag` | `""` | Plot tag; `-t`. |
 | `text` | `""` | Additional plot text; `-T`. |
 | `timeout` | `null` | Seconds allowed per command; unset means no time limit. |
-| `samples` | `[]` | Sample model files of the bundle (or absolute), one per era: copies of `Configs/Plotter/samples/v15_<era>.yml` (MC table, data, MC weights, stitching); `--samples`. Empty: the tables of `Histogrammer/config/samples_v15.py` (old recipes). See [Which samples](#which-samples). |
+| `samples` | `[]` | Sample model files of the bundle (or absolute), one per era: copies of `Configs/Histogrammer/samples/v15_<era>.yml` (MC table, data, MC weights, stitching); `--samples`. Empty: the tables of `Histogrammer/config/samples_v15.py` (old recipes). See [Which samples](#which-samples). |
 
 `fillhists.py` runs in the stage's directory, so the plots are written under
 `taufw_runs/<run>/stages/<id>/plots/<era>/` (nothing is written to
@@ -538,7 +538,7 @@ Creates the input shapes for the combined TES + tau ID fit. It wraps the
 | `configs` | `[TauES_ID/config/config_coarse_TT.yml, TauES/config/FitSetup_mumu.yml]` | Non-empty configs (bundle files, or relative to `Fitter/`): by default the mutau fit and mumu control region. |
 | `serial` | `false` | Serial shape creation; `-s`. |
 | `timeout` | `null` | Seconds per shape-creation command; unset means no time limit. |
-| `samples` | `[]` | Sample model files of the bundle (or absolute), one per era: copies of `Configs/Plotter/samples/v15_<era>.yml` (MC table, data, MC weights, stitching); `--samples`. Empty: the tables of `Histogrammer/config/samples_v15.py` (old recipes). See [Which samples](#which-samples). |
+| `samples` | `[]` | Sample model files of the bundle (or absolute), one per era: copies of `Configs/Histogrammer/samples/v15_<era>.yml` (MC table, data, MC weights, stitching); `--samples`. Empty: the tables of `Histogrammer/config/samples_v15.py` (old recipes). See [Which samples](#which-samples). |
 
 The lists form a Cartesian product. Two eras, two jet WPs, one electron WP,
 and two configs produce eight shape-creation commands. Each command can write

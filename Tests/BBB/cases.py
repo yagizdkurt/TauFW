@@ -526,13 +526,13 @@ def _sample_model_recorder():
 
 def _sample_model_function(recorder):
     """The sample-set function under test and the core functions the recorder replaces. Only this function changed
-    when the samples moved to Configs/Plotter/samples/: the case was locked with Plotter/config/samples_v15.py
+    when the samples moved to Configs/Histogrammer/samples/: the case was locked with Plotter/config/samples_v15.py
     (getsampleset, recorder.old_targets) and now runs TauFW.Histogrammer.sample.model.getsampleset with them."""
     import importlib
     utils = importlib.import_module("TauFW.Histogrammer.sample.utils")
     from TauFW.Histogrammer.sample import model
     templates = sorted(str(path) for path in
-                       (Path(__file__).resolve().parents[2] / "Configs" / "Plotter" / "samples").glob("v15_*.yml"))
+                       (Path(__file__).resolve().parents[2] / "Configs" / "Histogrammer" / "samples").glob("v15_*.yml"))
     models = {}
 
     def getsampleset(channel, era, **kwargs):

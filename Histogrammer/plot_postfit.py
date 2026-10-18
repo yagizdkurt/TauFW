@@ -3,7 +3,7 @@
 # Description: Simple plotting script for pico analysis tuples
 # Instructions:
 #   ./plot_v10.py -y 2018 -c mutau
-#   ./plot_v10.py -y 2018 -c ../Configs/Plotter/setups/setup_mutau.yml
+#   ./plot_v10.py -y 2018 -c ../Configs/Histogrammer/setups/setup_mutau.yml
 #   ./plot_v10.py -y 2018 -c mutau -S baseline -V m_vis
 #>>>>IMPORTANT!!
 #>>>>Run with --serial option if using py3:
@@ -15,7 +15,7 @@ from TauFW.Utilities.Drawing.Plot import Plot, deletehist
 import TauFW.Utilities.Drawing.SampleStyle as STYLE
 import os
 import yaml
-SETUPS = os.path.join(os.path.dirname(os.path.abspath(__file__)),"..","Configs","Plotter","setups") # channel setups (CL §22)
+SETUPS = os.path.join(os.path.dirname(os.path.abspath(__file__)),"..","Configs","Histogrammer","setups") # channel setups (CL §22)
 
 def plot(sampleset,setup,region,parallel=True,tag="",extratext="",outdir="plots",era="",
          varfilter=None,selfilter=None,fraction=False,pdf=False):

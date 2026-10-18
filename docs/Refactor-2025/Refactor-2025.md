@@ -1551,3 +1551,32 @@ through the aliases; `fillhists.py` against the old `plot.py` on the 2025 tuples
 baseline`): the 4 PNG files byte-identical, the logs equal except the ACLiC line of `mapDecayModes.C` in its new
 directory and the timing; `Plotter/plot.py` prints the new command and exits with 2. S0's `roundtrip_spike.py`:
 12/12 SAME, so a Plotter drawing from a histogram file with only the 17 drawing attributes is feasible (S3).
+
+### Configs to Configs/Histogrammer/ (S2)
+
+**Date:** 2026-10-18, Windows; the lxplus checks are in TODO §1.
+
+The Plotter's config templates belong to the Histogrammer (they say which samples to fill and which selections), and
+a template's id must start with its module directory (CL §21). The new Plotter has no user config: drawing needs
+only command-line options and the histogram file.
+
+- `git mv Configs/Plotter Configs/Histogrammer`: 8 sample model templates (`samples/v15_<era>.yml`) and 7 channel
+  setups (`setups/setup_<channel>.yml`). In each header only the id changed (`plotter.*` -> `histogrammer.*`; a setup's
+  description now says `fillhists.py`), and the comments that name paths. `taufw.py configs update`: the 15 new ids
+  are locked with version 1 and **the same content hashes** as before (the values are unchanged); the 15 old ids left
+  the lock. The bundle copies (`Analyses/tes_id_2025/`: `v15_2025.yml`, `setup_mutau.yml`, `setup_mumu.yml`;
+  `Analyses/example_mutau_long/`: `v15_2022_postEE.yml`, `setup_mutau.yml`) got the new ids.
+- **Backward compatibility (TODO §8):** `RENAMED_IDS` and `renamed_id()` in `Framework/python/configs.py`. A copy whose
+  id is a renamed one (an analyst's bundle made before S2) is compared with the renamed template; `check`, `plan` and
+  `start` warn "copy of plotter.X, which was renamed histogrammer.X (...): change the id in the copy's taufw_config
+  header" (and still warn when the template is newer), instead of "not in Configs/ any more". New test
+  `test_copy_with_the_id_from_before_a_rename`.
+- Paths: `fillhists.py`, `plot_postfit*.py`, `plot_v10.py` (`SETUPS`), the API (`SETUPS`, channel names), the help
+  texts, the docstrings of the Framework, Fitter and Histogrammer, the tests (`READERS` keys `histogrammer.samples_`,
+  `histogrammer.setup_`), `export.py` (writes the new id and paths), READMEs (`Configs/` explains the rename),
+  `scripts_arg_changes.md`, recipe comments. The BBB case `plotter.sample_model` reads the templates from the new
+  directory (its payload does not contain the path).
+
+Checked (Windows): `python Tests/run.py checks`: all unit suites pass (`unit.framework` with the bundle checks: the
+copies match their templates, no warning; `test_configs.py` 22 tests, 1 of them new); `check_import_boundaries` unchanged
+(30 / 28 / 26, 0 new pairs).

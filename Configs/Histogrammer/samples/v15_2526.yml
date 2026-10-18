@@ -1,12 +1,12 @@
 taufw_config:                     # set by the maintainers: analysts edit the values below, never these lines
-  id: plotter.samples_v15_2024
+  id: histogrammer.samples_v15_2526
   version: 1
   schema: 1
-  description: samples of the v15 pico tuples for 2024 (MC table, data, MC weights, stitching)
-# The samples Plotter/config/samples_v15.py getsampleset() uses for era 2024, exported by
-# Tests/Plotter/sample_model/export.py. Format: Plotter/python/sample/model.py. The cross sections are the
+  description: samples of the v15 pico tuples for 2526 (MC table, data, MC weights, stitching)
+# The samples Histogrammer/config/samples_v15.py getsampleset() uses for era 2526, exported by
+# Tests/Histogrammer/sample_model/export.py. Format: Histogrammer/python/sample/model.py. The cross sections are the
 # values samples_v15.py computed (cross section times k-factor).
-era: "2024"
+era: "2526"
 cme: 13.6
 extraweights: {dyweight: "zptweight_nnlo", ttweight: "ttptweight"}   # defaults; plot/shape scripts may override them by name
 mc:
@@ -40,14 +40,11 @@ mc:
   - {group: "ST", name: "TbarWplustoLNu2Q", title: "ST atW semileptonic", xsec: 15.9}
   - {group: "ST", name: "TbarWplusto2L2Nu", title: "ST atW 2l2#nu", xsec: 3.8}
 data:                             # dataset pattern by channel kind (tautau, muon, electron, emu)
-  tautau: "Tau_Run2024?"
   muon: "Muon*"
   electron: "EGamma*"
-  emu: "SingleMuon_Run2024?"
 weights:                          # MC weight by channel kind (semileptonic, ditau, other)
-  semileptonic: "genweight*puweight*trigweight*idisoweight_1*idweight_2*ltfweight_2"
-  ditau: "genweight*trigweight*puweight*idweight_1*idweight_2*ltfweight_1*ltfweight_2"
-  other: "genweight*puweight_2025_69p2_v3*idisoweight_1_2025*trigweight_2025*idisoweight_2_2025"
+  semileptonic: "genweight*puweight_2025_2026_69p2*trigweight_2025*idisoweight_1_2025*idweight_2*ltfweight_2"
+  other: "genweight*puweight_2025_2026_69p2*idisoweight_1_2025*trigweight_2025*idisoweight_2_2025"
 stitch: []
 join:
   - {patterns: ["Wto*Nu-2Jets"], name: "WJ"}

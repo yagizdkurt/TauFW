@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-"""Export the samples of Histogrammer/config/samples_v15.py to the templates Configs/Plotter/samples/v15_<era>.yml.
+"""Export the samples of Histogrammer/config/samples_v15.py to the templates Configs/Histogrammer/samples/v15_<era>.yml.
 
 Nothing is typed by hand: the old getsampleset() runs with the recorder (recorder.py, stub utils module, no ROOT) and
 the files are written from the calls it makes. For every era:
@@ -23,7 +23,7 @@ import checkout
 import recorder
 from TauFW.Histogrammer.sample.model import load_sample_model, KEYS
 
-OUTDIR = checkout.REPO / "Configs" / "Plotter" / "samples"
+OUTDIR = checkout.REPO / "Configs" / "Histogrammer" / "samples"
 SENTINELS = {'dyweight': "@dyweight@", 'ttweight': "@ttweight@"}
 DATA_CHANNELS = (('tautau', 'tautau'), ('muon', 'mutau'), ('electron', 'etau'), ('emu', 'emu'))
 WEIGHT_CHANNELS = (('semileptonic', 'mutau'), ('ditau', 'tautau'), ('other', 'mumu'))
@@ -104,12 +104,13 @@ def write(model, outdir):
     path = os.path.join(str(outdir), "v15_%s.yml" % (era))
     lines = [
         "taufw_config:                     # set by the maintainers: analysts edit the values below, never these lines",
-        "  id: plotter.samples_v15_%s" % (era.lower()),
+        "  id: histogrammer.samples_v15_%s" % (era.lower()),
         "  version: 1",
         "  schema: 1",
         "  description: samples of the v15 pico tuples for %s (MC table, data, MC weights, stitching)" % (era),
-        "# The samples Plotter/config/samples_v15.py getsampleset() uses for era %s, exported by" % (era),
-        "# Tests/Plotter/sample_model/export.py. Format: Plotter/python/sample/model.py. The cross sections are the",
+        "# The samples Histogrammer/config/samples_v15.py getsampleset() uses for era %s, exported by" % (era),
+        "# Tests/Histogrammer/sample_model/export.py. Format: Histogrammer/python/sample/model.py. "
+        "The cross sections are the",
         "# values samples_v15.py computed (cross section times k-factor).",
         "era: %s" % (_text(era)),
         "cme: %r" % (model['cme']),
@@ -168,7 +169,7 @@ def _text(value):
 
 
 def main(argv=None):
-    parser = ArgumentParser(description="Export samples_v15.py to Configs/Plotter/samples/v15_<era>.yml")
+    parser = ArgumentParser(description="Export samples_v15.py to Configs/Histogrammer/samples/v15_<era>.yml")
     parser.add_argument('--outdir', default=str(OUTDIR), help="default: %(default)s")
     parser.add_argument('--era', dest='eras', nargs='+', default=list(recorder.ERAS), help="default: every era")
     args = parser.parse_args(argv)

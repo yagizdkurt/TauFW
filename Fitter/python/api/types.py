@@ -44,7 +44,7 @@ class ShapesRequest:
     --tuples; then the PicoProducer configuration is not used. pico_config: the PicoProducer configuration the
     scripts read $PICODIR from without tuples (None: its default).
     outdir: the directory the scripts run in and write input_pt_less_region/ to (None: Fitter/).
-    samples: sample model files, one per era (Configs/Plotter/samples/v15_<era>.yml or a copy), given to
+    samples: sample model files, one per era (Configs/Histogrammer/samples/v15_<era>.yml or a copy), given to
     createinputsTES.py as --samples; empty: the tables of Histogrammer/config/samples_v15.py."""
     eras:    Tuple[str, ...]
     configs: Tuple[str, ...]

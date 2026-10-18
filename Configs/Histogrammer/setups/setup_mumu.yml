@@ -1,8 +1,8 @@
 taufw_config:                     # set by the maintainers: analysts edit the values below, never these lines
-  id: plotter.setup_ee
+  id: histogrammer.setup_mumu
   version: 1
   schema: 1
-  description: plot.py channel setup ee (channel, tag, baseline cuts, regions)
+  description: fillhists.py channel setup mumu (channel, tag, baseline cuts, regions)
 ##
 ## Config file for default TES fit in mutau channel
 ## contact: saskia.falke@cern.ch
@@ -13,7 +13,7 @@ taufw_config:                     # set by the maintainers: analysts edit the va
 #       These are not needed for plotting only
 
 
-channel: ee
+channel: mumu
 
 baselineCuts: "q_1*q_2<0 && !lepton_vetoes && metfilter && iso_1<0.15 && iso_2<0.15"
 

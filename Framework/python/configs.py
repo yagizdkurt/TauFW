@@ -4,10 +4,10 @@
     Configs/
       README.md                       the rules (for analysts and maintainers)
       configs.lock                    id, version and content hash of every template (`taufw.py configs update`)
-      Plotter/samples/v15_2025.yml    a template: a YAML mapping that starts with the taufw_config header
+      Histogrammer/samples/v15_2025.yml   a template: a YAML mapping that starts with the taufw_config header
 
     taufw_config:                     # set by the maintainers: analysts edit the values below, never these lines
-      id: plotter.samples_v15_2025    # unique, never changes; starts with the module directory (Plotter -> plotter)
+      id: histogrammer.samples_v15_2025   # unique, never changes; starts with the module directory (lower case)
       version: 3                      # the content version: raised when a value changes
       schema: 1                       # the format version: which reader of the module understands the file
       description: the samples of the v15 tuples for 2025
@@ -20,7 +20,9 @@ fails while the lock is not up to date, so a changed value is never left without
 
 Analysts copy a template into their bundle (the header comes with it) and edit the values. taufw.py check, plan and
 start warn when the template of a copy has a newer version (copy_warnings): the maintainers changed it since the copy.
-The warning stays as long as the copy is older; keeping an old copy on purpose is allowed.
+The warning stays as long as the copy is older; keeping an old copy on purpose is allowed. A copy whose id belongs to
+a template that moved with a module rename (RENAMED_IDS) is compared with the renamed template and warned to update
+its header (backward compatibility, changelog §24).
 
 Only YAML templates (.yml, .yaml) are allowed in Configs/ (no Python, no JSON: *.json is ignored by git), besides
 README.md files and configs.lock.
@@ -35,7 +37,8 @@ Public API:
   update(directory) -> (ConfigScan, [LockChange])  raise the versions of changed templates, rewrite the lock
   copy_warnings(bundle_dir, directory) -> [(file, message)]   copies in a bundle whose template is newer (or gone)
   read_header(data) -> ConfigHeader              the header of a parsed YAML mapping (ConfigError if invalid)
-  content_hash(data) -> str                      sha256 of the values without the header
+  renamed_id(config_id) -> str or None           the current id of a template id from before a module rename
+  content_hash(data) -> str                     sha256 of the values without the header
   ConfigHeader, ConfigTemplate, ConfigScan, LockChange, ConfigError, HEADER_KEY, LOCK_NAME
 """
 import hashlib
@@ -47,8 +50,8 @@ from typing import Optional, Tuple
 
 from TauFW.Framework.defaults import CONFIGS_DIR, RECIPE_NAME, default_file_io
 
-__all__ = ['scan', 'lock_changes', 'update', 'copy_warnings', 'read_header', 'content_hash', 'ConfigHeader',
-           'ConfigTemplate', 'ConfigScan', 'LockChange', 'ConfigError', 'HEADER_KEY', 'LOCK_NAME']
+__all__ = ['scan', 'lock_changes', 'update', 'copy_warnings', 'read_header', 'renamed_id', 'content_hash',
+           'ConfigHeader', 'ConfigTemplate', 'ConfigScan', 'LockChange', 'ConfigError', 'HEADER_KEY', 'LOCK_NAME']
 
 
 # =============================================================================
@@ -60,11 +63,18 @@ LOCK_NAME   = "configs.lock"           # in Configs/: id, version and content ha
 EXTENSIONS  = ('.yml', '.yaml')        # template files
 OTHER_FILES = ('README.md', LOCK_NAME)  # the only other files allowed in Configs/
 SKIPPED     = ('__pycache__', 'taufw_runs')  # directories never scanned (nor hidden ones)
-IDEXP       = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$")  # e.g. plotter.samples_v15_2025
+IDEXP       = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$")  # e.g. histogrammer.samples_v15_2025
 VERSIONEXP  = re.compile(r"^(?P<head>[ \t]+version:[ \t]*)(?P<number>\d+)", re.M)  # a version line of the header
 LOCK_HEADER = ("# Configs/configs.lock: the content version and hash of every template in Configs/.\n"
                "# Written by `taufw.py configs update` (Framework/python/configs.py); do not edit by hand.\n"
                "# id  version  sha256 of the values without the taufw_config header\n")
+
+# ===== BACKWARD COMPATIBILITY (changelog §24, TODO §8): delete at the migration point =====
+# Templates that moved with a module rename: the start of an old id -> the start of the new one. Copies made before
+# the rename keep the old id in their header; copy_warnings() finds their template by the new id and asks for the
+# header to be updated, instead of reporting the template as gone.
+RENAMED_IDS = (('plotter.samples_', 'histogrammer.samples_'),  # Plotter -> Histogrammer: Configs/Histogrammer/samples/
+               ('plotter.setup_', 'histogrammer.setup_'))      # and Configs/Histogrammer/setups/
 
 
 # =============================================================================
@@ -163,6 +173,11 @@ def copy_warnings(bundle_dir, directory=None, files=None):
         if copy is None:
             continue
         template = templates.get(copy.id)
+        if template is None and renamed_id(copy.id) in templates:  # BACKWARD COMPATIBILITY (RENAMED_IDS)
+            template = templates[renamed_id(copy.id)]
+            warnings.append((relative, "copy of %s, which was renamed %s (Configs/%s, changelog §24): change the id "
+                                       "in the copy's %s header to %s"
+                             % (copy.id, template.header.id, _posix(template.path), HEADER_KEY, template.header.id)))
         if template is None:
             warnings.append((relative, "copy of %s, which is not in Configs/ any more (renamed or removed): see "
                                        "Configs/README.md" % (copy.id)))
@@ -276,6 +291,14 @@ class ConfigError(ValueError):
 
 # =============================================================================
 # ================================== HELPERS ==================================
+
+
+def renamed_id(config_id):
+    """The current id of a template id from before a module rename (RENAMED_IDS), or None if it was not renamed."""
+    for old, new in RENAMED_IDS:
+        if config_id.startswith(old):
+            return new + config_id[len(old):]
+    return None
 
 
 def _read_template(directory, relative, files):

@@ -91,7 +91,7 @@ class HistogramSpec:
     configs: Tuple[str, ...] = DEFAULT_CONFIGS
     serial:  bool = False
     timeout: Optional[float] = None   # seconds per createinputsTES.py run; None: no limit
-    samples: Tuple[str, ...] = ()     # sample model files (bundle copies of Configs/Plotter/samples/), one per
+    samples: Tuple[str, ...] = ()     # sample model files (bundle copies of Configs/Histogrammer/samples/), one per
                                       # era; empty: the tables of Histogrammer/config/samples_v15.py
 
     def __post_init__(self):

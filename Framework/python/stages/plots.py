@@ -64,7 +64,7 @@ class PlotStage(LocalStage):
 @dataclass(frozen=True)
 class PlotSpec:
     """Recipe options: eras, channel setups (bundle files, .yml files relative to Histogrammer/, or a channel name for
-    Configs/Plotter/setups/setup_<channel>.yml), the
+    Configs/Histogrammer/setups/setup_<channel>.yml), the
     script's filters -V (variables) and -S (selections), and its flags."""
     eras:       Tuple[str, ...]
     configs:    Tuple[str, ...] = ('mutau',)
@@ -77,7 +77,7 @@ class PlotSpec:
     tag:        str = ""
     text:       str = ""
     timeout:    Optional[float] = None   # seconds per script run; None: no limit
-    samples:    Tuple[str, ...] = ()     # sample model files (bundle copies of Configs/Plotter/samples/), one per
+    samples:    Tuple[str, ...] = ()     # sample model files (bundle copies of Configs/Histogrammer/samples/), one per
                                          # era; empty: the tables of Histogrammer/config/samples_v15.py
 
     def __post_init__(self):

@@ -8,7 +8,7 @@ analysis can change is a copy in its bundle.
 Configs/
   README.md             this file
   configs.lock          id, version and content hash of every template (written by `taufw.py configs update`)
-  <Module>/...          the templates of one module, e.g. Plotter/samples/v15_2025.yml
+  <Module>/...          the templates of one module, e.g. Histogrammer/samples/v15_2025.yml
 ```
 
 The config directories inside the modules (`PicoProducer/config/`, ...) are the modules' **internal** settings:
@@ -26,13 +26,19 @@ user settings (batch system, user directories) are internal settings, never temp
 maintainers changed it since you copied it. Compare the two, and take over the changes or keep your copy on purpose
 (the warning stays as long as the copy is older).
 
+**Renamed module (October 2026, changelog §24):** the Plotter became the Histogrammer, so `Configs/Plotter/` is now
+`Configs/Histogrammer/` and the ids `plotter.samples_*` / `plotter.setup_*` are `histogrammer.samples_*` /
+`histogrammer.setup_*` (same values, same versions). A copy made before still works: `check`, `plan` and `start`
+compare it with the renamed template and ask you to change the `id` line of its header (only that line). This
+compatibility ends at the migration point.
+
 ## For maintainers
 
 Every template is a YAML mapping that starts with the header:
 
 ```yaml
 taufw_config:                     # set by the maintainers: analysts edit the values below, never these lines
-  id: plotter.samples_v15_2025    # unique, never changes; starts with the module directory (Plotter -> plotter)
+  id: histogrammer.samples_v15_2025   # unique, never changes; starts with the module directory (lower case)
   version: 1                      # the content version: raised when a value changes
   schema: 1                       # the format version: which reader of the module understands the file
   description: the samples of the v15 tuples for 2025

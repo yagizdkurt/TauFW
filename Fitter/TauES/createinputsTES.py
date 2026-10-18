@@ -340,7 +340,7 @@ if __name__ == "__main__":
   parser.add_argument('-e', '--electron', dest='againstelectron', default='VVLoose', help="against electron cut")
   parser.add_argument('-O', '--outbase', dest='outbase', default='input_pt_less_region', help="base dir for input histograms (use a separate tree per tagger, e.g. input_pt_less_region_pnet)")
   parser.add_argument('--tuples', dest='tuples', default=None, metavar='PATTERN', help="directory pattern of the input tuples, e.g. /eos/.../$ERA/$GROUP (files <sample>_<channel>.root, variations <sample>_<channel>_<shift>.root in the same directory), instead of $PICODIR of the PicoProducer configuration")
-  parser.add_argument('--samples', dest='samples', default=None, nargs='+', metavar='FILE', help="sample model files, one per era (e.g. Configs/Plotter/samples/v15_2025.yml or a copy), instead of the tables of Histogrammer/config/samples_v15.py")
+  parser.add_argument('--samples', dest='samples', default=None, nargs='+', metavar='FILE', help="sample model files, one per era (e.g. Configs/Histogrammer/samples/v15_2025.yml or a copy), instead of the tables of Histogrammer/config/samples_v15.py")
   args = parser.parse_args()
   # LOG.verbosity = args.verbosity
   PLOG.verbosity = args.verbosity
