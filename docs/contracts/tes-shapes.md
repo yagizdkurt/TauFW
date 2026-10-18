@@ -84,8 +84,14 @@ test checks that every template has the keys both readers take without a default
 
 A TES point or a shape systematic with `sampleAppend` reads `<sample>_<channel><tag>.root` next to the nominal tuple,
 e.g. `..._mutau_TES0p950.root` (`("_TES%.3f"%v).replace(".","p")`), `..._mutau_LTF1p030.root`; the sum of weights is
-read again from that file's cutflow. A missing file is only a warning when the sample set is made and fails later
-(TODO §0: a preflight check after step 2).
+read again from that file's cutflow. The script opens these files only after the nominal histograms, so a missing
+one fails hours into a run. In a TauFW recipe the `shapes` preflight names them all beforehand (with a tuple pattern
+and sample model files): `TauFW.Histogrammer.sample.variations` replays the script's sample set without ROOT (the
+model's joins, the config's `samples.join`/`split`/`rename`, then the shift's match on the processes) and
+`TESShapes.variation_problems` reports the missing files per config and era; `check`/`plan` show it as a note,
+`start` stops before running anything. Matching uses the names and the sample model's titles (not the SampleStyle
+titles of merged and split samples); `Tests/tools/check_variation_files.py` compares it with the real `SampleSet` on
+lxplus. For `tes_id_2025` (mutau, 2025): 144 files (TES 10 x 9 DY, LTF 2 x 12 DY+TT, JTF 2 x 15 DY+TT+WJ); mumu none.
 
 ## Checked by
 

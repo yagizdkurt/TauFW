@@ -12,7 +12,7 @@ same script from Fitter/, where the fit scripts look for the shapes:
     ShapesRequest ─▶ plan_shapes() ─▶ make_shapes()   = python3 shapes/TauES/createinputsTES.py -y ERA -c CONFIG
                      CommandPlan      RunReport                                               -j JET -e ELE [options]
                                       (one shapes artifact per shape file)
-    preflight_shapes(): what is missing in the environment (empty: ready)
+    preflight_shapes(): what is missing in the environment (empty: ready), with the variation tuples
 
 Each command must exit with 0 AND write its expected files (see TauFW.Utilities.Process). A run stops at the first
 command that fails.
@@ -20,7 +20,10 @@ command that fails.
 Inputs:  pico tuples in the request's tuple pattern (--tuples), or else found by the script through $PICODIR of the
          request's PicoProducer config (passed as $TAUFW_PICO_CONFIG; default PicoProducer/config/config.json);
          the YAML configs (relative to Histogrammer/ or absolute; the templates are in Configs/Fitter/tes_id/); the
-         sample model files (--samples; without them the tables of config/samples_v15.py).
+         sample model files (--samples; without them the tables of config/samples_v15.py). The TES points and the
+         shape systematics with sampleAppend read variation tuples next to the nominal ones
+         (<sample>_<channel>_TES0p950.root, ..._LTF1p030.root); with a tuple pattern and sample files the preflight
+         checks them all (variation_problems; TauFW.Histogrammer.sample.variations names them).
 Outputs: <outdir>/input_pt_less_region/againstjet_<J>/againstelectron_<E>/ztt_<ch>_tes_<obs>.inputs-<era>-13TeV<tag>.root
          (and what the script writes next to them, contract page), one log file per command in the caller's log
          directory. Artifact: {kind: shapes, path, era, channel, config, jet_wp, ele_wp, observable}.
@@ -31,6 +34,7 @@ Public API:
   shapes_request(**fields)                        a ShapesRequest
   config_file(config)                             a config as an absolute path
   pico_config_source(request)                     where $PICODIR is read from (a request without tuples)
+  variation_problems(request)                     the variation tuples the configs read that are missing
 """
 import os
 import sys
@@ -38,7 +42,9 @@ import sys
 from TauFW.Utilities.Process import (Command, CommandPlan, ProcessRunner, RunReport, output_dir_problems,
                                      tuple_pattern_problems)
 from TauFW.Histogrammer.api.types import ShapesRequest
-from TauFW.Histogrammer.api.control_hists import _default_basedir, _module_exists, _pico_env, _read_yaml
+from TauFW.Histogrammer.api.control_hists import _default_basedir, _module_exists, _pico_env, _read_yaml, _tuple_file
+from TauFW.Histogrammer.sample import model as sample_model
+from TauFW.Histogrammer.sample.variations import variations
 
 __all__ = ['TESShapes']
 
@@ -52,6 +58,7 @@ class TESShapes:
     Pipelines:    plan_shapes(request)                     -> CommandPlan   changes nothing
                   make_shapes(request, logdir, progress)   -> RunReport     runs createinputsTES.py
                   preflight_shapes(request)                -> tuple of problems (empty: ready)
+                  variation_problems(request)              -> tuple of problems (part of preflight_shapes)
     Requests:     shapes_request(**fields)                 -> ShapesRequest
     Construction: TESShapes(basedir, runner, read_yaml, python, find_module)
     """
@@ -85,7 +92,7 @@ class TESShapes:
     def preflight_shapes(self, request):
         """What is missing to make the shapes: CMSSW, ROOT, the tuple pattern's keys or else the PicoProducer
         config, the config files, the sample model files (only that they exist: ControlHists.samples_problems reads
-        them), the output directory."""
+        them), the output directory, and the variation tuples (variation_problems)."""
         problems = []
         if 'CMSSW_BASE' not in os.environ:
             problems.append("CMSSW_BASE is not set (run cmsenv first)")
@@ -100,6 +107,27 @@ class TESShapes:
                         if not os.path.isfile(self.config_file(config)))
         problems.extend("sample file %s not found" % (path) for path in request.samples if not os.path.isfile(path))
         problems.extend(output_dir_problems(request.outdir, source, tuples=request.tuples))
+        problems.extend(self.variation_problems(request))
+        return tuple(problems)
+
+    def variation_problems(self, request, maxshow=5):
+        """The variation tuples that createinputsTES.py opens after the nominal histograms (TES points, shape
+        systematics with sampleAppend) and that are missing: one problem per config and era. Checked only with a tuple
+        pattern (not a plan's placeholder) and sample model files, as the nominal tuples (ControlHists
+        sample_file_problems); a config or sample file that cannot be read is left to the other checks."""
+        if not request.tuples or not request.samples or '<' in request.tuples:
+            return ()
+        problems = []
+        for config in request.configs:
+            setup = self._setup(config, [])
+            if not setup or not setup.get('channel'):
+                continue
+            for era in request.eras:
+                try:
+                    model = sample_model.pick(request.samples, era)
+                except sample_model.SampleModelError:
+                    continue
+                problems.extend(_missing_variations(config, era, setup, model, request.tuples, maxshow))
         return tuple(problems)
 
     def shapes_request(self, **fields):
@@ -180,6 +208,27 @@ class TESShapes:
 
 # =============================================================================
 # ================================ FILE NAMES =================================
+
+
+def _missing_variations(config, era, setup, model, tuples, maxshow):
+    """The problem of one config and era (empty: every variation tuple is there). The file is the nominal tuple
+    (_tuple_file) with the tag before .root, as Sample.appendfilename makes it."""
+    channel = setup['channel']
+    missing, total, counts = [], 0, {}
+    for variation in variations(setup, model, era):
+        for group, sample in variation.samples:
+            nominal = _tuple_file(tuples, era, group, sample, channel)
+            path = nominal if variation.tag in nominal else nominal.replace(".root", variation.tag + ".root")
+            total += 1
+            if not os.path.isfile(path):
+                missing.append(path)
+                counts[variation.tag] = counts.get(variation.tag, 0) + 1
+    if not missing:
+        return ()
+    tags = ", ".join("%s: %d" % (tag, count) for tag, count in counts.items())
+    shown = ", ".join(missing[:maxshow]) + (", ..." if len(missing) > maxshow else "")
+    return ("%d of %d variation tuple file(s) of config %s, era %s, not found (%s): %s"
+            % (len(missing), total, config, era, tags, shown),)
 
 
 def _shape_files(setup, era, jet_wp, ele_wp):

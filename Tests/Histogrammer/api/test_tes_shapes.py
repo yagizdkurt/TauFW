@@ -11,6 +11,7 @@ from unittest import mock
 
 import checkout  # noqa: F401  (must precede TauFW imports)
 from TauFW.Histogrammer.api import TESShapes, ShapesRequest
+from TauFW.Histogrammer.sample import model as sample_model
 from TauFW.Utilities.Process import ProcessRunner
 
 TT, MM = "../Configs/Fitter/tes_id/config_coarse_TT.yml", "../Configs/Fitter/tes_id/FitSetup_mumu.yml"  # as run_inputs.sh (CL §22)
@@ -173,6 +174,62 @@ class ShapesSampleFilesTests(TESShapesTestCase):  # CL §20: sample model files,
         open(samples[0], "w").close()
         self.assertNotIn("sample file %s not found" % (samples[0]),
                          self.shapes.preflight_shapes(self.request(samples=samples)))
+
+
+class ShapesVariationTests(TESShapesTestCase):  # §3 A: the variation tuples before the start
+    def setUp(self):
+        super().setUp()
+        self.samples = (os.path.join(self.base, "v15_2025.yml"),)
+        shutil.copy(os.path.join(str(checkout.REPO), "Analyses", "tes_id_2025", "v15_2025.yml"), self.samples[0])
+        self.tuples = os.path.join(self.base, "pico", "$ERA", "$GROUP")
+        self.files = []  # every variation tuple of the mutau config (the mumu config has none)
+        for row in sample_model.load_sample_model(self.samples[0]).mc:
+            directory = os.path.join(self.base, "pico", "2025", row['group'])
+            os.makedirs(directory, exist_ok=True)
+            tags = ["_TES0p950", "_TES0p960", "_TES0p970", "_TES0p980", "_TES0p990", "_TES1p010", "_TES1p020",
+                    "_TES1p030", "_TES1p040", "_TES1p050"] if row['group'] == 'DY' else []
+            tags += ["_LTF1p030", "_LTF0p970"] if row['group'] in ('DY', 'TT') else []
+            tags += ["_JTF1p100", "_JTF0p900"] if row['group'] in ('DY', 'TT', 'WJ') else []
+            for tag in tags:
+                self.files.append(os.path.join(directory, "%s_mutau%s.root" % (row['name'], tag)))
+                open(self.files[-1], "w").close()
+
+    def problems(self, **fields):
+        return self.shapes.variation_problems(self.request(**dict(dict(tuples=self.tuples, samples=self.samples),
+                                                                   **fields)))
+
+    def test_all_there(self):
+        self.assertEqual(len(self.files), 144)
+        self.assertEqual(self.problems(), ())
+
+    def test_one_missing_is_a_preflight_problem(self):
+        missing = os.path.join(self.base, "pico", "2025", "TT", "TTtoLNu2Q_mutau_LTF1p030.root")
+        os.remove(missing)
+        self.assertEqual(self.problems(), ("1 of 144 variation tuple file(s) of config %s, era 2025, not found "
+                                           "(_LTF1p030: 1): %s" % (TT, missing),))
+        request = self.request(tuples=self.tuples, samples=self.samples)
+        self.assertIn(self.problems()[0], self.shapes.preflight_shapes(request))
+
+    def test_many_missing_are_counted_by_tag(self):
+        for path in self.files:
+            if "_TES" in path or "_JTF0p900" in path:
+                os.remove(path)
+        problem, = self.problems()
+        self.assertTrue(problem.startswith("105 of 144 variation tuple file(s)"), problem)
+        self.assertIn("(_TES0p950: 9, _TES0p960: 9,", problem)
+        self.assertIn("_TES1p050: 9, _JTF0p900: 15)", problem)
+        self.assertTrue(problem.endswith(", ..."), problem)
+        self.assertEqual(problem.count(".root"), 5)
+
+    def test_not_checked(self):  # as the nominal tuples: no pattern, a plan's placeholder, no sample files
+        for path in self.files:
+            os.remove(path)
+        self.assertEqual(self.problems(tuples=None), ())
+        self.assertEqual(self.problems(tuples="<run_dir>/stages/production/$ERA/$GROUP"), ())
+        self.assertEqual(self.problems(samples=()), ())
+        self.assertEqual(self.problems(samples=(os.path.join(self.base, "missing.yml"),)), ())  # its own problem
+        self.assertEqual(self.problems(eras=[2024]), ())  # no sample file for the era: samples_problems says so
+        self.assertEqual(len(self.problems()), 1)
 
 
 if __name__ == "__main__":

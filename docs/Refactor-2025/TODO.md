@@ -1,7 +1,7 @@
 # Refactor-2025: still to do
 
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-**Last updated:** 2026-10-18
+**Last updated:** 2026-10-19
 
 Everything the `Refactor-2025` branch has left open: checks that need lxplus, the rest of the `common` → `Utilities`
 move, old output kept on purpose, open bugs, and planned next steps. The [change log](Refactor-2025.md) ("CL §N")
@@ -21,11 +21,8 @@ Items marked **(verify)** may already be done; check before working on them.
   `LocalR/architecture/13`; today the contract is a doc, `docs/contracts/tes-shapes.md`). (4) `FitRequest.pico_config`:
   the fit should not need a PicoProducer config once the shapes are made elsewhere. (5) `Fitter/MuTauFR/createinputs.py`
   (D11): broken import, repair or Legacy (workflow owner).
-- **Variation tuples in preflight (plan 16 D8, user 2026-10-18: right after step 2):** the shapes stage checks only
-  `<sample>_<channel>.root`; a missing `_TES0p970` / `sampleAppend` (`_LTF1p030`, `_JTF0p900`) file fails hours into
-  the run (`Sample.appendfilename` only warns). Check every variation file from the config (TES values,
-  `sampleAppend`), the sample model and the split mapping before starting; after step 2 all of it is in the
-  Histogrammer.
+- **Variation tuples in preflight (plan 16 D8):** done in CL §23 (2026-10-19): the shapes preflight names every
+  variation tuple of the configs (`TESShapes.variation_problems`); lxplus checks in §1.
 
 ## 1. Checks to run on lxplus
 
@@ -62,6 +59,13 @@ Items marked **(verify)** may already be done; check before working on them.
       second CMSSW area) and twice with HEAD: old against new 43 files, every key the same, 775 histograms SAME within
       1e-12 (largest 5e-13; LTF 96 histograms with content); new against new (the noise) largest 1.07e-12. `check`/
       `plan` of `tes_id_2025` and `example_mutau_long`: no problems.
+- [ ] **Variation tuples in the shapes preflight (CL §23).** After `git pull` and `scram b`, in `TauFW/` with `cmsenv`:
+      (1) `python3 Tests/tools/check_variation_files.py -c Analyses/tes_id_2025/config_coarse_TT.yml --samples
+      Analyses/tes_id_2025/v15_2025.yml -y 2025 --tuples '<the tes_id_2025 tuple pattern>'`: SAME, 144 files (also
+      with `FitSetup_mumu.yml`: SAME, 0); (2) `python3 taufw.py check` and `plan` of `tes_id_2025`: no variation
+      problem; (3) a copy of the bundle whose tuple pattern points to a symlink copy of the tuple directories with one
+      `_LTF1p030` file left out: `check`/`plan` name that file, `start` stops in the shapes preflight before any
+      command (the hists stage of that copy runs first: use a shapes-only copy); (4) `python3 Tests/run.py checks`.
 - [ ] **Bug fixes of 2026-10-18:** `python3 Tests/Utilities/test_background.py` five times in a row and once inside
       `python3 Tests/run.py checks` (the flaky cancel test, §7); `taufw.py plan Analyses/no_such_recipe` prints one
       line, no traceback (Framework BUGS K06).

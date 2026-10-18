@@ -10,7 +10,9 @@ pair and config. The fit stage reads the files by the contract docs/contracts/te
               stage the slot names (the pattern on its artifacts), or {external: <pattern>}; with null (old
               recipes) the scripts read $PICODIR of the run's PicoProducer config (as $TAUFW_PICO_CONFIG). The TES,
               LTF and JTF variations need their own tuples in the same directory (e.g.
-              <sample>_mutau_TES0p950.root).
+              <sample>_mutau_TES0p950.root); with a tuple pattern and `samples` the preflight checks the nominal
+              tuples (ControlHists) and every variation tuple the configs read (TESShapes.preflight_shapes), so a
+              missing one is a note in check/plan and stops the stage before any command runs.
     options:  ShapesSpec (eras, configs, jet and electron working points); the configs are bundle files,
               Configs/ templates or absolute: a module-relative path is a recipe error (the API resolves it against
               Histogrammer/, the configs were Fitter files; CL §22 H3)
