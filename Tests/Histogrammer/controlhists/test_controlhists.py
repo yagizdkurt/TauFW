@@ -10,6 +10,7 @@ import unittest
 import checkout  # noqa: F401  (must precede the TauFW imports)
 from TauFW.Histogrammer import controlhists
 from TauFW.Histogrammer.controlhists import DRAWING_ATTRIBUTES, stack_entry, write_control_hists
+from TauFW.Utilities.HistFile import HistFileEntry
 
 
 class FakeHist:
@@ -86,6 +87,16 @@ class WriteTests(unittest.TestCase):
         self.assertEqual(meta, {"contract": "taufw.control_histograms", "version": 1, "channel": "mutau",
                                 "era": "2025", "tag": "_v1"})
         self.assertEqual(write.call_args[0][:2], ("hists/2025/mutau_v1.root", ["entry"]))
+
+    def test_two_variables_with_one_file_name(self):
+        """fname='mvis' twice in one selection: refused with the names, before the file is written."""
+        entries = [HistFileEntry("baseline/mvis", {}), HistFileEntry("baseline/pt_1", {}),
+                   HistFileEntry("baseline/mvis", {})]
+        with mock.patch.object(controlhists, "write_histfile") as write:
+            with self.assertRaises(ValueError) as context:
+                write_control_hists("hists/2025/mutau.root", entries, channel="mutau", era=2025)
+        self.assertIn("'mvis' in the selection 'baseline'", str(context.exception))
+        write.assert_not_called()
 
     def test_same_contract_as_the_plotter(self):
         """The Plotter reads what the Histogrammer writes: the two copies of the contract constants agree."""

@@ -16,6 +16,11 @@ Items marked **(verify)** may already be done; check before working on them.
 ## 1. Checks to run on lxplus
 
 
+- [ ] **Review fixes of CL §24: nothing may change.** After `git pull` (and `scram b -j4`), in `TauFW/`:
+      `git ls-files Histogrammer/config/__init__.py Histogrammer/python/spec/__init__.py` lists both;
+      `python3 Tests/run.py bbb check` (22/22, **no re-lock**: `plotter.stack` writes and reads the histogram file
+      through the stricter checks); `python3 Tests/run.py checks` (with ROOT `test_histfile.py` also runs the header
+      test).
 - [x] **Histogram file and `draw.py` (CL §24, S3): nothing may change.** Done 2026-10-18 on lxplus: `bbb check`
       22/22 without re-lock (`plotter.stack` through the file equals the S0 lock from memory); `checks` with ROOT:
       the file round trip of `Tests/Utilities/test_histfile.py` passes. Real data, baseline, in `Histogrammer/`:
@@ -202,14 +207,14 @@ Each changes logs, so do each in its own commit, with a BBB re-lock where a base
 - [ ] `_internal/legacy_log.py` (old `Logger`) and `_internal/legacy_helpers.py` duplicate `TauFW.common`; replace the
       logger with `CLI` once output may change (or merge when `common/tools/log.py` moves).
 - [ ] Unused helpers: `sumhists` (bug L03), `ensurepoisson`, `getbinedges`, `havesamebins`, `reducehist2d`.
-- [ ] `Plotter/python/plot/string.py` re-exports the label helpers of `labels.py` for its star-importers
+- [ ] `Histogrammer/python/spec/string.py` (`Plotter/python/plot/string.py` before CL §24) re-exports the label helpers of `labels.py` for its star-importers
       (`Variable.py`, `Sample.py`, `Selection.py`); import them explicitly there.
 - [ ] `PicoProducer/utils/compare{Nano,Pico}.py` (Python 2) still import the Plotter's `Variable`; give them a plain
       string axis or move them to `Legacy/OldAnalysis/`. Not on any production path.
 
 **Quirks frozen in BBB baselines** (PicoProducer plan):
 
-- [ ] Stitch log in `Plotter/python/sample/utils.py` (~lines 403, 451) is missing its `f` prefix.
+- [ ] Stitch log in `Histogrammer/python/sample/utils.py` (~lines 403, 451) is missing its `f` prefix.
 - [ ] `workers/picojob.py:74` cuts the `-i` list to `nfiles` (the range case reads only `nano_A`).
 
 ## 4. Open bugs
@@ -232,7 +237,7 @@ Each changes logs, so do each in its own commit, with a BBB re-lock where a base
 - [ ] F10: the combined card is written to `output_{era}/` (wrong).
 - [x] F25: fixed ROOT detection when ROOT is already imported. (CL §18)
 
-**Plotter** ([BUGS.md](../Histogrammer/BUGS.md)):
+**Histogrammer** (the former Plotter, CL §24; [BUGS.md](../Histogrammer/BUGS.md)):
 
 - [ ] L02: `fname=` vs `file=` (`config/samples_v15.py:285` vs `python/sample/utils.py:29`); needs a test with tuples.
 - [ ] L03: `sumhists` adds to an undefined `sighist` (now `Utilities/python/Drawing/hist_tools.py`); the fix changes
@@ -466,7 +471,9 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
       16 D7: a `TauFW.Utilities.Drawing` era setter, Zpt), Legacy 19 files (they break then; Legacy policy), the old scripts in `Tests/Plotter/` (retarget or retire them first). The BBB case
       names `plotter.*` can be renamed at the same point (one re-lock). Also `RENAMED_IDS` in
       `Framework/python/configs.py` (bundle copies with the ids `plotter.samples_*` / `plotter.setup_*` from before
-      S2) and its test `test_copy_with_the_id_from_before_a_rename`.
+      S2) and its test `test_copy_with_the_id_from_before_a_rename`. Also `PLOTTER_ROOT`/`PLOTTER_DATA_DIR` of
+      `TauFW.Utilities.Paths` (no caller in the repository; `Plotter/data` does not exist since CL §24, the data is
+      in `HISTOGRAMMER_DATA_DIR`): delete them, or keep `PLOTTER_ROOT` for the new Plotter (review of CL §24).
 - [ ] **At the migration point, after S4 (CL §24):** `fillhists.py` still draws by default (commands typed by hand
       keep their result, user rule of S4); then drawing leaves it (`--hists --no-draw` becomes the default, the
       legacy `plot.py` texts show the two commands). Remove `stages.RETIRED` (the messages for `plots` and
@@ -481,7 +488,7 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
 - [ ] Missing imports: `Fitter/MuTauFR/createinputs.py:11` (`TauFW.Plotter.plot.datacard`); Tau_Trigger_SF imports
       `TauFW.TriggerSF.Common` (`createTurnOn_multi.py`, `fitTurnOn_multi.py`, `Common/*.py`); its README's command line
       does not match the scripts.
-- [ ] Duplicate definitions: two `replace()` in `Plotter/python/sample/SampleSet.py` (163, 436; the general one is
+- [ ] Duplicate definitions: two `replace()` in `Histogrammer/python/sample/SampleSet.py` (163, 436; the general one is
       shadowed); two `ensureDirectory` in `Fitter/TauES_ID/plot2DScan_MultiDimFit.py` (28, 33).
 - [ ] Helpers without callers: `_read_profile` (`Fitter/plot1D_NLL_profiles.py`), `plot_scan_correlations`
       (`plot2DScan_MultiDimFit.py`), `rootname` (`common/tools/root.py`), `ensurepoisson` (`Utilities/python/Drawing/hist_tools.py`),
@@ -499,6 +506,11 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
 
 ## 9. Docs
 
+- [ ] Stale before CL §24 (found in its review, 2026-10-18; not changed then): `Analyses/README.md:304` gives
+      `config/setup_mutau.yml` as an example of a module-relative path (the setups are in
+      `Configs/Histogrammer/setups/` since CL §22 S7); the item "`PicoProducer/utils/compare{Nano,Pico}.py`" of §3
+      names files that are no longer in the repository; `Tests/README.md` (import boundaries) quotes the totals of
+      2026-10-14 (24 / 22 / 20), today 30 / 28 / 26 (CL §24).
 - [ ] Changelog sections for commits that have none **(verify)**: `b61700f` (`sample_monitor.py` deleted), `e8400fc`
       (`runTESvar.py`, `runShapevar.py` deleted), `cd735b6` (`getTESvariations.py`, `nanoV10branch.txt`, TESvar shell
       scripts), `623a040`/`d801879` (`Legacy/OldAnalysis/` by year), `d5db827` (`LegacyCode.md`, `HowToCodeGood.md`),

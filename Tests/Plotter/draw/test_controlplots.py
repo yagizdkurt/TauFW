@@ -61,6 +61,23 @@ class FileTests(unittest.TestCase):
             with self.assertRaises(ControlHistsError):
                 self.read(self.content(**meta))
 
+    def test_missing_metadata_is_refused(self):
+        content = self.content()
+        del content.meta["tag"]
+        with self.assertRaises(ControlHistsError) as context:
+            self.read(content)
+        self.assertIn("no tag", str(context.exception))
+        for drop in ("selection", "variable"):
+            content = self.content()
+            del content.entries[0].meta[drop]
+            with self.assertRaises(ControlHistsError) as context:
+                self.read(content)
+            self.assertIn("entry baseline/mvis: no %s" % (drop), str(context.exception))
+        content = self.content()
+        del content.entries[0].meta["selection"]["cut"]
+        with self.assertRaises(ControlHistsError):
+            self.read(content)
+
     def test_drawing_variable(self):
         variable = DrawingVariable(ATTRIBUTES)
         self.assertTrue(all(hasattr(variable, name) for name in ("getedge", "dividebins", "binlabels")))  # a variable

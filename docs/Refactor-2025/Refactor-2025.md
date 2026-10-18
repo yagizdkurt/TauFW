@@ -645,7 +645,7 @@ BUGS L08-L11
 
 Third step of the recipe IO work: the plots, shapes and fit results of a run go to its stage directories, so runs no
 longer overwrite each other in `Plotter/` and `Fitter/`, and the summary scripts no longer pick up the working points
-of other runs. Plan: `LocalR/architecture/10-r3-plan.md`.
+of other runs. Plan: `LocalR/architecture/archive/10-r3-plan.md`.
 
 ### What changed
 
@@ -686,7 +686,7 @@ shapes + fit from the same tuples can differ by a grid step in the fitted POIs (
 K04, K05, K07, PicoProducer BUGS S17, Histogrammer BUGS L12
 
 The Framework, not the global `$PICODIR`, decides where the pico tuples are read and written, and everything is
-visible in the recipe. Plan, decisions D1-D13 and steps: `LocalR/architecture/12-tuples-plan.md`.
+visible in the recipe. Plan, decisions D1-D13 and steps: `LocalR/architecture/archive/12-tuples-plan.md`.
 
 ### Step 1: recipe warnings and `run_root`
 
@@ -760,7 +760,7 @@ run"), "Outputs and logs", "Troubleshooting"; [Framework](../../Framework/README
 "Revise: one rule for the paths in a recipe"
 
 The last part of the recipe IO work (R1-R3, §15-17; tuple locations, §18): a stage may read the output of another,
-finished run, and the built-in stages may repeat. Plan and decisions: `LocalR/architecture/11-r4-plan.md`.
+finished run, and the built-in stages may repeat. Plan and decisions: `LocalR/architecture/archive/11-r4-plan.md`.
 
 ### Repeated stages, no fixed order
 
@@ -884,7 +884,7 @@ The recipe must say which samples an analysis reads; until now `Plotter/config/s
 (MC cross sections, data datasets, weights, stitching, joining and splitting, per era). Its samples became templates in
 `Configs/Plotter/samples/` (§21; `Configs/Histogrammer/samples/` since §24 S2), one per era, that an analysis copies
 into its bundle. **No physics or data change:** every sample set built from a template gets exactly the calls the old
-function makes, and a test proves it. Plan: `LocalR/architecture/14-sample-model-plan.md`.
+function makes, and a test proves it. Plan: `LocalR/architecture/archive/14-sample-model-plan.md`.
 
 - **S0, recorder and BBB case:** `Tests/Plotter/sample_model/recorder.py` records every call of a sample-set function
   (8 eras × 6 channels × 7 caller options = 336 cases). BBB case `plotter.sample_model` was locked on lxplus with the
@@ -971,7 +971,7 @@ signals, curses on a real terminal (TODO §1).
 **Date:** 2026-10-18
 **Status:** done. S0-S4 checked on lxplus (BBB 22/22 without re-lock after every step, real plots identical); see
 [Result](#result-of-24) at the end.
-Plan: `LocalR/architecture/18-histogrammer-split-plan.md`.
+Plan: `LocalR/architecture/archive/18-histogrammer-split-plan.md`.
 
 After the drawing moved to `TauFW.Utilities.Drawing` (§12), almost everything left in `Plotter/` produces
 histograms: the sample model, normalisation, stitching, the RDataFrame filling, the variable/selection language and
@@ -1273,3 +1273,35 @@ Framework:      controlhists                  the file is the artifact          
   message), the flaky `test_background` and the IOInventory generator (TODO §7).
 - **Next:** step 2 of `LocalR/architecture/13` (the TES shapes leave the Fitter for the Histogrammer, plan 16, revised
   after this section); its first step locks a new BBB case, which needs the 22 cases above unchanged.
+
+### Review fixes of §24
+
+**Date:** 2026-10-18, Windows, after S5. A code review of `8a3531a..e713f16` (rename, aliases, config ids, histogram
+file, stages, tests, docs) found nothing broken; these fixes of what the split itself introduced. No filling or
+drawing code changed; a file that was written before is written the same.
+
+- **Two `__init__.py` lost in S1:** `Plotter/config/__init__.py` (empty) and `Plotter/python/plot/__init__.py`
+  (`moddir`) were tracked although `.gitignore` ignores `__init__.py`; `git mv` put them under ignored names, so in a
+  clone `config` became a namespace package (merged with every `config/` directory on `sys.path`, e.g. the
+  YAML-only `Fitter/TauES/config/` next to the Fitter scripts). `.gitignore` now whitelists
+  `Histogrammer/config/__init__.py` and `Histogrammer/python/spec/__init__.py`, and both are tracked again, as before
+  §24.
+- `TauFW.Utilities.HistFile` refuses on writing what it could not read back: `taufw_histfile` as any part of an
+  entry path (it was checked only as the whole path), a histogram whose name is also the directory of another entry
+  (`baseline` holding `m_vis` next to the entry `baseline/m_vis`), an object that is not a histogram (a TGraph could
+  be written but not read detached). Reading a header without its keys raises `HistFileError` instead of `KeyError`.
+- `TauFW.Plotter.controlplots.read_control_hists`: missing metadata (`channel`, `era`, `tag`, an entry's
+  `selection`/`variable`, the selection's `name`/`title`/`cut`) raises `ControlHistsError` naming it.
+- `TauFW.Histogrammer.controlhists.write_control_hists`: two variables with the same file name in one selection are
+  refused with both names (before, the HistFile writer refused the duplicate entry path with a less direct message;
+  the plain `fillhists.py` overwrites the first PNG, unchanged).
+- Tests: the refusals above (`Tests/Utilities/test_histfile.py`, with ROOT the header without keys;
+  `Tests/Plotter/draw`, `Tests/Histogrammer/controlhists`); a run whose `run.json` names a retired stage (`plots`,
+  `histograms`) is refused by `Framework.from_record` with the recipe error that `taufw.py status`/`advance` print
+  (`test_framework.py`); the Utilities import ban also names `Histogrammer`; the bundle test's fake Histogrammer
+  directory is called `Histogrammer`.
+- Docs: `Histogrammer/README.md` (where the API runs the script), `stages/shapes.py` docstring, IOInventory rows of
+  `fillhists.py` and `controlplots.py` (line numbers, the `--hists` file), TODO paths of the renamed files, TODO §8
+  (`PLOTTER_ROOT`/`PLOTTER_DATA_DIR`), TODO §9 (three docs that were stale before §24).
+
+Checked (Windows): `python Tests/run.py checks`. On lxplus: `bbb check` 22/22 without re-lock, `checks` (TODO §1).

@@ -9,13 +9,23 @@ from TauFW.Utilities.HistFile import HistFileEntry, HistFileError, read_histfile
 
 
 class Named:
-    """A stand-in for a histogram before anything is written: only its name is used."""
+    """A stand-in for a histogram before anything is written: only its name is used (and that it is a TH1)."""
 
     def __init__(self, name):
         self.name = name
 
     def GetName(self):
         return self.name
+
+    def SetDirectory(self, directory):
+        pass
+
+
+class NotAHistogram:
+    """Has a name but is no TH1 (like a TGraph): it could be written, not read back detached."""
+
+    def GetName(self):
+        return "graph"
 
 
 def root_available():
@@ -35,7 +45,8 @@ class RefusedTests(unittest.TestCase):
         self.assertIn(message, str(context.exception))
 
     def test_paths(self):
-        for path in ("", "/baseline", "baseline/", "a//b", "taufw_histfile", None):
+        for path in ("", "/baseline", "baseline/", "a//b", "taufw_histfile", "taufw_histfile/m_vis",
+                     "baseline/taufw_histfile", None):
             self.refused([HistFileEntry(path, {})], message="invalid entry path")
         self.refused([HistFileEntry("a", {}), HistFileEntry("a", {})], message="used twice")
         self.refused(["a"], message="must be a HistFileEntry")
@@ -44,6 +55,14 @@ class RefusedTests(unittest.TestCase):
         self.refused([HistFileEntry("a", {"exp": [Named("h"), Named("h")]})], message="used twice")
         self.refused([HistFileEntry("a", {"exp": [Named("a/b")]})], message="invalid histogram name")
         self.refused([HistFileEntry("a", {"": [Named("h")]})], message="invalid group name")
+        self.refused([HistFileEntry("a", {"exp": [NotAHistogram()]})], message="not a histogram")
+
+    def test_name_of_a_histogram_and_a_directory(self):
+        """'baseline' holding histogram 'm_vis' next to the entry 'baseline/m_vis': reading would find the
+        directory instead of the histogram."""
+        for entries in ([HistFileEntry("baseline", {"exp": [Named("m_vis")]}), HistFileEntry("baseline/m_vis", {})],
+                        [HistFileEntry("a/b/c", {}), HistFileEntry("a", {"exp": [Named("b")]})]):
+            self.refused(entries, message="is also the directory")
 
     def test_metadata_must_be_plain_json(self):
         self.refused([], meta={"x": float("nan")}, message="not plain JSON")
@@ -99,6 +118,17 @@ class RoundTripTests(unittest.TestCase):
             handle.Close()
             with self.assertRaises(HistFileError):
                 read_histfile(path)
+
+    def test_header_without_its_keys(self):
+        import ROOT
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "incomplete.root")
+            handle = ROOT.TFile.Open(path, "RECREATE")
+            ROOT.TNamed("taufw_histfile", '{"format": 1}').Write()
+            handle.Close()
+            with self.assertRaises(HistFileError) as context:
+                read_histfile(path)
+        self.assertIn("has no entries, meta", str(context.exception))
 
 
 if __name__ == "__main__":

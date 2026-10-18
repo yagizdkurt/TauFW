@@ -18,8 +18,9 @@ Format 1:
                             colours, titles, statistics): the file holds exactly what was written
 
 Order is never taken from the keys of a directory: "entries" and the group lists give it. Writing refuses what
-could not be read back the same (a duplicate path or name, a histogram whose name is not its key, metadata that is
-not plain JSON), so a file that was written is complete.
+could not be read back the same (a duplicate path or name, a histogram whose name is not its key or is also the
+directory of another entry, an object that is not a histogram, metadata that is not plain JSON), so a file that was
+written is complete.
 
 ROOT is imported only when a file is written or read: building and checking entries needs no ROOT.
 """
@@ -79,8 +80,9 @@ def write_histfile(path, entries, meta=None):
     entries = list(entries)
     header = {"format": FORMAT, "meta": _json_ready(meta or {}, "file metadata"),
               "entries": _checked_paths(entries)}
-    entry_headers = [{"groups": _checked_groups(entry), "meta": _json_ready(entry.meta, "metadata of " + entry.path)}
-                     for entry in entries]
+    folders = {"/".join(path.split("/")[:n]) for path in header["entries"] for n in range(1, path.count("/") + 2)}
+    entry_headers = [{"groups": _checked_groups(entry, folders),
+                      "meta": _json_ready(entry.meta, "metadata of " + entry.path)} for entry in entries]
     import ROOT
     directory = os.path.dirname(os.path.abspath(path))
     os.makedirs(directory, exist_ok=True)
@@ -114,7 +116,7 @@ def _checked_paths(entries):
             raise HistFileError("an entry must be a HistFileEntry, got %r" % (entry,))
         path = entry.path
         if not isinstance(path, str) or not path or path.startswith('/') or path.endswith('/') or '//' in path \
-                or path == HEADER:
+                or HEADER in path.split('/'):
             raise HistFileError("invalid entry path %r (e.g. 'baseline/m_vis')" % (path,))
         if path in paths:
             raise HistFileError("entry path %r used twice" % (path))
@@ -122,19 +124,25 @@ def _checked_paths(entries):
     return paths
 
 
-def _checked_groups(entry):
+def _checked_groups(entry, folders):
+    """{group: [names]} of an entry; `folders` are all directories the entries make (a name must not be one)."""
     groups, names = {}, set()
     for group, hists in entry.groups.items():
         if not isinstance(group, str) or not group:
             raise HistFileError("%s: invalid group name %r" % (entry.path, group))
         groups[group] = []
         for hist in hists:
+            if not hasattr(hist, "SetDirectory"):  # reading detaches every object as a histogram (TH1)
+                raise HistFileError("%s: %r is not a histogram (TH1)" % (entry.path, hist))
             name = hist.GetName()
             if not name or '/' in name or name == HEADER:
                 raise HistFileError("%s: invalid histogram name %r" % (entry.path, name))
             if name in names:
                 raise HistFileError("%s: histogram name %r used twice (each is stored under its own name)"
                                     % (entry.path, name))
+            if "%s/%s" % (entry.path, name) in folders:
+                raise HistFileError("%s: histogram name %r is also the directory of the entry %s/%s"
+                                    % (entry.path, name, entry.path, name))
             names.add(name)
             groups[group].append(name)
     return groups
@@ -180,12 +188,15 @@ def read_histfile(path):
         header = _header(infile, path)
         if header.get("format") != FORMAT:
             raise HistFileError("%s: format %r, this reader reads format %d" % (path, header.get("format"), FORMAT))
+        _require(header, ("entries", "meta"), path)
         entries = []
         for entry_path in header["entries"]:
             folder = infile.GetDirectory(entry_path)
             if not folder:
                 raise HistFileError("%s: no directory %s" % (path, entry_path))
-            entry_header = _header(folder, "%s:%s" % (path, entry_path))
+            where = "%s:%s" % (path, entry_path)
+            entry_header = _header(folder, where)
+            _require(entry_header, ("groups", "meta"), where)
             groups = {group: [_detached(folder, name, path, entry_path) for name in names]
                       for group, names in entry_header["groups"].items()}
             entries.append(HistFileEntry(entry_path, groups, entry_header["meta"]))
@@ -203,6 +214,12 @@ def _header(directory, where):
         return json.loads(named.GetTitle())
     except ValueError as error:
         raise HistFileError("%s: unreadable %s header: %s" % (where, HEADER, error))
+
+
+def _require(header, keys, where):
+    missing = [key for key in keys if key not in header]
+    if missing:
+        raise HistFileError("%s: the %s header has no %s" % (where, HEADER, ", ".join(missing)))
 
 
 def _detached(folder, name, path, entry_path):

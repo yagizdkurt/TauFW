@@ -56,7 +56,7 @@ sed -i -e 's/TauFW\.Plotter\.plot\.MultiDraw/TauFW.Histogrammer.sample.MultiDraw
 ## Public API (`TauFW.Histogrammer.api`)
 
 `ControlHists` fills the histograms of the data/MC control plots with `fillhists.py --hists --no-draw`, run as a
-separate process in `Histogrammer/` with the arguments a user would type, and checks that the control-histogram file
+separate process (in the stage's output directory, or in `Histogrammer/` without one) with the arguments a user would type, and checks that the control-histogram file
 was written; the Plotter draws it (`TauFW.Plotter.api.ControlPlots`). The TauFW Framework uses it for its
 `controlhists` stage (see [Framework/README.md](../Framework/README.md)). Until changelog §24 (S4) this API was
 `ControlPlots` and also drew; the drawing options (`fraction`, `pdf`, `text`) are now the Plotter's.

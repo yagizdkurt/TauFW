@@ -18,7 +18,7 @@ It runs what Fitter/run_inputs.sh runs: TauES/createinputsTES.py for every era, 
 The stage runs locally and finishes in one advance() call (see stages/local.py).
 
 Public API:
-  ShapesStage(fitter), ShapesSpec, DEFAULT_CONFIGS
+  ShapesStage(fitter, samples_api=None), ShapesSpec, DEFAULT_CONFIGS
 """
 from dataclasses import dataclass
 from typing import Optional, Tuple

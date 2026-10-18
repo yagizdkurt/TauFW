@@ -95,7 +95,7 @@ TES/LTF/JTF variations). Baseline commit: `f951dc0` (the last one with the scrip
 
 ## Tuple location (CL §18)
 
-**Status:** steps 2, 3 and 6 of the tuple-location work (`LocalR/architecture/12-tuples-plan.md`): the options
+**Status:** steps 2, 3 and 6 of the tuple-location work (`LocalR/architecture/archive/12-tuples-plan.md`): the options
 exist, the APIs pass them (`PlotsRequest.tuples`, `ShapesRequest.tuples`) and the Framework gives them (plots and
 histograms: the pattern of the production stage their input names, or `{external: <pattern>}`).
 `Tests/Plotter/testTupleLocation.py` passes on lxplus.
@@ -127,7 +127,7 @@ same directory.
 
 ## Sample model files (CL §22)
 
-**Status:** steps S3-S5 of the sample model (`LocalR/architecture/14-sample-model-plan.md`): the options exist, the
+**Status:** steps S3-S5 of the sample model (`LocalR/architecture/archive/14-sample-model-plan.md`): the options exist, the
 APIs pass them (`PlotsRequest.samples`, `ShapesRequest.samples`) and the Framework gives them (the `samples` option of
 plots and histograms).
 

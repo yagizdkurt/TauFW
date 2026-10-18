@@ -61,7 +61,7 @@ class PathRuleTests(BundleTestCase):
                          os.path.normpath(os.path.join(self.bundle, "tt.yml")))
         self.assertEqual(where("TauES/config/FitSetup_mumu.yml", self.bundle), "module")  # not in the bundle
         self.assertEqual(resolve("TauES/config/FitSetup_mumu.yml", self.bundle), "TauES/config/FitSetup_mumu.yml")
-        self.assertEqual(resolve("mutau", self.bundle), "mutau")  # a Plotter channel name
+        self.assertEqual(resolve("mutau", self.bundle), "mutau")  # a Histogrammer channel name
         absolute = os.path.join(self.root, "x.yml")
         self.assertEqual((where(absolute, self.bundle), resolve(absolute, self.bundle)), ("absolute", absolute))
         self.write("sub/dir/x.yml", "x")  # any layout inside the bundle works
@@ -300,9 +300,9 @@ class MakeBundleTests(BundleTestCase):
         super().setUp()
         self.modules = os.path.join(self.root, "modules")
         self.fitter.basedir = os.path.join(self.modules, "Fitter")
-        self.histogrammer.basedir = os.path.join(self.modules, "Plotter")
+        self.histogrammer.basedir = os.path.join(self.modules, "Histogrammer")
         for path in ("Fitter/TauES_ID/config/config_coarse_TT.yml", "Fitter/TauES/config/FitSetup_mumu.yml",
-                     "Plotter/mutau"):
+                     "Histogrammer/mutau"):
             self.write(path, "module %s\n" % (path), base=self.modules)
 
     def test_make_bundle_copies_the_module_configs(self):
@@ -349,11 +349,11 @@ class MakeBundleTests(BundleTestCase):
     def test_copied_names_do_not_clash(self):
         from TauFW.Framework.bundle import _free_name
         taken = []
-        for group, source in (("fitter", "/m/Fitter/A/cfg.yml"), ("plotter", "/m/Plotter/cfg.yml"),
+        for group, source in (("fitter", "/m/Fitter/A/cfg.yml"), ("histogrammer", "/m/Histogrammer/cfg.yml"),
                               ("fitter", "/m/Fitter/B/cfg.yml"), ("fitter", "/m/Fitter/A2/x/cfg.yml"),
                               ("fitter", "/m/Fitter/recipe.yml")):
             taken.append(_free_name(taken, group, source))
-        self.assertEqual(taken, ["cfg.yml", "plotter_cfg.yml", "fitter_cfg.yml", "fitter_x_cfg.yml",
+        self.assertEqual(taken, ["cfg.yml", "histogrammer_cfg.yml", "fitter_cfg.yml", "fitter_x_cfg.yml",
                                  "fitter_recipe.yml"])  # never recipe.yml
 
     def test_init_command(self):

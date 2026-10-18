@@ -108,16 +108,26 @@ def read_control_hists(path):
     if meta.get("contract") != CONTRACT or meta.get("version") != VERSION:
         raise ControlHistsError("%s is %r version %r; this Plotter draws %s version %d"
                                 % (path, meta.get("contract"), meta.get("version"), CONTRACT, VERSION))
+    _require(meta, ("channel", "era", "tag"), path)
     entries = []
     for entry in content.entries:
         data = entry.groups.get("data", [])
         if len(data) > 1:
             raise ControlHistsError("%s: entry %s has %d data histograms" % (path, entry.path, len(data)))
+        _require(entry.meta, ("selection", "variable"), "%s: entry %s" % (path, entry.path))
         selection = entry.meta["selection"]
+        _require(selection, ("name", "title", "cut"), "%s: entry %s, selection" % (path, entry.path))
         entries.append(ControlEntry(selection["name"], selection["title"], selection["cut"],
                                     DrawingVariable(entry.meta["variable"]), data[0] if data else None,
                                     list(entry.groups.get("exp", [])), list(entry.groups.get("sig", []))))
     return ControlHists(meta["channel"], meta["era"], meta["tag"], tuple(entries))
+
+
+def _require(meta, keys, where):
+    missing = [key for key in keys if not isinstance(meta, dict) or key not in meta]
+    if missing:
+        raise ControlHistsError("%s: no %s in the metadata (%s version %d)" % (where, ", ".join(missing), CONTRACT,
+                                                                               VERSION))
 
 
 # =============================================================================

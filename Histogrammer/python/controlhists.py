@@ -48,7 +48,15 @@ def stack_entry(stack, variable, selection):
 
 
 def write_control_hists(path, entries, channel, era, tag=""):
-    """Write the control histograms of one channel setup and era to `path` (replaced if it exists); returns path."""
+    """Write the control histograms of one channel setup and era to `path` (replaced if it exists); returns path.
+    Two stacks with the same entry path (two variables with the same file name in one selection) are refused: the
+    second would replace the first, as its plot would replace the first PNG."""
+    paths = [entry.path for entry in entries if isinstance(entry, HistFileEntry)]
+    for index, entry_path in enumerate(paths):
+        if entry_path in paths[:index]:
+            selection, variable = entry_path.rsplit("/", 1)
+            raise ValueError("%s: two variables with the file name %r in the selection %r; give them different"
+                             " fname= values" % (path, variable, selection))
     meta = {"contract": CONTRACT, "version": VERSION, "channel": channel, "era": str(era), "tag": tag}
     return write_histfile(path, entries, meta)
 

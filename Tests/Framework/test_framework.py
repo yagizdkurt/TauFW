@@ -202,6 +202,17 @@ class RecoveryTests(FrameworkTestCase):
         fw.clock = Clock()
         return fw.advance(record)
 
+    def test_run_with_a_retired_stage_is_refused_with_the_message(self):
+        """A run started before CL §24 names `plots` or `histograms` in its run.json: status/advance stop with the
+        recipe error (taufw.py prints it), not a KeyError."""
+        record = framework(fakes.FakePicoProducer(statuses=[fakes.pending("DY")])).start(run_root=self.root)
+        for retired, expected in (("plots", "control plots are two stages now"), ("histograms", "renamed 'shapes'")):
+            saved = RunRecord.load(record.run_dir)
+            saved.recipe["stages"][0]["stage"] = retired
+            with self.assertRaises(RecipeError) as context:
+                Framework.from_record(saved, pico=fakes.FakePicoProducer(), reporter=SilentReporter())
+            self.assertIn("stage %r no longer exists: %s" % (retired, expected), str(context.exception))
+
     def test_reload_pending_jobs_does_not_submit_again(self):
         original = fakes.FakePicoProducer(statuses=[fakes.pending("DY", "TT")])
         record = framework(original).start(run_root=self.root)

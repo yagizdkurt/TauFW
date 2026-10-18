@@ -54,7 +54,7 @@ FileIO()
             for node in ast.walk(tree):
                 if isinstance(node, ast.ImportFrom):
                     module = node.module or ""
-                    self.assertFalse(module.startswith(("TauFW", "PicoProducer", "Plotter", "Fitter"))
+                    self.assertFalse(module.startswith(("TauFW", "PicoProducer", "Histogrammer", "Plotter", "Fitter"))
                                      and not module.startswith("TauFW.Utilities"), str(path))
 
     def test_text_bytes_lines_and_gzip_json_round_trips(self):
