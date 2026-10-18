@@ -28,6 +28,11 @@ Items marked **(verify)** may already be done; check before working on them.
       changes no plot (`plots/2025/*_s3ref.png` vs `*_s3.png`), `draw.py` draws the same plots (`plots/2025/*_s3.png`
       vs `drawn/2025/*_s3.png`, same number of files), and the logs of (1) and (2) differ only in the tag, the
       "Wrote the histograms" line and the timing.
+- [ ] **`histograms` stage renamed `shapes` (CL §24, S4a): the same commands.** Before `git pull` of
+      this change: `python3 Framework/scripts/taufw.py plan Analyses/tes_id_2025 > ~/s4ref/plan_tes_id_2025.txt`.
+      After `git pull`, in `TauFW/`: the same into `~/s4a_plan.txt`, then
+      `diff <(sed 's#stages/histograms#stages/shapes#g; s#(histograms)#(shapes)#g; s#Stage histograms#Stage shapes#g; s#<- histograms#<- shapes#g' ~/s4ref/plan_tes_id_2025.txt) ~/s4a_plan.txt`:
+      no difference (or only lines naming the stage, to be looked at); `python3 Tests/run.py checks`.
 - [x] **Configs to `Configs/Histogrammer/` (CL §24, S2).** Done 2026-10-18 on lxplus: `bbb check` 22/22
       without re-lock, `checks`, `taufw.py configs` (15 templates `histogrammer.*`, lock ok), `check`/`plan` of
       `tes_id_2025` and `example_mutau_long` without copy warnings; a copy with the old ids gets exactly the three
@@ -325,7 +330,8 @@ Next-work proposals (not designed in detail yet):
         one run share (and may overwrite) the same jobs.
         (2) Since CL §18 step 6 the `tuples` slot selects the tuples (the pattern of the production stage it
         names), but one slot names one stage, while histograms read the nominal and the variation tuples together
-        (from one directory): two production stages (nominal, variations) cannot feed one histograms stage.
+        (from one directory): two production stages (nominal, variations) cannot feed one shapes stage
+        (the `histograms` stage until CL §24, S4a).
         (3) The run has one PicoProducer
         configuration (`pico.config`); `Framework._pico_config` and `taufw.py plan --local` take the first
         production stage (`recipe.first('production')`).

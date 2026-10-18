@@ -208,7 +208,7 @@ class ShapesTests(TauESIDTestCase):
         self.assertTrue(all(c.env for c in self.fitter.plan_fit(fit).commands))
 
     def test_shapes_in_output_directory(self):
-        outdir = os.path.join(self.base, "run", "stages", "histograms")
+        outdir = os.path.join(self.base, "run", "stages", "shapes")
         request = self.shapes(outdir=outdir, pico_config="pico.json")
         plan = self.fitter.plan_shapes(request)
         self.assertEqual(plan.commands[0].argv[:6], ("python3", os.path.join(self.fitter_dir, "TauES", "createinputsTES.py"),
@@ -224,7 +224,7 @@ class ShapesTests(TauESIDTestCase):
         self.assertTrue(all(os.path.isfile(a["path"]) for a in report.artifacts))
         self.assertFalse(os.path.exists(os.path.join(self.fitter_dir, "input_pt_less_region")))
         self.assertIn("output directory %s is not empty" % (outdir), " ".join(self.fitter.preflight_shapes(request)))
-        placeholder = os.path.join("<run_dir>", "stages", "histograms")  # a plan before the run exists: kept as given
+        placeholder = os.path.join("<run_dir>", "stages", "shapes")  # a plan before the run exists: kept as given
         self.assertEqual(self.fitter.plan_shapes(self.shapes(outdir=placeholder)).cwd, placeholder)
 
 
@@ -314,7 +314,7 @@ class FitTests(TauESIDTestCase):
 
     def test_fit_in_output_directory(self):
         outdir = os.path.join(self.base, "run", "stages", "fit")
-        shapes = os.path.join(self.base, "run", "stages", "histograms", "shapes_VTight_Tight")
+        shapes = os.path.join(self.base, "run", "stages", "shapes", "shapes_VTight_Tight")
         request = self.fit_request(outdir=outdir, shapes_dirs=[("2025", "VTight", "Tight", shapes)])
         plan = self.fitter.plan_fit(request)
         era = os.path.join(outdir, "2025")

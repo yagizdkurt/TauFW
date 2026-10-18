@@ -1135,3 +1135,33 @@ attributes in place of the Variable) give byte-identical canvases and PNG files.
 Checked (Windows): `python Tests/run.py checks`: 12 of 14 suites pass, the two new ones included;
 `check_import_boundaries` unchanged (30 / 28 / 26, 0 new pairs: the Plotter imports only Utilities), `check_root`
 needs ROOT. Not checked here: anything with ROOT (BBB, the round trip, real plots: TODO §1).
+
+### The histograms stage becomes shapes (S4a)
+
+**Date:** 2026-10-18, Windows. Decisions of S4 with the user: plan 18 §14. Rule (user): recipes and Framework stages
+have no users yet, so they take the clean design without a compatibility layer; commands run by hand keep their
+behaviour.
+
+Every stage is now named after what it makes. The stage that runs `createinputsTES.py` made `kind: shapes` but was
+called `histograms`, and S4 adds a second stage that fills histograms (the control histograms): two names with
+"histograms" in them would not say which is which. Rename only; the commands and the shapes are the same.
+
+- `Framework/python/stages/histograms.py` -> `stages/shapes.py` (`git mv`); `HistogramStage` -> `ShapesStage`,
+  `HistogramSpec` -> `ShapesSpec`, stage name `shapes`; `STAGES`, `ORDER`, `Framework.from_recipe`, the docstrings
+  of the Framework, `taufw.py` and the stage messages ("connect inputs.shapes to a shapes stage", "run the shapes
+  stage first" of the Fitter API).
+- New `TauFW.Framework.stages.RETIRED` (old name -> what replaces it): a recipe that still writes
+  `stage: histograms` fails the check with `stage 'histograms' no longer exists: renamed 'shapes' (CL §24)`; it runs
+  nothing. **Runs started before this change** (their `run.json` names `histograms`) can no longer be continued or
+  shown with `status`/`advance`; start them again.
+- `Analyses/tes_id_2025/recipe.yml`: `stage: shapes`, `id: shapes` (its directory in a run is now
+  `stages/shapes/`), `fit` reads `inputs: {shapes: shapes}`. READMEs (Framework, Analyses), `docs/PicoProducer/API.md`.
+- Tests: the Framework tests and `Tests/Fitter/api/test_tes_id.py` name the stage `shapes` (only strings, comments
+  and the two class names changed); new assertion for the retired name in `test_bundle.py`.
+- Not changed: earlier sections of this changelog, `CPPMigration.md`, `scripts_arg_changes.md`, the BUGS tables and
+  the hardcoded-paths inventory, which describe what was there at their time.
+
+Checked (Windows): `python Tests/run.py checks`: 12 of 14 suites pass as before (`unit.framework` included);
+`check_import_boundaries` unchanged (30 / 28 / 26, 0 new pairs), `check_root` needs ROOT. On lxplus (TODO §1):
+`taufw.py plan Analyses/tes_id_2025` equals the one saved before the change except the stage name and its
+directory.

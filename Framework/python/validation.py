@@ -14,7 +14,7 @@ What is checked here and what is not:
                   directory of a {path: <stage directory>} input: it exists, has a manifest of format 2 (its stage
                   is DONE), was not moved or copied, and its stage makes the kind of data the slot takes
                   (manifest.py; the same rule as between the stages of one recipe).
-    samples:      the `samples` option (plots, histograms) names files of the bundle (copies of the templates in
+    samples:      the `samples` option (plots, shapes) names files of the bundle (copies of the templates in
                   Configs/Histogrammer/samples/) or absolute ones, not module files; they are read through the
                   Histogrammer API (the format is the Histogrammer's): readable, exactly one per era of the stage.
     not checked:  path options a module resolves (e.g. Fitter/TauES_ID/config/...), and the environment (CMSSW,

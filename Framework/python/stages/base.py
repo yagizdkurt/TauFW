@@ -1,5 +1,5 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-"""The stage contract: what every stage of a pipeline (production, histograms, fit, ...) must provide.
+"""The stage contract: what every stage of a pipeline (production, shapes, fit, ...) must provide.
 
 A stage is one step of the analysis, for example "produce pico tuples". The Framework calls the stage, and the
 stage calls the API of its own package (the production stage calls PicoProducer). A stage never sleeps, never
@@ -13,10 +13,10 @@ The states of one stage:
               ▲  │         │
               └──┴─────────┘ (resubmission)          FAILED, NOT_IMPLEMENTED: final
 
-    local stage (plots, histograms, fit):  NEW ─▶ DONE or FAILED, in one advance() call
+    local stage (plots, shapes, fit):  NEW ─▶ DONE or FAILED, in one advance() call
 
 A stage declares what it reads and makes: `inputs` maps each of its input slots to the kind of data the slot
-takes (the fit: {'shapes': 'shapes'}), `outputs` lists the kinds it makes (histograms: ('shapes',)). A recipe
+takes (the fit: {'shapes': 'shapes'}), `outputs` lists the kinds it makes (shapes: ('shapes',)). A recipe
 connects every slot to an earlier stage that makes that kind. Only the slots in `null_inputs` may be null instead
 (data from outside the run); `null_inputs` also says what null means for each of them (see recipe.py).
 
@@ -135,7 +135,7 @@ class StageContext:
         return self.artifacts(stage_id, kind) if stage_id else ()
 
     def input_name(self, slot):
-        """What an input slot names, for messages: "stage 'histograms'", or the other run's stage directory."""
+        """What an input slot names, for messages: "stage 'shapes'", or the other run's stage directory."""
         if slot in self.sources:
             return self.inputs.get(slot)
         return "stage %r" % (self.inputs.get(slot))

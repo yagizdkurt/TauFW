@@ -1,5 +1,5 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-"""TauFW Framework: run analysis pipelines (production -> plots -> histograms -> fit) from a recipe.
+"""TauFW Framework: run analysis pipelines (production -> plots -> shapes -> fit) from a recipe.
 
     from TauFW.Framework import Framework
     fw     = Framework.from_recipe("Analyses/example_mutau_short")   # an analysis bundle (or a recipe file)
@@ -17,7 +17,7 @@ Public API:
   Recipe, StageSpec, Issue, RecipeError         recipes (recipe.py)
   check_recipe, RecipeCheck                     every problem of a recipe file, files included (validation.py)
   RunRecord, RunState, StageRecord              run.json (run_record.py)
-  StageState, StageOutcome, STAGES              the stage contract (stages/); plots, histograms and fit call
+  StageState, StageOutcome, STAGES              the stage contract (stages/); plots, shapes and fit call
                                                 the Histogrammer and Fitter APIs (TauFW.Histogrammer.api, TauFW.Fitter.api)
   Reporter, FrameworkReporter, SilentReporter,  reporting (reporting.py); EventReporter also writes events for
   EventReporter                                 the menu's screens

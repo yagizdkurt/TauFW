@@ -174,7 +174,7 @@ class TauESID:
             for era, jet_wp, ele_wp in request.points:
                 indir = self._shapes_dir(request, era, jet_wp, ele_wp)
                 if not glob.glob(os.path.join(indir, "*.inputs-%s-*.root" % (era))):
-                    problems.append("no shapes for %s %s/%s in %s (run the histograms stage first)"
+                    problems.append("no shapes for %s %s/%s in %s (run the shapes stage first)"
                                     % (era, jet_wp, ele_wp, indir))
         if request.outdir is not None:
             problems.extend(output_dir_problems(request.outdir, self.pico_config_source(request)))

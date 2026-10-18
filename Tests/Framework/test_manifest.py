@@ -21,7 +21,7 @@ class ManifestTests(unittest.TestCase):
         self.root = tempfile.mkdtemp(prefix="taufw-test-")
         self.addCleanup(shutil.rmtree, self.root, ignore_errors=True)
         self.stage_spec = Recipe.from_dict({"name": "x", "stages": [
-            {"stage": "histograms", "id": "hist", "description": "shapes", "inputs": {"tuples": None},
+            {"stage": "shapes", "id": "hist", "description": "shapes", "inputs": {"tuples": None},
              "eras": [2025], "jet_wps": ["VTight"], "ele_wps": ["Tight"]}]}).stage("hist")
         self.directory = os.path.join(self.root, "run_1", "stages", "hist")
 
@@ -40,7 +40,7 @@ class ManifestTests(unittest.TestCase):
         with open(path) as stream:
             data = json.load(stream)
         self.assertEqual(data, {"manifest": MANIFEST_FORMAT, "run_id": "run_1", "stage_id": "hist",
-                                "stage": "histograms", "description": "shapes", "inputs": {"tuples": None},
+                                "stage": "shapes", "description": "shapes", "inputs": {"tuples": None},
                                 "sources": {"tuples": {"path": "/a/stages/production"}},
                                 "stage_dir": self.directory, "finished": "2026-10-17 12:00:00",
                                 "artifacts": SHAPES})
@@ -49,7 +49,7 @@ class ManifestTests(unittest.TestCase):
             sha256 = hashlib.sha256(stream.read()).hexdigest()
         self.assertEqual(stage_dir.artifacts, tuple(SHAPES))
         self.assertEqual(stage_dir.summary(), {"path": self.directory, "run_id": "run_1", "stage_id": "hist",
-                                               "stage": "histograms", "finished": "2026-10-17 12:00:00",
+                                               "stage": "shapes", "finished": "2026-10-17 12:00:00",
                                                "manifest_sha256": sha256})
 
     def test_refused(self):
@@ -61,7 +61,7 @@ class ManifestTests(unittest.TestCase):
             stream.write("{not json")
         self.assertIn("cannot read %s" % (path), self.error(self.directory))
         with open(path, "w") as stream:  # a manifest of R2/R3 (format 1): no conversion
-            json.dump({"manifest": 1, "run_id": "run_1", "stage_id": "hist", "stage": "histograms",
+            json.dump({"manifest": 1, "run_id": "run_1", "stage_id": "hist", "stage": "shapes",
                        "finished": "x", "artifacts": []}, stream)
         self.assertIn("has manifest format 1, expected 2", self.error(self.directory))
         with open(path, "w") as stream:

@@ -49,7 +49,7 @@ class CheckRecipeTests(unittest.TestCase):
 
     def test_path_inputs(self):
         """R4: the stage directory of a {path: ...} input is checked; every problem is listed."""
-        histograms = self.source("histograms", "histograms")
+        histograms = self.source("shapes", "shapes")
         plots = self.source("plots", "plots")
         fit = self.source("fit", "fit")
         check = self.check(dict(FIT, inputs={"shapes": {"path": histograms}}),
@@ -58,10 +58,10 @@ class CheckRecipeTests(unittest.TestCase):
         check = check_recipe(self.bundle)
         self.assertEqual(self.messages(check), [])
         self.assertEqual(check.recipe.stage("fit").paths, {"shapes": histograms})
-        missing = os.path.join(self.root, "runs", "r2", "stages", "histograms")
-        unfinished = os.path.join(self.root, "runs", "r3", "stages", "histograms")
+        missing = os.path.join(self.root, "runs", "r2", "stages", "shapes")
+        unfinished = os.path.join(self.root, "runs", "r3", "stages", "shapes")
         os.makedirs(unfinished)
-        copy = os.path.join(self.root, "copy", "stages", "histograms")
+        copy = os.path.join(self.root, "copy", "stages", "shapes")
         shutil.copytree(histograms, copy)
         check = self.check(*[dict(FIT, id="fit%d" % (n), inputs={"shapes": {"path": path}})
                              for n, path in enumerate((missing, unfinished, copy, plots))])
@@ -139,7 +139,7 @@ class CheckRecipeTests(unittest.TestCase):
                                  [where + message])
         self.assertEqual(self.messages(self.check(dict(FIT, inputs={"shapes": {"external": pattern}}))),
                          ["stages[0] (fit).inputs.shapes: {external: ...} is only for a tuples input (plots, "
-                          "histograms); name an earlier stage, or {path: <stage directory>}"])
+                          "shapes); name an earlier stage, or {path: <stage directory>}"])
         step = dict(STEP, inputs={"tuples": {"external": pattern}})
         self.write("steps/check.py", "def run(ctx):\n    pass\n")
         self.assertIn("{external: ...} is only for a tuples input", self.messages(self.check(step))[0])

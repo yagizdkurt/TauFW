@@ -1,5 +1,7 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-"""Histograms stage: pico tuples -> input histograms (shapes) of the TES + tau ID fit, through the Fitter API.
+"""Shapes stage: pico tuples -> input histograms (shapes) of the TES + tau ID fit, through the Fitter API. It was
+called `histograms` until CL §24 (S4a): every stage is named after what it makes, and the control histograms of the
+Histogrammer are another stage (controlhists).
 
 It runs what Fitter/run_inputs.sh runs: TauES/createinputsTES.py for every era, working point pair and config.
 
@@ -8,7 +10,7 @@ It runs what Fitter/run_inputs.sh runs: TauES/createinputsTES.py for every era, 
               recipes) the scripts read $PICODIR of the run's PicoProducer config (as $TAUFW_PICO_CONFIG). The TES,
               LTF and JTF variations need their own tuples in the same directory (e.g.
               <sample>_mutau_TES0p950.root).
-    options:  HistogramSpec (eras, configs, jet and electron working points)
+    options:  ShapesSpec (eras, configs, jet and electron working points)
     outputs:  one shapes artifact per shape file: {kind: 'shapes', path, era, channel, config, jet_wp, ele_wp,
               observable}; the scripts run in the stage's directory, so the files are in
               <run_dir>/stages/<id>/input_pt_less_region/againstjet_<J>/againstelectron_<E>/
@@ -16,7 +18,7 @@ It runs what Fitter/run_inputs.sh runs: TauES/createinputsTES.py for every era, 
 The stage runs locally and finishes in one advance() call (see stages/local.py).
 
 Public API:
-  HistogramStage(fitter), HistogramSpec, DEFAULT_CONFIGS
+  ShapesStage(fitter), ShapesSpec, DEFAULT_CONFIGS
 """
 from dataclasses import dataclass
 from typing import Optional, Tuple
@@ -24,7 +26,7 @@ from typing import Optional, Tuple
 from TauFW.Framework.stages.base import as_strings, spec_to_dict
 from TauFW.Framework.stages.local import LocalStage
 
-__all__ = ['HistogramStage', 'HistogramSpec', 'DEFAULT_CONFIGS']
+__all__ = ['ShapesStage', 'ShapesSpec', 'DEFAULT_CONFIGS']
 
 
 # =============================================================================
@@ -39,17 +41,17 @@ DEFAULT_CONFIGS = ('TauES_ID/config/config_coarse_TT.yml', 'TauES/config/FitSetu
 # =================================== STAGE ===================================
 
 
-class HistogramStage(LocalStage):
+class ShapesStage(LocalStage):
     """Input histograms with the Fitter API.
     fitter: a TauFW.Fitter.api.TauESID, or any object with the same methods (tests pass a fake one).
     samples_api: the Histogrammer API that reads the sample model files of the `samples` option (the Fitter only
     passes them to createinputsTES.py; their format is the Histogrammer's)."""
-    name = 'histograms'
+    name = 'shapes'
     inputs = {'tuples': 'tuples'}
     null_inputs = {'tuples': "the tuples in $PICODIR of the run's PicoProducer config"}
     outputs = ('shapes',)
     group = 'fitter'  # taufw.py init names a copied config <group>_<name> if its name is taken
-    # Spec = HistogramSpec: set at the bottom of this file.
+    # Spec = ShapesSpec: set at the bottom of this file.
 
     def request(self, spec, context):
         tuples = self.tuples_pattern(context)[0]
@@ -82,7 +84,7 @@ class HistogramStage(LocalStage):
 
 
 @dataclass(frozen=True)
-class HistogramSpec:
+class ShapesSpec:
     """Recipe options: eras, jet and electron working points (DeepTau WP names, e.g. VTight, Tight), the configs
     (bundle files, or relative to Fitter/; default: those of run_inputs.sh) and createinputsTES.py -s (serial)."""
     eras:    Tuple[str, ...]
@@ -106,5 +108,5 @@ class HistogramSpec:
         return spec_to_dict(self)
 
 
-HistogramSpec._paths = ('configs', 'samples')  # resolved against the bundle (bundle.py)
-HistogramStage.Spec = HistogramSpec
+ShapesSpec._paths = ('configs', 'samples')  # resolved against the bundle (bundle.py)
+ShapesStage.Spec = ShapesSpec

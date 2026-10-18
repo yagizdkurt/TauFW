@@ -1,4 +1,4 @@
-"""Sample model files in recipes (CL §22): the `samples` option of plots and histograms (validation), and the
+"""Sample model files in recipes (CL §22): the `samples` option of plots and shapes (validation), and the
 comparison of what production makes with what its readers ask for (samples.py: plan lists, start refuses)."""
 import json
 import os

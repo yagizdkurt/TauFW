@@ -2,14 +2,14 @@
 # tuples. It runs what Fitter/run_inputs.sh and Fitter/run_workflow_zmm.sh run (option 3: 2D scan of tes and tid_SF
 # per decay mode and pt region, with the Z->mumu control region), control plots first, and a summary step last.
 #   taufw.py plan    Analyses/tes_id_2025                       # the commands of every stage (nothing runs)
-#   taufw.py start   Analyses/tes_id_2025                       # runs plots, histograms, fit, summary (hours)
+#   taufw.py start   Analyses/tes_id_2025                       # runs plots, shapes, fit, summary (hours)
 #   taufw.py status  taufw_runs/tes_id_2025_<time>              # the fitted values
 # Everything this analysis reads is in this directory: the .yml configs next to this file replace the module
 # configs (whole files), steps/ holds its Python steps. Paths are relative to this directory. A run copies the
 # directory to taufw_runs/<run>/bundle/, so editing it later never changes a started run. Copy or send this
 # directory to hand over the analysis.
 # Needs cmsenv in a CMSSW area with combine and CombineHarvester (FastSetup.sh). The pico tuples are the TauFW
-# group's 2025 tuples, named in the inputs of plots and histograms below ({external: <pattern>}; the scripts get
+# group's 2025 tuples, named in the inputs of plots and shapes below ({external: <pattern>}; the scripts get
 # them as --tuples), including the variation tuples in the same directories (<sample>_mutau_TES0p950.root,
 # ..._LTF1p030, ..._JTF0p900, ...). Each stage's scripts run in, and write to,
 # taufw_runs/<run>/stages/<id>/ (the fit: stages/fit/<era>/); each command's log goes to taufw_runs/<run>/logs/<id>/.
@@ -39,8 +39,8 @@ stages:
     selections: [baseline]  # plot.py -S; []: baseline and every region
     pdf: false
 
-  - stage: histograms       # input shapes (Fitter/TauES/createinputsTES.py, run in stages/histograms/)
-    id: histograms
+  - stage: shapes           # input shapes (Fitter/TauES/createinputsTES.py, run in stages/shapes/)
+    id: shapes
     description: TES and tau ID shapes, mutau and the mumu control region
     inputs: {tuples: *tuples_2025}   # the same tuples as the plots (a YAML alias of the input above)
     eras: [2025]
@@ -53,8 +53,8 @@ stages:
   - stage: fit              # Fitter/run_workflow_zmm.sh steps, run in stages/fit/<era>/
     id: fit
     description: 2D scan of tes and tid_SF per decay mode and pt region
-    inputs: {shapes: histograms}   # the shapes of the histograms stage above
-                                   # (or of another run: {path: <run_dir>/stages/histograms}, absolute)
+    inputs: {shapes: shapes}       # the shapes of the shapes stage above
+                                   # (or of another run: {path: <run_dir>/stages/shapes}, absolute)
     config: config_coarse_TT.yml
     config_mumu: FitSetup_mumu.yml
     eras: []                # []: the eras and working points of the input shapes

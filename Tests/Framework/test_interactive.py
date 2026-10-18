@@ -292,7 +292,7 @@ class MenuTests(unittest.TestCase):
         expected = {
             "example_mutau_short": (("production", "production"),),
             "example_mutau_long": (("production", "production"), ("plots", "plots")),
-            "tes_id_2025": (("plots", "plots"), ("histograms", "histograms"),
+            "tes_id_2025": (("plots", "plots"), ("shapes", "shapes"),
                             ("fit", "fit"), ("fit_summary", "python")),
         }
         for bundle, stages in expected.items():
@@ -353,7 +353,7 @@ class MenuTests(unittest.TestCase):
     def test_broken_recipes_are_marked_and_list_every_problem(self):
         self.recipe_file(self.recipes / "a_good.json")
         self.recipe_file(self.recipes / "b_bad.json", stages=[
-            {"stage": "histograms", "inputs": {"tuples": None}, "eras": [2025], "jet_wps": ["Tight"],
+            {"stage": "shapes", "inputs": {"tuples": None}, "eras": [2025], "jet_wps": ["Tight"],
              "ele_wps": ["Tight"]},
             {"stage": "fit", "id": "fit", "inputs": {"shapes": "histo"}},
         ])
@@ -361,8 +361,8 @@ class MenuTests(unittest.TestCase):
         self.menu(ui).start()
         self.assertEqual(ui.broken, [False, True])
         view = self.menu(FakeUI()).operations.recipe_preview(self.recipes / "b_bad.json")
-        self.assertEqual(view["problems"], ("stages[0] (histograms): missing 'id' (every stage needs a unique id, "
-                                            "e.g. id: histograms)",
+        self.assertEqual(view["problems"], ("stages[0] (shapes): missing 'id' (every stage needs a unique id, "
+                                            "e.g. id: shapes)",
                                             "stages[1] (fit).inputs.shapes: no stage 'histo' in the recipe"))
         self.assertEqual(view["stages"], (("fit", "fit", ""),))  # the stages that could be read
 

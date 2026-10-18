@@ -11,7 +11,7 @@ is none:
                     CommandPlan  RunReport (one plots artifact per config and era)
     preflight(): what is missing in the environment (empty: ready)
     sample_names(), samples_problems(), sample_file_problems(): the sample model files (no ROOT; also used by the
-    Framework for the histograms stage and to compare with what production makes)
+    Framework for the shapes stage and to compare with what production makes)
 
 Inputs:  pico tuples in the request's tuple pattern (--tuples), or else found by fillhists.py through $PICODIR
          of the request's PicoProducer config (passed to fillhists.py as $TAUFW_PICO_CONFIG; default

@@ -1,8 +1,8 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Stage manifests: <run_dir>/stages/<id>/manifest.json, written when a stage is DONE.
 
-    {"manifest": 2, "run_id": "...", "stage_id": "histograms", "stage": "histograms", "description": "...",
-     "inputs": {...}, "sources": {...}, "stage_dir": "/abs/.../stages/histograms", "finished": "...",
+    {"manifest": 2, "run_id": "...", "stage_id": "shapes", "stage": "shapes", "description": "...",
+     "inputs": {...}, "sources": {...}, "stage_dir": "/abs/.../stages/shapes", "finished": "...",
      "artifacts": [...]}
 
 A manifest is a copy of the stage's record in run.json (run.json stays the source of truth), so that the directory

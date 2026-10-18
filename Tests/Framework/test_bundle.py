@@ -12,12 +12,12 @@ import checkout  # noqa: F401  (must precede TauFW imports)
 import fakes
 from TauFW.Framework import Framework, Recipe, RecipeError, RunRecord, SilentReporter
 from TauFW.Framework.bundle import resolve, where, bundle_files, BundleError
-from TauFW.Framework.stages import PlotStage, HistogramStage, FitStage
+from TauFW.Framework.stages import PlotStage, ShapesStage, FitStage
 from test_framework import Clock
 
-HISTOGRAMS = {"stage": "histograms", "id": "histograms", "inputs": {"tuples": None}, "eras": [2025],
+SHAPES = {"stage": "shapes", "id": "shapes", "inputs": {"tuples": None}, "eras": [2025],
               "jet_wps": ["VTight"], "ele_wps": ["Tight"], "configs": ["tt.yml", "mm.yml"]}
-FIT = {"stage": "fit", "id": "fit", "inputs": {"shapes": "histograms"}, "config": "tt.yml", "config_mumu": "mm.yml",
+FIT = {"stage": "fit", "id": "fit", "inputs": {"shapes": "shapes"}, "config": "tt.yml", "config_mumu": "mm.yml",
        "steps": ["fit"]}
 PLOTS = {"stage": "plots", "id": "plots", "inputs": {"tuples": None}, "eras": [2025],
          "configs": ["mutau", "setup_mumu.yml"]}
@@ -48,7 +48,7 @@ class BundleTestCase(unittest.TestCase):
         return Recipe.load(self.bundle)
 
     def framework(self, recipe):
-        stages = {"plots": PlotStage(self.plotter), "histograms": HistogramStage(self.fitter),
+        stages = {"plots": PlotStage(self.plotter), "shapes": ShapesStage(self.fitter),
                   "fit": FitStage(self.fitter)}
         return Framework(recipe, {s.id: stages[s.id] for s in recipe.stages}, reporter=self.reporter,
                          sleep=lambda s: None, clock=Clock())
@@ -73,7 +73,7 @@ class PathRuleTests(BundleTestCase):
         self.assertEqual(resolve("tt.yml", None), "tt.yml")  # no bundle
 
     def test_plan_resolves_against_the_bundle(self):
-        fw = self.framework(self.recipe(PLOTS, HISTOGRAMS, FIT, pico="pico.json"))
+        fw = self.framework(self.recipe(PLOTS, SHAPES, FIT, pico="pico.json"))
         plan = fw.plan()
         self.assertEqual(plan.bundle_dir, self.bundle)
         self.assertEqual(plan.pico_config, os.path.join(self.bundle, "pico.json"))
@@ -89,7 +89,7 @@ class PathRuleTests(BundleTestCase):
         self.assertEqual(self.fitter.call("plan_fit")[0]["points"], (("2025", "VTight", "Tight"),))
 
     def test_bundle_files(self):
-        recipe = self.recipe(PLOTS, HISTOGRAMS, FIT, pico="pico.json")
+        recipe = self.recipe(PLOTS, SHAPES, FIT, pico="pico.json")
         self.assertEqual(bundle_files(recipe), tuple(os.path.normpath(p) for p in (
             "pico.json", "setup_mumu.yml", "tt.yml",
             "mm.yml")))
@@ -97,7 +97,7 @@ class PathRuleTests(BundleTestCase):
 
 class RunSnapshotTests(BundleTestCase):
     def test_run_reads_its_copy_of_the_bundle(self):
-        recipe = self.recipe(HISTOGRAMS, pico="pico.json")
+        recipe = self.recipe(SHAPES, pico="pico.json")
         self.fitter.problems = ("not ready",)  # stays NEW: the run is continued below, after the edit
         record = self.framework(recipe).start(run_root=os.path.join(self.root, "runs"))
         copy = os.path.join(record.run_dir, "bundle")
@@ -109,20 +109,20 @@ class RunSnapshotTests(BundleTestCase):
         self.fitter.problems = ()
         loaded = RunRecord.load(record.run_dir)
         record = Framework.from_record(loaded, reporter=self.reporter, fitter=self.fitter).advance(loaded)
-        self.assertEqual(record.stage("histograms").state, "DONE")
+        self.assertEqual(record.stage("shapes").state, "DONE")
         request = self.fitter.call("make_shapes")[0]
         self.assertEqual(request["configs"][0], os.path.join(copy, os.path.normpath("tt.yml")))
         self.assertEqual(request["pico_config"], os.path.join(copy, "pico.json"))
         with open(request["configs"][0]) as stream:
             self.assertEqual(stream.read(), "original tt.yml\n")
         # run.json keeps the recipe as written
-        self.assertEqual(loaded.recipe["stages"][0]["configs"], HISTOGRAMS["configs"])
+        self.assertEqual(loaded.recipe["stages"][0]["configs"], SHAPES["configs"])
 
     def test_snapshot_skips_caches_and_refuses_large_bundles(self):
         self.write("steps/__pycache__/x.pyc", "cache")
         self.write(".git/config", "hidden")
         self.write("taufw_runs/old/run.json", "{}")
-        recipe = self.recipe(HISTOGRAMS)
+        recipe = self.recipe(SHAPES)
         record = self.framework(recipe).start(run_root=os.path.join(self.root, "runs"))
         self.assertFalse([f for f in record.bundle["files"] if "pycache" in f or ".git" in f or "taufw_runs" in f])
         with mock.patch("TauFW.Framework.bundle.MAX_BUNDLE_BYTES", 10):
@@ -132,14 +132,14 @@ class RunSnapshotTests(BundleTestCase):
 
     def test_pico_config_above_the_bundle_stays_outside_the_run(self):
         pico = self.write("PicoProducer/config/config.json", "{}", base=self.root)
-        recipe = self.recipe(HISTOGRAMS, pico="../../PicoProducer/config/config.json")
+        recipe = self.recipe(SHAPES, pico="../../PicoProducer/config/config.json")
         self.assertEqual(recipe.pico_config, os.path.normpath(pico))  # made absolute when loaded
         record = self.framework(recipe).start(run_root=os.path.join(self.root, "runs"))
         self.assertFalse([f for f in record.bundle["files"] if f.startswith("..")])
         self.assertEqual(self.fitter.call("make_shapes")[0]["pico_config"], os.path.normpath(pico))
 
     def test_old_run_json_without_bundle(self):
-        recipe = self.recipe(HISTOGRAMS)
+        recipe = self.recipe(SHAPES)
         record = self.framework(recipe).start(run_root=os.path.join(self.root, "runs"))
         with open(record.path) as stream:
             data = json.load(stream)
@@ -150,7 +150,7 @@ class RunSnapshotTests(BundleTestCase):
 
     def test_recipe_file_without_bundle_files(self):
         path = self.write("plain.json", json.dumps({"name": "plain", "stages": [
-            dict(HISTOGRAMS, configs=["TauES_ID/config/config_coarse_TT.yml"])]}), base=self.root)
+            dict(SHAPES, configs=["TauES_ID/config/config_coarse_TT.yml"])]}), base=self.root)
         record = self.framework(Recipe.load(path)).start(run_root=os.path.join(self.root, "runs"))
         self.assertEqual(record.bundle["files"], [])
         self.assertEqual(self.fitter.call("make_shapes")[0]["configs"], ["TauES_ID/config/config_coarse_TT.yml"])
@@ -163,14 +163,14 @@ class StageIdTests(BundleTestCase):
         return str(context.exception)
 
     def test_python_steps_anywhere_with_ids(self):
-        histograms = dict(HISTOGRAMS, id="shapes_tight", description="the Tight working points")
+        histograms = dict(SHAPES, id="shapes_tight", description="the Tight working points")
         recipe = Recipe.from_dict({"name": "x", "stages": [
             STEP, histograms, dict(STEP, id="check_again", inputs={"shapes": "shapes_tight"}),
             dict(FIT, inputs={"shapes": "shapes_tight"}),
             dict(STEP, id="summary", file="steps/summary.py", inputs={"fit": "fit", "shapes": "shapes_tight"})]})
         self.assertEqual([s.id for s in recipe.stages], ["check", "shapes_tight", "check_again", "fit", "summary"])
         self.assertEqual(recipe.stage("check_again").stage, "python")
-        self.assertEqual(recipe.first("histograms").id, "shapes_tight")  # a built-in stage may have any id
+        self.assertEqual(recipe.first("shapes").id, "shapes_tight")  # a built-in stage may have any id
         self.assertEqual(recipe.stage("shapes_tight").description, "the Tight working points")
         self.assertEqual(recipe.stage("summary").connections, {"fit": "fit", "shapes": "shapes_tight"})
         self.assertEqual(recipe.stage("check").connections, {})
@@ -189,10 +189,12 @@ class StageIdTests(BundleTestCase):
                       self.error(dict(STEP, id="..")))
         recipe = Recipe.from_dict({"name": "x", "stages": [dict(STEP, id="bundle"), dict(STEP, id="logs")]})
         self.assertEqual([s.id for s in recipe.stages], ["bundle", "logs"])  # stages/<id>: no clash in the run
-        recipe = Recipe.from_dict({"name": "x", "stages": [dict(FIT, inputs={"shapes": None}), STEP, HISTOGRAMS]})
-        self.assertEqual([s.stage for s in recipe.stages], ["fit", "python", "histograms"])  # no fixed order (R4)
-        self.assertIn("unknown stage 'pyhton' (known: production, plots, histograms, fit, python)",
+        recipe = Recipe.from_dict({"name": "x", "stages": [dict(FIT, inputs={"shapes": None}), STEP, SHAPES]})
+        self.assertEqual([s.stage for s in recipe.stages], ["fit", "python", "shapes"])  # no fixed order (R4)
+        self.assertIn("unknown stage 'pyhton' (known: production, plots, shapes, fit, python)",
                       self.error({"stage": "pyhton"}))
+        self.assertIn("stages[0]: stage 'histograms' no longer exists: renamed 'shapes' (CL §24)",
+                      self.error(dict(SHAPES, stage="histograms")))  # the name before CL §24 (S4a)
         self.assertIn("file must be a .py file", self.error(dict(STEP, file="steps/check.sh")))
         self.assertIn("missing required option 'file'", self.error({"stage": "python", "id": "x", "inputs": None}))
         self.assertIn("description: must be text", self.error(dict(STEP, description=["a"])))
@@ -202,14 +204,14 @@ class StageIdTests(BundleTestCase):
                       "channels": ["mutau"]}
         message = self.error(
             dict(production, inputs={"tuples": None}),                          # production reads nothing
-            dict(HISTOGRAMS, inputs={"tuples": "production", "shapes": None}),  # unknown slot
+            dict(SHAPES, inputs={"tuples": "production", "shapes": None}),  # unknown slot
             dict(FIT, inputs={"shapes": "production"}),                         # wrong kind of data
             dict(STEP, inputs={}),                                              # empty: write null
             dict(STEP, id="late", inputs={"x": "later", "y": None, "z": "late", "w": "nowhere"}),
             dict(STEP, id="later"))
         self.assertIn("r.yml: 8 problems", message)
         for text in ("stages[0] (production).inputs: production reads no other stage's output: write inputs: null",
-                     "stages[1] (histograms).inputs.shapes: unknown input (histograms has: tuples)",
+                     "stages[1] (shapes).inputs.shapes: unknown input (shapes has: tuples)",
                      "stages[2] (fit).inputs.shapes: stage 'production' (production) makes tuples, not shapes",
                      "stages[3] (python).inputs: is empty: write inputs: null",
                      "stages[4] (python).inputs.y: must name an earlier stage",
@@ -240,10 +242,10 @@ class StageIdTests(BundleTestCase):
 
     def test_path_inputs(self):
         """R4: {path: <stage directory>} names another run's stage directory: absolute, as written, any slot."""
-        source = os.path.join(self.root, "runs", "r1", "stages", "histograms")
+        source = os.path.join(self.root, "runs", "r1", "stages", "shapes")
         fit = dict(FIT, inputs={"shapes": {"path": source}})
-        step = dict(STEP, inputs={"fit": {"path": source}, "shapes": "histograms"})
-        recipe = Recipe.from_dict({"name": "x", "stages": [HISTOGRAMS, fit, step]})
+        step = dict(STEP, inputs={"fit": {"path": source}, "shapes": "shapes"})
+        recipe = Recipe.from_dict({"name": "x", "stages": [SHAPES, fit, step]})
         self.assertEqual(recipe.stage("fit").inputs, {"shapes": {"path": source}})
         self.assertEqual(recipe.stage("fit").connections, {"shapes": None})  # not a stage of this run
         self.assertEqual(recipe.stage("fit").paths, {"shapes": source})
@@ -256,10 +258,10 @@ class StageIdTests(BundleTestCase):
                          {"tuples": None})
         where = "stages[0] (fit).inputs.shapes: "
         for value, message in (
-                ("../runs/r1/stages/histograms", "path must be absolute (got ../runs/r1/stages/histograms; "
+                ("../runs/r1/stages/shapes", "path must be absolute (got ../runs/r1/stages/shapes; "
                                                  "relative paths are not allowed, and ~ and $VARIABLES are not "
                                                  "expanded)"),
-                ("~/taufw_runs/r1/stages/histograms", "path must be absolute (got ~/taufw_runs/r1/stages/histograms; "
+                ("~/taufw_runs/r1/stages/shapes", "path must be absolute (got ~/taufw_runs/r1/stages/shapes; "
                                                       "relative paths are not allowed, and ~ and $VARIABLES are "
                                                       "not expanded)"),
                 ("$HOME/r1", "path must be absolute (got $HOME/r1; relative paths are not allowed, and ~ and "
@@ -267,9 +269,9 @@ class StageIdTests(BundleTestCase):
                 ("root://eosuser.cern.ch//eos/r1", "path must be a directory on a mounted file system, not a URL "
                                                    "(got root://eosuser.cern.ch//eos/r1)"),
                 ("", "path must be the absolute stage directory of another run, e.g. "
-                     "/afs/.../taufw_runs/<run>/stages/histograms (got '')"),
+                     "/afs/.../taufw_runs/<run>/stages/shapes (got '')"),
                 (1, "path must be the absolute stage directory of another run, e.g. "
-                    "/afs/.../taufw_runs/<run>/stages/histograms (got 1)")):
+                    "/afs/.../taufw_runs/<run>/stages/shapes (got 1)")):
             with self.subTest(value=value):
                 self.assertEqual(self.error(dict(FIT, inputs={"shapes": {"path": value}})),
                                  "r.yml: " + where + message)
@@ -279,7 +281,7 @@ class StageIdTests(BundleTestCase):
                          "r.yml: " + where + "a mapping is {path: <stage directory>} (got keys path, run)")
 
     def test_path_input_inside_the_bundle(self):
-        inside = os.path.join(self.bundle, "old_run", "stages", "histograms")
+        inside = os.path.join(self.bundle, "old_run", "stages", "shapes")
         fit = dict(FIT, inputs={"shapes": {"path": inside}})
         with self.assertRaises(RecipeError) as context:
             self.recipe(fit)
@@ -303,8 +305,8 @@ class MakeBundleTests(BundleTestCase):
     def test_make_bundle_copies_the_module_configs(self):
         source = self.write("old.json", json.dumps({"name": "old", "stages": [
             dict(PLOTS, configs=["mutau"]),
-            dict(HISTOGRAMS, configs=["TauES_ID/config/config_coarse_TT.yml", "TauES/config/FitSetup_mumu.yml"]),
-            {"stage": "fit", "id": "fit", "inputs": {"shapes": "histograms"},
+            dict(SHAPES, configs=["TauES_ID/config/config_coarse_TT.yml", "TauES/config/FitSetup_mumu.yml"]),
+            {"stage": "fit", "id": "fit", "inputs": {"shapes": "shapes"},
              "config": "TauES_ID/config/config_coarse_TT.yml",
              "config_mumu": "TauES/config/FitSetup_mumu.yml"}]}), base=self.root)
         target = os.path.join(self.root, "Analyses", "new_one")
@@ -314,7 +316,7 @@ class MakeBundleTests(BundleTestCase):
         recipe = Recipe.load(target)
         self.assertEqual(recipe.name, "new_one")
         self.assertEqual(recipe.stage("fit").options["config"], "config_coarse_TT.yml")
-        self.assertEqual(recipe.stage("histograms").options["configs"],
+        self.assertEqual(recipe.stage("shapes").options["configs"],
                          ["config_coarse_TT.yml", "FitSetup_mumu.yml"])
         self.assertEqual(set(bundle_files(recipe)), {os.path.normpath(p) for p in copied})
         with open(os.path.join(target, "config_coarse_TT.yml")) as stream:

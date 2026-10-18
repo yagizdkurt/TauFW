@@ -11,7 +11,7 @@
         inputs: null                  # required; production reads no other stage's output
         eras: [2022_postEE]
         channels: [mutau]
-      - stage: plots                  # options: see PlotSpec (stages/plots.py); then histograms, fit
+      - stage: plots                  # options: see PlotSpec (stages/plots.py); then shapes, fit
         id: plots
         inputs: {tuples: production}  # every input slot of the stage -> the id of an earlier stage, or null
         eras: [2022_postEE]
@@ -27,13 +27,13 @@ Every stage has the keys `stage`, `id` and `inputs`, and may have `description`;
     inputs:   which earlier stage's output the stage reads, per input slot (Stage.inputs):
                 production    no slots                     inputs: null
                 plots         tuples   <- tuples           null: the tuples in $PICODIR of the PicoProducer config
-                histograms    tuples   <- tuples           null: the same
+                shapes        tuples   <- tuples           null: the same
                 fit           shapes   <- shapes           null: the shapes already in Fitter/ (temporary exception)
                 python        any names <- any stage       null: no inputs; a mapping names stages, never null
               A slot names a stage that comes earlier in the recipe and makes that kind of data
               (Stage.outputs). A slot may instead name the stage directory of another run (a stage that is
               DONE, with its manifest.json; validation.py checks it, the Framework reads its artifacts):
-                shapes: {path: /afs/.../taufw_runs/<run>/stages/histograms}
+                shapes: {path: /afs/.../taufw_runs/<run>/stages/shapes}
               (absolute; nothing is expanded; not inside the bundle). A tuples slot may also name tuples made
               outside TauFW:
                 tuples: {external: /eos/.../TES_variations/$ERA/$GROUP}
@@ -81,7 +81,7 @@ from typing import Optional, Tuple
 from TauFW.Framework.bundle import leaves_bundle, is_bundle
 from TauFW.Framework.configs import copy_warnings
 from TauFW.Framework.defaults import RECIPE_NAME, DEFAULT_RUN_ROOT, default_file_io
-from TauFW.Framework.stages import STAGES, ORDER, SpecError, spec_from_dict
+from TauFW.Framework.stages import STAGES, ORDER, RETIRED, SpecError, spec_from_dict
 
 __all__ = ['Recipe', 'StageSpec', 'Issue', 'RecipeError', 'recipe_warnings', 'run_root_dir']
 
@@ -300,6 +300,9 @@ def _stage_entry(entry, index, bundle_dir, issues):
         issues.append(Issue("stages[%d]" % (index), "must be a mapping with a 'stage' key"))
         return None
     name = entry['stage']
+    if name in RETIRED:
+        issues.append(Issue("stages[%d]" % (index), "stage %r no longer exists: %s" % (name, RETIRED[name])))
+        return None
     if name not in STAGES:
         known = ORDER + tuple(n for n in STAGES if n not in ORDER)
         issues.append(Issue("stages[%d]" % (index), "unknown stage %r (known: %s)" % (name, ', '.join(known))))
@@ -417,7 +420,7 @@ def _path_problem(path, bundle_dir):
     here; the directory and its manifest are checked by validation.py and the Framework (manifest.py)."""
     if not isinstance(path, str) or not path.strip():
         return ("path must be the absolute stage directory of another run, e.g. "
-                "/afs/.../taufw_runs/<run>/stages/histograms (got %r)" % (path,))
+                "/afs/.../taufw_runs/<run>/stages/shapes (got %r)" % (path,))
     if URLEXP.match(path):
         return "path must be a directory on a mounted file system, not a URL (got %s)" % (path)
     if not _is_absolute(path):
@@ -432,7 +435,7 @@ def _path_problem(path, bundle_dir):
 def _external_problem(value, kind):
     """What is wrong with an input written as {external: <pattern>} (None: nothing)."""
     if kind != 'tuples':
-        return ("{external: ...} is only for a tuples input (plots, histograms); name an earlier stage, or "
+        return ("{external: ...} is only for a tuples input (plots, shapes); name an earlier stage, or "
                 "{path: <stage directory>}")
     if set(value) != {'external'}:
         return "a mapping is {external: <absolute pattern>} (got keys %s)" % (', '.join(sorted(map(str, value))))

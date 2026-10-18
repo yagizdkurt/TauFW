@@ -1,7 +1,7 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """TauFW Framework: the single entry point that runs an analysis pipeline from a recipe.
 
-Purpose:  run the stages of an analysis (production -> histograms -> fit) one after the other. The Framework
+Purpose:  run the stages of an analysis (production -> shapes -> fit) one after the other. The Framework
           gives each stage its options from the recipe, keeps the run's state in run.json, and decides whether
           to wait for the batch system or to move on. What a stage really does stays in its own package (the
           production stage, for example, calls the PicoProducer API).
@@ -18,9 +18,9 @@ Pipeline map:
                  │          │            │
               RunPlan   RunRecord     RunRecord (saved after every stage step)
 
-    stage order: the order of the recipe, e.g. production ─▶ plots ─▶ histograms ─▶ fit (a recipe may leave stages
+    stage order: the order of the recipe, e.g. production ─▶ plots ─▶ shapes ─▶ fit (a recipe may leave stages
                  out, and repeat any stage but production); python steps (a Python file of the bundle) too.
-                 production runs on the batch system (PicoProducer API); plots, histograms and fit run their
+                 production runs on the batch system (PicoProducer API); plots, shapes and fit run their
                  module's scripts locally (Histogrammer and Fitter APIs), python steps run step_runner.py; these
                  finish inside one advance() call.
     run model:   stepwise. start() and advance() move the run as far as they can (until a stage waits for the
@@ -29,7 +29,7 @@ Pipeline map:
     stage data:  every stage gets a StageContext: the run directory (logs: <run_dir>/logs/<stage id>/, output:
                  <run_dir>/stages/<stage id>/),
                  its inputs (slot -> stage id, from the recipe) and the artifacts of those stages once they are
-                 DONE (production's tuples, the histograms' shapes), the run's PicoProducer config and the
+                 DONE (production's tuples, the shapes stage's shapes), the run's PicoProducer config and the
                  bundle directory its path options are resolved against. A stage never sees the artifacts of a
                  stage its inputs do not name.
     other runs:  an input may name the stage directory of another run ({path: <dir>}): its artifacts come from
@@ -64,7 +64,7 @@ from TauFW.Framework.run_record import RunRecord, RunState
 from TauFW.Framework.reporting import FrameworkReporter
 from TauFW.Framework.validation import read_source
 from TauFW.Framework.stages import (STAGES, StageState, StageContext, StageNotImplemented, PreflightError,
-                                    ProductionStage, PlotStage, HistogramStage, FitStage, PythonStage)
+                                    ProductionStage, PlotStage, ShapesStage, FitStage, PythonStage)
 
 __all__ = ['Framework', 'RunPlan', 'StagePlan', 'RunSummary', 'StageSummary', 'load_run', 'check_writable',
            'RunDirectoryError', 'RUN_LOG_NAME', 'DEFAULT_RUN_ROOT']
@@ -371,7 +371,7 @@ class Framework:
         """recipe: a Recipe, or the path of a recipe file or analysis bundle directory.
         pico:    the PicoProducer to use (default: one built from the recipe's pico.config, reporting through the
                  Framework's reporter).
-        fitter:  the Fitter API of the histograms and fit stages (default: TauFW.Fitter.api.TauESID()).
+        fitter:  the Fitter API of the shapes and fit stages (default: TauFW.Fitter.api.TauESID()).
         plotter: the API of the plots stage (default: TauFW.Histogrammer.api.ControlPlots(); CL §24).
         runner:  the ProcessRunner of the python steps (default: new).
         Only the APIs of the stages in the recipe are built. Only reads files."""
@@ -385,9 +385,9 @@ class Framework:
                 stages[stage_id] = ProductionStage(pico or _picoproducer(recipe, reporter))
             elif name == 'plots':
                 stages[stage_id] = PlotStage(plotter or _plotter())
-            elif name in ('histograms', 'fit'):
+            elif name in ('shapes', 'fit'):
                 fitter = fitter or _fitter()
-                stages[stage_id] = (HistogramStage(fitter, samples_api=plotter or _plotter()) if name == 'histograms'
+                stages[stage_id] = (ShapesStage(fitter, samples_api=plotter or _plotter()) if name == 'shapes'
                                     else FitStage(fitter))
             elif name == 'python':
                 stages[stage_id] = PythonStage(runner=runner)
@@ -551,7 +551,7 @@ def _picoproducer(recipe, reporter):
 
 
 def _fitter():
-    """The Fitter API of the histograms and fit stages (imported only here; it does not import ROOT)."""
+    """The Fitter API of the shapes and fit stages (imported only here; it does not import ROOT)."""
     from TauFW.Fitter.api import TauESID
     return TauESID()
 

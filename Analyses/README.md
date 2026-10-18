@@ -45,7 +45,7 @@ machine, Python API, and run-record internals, see the
 | [example_mutau_short](example_mutau_short/recipe.yml) | `production` | Produce `2022_postEE` mutau tuples for sample names matching `DY*` or `TT*`: a quick production example (no plots: a few MC samples without data are not enough for them). |
 | [example_mutau_long](example_mutau_long/recipe.yml) | `production` → `plots` | Produce every `2022_postEE` mutau tuple the control plots read (data and the 22 MC samples of its `v15_2022_postEE.yml`), then the plots; `plan` checks that production makes every sample the plots ask for. A full production: tens of GB, hours of batch jobs. |
 | [example_broken](example_broken/recipe.yml) | (invalid on purpose) | A demonstration of the validation: `taufw.py check Analyses/example_broken` lists its four problems; the menu shows it in red. Do not fix it. |
-| [tes_id_2025](tes_id_2025/recipe.yml) | `plots` → `histograms` → `fit` → `fit_summary` (python) | Use existing 2025 tuples for the combined tau energy scale (TES) and tau ID scale factor fit, with the Z→μμ control region; DeepTau VSjet `VTight`, VSe `Tight`; then a table of the fitted values. |
+| [tes_id_2025](tes_id_2025/recipe.yml) | `plots` → `shapes` → `fit` → `fit_summary` (python) | Use existing 2025 tuples for the combined tau energy scale (TES) and tau ID scale factor fit, with the Z→μμ control region; DeepTau VSjet `VTight`, VSe `Tight`; then a table of the fitted values. |
 
 Each bundle carries copies of the Histogrammer and Fitter configs it uses, next to
 its `recipe.yml`. The examples still need the corresponding sample catalog,
@@ -115,7 +115,7 @@ To make control plots after production, append this entry under the same
 ```
 
 Each stage has its own options. Setting `eras` on production does not set the
-eras for plots or histograms. Likewise, production `channels: [mutau]` and plot
+eras for plots or shapes. Likewise, production `channels: [mutau]` and plot
 `configs: [mutau]` belong to different packages and serve different purposes.
 
 For plots of tuples you already have, omit the production entry and name
@@ -149,13 +149,13 @@ The stages run in the order they are written; the order is your choice. The
 usual one is:
 
 ```text
-production → plots → histograms → fit
+production → plots → shapes → fit
 ```
 
 The only order rule comes from `inputs`: a stage reads only stages written above
-it (a `fit` above the `histograms` it reads is an error). Any non-empty subset is
-allowed, and `plots`, `histograms`, `fit` and [Python steps](#python-steps) may
-appear any number of times, each with its own `id` (for example a `histograms`
+it (a `fit` above the `shapes` it reads is an error). Any non-empty subset is
+allowed, and `plots`, `shapes`, `fit` and [Python steps](#python-steps) may
+appear any number of times, each with its own `id` (for example a `shapes`
 and a `fit` for one set of working points, then another pair for a second set).
 `production` may appear at most once: its job files are outside the run and a run
 has one `pico.config`. Put several eras and channels in its lists, or use
@@ -168,7 +168,7 @@ Every stage has these keys besides its options:
 
 | Key | Required | Meaning |
 | --- | --- | --- |
-| `stage` | Yes | The stage type: `production`, `plots`, `histograms`, `fit`, `python`. |
+| `stage` | Yes | The stage type: `production`, `plots`, `shapes`, `fit`, `python`. |
 | `id` | Yes | The stage's name in the run: its record in `run.json`, its directories `taufw_runs/<run>/stages/<id>/` (output) and `logs/<id>/`, and what `inputs:` refer to. Unique; letters, digits, `_`, `.`, `-` (not `.` or `..`). Any stage may have any id (`id: shapes_tight`). |
 | `inputs` | Yes | Which earlier stage's output the stage reads (see the table below). Never left out and never `{}`: a stage without inputs says `inputs: null`. |
 | `description` | No | Free text, shown by `plan` and in the menu. Nothing depends on it. |
@@ -185,22 +185,22 @@ A slot may be `null` only if its stage allows it (`Stage.null_inputs` in
 `null` anywhere else is a recipe error. `null` is kept only so that old recipes
 keep working (the module then finds its data as it did without the Framework);
 a new recipe names every input. `taufw.py plan` shows each input on the
-`Inputs:` line, e.g. `tuples <- production`, `shapes <- /afs/.../stages/histograms
-(run ..., stage histograms (histograms), finished ...)`, `tuples <- external /eos/...`
+`Inputs:` line, e.g. `tuples <- production`, `shapes <- /afs/.../stages/shapes
+(run ..., stage shapes (shapes), finished ...)`, `tuples <- external /eos/...`
 or `tuples <- outside this run (the tuples in $PICODIR ...)`.
 
 | Stage | `inputs` | `null` means (old recipes) | Makes |
 | --- | --- | --- | --- |
 | `production` | `null` (no slots) | - | `tuples` |
 | `plots` | `{tuples: <id, {path: ...}, {external: <pattern>} or null>}` | the tuples in `$PICODIR` of `pico.config` | `plots` |
-| `histograms` | `{tuples: <id, {path: ...}, {external: <pattern>} or null>}` | the same | `shapes` |
+| `shapes` | `{tuples: <id, {path: ...}, {external: <pattern>} or null>}` | the same | `shapes` |
 | `fit` | `{shapes: <id, {path: ...} or null>}` | **temporary exception:** the shapes already in `Fitter/input_pt_less_region/`, made outside the Framework | `fit`, `corrections` |
 | `python` | `null`, or `{<any name>: <id or {path: ...}>, ...}` | no inputs (a named input must name a stage or a directory; `null` is not allowed) | anything |
 
 The fit's `null` is the only place where a stage reads a module directory
 instead of the output of a stage. It is kept for old recipes only (a warning is
-planned, TODO §6); a new recipe names a histograms stage of the same recipe, or
-the histograms stage directory of another run (`{shapes: {path: ...}}`).
+planned, TODO §6); a new recipe names a shapes stage of the same recipe, or
+the shapes stage directory of another run (`{shapes: {path: ...}}`).
 
 Stage options sit directly beside these keys; there is no `options:` wrapper.
 `split` and `merge` are nested mappings inside `production`.
@@ -245,19 +245,19 @@ still be built. Review both the commands and warnings before starting.
 
 An input may name the stage directory of another, finished run instead of a
 stage of this recipe, for example a fit on the shapes of an earlier run, without
-running the histograms (hours) again:
+running the shapes stage (hours) again:
 
 ```yaml
   - stage: fit
     id: fit
-    inputs: {shapes: {path: /afs/cern.ch/work/u/user/taufw_runs/tes_id_2025_20261015-120000/stages/histograms}}
+    inputs: {shapes: {path: /afs/cern.ch/work/u/user/taufw_runs/tes_id_2025_20261015-120000/stages/shapes}}
 ```
 
 - The value is `<run_root>/<run>/stages/<id>`: the directory of a stage that is
   `DONE`, with its `manifest.json`. The artifacts come from that manifest (never
   from the other run's `run.json`), and the stage works as with an input of the
   same run: the fit's points and shape directories, the `--tuples` pattern of a
-  production stage for plots and histograms, `ctx.input()` of a python step.
+  production stage for plots and shapes, `ctx.input()` of a python step.
 - The path must be absolute. A relative path is refused, and `~` and
   `$VARIABLES` are not expanded (unlike `run_root`). It must not point inside the
   bundle: data is never part of a bundle. (The rules of all paths in a recipe
@@ -280,7 +280,7 @@ running the histograms (hours) again:
 
 ## Paths and configuration
 
-The path options of the stages (`plots.configs`, `histograms.configs`,
+The path options of the stages (`plots.configs`, `shapes.configs`,
 `fit.config`, `fit.config_mumu`, a python step's `file`) and `pico.config`
 follow one rule:
 
@@ -372,7 +372,7 @@ to `$PICODIR` of the PicoProducer configuration, so they need the space of
 [`run_root`](#where-the-runs-go-run_root). Every tuple artifact records where
 they are as a pattern, `.../stages/<id>/$ERA/$GROUP`.
 
-**Plots and histograms read the tuples their input names.** The Framework gives
+**Plots and shapes read the tuples their input names.** The Framework gives
 the scripts the pattern as `--tuples <pattern>` (`plot.py`,
 `createinputsTES.py`): with `{tuples: <production id>}` the pattern on that
 stage's artifacts (in `plan`: `<run_dir>/stages/<id>/$ERA/$GROUP`), with
@@ -406,7 +406,7 @@ does not reach the readers: they look for `<sample>_<channel>.root`.
 
 ### Which samples
 
-The `samples` option of `plots` and `histograms` names the sample model files:
+The `samples` option of `plots` and `shapes` names the sample model files:
 for every era, which MC samples are read (with their cross sections, titles and
 extra weights), which data datasets, the MC weight of each channel kind, and
 how samples are stitched and joined. Copy the file of each era from
@@ -421,7 +421,7 @@ sets (checked by `Tests/Histogrammer/sample_model`).
     inputs: {tuples: production}
     eras: [2025]
     samples: &samples [v15_2025.yml]    # one file per era
-  - stage: histograms
+  - stage: shapes
     samples: *samples
 ```
 
@@ -524,7 +524,7 @@ names, and `plan` says so.
 The selected setup controls the physics samples and regions; a production
 sample filter does not automatically restrict the Histogrammer's sample collection.
 
-### `histograms`
+### `shapes`
 
 Creates the input shapes for the combined TES + tau ID fit. It wraps the
 `Fitter/run_inputs.sh` workflow via `TauFW.Fitter.api.TauESID.make_shapes`, running
@@ -570,9 +570,9 @@ and transverse-momentum region, with the Z→μμ control region.
 | `timeout` | `null` | Seconds per command, not per working point or entire stage. |
 
 The fit reads each point's shapes from the directory recorded in the shapes
-artifacts of the histograms stage that `inputs.shapes` names; a point of the
+artifacts of the shapes stage that `inputs.shapes` names; a point of the
 recipe without shapes there makes the stage fail before anything runs. The
-histograms stage may be one of another run (`{shapes: {path: ...}}`, see
+shapes stage may be one of another run (`{shapes: {path: ...}}`, see
 [Inputs from another run](#inputs-from-another-run)). With
 `inputs: {shapes: null}` (old recipes only, see above) it reads
 `Fitter/input_pt_less_region/`. The scripts of one era run in
@@ -657,7 +657,7 @@ How a step runs:
 
 There are two ways to select fit points:
 
-1. **Infer them from the input histograms.** Connect `inputs: {shapes: <histograms id>}` (or `{path: ...}`)
+1. **Infer them from the input shapes.** Connect `inputs: {shapes: <shapes id>}` (or `{path: ...}`)
    and leave `jet_wps` and `ele_wps` empty. A point is selected only if the input shape artifacts contain both
    `config` and `config_mumu` for that era and WP pair. `eras: []` accepts all
    upstream eras; a non-empty `eras` filters them. Config values must match the
@@ -679,7 +679,7 @@ name: tes_id_2025_fit_only
 stages:
   - stage: fit
     id: fit
-    inputs: {shapes: {path: /afs/cern.ch/work/u/user/taufw_runs/tes_id_2025_20261015-120000/stages/histograms}}
+    inputs: {shapes: {path: /afs/cern.ch/work/u/user/taufw_runs/tes_id_2025_20261015-120000/stages/shapes}}
     eras: ["2025"]
     jet_wps: [VTight]
     ele_wps: [Tight]
@@ -762,7 +762,7 @@ starting, continue saved runs, and inspect status. See the
 
 Production normally submits and returns while waiting for jobs. Once it
 finishes, an `advance` can merge tuples and start all following local stages in
-the same call. Plots, histograms, fit, and python step commands run sequentially on the
+the same call. Plots, shapes, fit, and python step commands run sequentially on the
 current machine and can keep a single `start` or `advance` busy for hours even
 without `--wait`; that flag controls batch polling, not local execution.
 
@@ -800,7 +800,7 @@ artifacts, history, and local command results.
 | --- | --- | --- |
 | `production` | `taufw_runs/<run>/stages/<id>/<era>/<group>/` | Merged tuple path, sample/group, era, channel, tag, data type, event count, tree, cutflow, and `pattern` (`.../stages/<id>/$ERA/$GROUP`, where the readers look). |
 | `plots` | `taufw_runs/<run>/stages/<id>/plots/<era>/` | `kind: plots`, era, config, channel, directory, matching file count. |
-| `histograms` | `taufw_runs/<run>/stages/<id>/input_pt_less_region/againstjet_<J>/againstelectron_<E>/` | `kind: shapes`, path, era, channel, config, WP pair, observable. |
+| `shapes` | `taufw_runs/<run>/stages/<id>/input_pt_less_region/againstjet_<J>/againstelectron_<E>/` | `kind: shapes`, path, era, channel, config, WP pair, observable. |
 | `fit` | `taufw_runs/<run>/stages/<id>/<era>/` (`output_*`, `postfit_*`, plot directories, `tau_sf/`, `data/tau/`) | `kind: fit` per point, output/postfit directories, fitted values, correction paths; when summary runs, two `kind: corrections` per era: the merged JSON, and the combined TES + ID file (`combined: true`). |
 | `python` | `taufw_runs/<run>/stages/<id>/` (`ctx.stage_dir`) | What the step returns. |
 
@@ -823,7 +823,7 @@ prints the last 20 lines of its log.
 | `cannot write in the run root` / `run directory` | The directory cannot be written: check its permissions and your AFS token (`kinit; aklog`), or choose another `run_root` / `--run-root`. Nothing was started or moved. |
 | Unknown key or missing required option | Check indentation and the option tables. Put options beside `stage`; use `split`/`merge` mappings only under production. |
 | Missing `id` or `inputs` | Every stage needs both. A stage without inputs says `inputs: null`; tuples made outside TauFW are named with `{tuples: {external: <pattern>}}`. |
-| `no stage 'x' in the recipe` / `comes after this one` / `makes ..., not ...` | An input names a stage **id** (not a type or description) of an **earlier** stage that makes that kind of data (fit `shapes` ← a histograms stage). |
+| `no stage 'x' in the recipe` / `comes after this one` / `makes ..., not ...` | An input names a stage **id** (not a type or description) of an **earlier** stage that makes that kind of data (fit `shapes` ← a shapes stage). |
 | `comes after this one` / duplicate id / second production stage | An input names a stage written below it: move that stage up. Every stage needs its own unique `id`. Put all production eras and channels in one production stage, or use separate recipes. |
 | `has no manifest.json` | The `{path: ...}` directory is not a finished stage directory: its stage is not `DONE`, or it is not `<run_root>/<run>/stages/<id>` (e.g. `Fitter/`). |
 | `has manifest format 1, expected 2` | The source run was started before inputs from other runs existed; run that stage again in a new run. |
@@ -836,8 +836,8 @@ prints the last 20 lines of its log.
 | Production stays `WAITING` | Inspect live job status; pending/running chunks delay resubmission of failed chunks. Continue with `advance`, or use `--wait`. |
 | Production fails after the allowed tries | Inspect PicoProducer job logs and fix the cause. The failed run cannot be restarted by editing its recipe; start a new run with the corrected setup. |
 | Local stage stays `NEW` with a preflight message | Fix the named missing environment/tool/config/input, then call `advance` on the same run. |
-| No working points to fit | Connect `inputs: {shapes: <histograms id or {path: ...}>}` to a histograms stage with both matching configs, or explicitly set eras and both WP lists (needed with `shapes: null`). |
-| Plots/histograms read unexpected or missing tuples | Check the `Inputs:` line and the `--tuples` pattern of the commands in `plan` (with `null`: `$PICODIR` in the run's PicoProducer configuration), then channel/setup naming, tags, and required variation tuples. |
+| No working points to fit | Connect `inputs: {shapes: <shapes id or {path: ...}>}` to a shapes stage with both matching configs, or explicitly set eras and both WP lists (needed with `shapes: null`). |
+| Plots/shapes read unexpected or missing tuples | Check the `Inputs:` line and the `--tuples` pattern of the commands in `plan` (with `null`: `$PICODIR` in the run's PicoProducer configuration), then channel/setup naming, tags, and required variation tuples. |
 | `the tuples of stage 'production' do not record where they are` | The run's production finished before the Framework chose the tuples' place (CL §18). Start a new run, or name the tuples with `{external: <pattern>}`. |
 | `tuple directory ... not found` | The fixed part of an `{external: ...}` pattern does not exist on this machine (EOS not mounted, a typo). |
 | Exit code zero but the local stage fails | Read the command log for missing/stale expected outputs and nested ROOT/Combine failures. |

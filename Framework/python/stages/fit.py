@@ -5,7 +5,7 @@ It runs what Fitter/run_workflow_zmm.sh runs for every (era, jet WP, electron WP
 datacards, the 2D MultiDimFit of tes and tid_SF per region (makecombinedfitTES_SF.py -o 3), FitDiagnostics and
 post-fit shapes, the plots, the correction files, and once per era the summary (grids, merged JSON).
 
-    inputs:   shapes: the shapes made by the histograms stage the slot names, or by the histograms stage of
+    inputs:   shapes: the shapes made by the shapes stage the slot names, or by the shapes stage of
               another run ({path: <run_dir>/stages/<id>}, its manifest's artifacts); the directory of each point's
               shapes is taken from those shapes artifacts. null (old recipes only, a temporary exception): the
               shapes already in Fitter/input_pt_less_region/..., made outside the Framework. The points come from
@@ -31,7 +31,7 @@ from typing import Optional, Tuple
 
 from TauFW.Framework.stages.base import as_strings, spec_to_dict
 from TauFW.Framework.stages.local import LocalStage
-from TauFW.Framework.stages.histograms import DEFAULT_CONFIGS
+from TauFW.Framework.stages.shapes import DEFAULT_CONFIGS
 
 __all__ = ['FitStage', 'FitSpec', 'STEPS']
 
@@ -54,7 +54,7 @@ class FitStage(LocalStage):
     name = 'fit'
     inputs = {'shapes': 'shapes'}
     # Temporary exception, kept for old recipes only: null reads the shapes the Fitter scripts made outside the
-    # Framework. A new recipe names a histograms stage, or another run's with {path: <run_dir>/stages/<id>} (R4).
+    # Framework. A new recipe names a shapes stage, or another run's with {path: <run_dir>/stages/<id>} (R4).
     null_inputs = {'shapes': "the shapes already in Fitter/input_pt_less_region/ (temporary)"}
     outputs = ('fit', 'corrections')
     group = 'fitter'  # taufw.py init names a copied config <group>_<name> if its name is taken
@@ -66,7 +66,7 @@ class FitStage(LocalStage):
         points = self.points(spec, context)
         if not points:
             raise ValueError("no working points to fit: set eras, jet_wps and ele_wps, or connect inputs.shapes "
-                             "to a histograms stage")
+                             "to a shapes stage")
         return self.api.fit_request(points=points, config=spec.config, config_mumu=spec.config_mumu,
                                     steps=spec.steps, impacts=spec.impacts, timeout=spec.timeout,
                                     pico_config=context.pico_config, outdir=self.output_dir(context),
@@ -149,7 +149,7 @@ class FitSpec:
         for name in ('eras', 'jet_wps', 'ele_wps', 'steps'):
             object.__setattr__(self, name, as_strings(getattr(self, name)))
         if bool(self.jet_wps) != bool(self.ele_wps):
-            raise ValueError("give both jet_wps and ele_wps, or neither (then the histograms stage's are used)")
+            raise ValueError("give both jet_wps and ele_wps, or neither (then the shapes stage's are used)")
         unknown = [step for step in self.steps if step not in STEPS]
         if unknown or not self.steps:
             raise ValueError("unknown step %r (steps: %s)" % (unknown[0] if unknown else None, ', '.join(STEPS)))

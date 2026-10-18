@@ -10,7 +10,7 @@
                                                           (--local: quick local test of the production stage)
   taufw.py start   RECIPE [--run-root DIR] [--wait [--poll S]]   new run: run directory, run.json, first steps
   taufw.py advance RUN_DIR [--wait [--poll S]]            continue a run: check, resubmit, merge, next stages
-                                                          (plots, histograms, fit, python: run locally)
+                                                          (plots, shapes, fit, python: run locally)
   taufw.py status  RUN_DIR                                saved and live state of a run (read-only)
   taufw.py init    NAME [--from RECIPE] [--root DIR]      new analysis bundle Analyses/NAME/ (with copies of the
                                                           files of RECIPE's bundle and of the module configs it
@@ -100,7 +100,7 @@ def cmd_plan(args):
                            [(s.era, s.channel, s.name, s.nfiles, s.nchunks, s.subtry, "yes" if s.conflict else "")
                             for s in stage_plan.plan.samples])
             reporter.message("%d sample(s), %d job(s)" % (len(stage_plan.plan.samples), stage_plan.plan.nchunks))
-        elif hasattr(stage_plan.plan, 'commands'):  # plots, histograms, fit, python: commands run locally
+        elif hasattr(stage_plan.plan, 'commands'):  # plots, shapes, fit, python: commands run locally
             _show_commands(reporter, stage_plan.plan)
         else:
             reporter.message(repr(stage_plan.plan))

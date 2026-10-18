@@ -40,7 +40,7 @@ run_local(): a quick local test of a channel on a few files, without the batch s
 | `clean(request, force=None)` | `MergeReport` | removes the job files and job output | `clean` |
 | `run_local(request)` | `(LocalResult, ...)` | runs the workers locally (not with `request.dryrun`); they write to `request.outdir` | `run` |
 | `request(**fields)` (static) | `JobRequest` | none; unknown fields raise `KeyError`. Lets callers build requests without importing `jobs/` | |
-| `sample_names(request)` | `((era, channel, sample), ...)` | none: the samples a first submission makes, selected as `submit` selects them, from the sample catalogs only (no storage, DAS or job files). The Framework compares them with what the plots and histograms stages ask for | |
+| `sample_names(request)` | `((era, channel, sample), ...)` | none: the samples a first submission makes, selected as `submit` selects them, from the sample catalogs only (no storage, DAS or job files). The Framework compares them with what the plots and shapes stages ask for | |
 | `tuple_pattern(request)` | `str` | none: where `merge` writes the tuples, a pattern with `$ERA`, `$GROUP`. With `request.tupledir`: `<tupledir>/$ERA/$GROUP` (`TUPLE_LAYOUT`, absolute); else `picodir` of the configuration, absolute against `basedir` if relative (a value starting with `$` or a URL as it is) | |
 
 - `on_existing(cfgname)` is called when a sample's job config already exists and `request.force` is not set: return

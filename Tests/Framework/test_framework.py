@@ -448,12 +448,12 @@ class RecipeTests(FrameworkTestCase):
         self.assertIn("unknown key 'cfg'", self.error({"name": "x", "pico": {"cfg": 1}, "stages": [{"stage": "fit"}]}))
 
     def test_stage_order_and_duplicates(self):
-        histograms = {"stage": "histograms", "id": "histograms", "inputs": {"tuples": None}, "eras": [2025],
+        histograms = {"stage": "shapes", "id": "shapes", "inputs": {"tuples": None}, "eras": [2025],
                       "jet_wps": ["Tight"], "ele_wps": ["Tight"]}
-        fit = {"stage": "fit", "id": "fit", "inputs": {"shapes": "histograms"}}
-        # R4: no fixed order; a fit above the histograms it reads is an input problem
+        fit = {"stage": "fit", "id": "fit", "inputs": {"shapes": "shapes"}}
+        # R4: no fixed order; a fit above the shapes it reads is an input problem
         self.assertEqual(self.error({"name": "x", "stages": [fit, histograms]}),
-                         "r.yml: stages[0] (fit).inputs.shapes: stage 'histograms' comes after this one; an input "
+                         "r.yml: stages[0] (fit).inputs.shapes: stage 'shapes' comes after this one; an input "
                          "names an earlier stage")
         null_fit = {"stage": "fit", "id": "fit", "inputs": {"shapes": None}}
         recipe = Recipe.from_dict({"name": "x", "stages": [null_fit, dict(null_fit, id="fit2")]})  # repeated stage
@@ -466,8 +466,8 @@ class RecipeTests(FrameworkTestCase):
                          "eras and channels in its lists, or use separate recipes)")
 
     def test_stages_in_any_order_and_repeated(self):
-        """R4: histograms A, fit A, histograms B, fit B; plots after the fit; production anywhere."""
-        histograms = {"stage": "histograms", "inputs": {"tuples": None}, "eras": [2025], "ele_wps": ["Tight"]}
+        """R4: shapes A, fit A, shapes B, fit B; plots after the fit; production anywhere."""
+        histograms = {"stage": "shapes", "inputs": {"tuples": None}, "eras": [2025], "ele_wps": ["Tight"]}
         recipe = Recipe.from_dict({"name": "x", "stages": [
             dict(histograms, id="hist_vt", jet_wps=["VTight"]),
             {"stage": "fit", "id": "fit_vt", "inputs": {"shapes": "hist_vt"}},
@@ -476,7 +476,7 @@ class RecipeTests(FrameworkTestCase):
             {"stage": "plots", "id": "plots", "inputs": {"tuples": None}, "eras": [2025]},
             dict(RECIPE["stages"][0], id="production")]})
         self.assertEqual([s.stage for s in recipe.stages],
-                         ["histograms", "fit", "histograms", "fit", "plots", "production"])
+                         ["shapes", "fit", "shapes", "fit", "plots", "production"])
         self.assertEqual(recipe.stage("fit_t").connections, {"shapes": "hist_t"})
 
     def test_load_bundle_example_and_relative_config(self):

@@ -1,7 +1,7 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Local stages: stages that run their module's scripts on this machine and finish in one advance() call.
 
-The plots, histograms, fit and python stages all work the same way. Their module API (Histogrammer, Fitter; the step
+The plots, shapes, fit and python stages all work the same way. Their module API (Histogrammer, Fitter; the step
 runner for python) turns a request into a list of commands, runs them one after the other and reports what they
 made. This base class does the part that is the same for all of them:
 
