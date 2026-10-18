@@ -201,15 +201,16 @@ class Framework:
 
     def make_bundle(self, target, name=None):
         """Write a new analysis bundle at `target` from this recipe: recipe.yml, the recipe's own files (every file
-        of its bundle, at the same relative paths), copies of the module configs its stages use (next to recipe.yml)
-        with the recipe pointing at them, and steps/example.py.
+        of its bundle, at the same relative paths), copies of the module configs and Configs/ templates its stages
+        use (next to recipe.yml) with the recipe pointing at them, and steps/example.py.
         name: the new recipe's name (default: the bundle directory's name). Returns the copied config paths.
         Raises BundleError if `target` exists."""
         sources = {}
         for stage_spec in self.recipe.stages:
             stage = self._stage_for(stage_spec.id)
-            for option, value, _, where in path_rows(stage_spec.spec, self.recipe.bundle_dir):
-                found = stage.config_file(value) if where == 'module' and hasattr(stage, 'config_file') else None
+            for option, value, resolved, where in path_rows(stage_spec.spec, self.recipe.bundle_dir):
+                found = (resolved if where == 'template' else
+                         stage.config_file(value) if where == 'module' and hasattr(stage, 'config_file') else None)
                 if found and os.path.isfile(found):
                     sources[(stage_spec.id, option, value)] = (stage.group, found)
         data = self.recipe.to_dict()
@@ -444,7 +445,7 @@ class Framework:
 @dataclass(frozen=True)
 class StagePlan:
     """plan() of one stage: the stage's own plan object (production: a JobPlan), or None with a note.
-    stage: the stage id; paths: (option, value as written, resolved path, 'bundle'|'module'|'absolute');
+    stage: the stage id; paths: (option, value as written, resolved path, 'bundle'|'template'|'module'|'absolute');
     sources: input slot -> the manifest summary of the other run's stage directory it names (those read)."""
     stage:   str
     plan:    object

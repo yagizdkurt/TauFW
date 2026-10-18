@@ -219,7 +219,7 @@ if __name__ == '__main__':
                                  '2024','2025','2026','2526'],
                         default='2025')
     parser.add_argument('-c', '--config', dest='config', type=str,
-                        default='TauES_ID/config/config_coarse_TT.yml')
+                        default='../Configs/Fitter/tes_id/config_coarse_TT.yml')
     parser.add_argument('-o', '--option', dest='option', choices=['3'], default='3',
                         help="only '3' (per-DM joint fit) supported")
     parser.add_argument('-cmm', '--config_mumu', dest='config_mumu', type=str, default='None')

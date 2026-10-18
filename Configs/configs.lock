@@ -1,6 +1,10 @@
 # Configs/configs.lock: the content version and hash of every template in Configs/.
 # Written by `taufw.py configs update` (Framework/python/configs.py); do not edit by hand.
 # id  version  sha256 of the values without the taufw_config header
+fitter.tes_id_coarse_pnet 1 04d0c1314589e5d44e529f5f53d4d1ea5fff8aa734ccbf08a057281077f24845
+fitter.tes_id_coarse_tt 1 b446c84f129069caf80e4f7dceaea9bbf21576b5ebe4b8cf2fec84478cb7886b
+fitter.tes_id_coarse_upart 1 0dfca881696ac3966da6ec444d656911b04b495d458772df2ca6c9b8b8195b54
+fitter.tes_id_mumu 1 4c548331af4a7cf52a09dbee97ba03cfd10455adcc280d736113e6a645d0de3f
 histogrammer.samples_v15_2022_postee 1 79d7cfbe66f1f1dc37797f7bfc11b9067876c20ae989d757b8e0810e280c4597
 histogrammer.samples_v15_2022_preee 1 44788d668370682f90635d075802d1bbecb4b7097cc35805add61d283a9e7672
 histogrammer.samples_v15_2023c 1 8c0a9a84618b15e3716b8ae487c8e3c82b46ed1f0bd14a2a1d2b2433ade490f0

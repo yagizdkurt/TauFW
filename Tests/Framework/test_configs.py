@@ -22,7 +22,36 @@ STEP = {"stage": "python", "id": "check", "inputs": None, "file": "steps/check.p
 READERS = {
     'histogrammer.samples_': lambda path: load_sample_model(path),  # Configs/Histogrammer/samples/ (sample.model)
     'histogrammer.setup_': lambda path: read_setup(path),           # Configs/Histogrammer/setups/ (fillhists.py)
+    'fitter.tes_id_': lambda path: read_tes_id(path),               # Configs/Fitter/tes_id/ (createinputsTES.py, fit)
 }
+
+
+def read_tes_id(path):
+    """A TES / tau ID channel config with the keys its two readers take without a default (docs/contracts/
+    tes-shapes.md; CL §25 D1): createinputsTES.py (channel, baselineCuts, samples.filename/join/data, observables
+    with binning and fitRegions in regions, processes; regions with definition and title; TES variations and shape
+    systematics with their fields) and the fit scripts (channel, tag, observables, processes, systematics)."""
+    import yaml
+    with open(path) as stream:
+        setup = yaml.safe_load(stream)
+    problems = ["no %s" % (key) for key in ('channel', 'tag', 'baselineCuts', 'samples', 'observables', 'processes',
+                                            'systematics') if key not in setup]
+    problems += ["no samples.%s" % (key) for key in ('filename', 'join', 'data') if key not in setup.get('samples', {})]
+    regions = setup.get('regions', {'baseline': {'definition': '1', 'title': 'Baseline'}})  # the script's default
+    problems += ["region %s: no %s" % (name, key) for name, region in regions.items()
+                 for key in ('definition', 'title') if key not in region]
+    for name, observable in setup.get('observables', {}).items():
+        problems += ["observable %s: no binning" % (name)] if 'binning' not in observable else []
+        problems += ["observable %s: fit region %s is not a region" % (name, region)
+                     for region in observable.get('fitRegions', ()) if region not in regions]
+    if 'TESvariations' in setup:
+        problems += ["no TESvariations.%s" % (key) for key in ('values', 'processes') if key not in setup['TESvariations']]
+    for name, systematic in setup.get('systematics', {}).items():
+        needed = ('effect', 'processes') + (('name', 'title', 'variations') if systematic.get('effect') == 'shape' else ())
+        problems += ["systematic %s: no %s" % (name, key) for key in needed if key not in systematic]
+    if problems:
+        raise ValueError("%s: %s" % (path, "; ".join(problems)))
+    return setup
 
 
 def read_setup(path):

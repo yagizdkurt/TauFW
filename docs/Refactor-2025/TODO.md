@@ -47,6 +47,16 @@ Items marked **(verify)** may already be done; check before working on them.
 - [x] **The lock describes the code before the move (CL §25, H0/H1).** Done 2026-10-18 on lxplus: the old code
       (`0c611f4`, in a `git worktree`, the case running `Fitter/TauES/createinputsTES.py`) against the lock:
       `bbb check --case histogrammer.tes_inputs --case fitter.shapes --case fitter.rebin` 3 checked, 0 failed.
+- [ ] **Channel configs to `Configs/Fitter/tes_id/` (CL §25, H2): nothing may change.** Before `git pull`, in `TauFW/`:
+      `python3 Framework/scripts/taufw.py plan Analyses/tes_id_2025 > ~/h1_plan.txt`. After the pull: (1) `python3
+      Tests/run.py bbb check` (23/23, no re-lock) and `python3 Tests/run.py checks`; (2) `python3
+      Framework/scripts/taufw.py configs`: 19 templates, the four `fitter.tes_id_*` among them, lock ok; (3) `python3
+      Framework/scripts/taufw.py plan Analyses/tes_id_2025 > ~/h2_plan.txt; diff ~/h1_plan.txt ~/h2_plan.txt`: no
+      difference (the bundle copies are read; only their header is new); (4) in a copy of the bundle, the fit stage
+      with `config: TauES_ID/config/config_coarse_TT.yml`: `check`, `plan` and `start` refuse with "moved to
+      Configs/Fitter/tes_id/config_coarse_TT.yml"; with `config: Configs/Fitter/tes_id/config_coarse_TT.yml`, `plan`
+      lists it as `template`; (5) in `Fitter/`, `python3 TauES_ID/plot2DScan_MultiDimFit.py -h` shows the default
+      `../Configs/Fitter/tes_id/config_coarse_TT.yml`.
 - [ ] **Bug fixes of 2026-10-18:** `python3 Tests/Utilities/test_background.py` five times in a row and once inside
       `python3 Tests/run.py checks` (the flaky cancel test, §7); `taufw.py plan Analyses/no_such_recipe` prints one
       line, no traceback (Framework BUGS K06).
@@ -434,6 +444,11 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
 - Excluded broken cases `pico.sample` and `plotter.rdataframe`: defects and recorded evidence moved to
   [Legacy/Bugs.md](../../Legacy/Bugs.md#excluded-broken-test-and-demonstration-scripts).
 - [ ] `Tests/PicoProducer/testSFs.py` still imports the legacy `MuonSFs_ROOT`. Nice to have.
+- [ ] BBB `histogrammer.tes_inputs` (CL §25): `ZL`/`TTL`, so the content of the LTF shape systematics, are zero in every
+      region (no opposite-sign fixture event with `genmatch_2` 1-4 passes the baseline); the LTF variation files are
+      read, their filled content is not covered (user decision 2026-10-18: accepted; real data covers it in step 2 H4).
+      When the case is re-locked anyway (migration point, or a bug fix that changes it), also cycle `genmatch_2` in
+      `_tes_events`.
 - [ ] Utilities menu tests depend on the terminal and colors (quiet-runner changelog section removed); the later menu commits may have fixed this
       **(verify)**.
 - [x] **Flaky `Tests/Utilities/test_background.py` `test_cancel_stops_a_real_command_and_its_children` (CL §20):**
@@ -468,7 +483,8 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
 - [ ] **At the migration point, after S4 (CL §24):** `fillhists.py` still draws by default (commands typed by hand
       keep their result, user rule of S4); then drawing leaves it (`--hists --no-draw` becomes the default, the
       legacy `plot.py` texts show the two commands). Remove `stages.RETIRED` (the messages for `plots` and
-      `histograms` in old recipes) and decide whether `controlplots` is renamed `plots` (one recipe change).
+      `histograms` in old recipes) and `stages.MOVED_CONFIGS` (the message for the old paths of the TES/ID configs,
+      CL §25 H2) and decide whether `controlplots` is renamed `plots` (one recipe change).
 
 - [ ] Python 2 scripts kept for migration (CL §3): high priority `Fitter/ETauFR/writedatacard.py` (its
       `prefitFR.json` is read by `text2wp.py`), `Fitter/Zpt/utils.py`, `Fitter/Zpt/config/samples.py` (imported by
@@ -497,9 +513,9 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
 
 ## 9. Docs
 
-- [ ] Stale before CL §24 (found in its review, 2026-10-18; not changed then): `Analyses/README.md:304` gives
-      `config/setup_mutau.yml` as an example of a module-relative path (the setups are in
-      `Configs/Histogrammer/setups/` since CL §22 S7); the item "`PicoProducer/utils/compare{Nano,Pico}.py`" of §3
+- [ ] Stale before CL §24 (found in its review, 2026-10-18; not changed then): (the `Analyses/README.md:304` example
+      `config/setup_mutau.yml` was replaced when that row was rewritten for templates, CL §25 H2) the item
+      "`PicoProducer/utils/compare{Nano,Pico}.py`" of §3
       names files that are no longer in the repository; `Tests/README.md` (import boundaries) quotes the totals of
       2026-10-14 (24 / 22 / 20), today 30 / 28 / 26 (CL §24).
 - [ ] Changelog sections for commits that have none **(verify)**: `b61700f` (`sample_monitor.py` deleted), `e8400fc`

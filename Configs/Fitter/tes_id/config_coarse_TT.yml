@@ -1,3 +1,8 @@
+taufw_config:                     # set by the maintainers: analysts edit the values below, never these lines
+  id: fitter.tes_id_coarse_tt
+  version: 1
+  schema: 1
+  description: TES + tau ID fit, mutau, DeepTau VSjet, DM x pt regions (createinputsTES.py and the fit scripts)
 ## Config file for default TES and tid SF fit in mutau channel by DM and pt 
 ## contact: saskia.falke@cern.ch and oceane.poncet@cern.ch
 ##
@@ -8,12 +13,17 @@
 
 # Typically, each channel will have its own config file; combination can be done at datacard level
 
-channel: mutau
+# The keys are grouped by who reads them (docs/contracts/tes-shapes.md, changelog §25); the order does not
+# matter to the readers. Keep a key in its group: a key in the first group is read by both sides.
 
+# ================================== Histogrammer + Fitter config (both read these) ==================================
+
+channel: mutau
 
 tag: "_mutau" #"_mutau_mt65_DM_pt_Dt2p5_puppimet"
 
 baselineCuts: "q_1*q_2<0 && iso_1<0.15 && idDecayModeNewDMs_2 && idDeepTau2018v2p5VSjet_2>=5 && idDeepTau2018v2p5VSe_2>=2 && idDeepTau2018v2p5VSmu_2>=4 && !lepton_vetoes_notau && metfilter && mt_1<65 "
+
 # idDeepTau2018v2p5VSjet_2>=5 = Medium WP
 # idDeepTau2018v2p5VSe_2>=2 = VVLoose WP
 # idDeepTau2018v2p5VSmu_2>=4 = Tight WP
@@ -80,7 +90,17 @@ regions:
         title: "h^{#pm}h^{#mp}h^{#pm}#pi^{0}, pt: 60-200"
         binning: [11, 40, 150] 
 
-plottingOrder: &region_list 
+# Observable: to be fitted and plotted
+# binning: as defined in TH1 (nbins, xmin, xmax)
+# regions: (defined separately) to be included in the fit for this observable
+
+observables:
+    m_vis:
+        binning: [22, 40, 150] #binning=10GeV
+        title: "m_{vis}"
+        extra:
+            cut: "40<m_vis && m_vis<150"
+        fitRegions:  &region_list  # also plottingOrder (Fitter section)
           [ 
             # "DM0", 
             #    "DM1", 
@@ -99,20 +119,8 @@ plottingOrder: &region_list
             "DM11_pt2", 
             "DM11_pt3",
                ]
-
-
-# Observable: to be fitted and plotted
-# binning: as defined in TH1 (nbins, xmin, xmax)
-# regions: (defined separately) to be included in the fit for this observable
-
-observables:
-    m_vis:
-        binning: [22, 40, 150] #binning=10GeV
-        title: "m_{vis}"
-        extra:
-            cut: "40<m_vis && m_vis<150"
-        fitRegions:  *region_list
         scanRegions: *region_list
+
 # Assume that this code is meant to fit TES variations; more options could be added when adding other POIs
 
 TESvariations:
@@ -125,106 +133,6 @@ TESvariations:
      
     
     processes: ["ZTT"] #,"TTT"] # as well??? 
-
-# Should add bin-by-bin variations (stat. uncertainties) for signal and backgrounds?
-
-fitSpecs:
-    doBBB: doShapes
-    signalBBB: True
-    backgroundBBB: True
-
-
-# Samples to be used and association to processes entering analysis
-# Possibility to remove or add specific weights / SFs from global weight
-
-samples:
-    filename: "$PICODIR/$SAMPLE_$CHANNEL$TAG.root"
-    join: ["VV","TT","ST"]
-    split:
-        DY: [ ["ZTT","genmatch_2==5"], ["ZL","genmatch_2>0 && genmatch_2<5"], ["ZJ","genmatch_2==0"] ]
-        TT: [["TTT","genmatch_2==5"], ["TTL","genmatch_2>0 && genmatch_2<5"], ["TTJ","genmatch_2==0"] ]
-        #ST: [("STT","genmatch_2==5"),("STJ","genmatch_2<5")]
-    rename:
-        WJ: "W"
-    data: "data_obs"
-    removeSFs: ["idweight_2"]
-
-tesRegions:
-    DM0:
-       title: "DM0"
-    DM1:
-       title: "DM1"
-    DM10:
-       title: "DM10"
-    DM11:
-       title: "DM11"
-
-    DM0_pt1: 
-        title: "DM0 20<p_{t_{#tau}}<40"
-    DM0_pt2: 
-        title: "DM0 40<=p_{t_{#tau}}<60"
-    DM0_pt3:
-        title: "DM0 60<=p_{t_{#tau}}<200"
-
-    DM1_pt1: 
-        title: "DM1 20<p_{t_{#tau}}<40"
-    DM1_pt2: 
-        title: "DM1 40<=p_{t_{#tau}}<60"
-    DM1_pt3:
-        title: "DM1 60<=p_{t_{#tau}}<200"
-
-    DM10_pt1: 
-        title: "DM10 20<p_{t_{#tau}}<40"
-    DM10_pt2: 
-        title: "DM10 40<=p_{t_{#tau}}<60"
-    DM10_pt3:
-        title: "DM10 60<=p_{t_{#tau}}<200"
-
-    DM11_pt1: 
-        title: "DM11 20<p_{t_{#tau}}<40"
-    DM11_pt2: 
-        title: "DM11 40<=p_{t_{#tau}}<60"
-    DM11_pt3:
-        title: "DM11 60<=p_{t_{#tau}}<200"
-
-tid_SFRegions:
-    DM0:
-       title: "DM0"
-    DM1:
-       title: "DM1"
-    DM10:
-       title: "DM10"
-    DM11:
-       title: "DM11"
-    DM0_pt1: 
-        title: "DM0 20<p_{t_{#tau}}<40"
-    DM0_pt2: 
-        title: "DM0 40<=p_{t_{#tau}}<60"
-    DM0_pt3:
-        title: "DM0 60<=p_{t_{#tau}}<200"
-
-    DM1_pt1: 
-        title: "DM1 20<p_{t_{#tau}}<40"
-    DM1_pt2: 
-        title: "DM1 40<=p_{t_{#tau}}<60"
-    DM1_pt3:
-        title: "DM1 60<=p_{t_{#tau}}<200"
-
-    DM10_pt1: 
-        title: "DM10 20<p_{t_{#tau}}<40"
-    DM10_pt2: 
-        title: "DM10 40<=p_{t_{#tau}}<60"
-    DM10_pt3:
-        title: "DM10 60<=p_{t_{#tau}}<200"
-
-    DM11_pt1: 
-        title: "DM11 20<p_{t_{#tau}}<40"
-    DM11_pt2: 
-        title: "DM11 40<=p_{t_{#tau}}<60"
-    DM11_pt3:
-        title: "DM11 60<=p_{t_{#tau}}<200"
-
-
 
 # Processes taken into account in analysis
 
@@ -308,3 +216,108 @@ systematics:
 #   xsec_dy:
 #     processes: ['ZTT','ZL','ZJ']
 #     value: 0.9775215080266186
+
+# ============================ Histogrammer config (only createinputsTES.py reads these) =============================
+
+# Samples to be used and association to processes entering analysis
+# Possibility to remove or add specific weights / SFs from global weight
+
+samples:
+    filename: "$PICODIR/$SAMPLE_$CHANNEL$TAG.root"
+    join: ["VV","TT","ST"]
+    split:
+        DY: [ ["ZTT","genmatch_2==5"], ["ZL","genmatch_2>0 && genmatch_2<5"], ["ZJ","genmatch_2==0"] ]
+        TT: [["TTT","genmatch_2==5"], ["TTL","genmatch_2>0 && genmatch_2<5"], ["TTJ","genmatch_2==0"] ]
+        #ST: [("STT","genmatch_2==5"),("STJ","genmatch_2<5")]
+    rename:
+        WJ: "W"
+    data: "data_obs"
+    removeSFs: ["idweight_2"]
+
+# ================================= Fitter config (only the fit scripts read these) ==================================
+
+plottingOrder: *region_list  # the regions of observables.m_vis.fitRegions, defined there
+
+tesRegions:
+    DM0:
+       title: "DM0"
+    DM1:
+       title: "DM1"
+    DM10:
+       title: "DM10"
+    DM11:
+       title: "DM11"
+
+    DM0_pt1: 
+        title: "DM0 20<p_{t_{#tau}}<40"
+    DM0_pt2: 
+        title: "DM0 40<=p_{t_{#tau}}<60"
+    DM0_pt3:
+        title: "DM0 60<=p_{t_{#tau}}<200"
+
+    DM1_pt1: 
+        title: "DM1 20<p_{t_{#tau}}<40"
+    DM1_pt2: 
+        title: "DM1 40<=p_{t_{#tau}}<60"
+    DM1_pt3:
+        title: "DM1 60<=p_{t_{#tau}}<200"
+
+    DM10_pt1: 
+        title: "DM10 20<p_{t_{#tau}}<40"
+    DM10_pt2: 
+        title: "DM10 40<=p_{t_{#tau}}<60"
+    DM10_pt3:
+        title: "DM10 60<=p_{t_{#tau}}<200"
+
+    DM11_pt1: 
+        title: "DM11 20<p_{t_{#tau}}<40"
+    DM11_pt2: 
+        title: "DM11 40<=p_{t_{#tau}}<60"
+    DM11_pt3:
+        title: "DM11 60<=p_{t_{#tau}}<200"
+
+tid_SFRegions:
+    DM0:
+       title: "DM0"
+    DM1:
+       title: "DM1"
+    DM10:
+       title: "DM10"
+    DM11:
+       title: "DM11"
+    DM0_pt1: 
+        title: "DM0 20<p_{t_{#tau}}<40"
+    DM0_pt2: 
+        title: "DM0 40<=p_{t_{#tau}}<60"
+    DM0_pt3:
+        title: "DM0 60<=p_{t_{#tau}}<200"
+
+    DM1_pt1: 
+        title: "DM1 20<p_{t_{#tau}}<40"
+    DM1_pt2: 
+        title: "DM1 40<=p_{t_{#tau}}<60"
+    DM1_pt3:
+        title: "DM1 60<=p_{t_{#tau}}<200"
+
+    DM10_pt1: 
+        title: "DM10 20<p_{t_{#tau}}<40"
+    DM10_pt2: 
+        title: "DM10 40<=p_{t_{#tau}}<60"
+    DM10_pt3:
+        title: "DM10 60<=p_{t_{#tau}}<200"
+
+    DM11_pt1: 
+        title: "DM11 20<p_{t_{#tau}}<40"
+    DM11_pt2: 
+        title: "DM11 40<=p_{t_{#tau}}<60"
+    DM11_pt3:
+        title: "DM11 60<=p_{t_{#tau}}<200"
+
+# ============================================ Not read by anyone (kept) =============================================
+
+# Should add bin-by-bin variations (stat. uncertainties) for signal and backgrounds?
+
+fitSpecs:
+    doBBB: doShapes
+    signalBBB: True
+    backgroundBBB: True

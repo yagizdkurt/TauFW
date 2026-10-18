@@ -133,8 +133,8 @@ class FitStage(LocalStage):
 
 @dataclass(frozen=True)
 class FitSpec:
-    """Recipe options: the mutau fit config and the mumu control-region config (bundle files, or relative to
-    Fitter/), the points
+    """Recipe options: the mutau fit config and the mumu control-region config (bundle files, Configs/ templates,
+    or relative to Fitter/; default: the templates of run_workflow_zmm.sh), the points
     (empty jet_wps and ele_wps: those of the input shapes), the steps to run, and whether to run impacts."""
     config:      str = DEFAULT_CONFIGS[0]
     config_mumu: str = DEFAULT_CONFIGS[1]

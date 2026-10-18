@@ -34,7 +34,8 @@ __all__ = ['ShapesStage', 'ShapesSpec', 'DEFAULT_CONFIGS']
 
 
 # The configs of Fitter/run_inputs.sh (relative to Fitter/): the mutau fit and the mumu control region.
-DEFAULT_CONFIGS = ('TauES_ID/config/config_coarse_TT.yml', 'TauES/config/FitSetup_mumu.yml')
+# The templates run_inputs.sh uses (Configs/Fitter/tes_id/, CL §25; resolved by bundle.py, 'template')
+DEFAULT_CONFIGS = ('Configs/Fitter/tes_id/config_coarse_TT.yml', 'Configs/Fitter/tes_id/FitSetup_mumu.yml')
 
 
 # =============================================================================
@@ -86,7 +87,8 @@ class ShapesStage(LocalStage):
 @dataclass(frozen=True)
 class ShapesSpec:
     """Recipe options: eras, jet and electron working points (DeepTau WP names, e.g. VTight, Tight), the configs
-    (bundle files, or relative to Fitter/; default: those of run_inputs.sh) and createinputsTES.py -s (serial)."""
+    (bundle files, Configs/ templates, or relative to Fitter/; default: the templates of run_inputs.sh) and
+    createinputsTES.py -s (serial)."""
     eras:    Tuple[str, ...]
     jet_wps: Tuple[str, ...]
     ele_wps: Tuple[str, ...]

@@ -62,7 +62,7 @@ The words below are used everywhere in the code and in this README.
    `controlplots.py`, `shapes.py` and `fit.py` only map their options to the Histogrammer, Plotter and Fitter APIs; `python_step.py` runs a
    bundle's Python file through `step_runner.py`.
 6. `python/recipe.py` and `python/validation.py`: what a valid recipe is, and the checks of the files it names.
-7. `python/bundle.py`: the path rule (bundle file or module config) and the run's bundle copy.
+7. `python/bundle.py`: the path rule (bundle file, `Configs/` template or module config) and the run's bundle copy.
 8. `python/run_record.py`: what is written to `run.json`, and how the run state is computed.
 9. `scripts/taufw.py`: the command line, which only calls the `Framework`.
 
@@ -282,7 +282,7 @@ of the stage) and in the reader's manifest.
 | `python/recipe.py` | `Recipe`, `StageSpec`, `Issue`, `RecipeError`: load and validate recipes (a bundle directory or a file): structure, stage ids, inputs (stage ids, `{path}`, `{external}`), at most one production; every problem at once |
 | `python/validation.py` | `check_recipe`, `RecipeCheck`: everything `recipe.py` checks plus the files a recipe names (and the stage directories of `{path}` inputs, `read_source`), without raising (`taufw.py check`, the menu) |
 | `python/manifest.py` | `write_manifest`, `read_stage_dir`, `StageDir`, `ManifestError`: the stage manifests (format 2) |
-| `python/bundle.py` | the path rule (bundle file, module config, absolute), the run's bundle copy, new bundles (`taufw.py init`) |
+| `python/bundle.py` | the path rule (bundle file, `Configs/` template, module config, absolute), the run's bundle copy, new bundles (`taufw.py init`) |
 | `python/samples.py` | `sample_issues`: before a run, the samples a production stage makes (PicoProducer's catalogs) vs those its readers' `samples` files ask for (Histogrammer API); `plan` lists, `start` refuses the problems |
 | `python/configs.py` | the config templates of `Configs/`: headers (`taufw_config`: id, version, schema), `configs.lock`, `update` (`taufw.py configs update`), the warnings for old copies in a bundle |
 | `python/step_runner.py` | runs a python step in its own process (standard library only): `context.json` → `run(ctx)` → `result.json` |

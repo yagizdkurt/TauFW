@@ -1309,7 +1309,7 @@ if __name__ == '__main__':
                        help="select year")
     
     parser.add_argument('-c', '--config', dest='config', type=str, 
-                       default='TauES_ID/config/config_coarse_TT.yml', 
+                       default='../Configs/Fitter/tes_id/config_coarse_TT.yml', 
                        action='store', 
                        help="set config file containing sample & fit setup")
     

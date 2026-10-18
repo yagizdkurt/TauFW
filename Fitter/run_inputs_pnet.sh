@@ -7,15 +7,15 @@
 TAGGER="pnet"          # pnet | upart
 
 case "$TAGGER" in
-  pnet)  CONFIG="TauES_ID/config/config_coarse_PNet.yml";  OUTBASE="input_pt_less_region_pnet"  ;;
-  upart) CONFIG="TauES_ID/config/config_coarse_UParT.yml"; OUTBASE="input_pt_less_region_upart" ;;
+  pnet)  CONFIG="../Configs/Fitter/tes_id/config_coarse_PNet.yml";  OUTBASE="input_pt_less_region_pnet"  ;;
+  upart) CONFIG="../Configs/Fitter/tes_id/config_coarse_UParT.yml"; OUTBASE="input_pt_less_region_upart" ;;
   *) echo "unknown TAGGER=$TAGGER (use pnet|upart)"; exit 1 ;;
 esac
 
 J_VALUES=("VVTight")  #"Loose" "Medium" "Tight" "VTight" )  # PNet/UParT VSjet WPs (raw-score)
 E_VALUES=("Tight") #"VVLoose")                            # DeepTau VSe WPs (hybrid)
 YEARS=("2024" "2025")
-CONFIG_MM="TauES/config/FitSetup_mumu.yml"               # Z->mumu CR (tagger-independent)
+CONFIG_MM="../Configs/Fitter/tes_id/FitSetup_mumu.yml"               # Z->mumu CR (tagger-independent)
 
 TIMESTAMP=$(date +"%Y%m%d_%H%M")
 LOGFILE="run_inputs_${TAGGER}_${TIMESTAMP}.log"

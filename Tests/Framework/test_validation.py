@@ -8,6 +8,7 @@ from unittest import mock
 
 import checkout
 from TauFW.Framework import check_recipe
+from TauFW.Framework.defaults import CONFIGS_DIR
 
 FIT = {"stage": "fit", "id": "fit", "inputs": {"shapes": None}}
 STEP = {"stage": "python", "id": "check", "inputs": None, "file": "steps/check.py"}
@@ -194,13 +195,30 @@ class CheckRecipeTests(unittest.TestCase):
 
     def test_files_the_recipe_names(self):
         absolute = os.path.join(self.root, "missing_tt.yml")
-        check = self.check(dict(FIT, config=absolute, config_mumu="TauES/config/FitSetup_mumu.yml"), STEP,
+        check = self.check(dict(FIT, config=absolute, config_mumu="TauES/config/defaultFitSetup_mumu.yml"), STEP,
                            pico="pico.json")
         self.assertEqual(self.messages(check), [
             "pico.config: file not found: %s" % (os.path.join(self.bundle, "pico.json")),
             "stages[0] (fit).config: file not found: %s" % (absolute),  # a module path is the module's to check
             "stages[1] (python).file: steps/check.py is not a file of the bundle (%s)" % (self.bundle)])
         self.assertIsNone(check.recipe)
+
+    def test_templates_and_moved_configs(self):
+        """A Configs/ template must exist; the old module path of a config that became a template is an error naming
+        the template (CL §25), also in plan and start (a Recipe error), not a module path for the module to look for."""
+        missing = "Configs/Fitter/tes_id/no_such.yml"
+        check = self.check(dict(FIT, config=missing, config_mumu="Configs/Fitter/tes_id/FitSetup_mumu.yml"))
+        self.assertEqual(self.messages(check), ["stages[0] (fit).config: no such template: %s"
+                                                % (os.path.normpath(os.path.join(os.path.dirname(CONFIGS_DIR),
+                                                                                 missing)))])
+        moved = dict(FIT, config="TauES_ID/config/config_coarse_TT.yml", config_mumu="TauES/config/FitSetup_mumu.yml")
+        self.assertEqual(self.messages(self.check(moved)), [
+            "stages[0] (fit).config: TauES_ID/config/config_coarse_TT.yml moved to "
+            "Configs/Fitter/tes_id/config_coarse_TT.yml (CL §25): name the template, or a copy of it in the bundle",
+            "stages[0] (fit).config_mumu: TauES/config/FitSetup_mumu.yml moved to "
+            "Configs/Fitter/tes_id/FitSetup_mumu.yml (CL §25): name the template, or a copy of it in the bundle"])
+        self.assertTrue(self.check(dict(FIT, config="Configs/Fitter/tes_id/config_coarse_TT.yml",
+                                        config_mumu="Configs/Fitter/tes_id/FitSetup_mumu.yml")).ok)
 
     def test_structure_and_files_together(self):
         """A wrong stage does not hide the problems of the others."""

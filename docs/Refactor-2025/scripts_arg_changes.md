@@ -215,3 +215,22 @@ stay where they were.
 | `TauFW.Fitter.plot.datacard` (`createinputs`, `plotinputs`, ...) | `TauFW.Histogrammer.shapes.inputs` | none (an alias in the Fitter would import the Histogrammer) |
 | `TauFW.Fitter.plot.rebinning` | `TauFW.Histogrammer.shapes.rebinning` | none |
 | `Fitter/MuTauFR/createinputs.py` | unchanged (its import `TauFW.Plotter.plot.datacard` was already broken, TODO §8) | - |
+
+## TES/ID channel configs to Configs/ (changelog §25, H2)
+
+The four maintained channel configs of the TES + tau ID fit are templates now: `Configs/Fitter/tes_id/` (ids
+`fitter.tes_id_coarse_tt`, `_coarse_pnet`, `_coarse_upart`, `fitter.tes_id_mumu`). Same values (`yaml.safe_load` of
+each file is unchanged apart from the new `taufw_config` header); the top-level keys are grouped under banners by
+reader, and the `&region_list` anchor is defined on `observables.m_vis.fitRegions` (it was on `plottingOrder`, which
+now takes the alias: the same list).
+
+| Before | Now | Old name |
+|---|---|---|
+| `-c TauES_ID/config/config_coarse_TT.yml` (from `Fitter/`), also `_PNet`, `_UParT` | `-c ../Configs/Fitter/tes_id/config_coarse_TT.yml` (`run_inputs*.sh`, `run_workflow_zmm*.sh`) | none: the old path is "file not found" |
+| `-cmm TauES/config/FitSetup_mumu.yml` | `-cmm ../Configs/Fitter/tes_id/FitSetup_mumu.yml` | none |
+| default `-c` of `plot2DScan_MultiDimFit.py`, `makecombinedfitTES_SF_postfit_corrTES.py` | `../Configs/Fitter/tes_id/config_coarse_TT.yml` (the same file from `Fitter/`) | - |
+| recipe `config: TauES_ID/config/config_coarse_TT.yml` (module path) | `config: Configs/Fitter/tes_id/config_coarse_TT.yml` (a template, resolved by the Framework) or a bundle copy | none: the old path fails the recipe check with the template's name |
+| `shapes.configs` / `fit.config` / `fit.config_mumu` defaults | the templates | - |
+
+Not moved (internal, still in `Fitter/TauES*/config/`): `defaultFitSetup*.yml`, `Default_FitSetupTES_mutau_DM*.yml`,
+`config_tests.yml`.

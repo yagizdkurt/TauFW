@@ -1,27 +1,22 @@
+taufw_config:                     # set by the maintainers: analysts edit the values below, never these lines
+  id: fitter.tes_id_mumu
+  version: 1
+  schema: 1
+  description: mumu control region of the TES + tau ID fit (createinputsTES.py and the fit scripts)
 ## Config file for default TES fit in mutau channel
 ##
+
+# The keys are grouped by who reads them (docs/contracts/tes-shapes.md, changelog §25); the order does not
+# matter to the readers. Keep a key in its group: a key in the first group is read by both sides.
+
+# ================================== Histogrammer + Fitter config (both read these) ==================================
 
 channel: mumu
 
 #tag: "_mumu"
 tag: "_mumu" # tag used for derivation of TauES SFs for 2022_preEE and 2022_postEE
 
-
 baselineCuts: "q_1*q_2<0 && iso_1<0.15 && iso_2<0.15 && !lepton_vetoes && metfilter"
-
-
-samples:
-    filename: "$PICODIR/$SAMPLE_$CHANNEL$TAG.root"
-    join: ["VV","TT","ST"]
-    split:
-        DY: [ ["ZTT","genmatch_2==5"], ["ZL","genmatch_2>0 && genmatch_2<5"], ["ZJ","genmatch_2==0"] ]
-    #     TT: [["TTT","genmatch_2==5"], ["TTL","genmatch_2>0 && genmatch_2<5"], ["TTJ","genmatch_2==0"] ]
-    rename:
-        WJ: "W"
-        DY: "ZLL"
-        TT: "TT"
-    data: "data_obs"
-    removeSFs: []
 
 observables:
     m_vis:
@@ -58,4 +53,24 @@ systematics:
     #     effect: "lnN"
     #     processes: ["W"]
     #     scaleFactor: 1.08
-        
+
+# ============================ Histogrammer config (only createinputsTES.py reads these) =============================
+
+samples:
+    filename: "$PICODIR/$SAMPLE_$CHANNEL$TAG.root"
+    join: ["VV","TT","ST"]
+    split:
+        DY: [ ["ZTT","genmatch_2==5"], ["ZL","genmatch_2>0 && genmatch_2<5"], ["ZJ","genmatch_2==0"] ]
+    #     TT: [["TTT","genmatch_2==5"], ["TTL","genmatch_2>0 && genmatch_2<5"], ["TTJ","genmatch_2==0"] ]
+    rename:
+        WJ: "W"
+        DY: "ZLL"
+        TT: "TT"
+    data: "data_obs"
+    removeSFs: []
+
+# ================================= Fitter config (only the fit scripts read these) ==================================
+# (none in this config)
+
+# ============================================ Not read by anyone (kept) =============================================
+# (none in this config)

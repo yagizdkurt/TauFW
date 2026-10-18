@@ -9,6 +9,11 @@ Configs/
   README.md             this file
   configs.lock          id, version and content hash of every template (written by `taufw.py configs update`)
   <Module>/...          the templates of one module, e.g. Histogrammer/samples/v15_2025.yml
+  Histogrammer/samples/ the sample model of each era (histogrammer.samples_v15_<era>)
+  Histogrammer/setups/  the channel setups of fillhists.py (histogrammer.setup_<channel>)
+  Fitter/tes_id/        the channel configs of the TES + tau ID fit (fitter.tes_id_*, changelog §25): read by
+                        createinputsTES.py (Histogrammer) and the fit scripts (Fitter); the keys of each file are
+                        grouped under banners by reader, see docs/contracts/tes-shapes.md
 ```
 
 The config directories inside the modules (`PicoProducer/config/`, ...) are the modules' **internal** settings:
@@ -21,6 +26,9 @@ user settings (batch system, user directories) are internal settings, never temp
 2. Copy the one you need into your bundle, next to `recipe.yml`, and name the copy in the recipe.
 3. Edit the values of your copy. Do **not** edit its `taufw_config` header: it says which template and which version
    the copy came from.
+4. Or name the template itself in a recipe, as `Configs/<Module>/...` (e.g. `config: Configs/Fitter/tes_id/config_coarse_TT.yml`):
+   the stage reads the template where it is (changelog §25). `taufw.py init --from <recipe>` makes copies of the
+   templates a recipe names, so a bundle keeps what it ran with.
 
 `taufw.py check`, `plan` and `start` warn when the template of a copy has a newer version than the copy: the
 maintainers changed it since you copied it. Compare the two, and take over the changes or keep your copy on purpose

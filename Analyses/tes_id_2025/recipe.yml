@@ -51,7 +51,7 @@ stages:
     eras: [2025]
     jet_wps: [VTight]       # DeepTau VSjet working points (run_inputs.sh: J_VALUES)
     ele_wps: [Tight]        # DeepTau VSe working points (run_inputs.sh: E_VALUES)
-    configs: [config_coarse_TT.yml, FitSetup_mumu.yml]   # mutau fit, mumu CR (copies of Fitter/TauES*/config/)
+    configs: [config_coarse_TT.yml, FitSetup_mumu.yml]   # mutau fit, mumu CR (copies of Configs/Fitter/tes_id/)
     samples: *samples_2025  # the same samples as the hists (a YAML alias)
     serial: false           # createinputsTES.py -s
 

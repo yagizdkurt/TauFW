@@ -28,6 +28,7 @@ Public API:
   STAGES, ORDER      name -> Stage class; the built-in pipeline stages in their usual order (used to list the
                      known stages in messages; a recipe may write them in any order)
   RETIRED            old stage name -> what replaces it (for the message of a recipe that still names it)
+  MOVED_CONFIGS      old module path of a config that became a Configs/ template -> the template (the same)
   Stage, StageState, StageOutcome, StageContext, StageNotImplemented, PreflightError, SpecError (stages/base.py)
 """
 from TauFW.Framework.stages.base import (Stage, StageState, StageOutcome, StageContext, StageNotImplemented,
@@ -54,8 +55,16 @@ RETIRED = {
     'plots':      "control plots are two stages now: controlhists (tuples -> histogram files) and controlplots "
                   "(files -> plots) (CL §24)",
 }
+# Module configs that moved to Configs/ (old path as a recipe writes it -> the template to write instead). A recipe
+# naming the old path fails the check with the new one; nothing maps it (recipes take the clean design).
+MOVED_CONFIGS = {
+    'TauES_ID/config/config_coarse_TT.yml':    'Configs/Fitter/tes_id/config_coarse_TT.yml',     # CL §25 (H2)
+    'TauES_ID/config/config_coarse_PNet.yml':  'Configs/Fitter/tes_id/config_coarse_PNet.yml',
+    'TauES_ID/config/config_coarse_UParT.yml': 'Configs/Fitter/tes_id/config_coarse_UParT.yml',
+    'TauES/config/FitSetup_mumu.yml':          'Configs/Fitter/tes_id/FitSetup_mumu.yml',
+}
 
-__all__ = ['STAGES', 'ORDER', 'RETIRED', 'Stage', 'StageState', 'StageOutcome', 'StageContext',
+__all__ = ['STAGES', 'ORDER', 'RETIRED', 'MOVED_CONFIGS', 'Stage', 'StageState', 'StageOutcome', 'StageContext',
            'StageNotImplemented', 'PreflightError', 'SpecError', 'spec_from_dict', 'ProductionStage', 'ProductionSpec',
            'decide_next', 'Action', 'ControlHistsStage', 'ControlHistsSpec', 'ControlPlotsStage',
            'ControlPlotsSpec', 'ShapesStage', 'ShapesSpec', 'FitStage', 'FitSpec',

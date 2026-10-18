@@ -1381,7 +1381,7 @@ Checked (Windows): `python Tests/run.py checks`. On lxplus: `bbb check` 22/22 wi
 ## 25. TES shapes leave the Fitter for the Histogrammer (in progress)
 
 **Date:** 2026-10-18
-**Status:** H0 (lock `f3079fa`) and H1 done and checked on lxplus; H2-H4 to come.
+**Status:** H0 (lock `f3079fa`) and H1 done and checked on lxplus; H2 done on Windows; H3, H4 to come.
 Plan: `LocalR/architecture/16-histograms-plan.md` (decisions §13).
 
 Step 2 of the isolation work (`LocalR/architecture/13`): the code that fills the TES/ID input histograms
@@ -1477,3 +1477,50 @@ pairs); the old path prints the new command and exits with 2; `taufw.py plan Ana
 commit (`f3079fa`), so the old code (`0c611f4`, in a `git worktree`) was run once more against the lock: the
 three cases of the moved code (`histogrammer.tes_inputs`, `fitter.shapes`, `fitter.rebin`) 3/3 the same. The lock
 describes the code before the move, and the move changed nothing.
+What the case does not cover (user decision 2026-10-18: accepted, documented): `ZL`/`TTL`, so the content of the
+LTF shape systematics, are zero in every region of the fixture (no opposite-sign event with `genmatch_2` 1-4 passes
+the baseline); the LTF variation files are read. The real-shape comparison of H4 covers them; TODO §7 notes the
+extension for the next legitimate re-lock.
+
+### Channel configs to Configs/ (H2)
+
+**Date:** 2026-10-18, Windows; the lxplus checks are in TODO §1. Decisions (plan 16 §13): D1 (one config per
+channel, keys grouped by reader), D5 (no recipe compat), K1 and K2 of this step (below).
+
+- `git mv` the four maintained configs to `Configs/Fitter/tes_id/`: `config_coarse_TT.yml`, `config_coarse_PNet.yml`,
+  `config_coarse_UParT.yml` (from `Fitter/TauES_ID/config/`), `FitSetup_mumu.yml` (from `Fitter/TauES/config/`).
+  File names kept (K2); ids `fitter.tes_id_coarse_tt`, `fitter.tes_id_coarse_pnet`, `fitter.tes_id_coarse_upart`,
+  `fitter.tes_id_mumu` (ids are lower case, `configs.py`), version 1, locked (`configs.lock`).
+- **Values unchanged:** each file got the `taufw_config` header, and its top-level keys are grouped under four
+  banners by reader (D1, user): both read / Histogrammer only / Fitter only / not read (`fitSpecs`). The YAML anchor
+  `&region_list` moved from `plottingOrder` (now `*region_list`, Fitter group) to `observables.m_vis.fitRegions`
+  (shared group, where it is first used). `yaml.safe_load` of every new file without the header equals the old
+  file's (checked for all four); comments moved with their keys. The bundle copies of `tes_id_2025` were byte copies
+  of the old templates and are now byte copies of the new ones.
+- **`Configs/` templates in recipes (K1, user: option a):** a path option starting with `Configs/` that is not a
+  bundle file names a template; the Framework resolves it against the TauFW directory and gives the stage's API the
+  absolute path (`bundle.py`, kind `template`, shown by `plan`). The same rule for every stage, so after H3 the
+  Histogrammer reads a Fitter template without knowing `Fitter/`. `taufw.py init --from` copies the templates a
+  recipe names into the new bundle; `check` reports a template that does not exist.
+- **No recipe compat (D5):** `stages.MOVED_CONFIGS` maps the four old module paths to their templates; a recipe naming
+  an old path fails (in `check`, `plan` and `start`, a Recipe error) with "... moved to Configs/Fitter/tes_id/... (CL
+  §25): name the template, or a copy of it in the bundle". A bundle file with that relative path is the bundle's.
+- Defaults: `DEFAULT_CONFIGS` of the `shapes` and `fit` stages are the two templates. Commands run by hand: the run
+  scripts (`run_inputs*.sh`, `run_workflow_zmm*.sh`) and the default `-c` of `plot2DScan_MultiDimFit.py` and
+  `makecombinedfitTES_SF_postfit_corrTES.py` name `../Configs/Fitter/tes_id/...` (the same files from `Fitter/`); a
+  hand-typed old path is "file not found" (`scripts_arg_changes.md`). The fit scripts only open the path and pass it
+  on (no output name is derived from it), so the outputs do not change.
+- Contract test (D1): `READERS['fitter.tes_id_']` in `Tests/Framework/test_configs.py` (`read_tes_id`): every
+  template has the keys its two readers take without a default (channel, tag, baselineCuts, samples.filename/join/
+  data, observables with binning and fit regions that exist, processes, systematics with their fields, regions with
+  definition and title, TES variations with values and processes); a mutated copy is refused.
+- Tests: `test_bundle.py` (the template kind, a bundle file wins, `init` copies a template byte for byte),
+  `test_validation.py` (missing template, the moved-path error), `test_stages.py` (the default configs are templates),
+  `Tests/Fitter/api/test_tes_id.py` (the API with `../Configs/...`, as the run scripts).
+- Docs: `Configs/README.md`, Analyses README (path rule, stage defaults, example), Framework README, Fitter READMEs,
+  the contract (where the configs are, the banners, the test), `scripts_arg_changes.md`, TODO §1, §8.
+
+Checked (Windows): `python Tests/run.py checks`: 13 of 15 suites pass (`unit.framework` 174 tests with the new ones,
+`unit.fitter.api`); `check_import_boundaries` unchanged (25 / 23 / 21, known debt), `check_root` needs ROOT; the
+parsed-equality check of the four configs. On lxplus (TODO §1): BBB 23/23 (no case reads these files), `configs`,
+`check`/`plan` of `tes_id_2025`.

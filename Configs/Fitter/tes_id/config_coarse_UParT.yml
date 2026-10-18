@@ -1,8 +1,18 @@
+taufw_config:                     # set by the maintainers: analysts edit the values below, never these lines
+  id: fitter.tes_id_coarse_upart
+  version: 1
+  schema: 1
+  description: TES + tau ID fit, mutau, UParT VSjet (hybrid), DM x pt regions (createinputsTES.py and the fit scripts)
 ## Config for TES + TauID SF fit, UParT VSjet HYBRID, mutau channel, by UParT-DM and pT.
 ## Hybrid: VSjet = UParT (raw-score WP), VSe/VSmu = DeepTau2018v2p5 (kept).
 ## Decay-mode binning uses UParT decay modes (decayModeUParT_2): 6 bins {0,1,2,10,11,rest}.
 ## Sibling of config_coarse_PNet.yml / config_coarse_TT.yml. Drive with run_inputs_pnet.sh
 ## (point CONFIG at this file) / a UParT workflow.
+
+# The keys are grouped by who reads them (docs/contracts/tes-shapes.md, changelog §25); the order does not
+# matter to the readers. Keep a key in its group: a key in the first group is read by both sides.
+
+# ================================== Histogrammer + Fitter config (both read these) ==================================
 
 channel: mutau
 
@@ -89,7 +99,13 @@ regions:
         title: "rest, pt: 60-200"
         binning: [11, 40, 150]
 
-plottingOrder: &region_list
+observables:
+    m_vis:
+        binning: [22, 40, 150]
+        title: "m_{vis}"
+        extra:
+            cut: "40<m_vis && m_vis<150"
+        fitRegions:  &region_list  # also plottingOrder (Fitter section)
           [
             "DM0_pt1", "DM0_pt2", "DM0_pt3",
             "DM1_pt1", "DM1_pt2", "DM1_pt3",
@@ -98,87 +114,11 @@ plottingOrder: &region_list
             "DM11_pt1", "DM11_pt2", "DM11_pt3",
             "DMrest_pt1", "DMrest_pt2", "DMrest_pt3",
           ]
-
-observables:
-    m_vis:
-        binning: [22, 40, 150]
-        title: "m_{vis}"
-        extra:
-            cut: "40<m_vis && m_vis<150"
-        fitRegions:  *region_list
         scanRegions: *region_list
 
 TESvariations:
     values : [0.950, 0.960 ,0.970, 0.980, 0.990, 1.010, 1.020, 1.030, 1.040, 1.050]
     processes: ["ZTT"]
-
-fitSpecs:
-    doBBB: doShapes
-    signalBBB: True
-    backgroundBBB: True
-
-samples:
-    filename: "$PICODIR/$SAMPLE_$CHANNEL$TAG.root"
-    join: ["VV","TT","ST"]
-    split:
-        DY: [ ["ZTT","genmatch_2==5"], ["ZL","genmatch_2>0 && genmatch_2<5"], ["ZJ","genmatch_2==0"] ]
-        TT: [["TTT","genmatch_2==5"], ["TTL","genmatch_2>0 && genmatch_2<5"], ["TTJ","genmatch_2==0"] ]
-    rename:
-        WJ: "W"
-    data: "data_obs"
-    removeSFs: ["idweight_2"]   # remove DeepTau VSjet SF (we measure UParT VSjet)
-
-tesRegions:
-    DM0:     {title: "DM0"}
-    DM1:     {title: "DM1"}
-    DM2:     {title: "DM2"}
-    DM10:    {title: "DM10"}
-    DM11:    {title: "DM11"}
-    DMrest:  {title: "DMrest"}
-    DM0_pt1:    {title: "DM0 20<p_{t_{#tau}}<40"}
-    DM0_pt2:    {title: "DM0 40<=p_{t_{#tau}}<60"}
-    DM0_pt3:    {title: "DM0 60<=p_{t_{#tau}}<200"}
-    DM1_pt1:    {title: "DM1 20<p_{t_{#tau}}<40"}
-    DM1_pt2:    {title: "DM1 40<=p_{t_{#tau}}<60"}
-    DM1_pt3:    {title: "DM1 60<=p_{t_{#tau}}<200"}
-    DM2_pt1:    {title: "DM2 20<p_{t_{#tau}}<40"}
-    DM2_pt2:    {title: "DM2 40<=p_{t_{#tau}}<60"}
-    DM2_pt3:    {title: "DM2 60<=p_{t_{#tau}}<200"}
-    DM10_pt1:   {title: "DM10 20<p_{t_{#tau}}<40"}
-    DM10_pt2:   {title: "DM10 40<=p_{t_{#tau}}<60"}
-    DM10_pt3:   {title: "DM10 60<=p_{t_{#tau}}<200"}
-    DM11_pt1:   {title: "DM11 20<p_{t_{#tau}}<40"}
-    DM11_pt2:   {title: "DM11 40<=p_{t_{#tau}}<60"}
-    DM11_pt3:   {title: "DM11 60<=p_{t_{#tau}}<200"}
-    DMrest_pt1: {title: "DMrest 20<p_{t_{#tau}}<40"}
-    DMrest_pt2: {title: "DMrest 40<=p_{t_{#tau}}<60"}
-    DMrest_pt3: {title: "DMrest 60<=p_{t_{#tau}}<200"}
-
-tid_SFRegions:
-    DM0:     {title: "DM0"}
-    DM1:     {title: "DM1"}
-    DM2:     {title: "DM2"}
-    DM10:    {title: "DM10"}
-    DM11:    {title: "DM11"}
-    DMrest:  {title: "DMrest"}
-    DM0_pt1:    {title: "DM0 20<p_{t_{#tau}}<40"}
-    DM0_pt2:    {title: "DM0 40<=p_{t_{#tau}}<60"}
-    DM0_pt3:    {title: "DM0 60<=p_{t_{#tau}}<200"}
-    DM1_pt1:    {title: "DM1 20<p_{t_{#tau}}<40"}
-    DM1_pt2:    {title: "DM1 40<=p_{t_{#tau}}<60"}
-    DM1_pt3:    {title: "DM1 60<=p_{t_{#tau}}<200"}
-    DM2_pt1:    {title: "DM2 20<p_{t_{#tau}}<40"}
-    DM2_pt2:    {title: "DM2 40<=p_{t_{#tau}}<60"}
-    DM2_pt3:    {title: "DM2 60<=p_{t_{#tau}}<200"}
-    DM10_pt1:   {title: "DM10 20<p_{t_{#tau}}<40"}
-    DM10_pt2:   {title: "DM10 40<=p_{t_{#tau}}<60"}
-    DM10_pt3:   {title: "DM10 60<=p_{t_{#tau}}<200"}
-    DM11_pt1:   {title: "DM11 20<p_{t_{#tau}}<40"}
-    DM11_pt2:   {title: "DM11 40<=p_{t_{#tau}}<60"}
-    DM11_pt3:   {title: "DM11 60<=p_{t_{#tau}}<200"}
-    DMrest_pt1: {title: "DMrest 20<p_{t_{#tau}}<40"}
-    DMrest_pt2: {title: "DMrest 40<=p_{t_{#tau}}<60"}
-    DMrest_pt3: {title: "DMrest 60<=p_{t_{#tau}}<200"}
 
 processes: ["ZTT","ZL","ZJ","W","VV","ST","TTT","TTL","TTJ","QCD","data_obs"]
 
@@ -237,3 +177,79 @@ systematics:
         effect: "lnN"
         processes: ["W","QCD","ZJ","TTJ"]
         scaleFactor: 1.15
+
+# ============================ Histogrammer config (only createinputsTES.py reads these) =============================
+
+samples:
+    filename: "$PICODIR/$SAMPLE_$CHANNEL$TAG.root"
+    join: ["VV","TT","ST"]
+    split:
+        DY: [ ["ZTT","genmatch_2==5"], ["ZL","genmatch_2>0 && genmatch_2<5"], ["ZJ","genmatch_2==0"] ]
+        TT: [["TTT","genmatch_2==5"], ["TTL","genmatch_2>0 && genmatch_2<5"], ["TTJ","genmatch_2==0"] ]
+    rename:
+        WJ: "W"
+    data: "data_obs"
+    removeSFs: ["idweight_2"]   # remove DeepTau VSjet SF (we measure UParT VSjet)
+
+# ================================= Fitter config (only the fit scripts read these) ==================================
+
+plottingOrder: *region_list  # the regions of observables.m_vis.fitRegions, defined there
+
+tesRegions:
+    DM0:     {title: "DM0"}
+    DM1:     {title: "DM1"}
+    DM2:     {title: "DM2"}
+    DM10:    {title: "DM10"}
+    DM11:    {title: "DM11"}
+    DMrest:  {title: "DMrest"}
+    DM0_pt1:    {title: "DM0 20<p_{t_{#tau}}<40"}
+    DM0_pt2:    {title: "DM0 40<=p_{t_{#tau}}<60"}
+    DM0_pt3:    {title: "DM0 60<=p_{t_{#tau}}<200"}
+    DM1_pt1:    {title: "DM1 20<p_{t_{#tau}}<40"}
+    DM1_pt2:    {title: "DM1 40<=p_{t_{#tau}}<60"}
+    DM1_pt3:    {title: "DM1 60<=p_{t_{#tau}}<200"}
+    DM2_pt1:    {title: "DM2 20<p_{t_{#tau}}<40"}
+    DM2_pt2:    {title: "DM2 40<=p_{t_{#tau}}<60"}
+    DM2_pt3:    {title: "DM2 60<=p_{t_{#tau}}<200"}
+    DM10_pt1:   {title: "DM10 20<p_{t_{#tau}}<40"}
+    DM10_pt2:   {title: "DM10 40<=p_{t_{#tau}}<60"}
+    DM10_pt3:   {title: "DM10 60<=p_{t_{#tau}}<200"}
+    DM11_pt1:   {title: "DM11 20<p_{t_{#tau}}<40"}
+    DM11_pt2:   {title: "DM11 40<=p_{t_{#tau}}<60"}
+    DM11_pt3:   {title: "DM11 60<=p_{t_{#tau}}<200"}
+    DMrest_pt1: {title: "DMrest 20<p_{t_{#tau}}<40"}
+    DMrest_pt2: {title: "DMrest 40<=p_{t_{#tau}}<60"}
+    DMrest_pt3: {title: "DMrest 60<=p_{t_{#tau}}<200"}
+
+tid_SFRegions:
+    DM0:     {title: "DM0"}
+    DM1:     {title: "DM1"}
+    DM2:     {title: "DM2"}
+    DM10:    {title: "DM10"}
+    DM11:    {title: "DM11"}
+    DMrest:  {title: "DMrest"}
+    DM0_pt1:    {title: "DM0 20<p_{t_{#tau}}<40"}
+    DM0_pt2:    {title: "DM0 40<=p_{t_{#tau}}<60"}
+    DM0_pt3:    {title: "DM0 60<=p_{t_{#tau}}<200"}
+    DM1_pt1:    {title: "DM1 20<p_{t_{#tau}}<40"}
+    DM1_pt2:    {title: "DM1 40<=p_{t_{#tau}}<60"}
+    DM1_pt3:    {title: "DM1 60<=p_{t_{#tau}}<200"}
+    DM2_pt1:    {title: "DM2 20<p_{t_{#tau}}<40"}
+    DM2_pt2:    {title: "DM2 40<=p_{t_{#tau}}<60"}
+    DM2_pt3:    {title: "DM2 60<=p_{t_{#tau}}<200"}
+    DM10_pt1:   {title: "DM10 20<p_{t_{#tau}}<40"}
+    DM10_pt2:   {title: "DM10 40<=p_{t_{#tau}}<60"}
+    DM10_pt3:   {title: "DM10 60<=p_{t_{#tau}}<200"}
+    DM11_pt1:   {title: "DM11 20<p_{t_{#tau}}<40"}
+    DM11_pt2:   {title: "DM11 40<=p_{t_{#tau}}<60"}
+    DM11_pt3:   {title: "DM11 60<=p_{t_{#tau}}<200"}
+    DMrest_pt1: {title: "DMrest 20<p_{t_{#tau}}<40"}
+    DMrest_pt2: {title: "DMrest 40<=p_{t_{#tau}}<60"}
+    DMrest_pt3: {title: "DMrest 60<=p_{t_{#tau}}<200"}
+
+# ============================================ Not read by anyone (kept) =============================================
+
+fitSpecs:
+    doBBB: doShapes
+    signalBBB: True
+    backgroundBBB: True

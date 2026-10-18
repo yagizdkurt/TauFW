@@ -13,7 +13,7 @@ import checkout  # noqa: F401  (must precede TauFW imports)
 from TauFW.Fitter.api import TauESID, ShapesRequest, FitRequest, FIT_STEPS, read_fit_values
 from TauFW.Utilities.Process import ProcessRunner
 
-TT, MM = "TauES_ID/config/config_coarse_TT.yml", "TauES/config/FitSetup_mumu.yml"
+TT, MM = "../Configs/Fitter/tes_id/config_coarse_TT.yml", "../Configs/Fitter/tes_id/FitSetup_mumu.yml"  # as run_inputs.sh (CL §25)
 IN = "input_pt_less_region/againstjet_VTight/againstelectron_Tight"
 OUT = "output_pt_less_region/againstjet_VTight/againstelectron_Tight"
 PLOTS = "plots_pt_less_region/againstjet_VTight/againstelectron_Tight"
@@ -189,7 +189,7 @@ class ShapesTests(TauESIDTestCase):
                                       pico_config="/run/bundle/pico.json")
         self.assertTrue(all(c.env for c in self.fitter.plan_fit(fit).commands))
         self.assertEqual(self.fitter.plan_shapes(self.shapes()).commands[0].env, ())
-        self.assertEqual(self.fitter.config_file(TT), os.path.join(self.fitter_dir, os.path.normpath(TT)))
+        self.assertEqual(self.fitter.config_file(TT), os.path.normpath(os.path.join(self.fitter_dir, TT)))
 
 
     def test_tuple_pattern(self):
@@ -214,7 +214,7 @@ class ShapesTests(TauESIDTestCase):
         script = os.path.normpath(os.path.join(self.fitter_dir, "..", "Histogrammer", "shapes", "TauES",
                                                "createinputsTES.py"))  # moved in CL §25 (H1)
         self.assertEqual(plan.commands[0].argv[:6], ("python3", script,
-                                                     "-y", "2025", "-c", os.path.join(self.fitter_dir, os.path.normpath(TT))))
+                                                     "-y", "2025", "-c", os.path.normpath(os.path.join(self.fitter_dir, TT))))
         self.assertEqual({plan.cwd} | {c.cwd for c in plan.commands}, {outdir})
         self.assertEqual(plan.commands[0].expects, (IN + "/ztt_mt_tes_m_vis.inputs-2025-13TeV_mutau.root",))
         self.assertEqual(plan.commands[0].env, (("TAUFW_PICO_CONFIG", os.path.abspath("pico.json")),))
@@ -325,7 +325,7 @@ class FitTests(TauESIDTestCase):
         argv = {c.label.split(" 2025")[0]: c.argv for c in plan.commands}
         self.assertEqual(argv["fit datacards mumu"][1:],
                          (os.path.join(self.fitter_dir, "TauES_ID", "harvestDatacards_zmm.py"), "-y", "2025",
-                          "-c", os.path.join(self.fitter_dir, os.path.normpath(MM)), "-i", shapes + "/",
+                          "-c", os.path.normpath(os.path.join(self.fitter_dir, MM)), "-i", shapes + "/",
                           "-o", OUT + "/2025/"))
         self.assertEqual(argv["fit multidimfit"][-8:],  # the shapes are elsewhere: the outputs are given
                          ("-o", "3", "--mumu_datacard_file", MMCARD, "--output_dir", OUT + "/2025",

@@ -57,7 +57,7 @@ Datacards are generated in `makecombinedfitTES_SF.py`:
 3. Exemple of command :
 
  ```sh
-  python3 TauES_ID/makecombinedfitTES_SF.py -y 2023C -o 1 -c TauES_ID/config/Default_FitSetupTES_mutau_DM_mt65pt_lessptregion.yml -cmm TauES/config/FitSetup_mumu.yml -i input_pt_less_region/againstjet_Medium/againstelectron_VVLoose
+  python3 TauES_ID/makecombinedfitTES_SF.py -y 2023C -o 1 -c TauES_ID/config/Default_FitSetupTES_mutau_DM_mt65pt_lessptregion.yml -cmm ../Configs/Fitter/tes_id/FitSetup_mumu.yml -i input_pt_less_region/againstjet_Medium/againstelectron_VVLoose
   ```
 The above command will create the root files and datacard txt files to do the fit for `option 1` which profiles the `tau enrgy scale` and floats `tau_id SF` freely. All `output root files and txt files` will be created in the dirrectory `output_pt_less_region/againstjet_Medium/againstelectron_VVLoose/2023C/`. 
 
@@ -124,13 +124,13 @@ Inputs are saved in `Fitter/input_pt_less_region/againstjet_Medium/againstelectr
 
 5. Run the TES scans with Zmm CR : 
 ```sh
-python3 TauES_ID/makecombinedfitTES_SF.py -y 2023C -o 1 -c TauES_ID/config/Default_FitSetupTES_mutau_DM_mt65pt_lessptregion.yml -cmm TauES/config/FitSetup_mumu.yml -i input_pt_less_region/againstjet_Medium/againstelectron_VVLoose
+python3 TauES_ID/makecombinedfitTES_SF.py -y 2023C -o 1 -c TauES_ID/config/Default_FitSetupTES_mutau_DM_mt65pt_lessptregion.yml -cmm ../Configs/Fitter/tes_id/FitSetup_mumu.yml -i input_pt_less_region/againstjet_Medium/againstelectron_VVLoose
  ```
 The TES NLL parabolae and summary plots are automatically generated. 
 
 6. Run the id SF scans with Zmm CR : 
 ```sh
-python3 TauES_ID/makecombinedfitTES_SF.py -y 2023C -o 2 -c TauES_ID/config/Default_FitSetupTES_mutau_DM_mt65pt_lessptregion.yml -cmm TauES/config/FitSetup_mumu.yml -i input_pt_less_region/againstjet_Medium/againstelectron_VVLoose
+python3 TauES_ID/makecombinedfitTES_SF.py -y 2023C -o 2 -c TauES_ID/config/Default_FitSetupTES_mutau_DM_mt65pt_lessptregion.yml -cmm ../Configs/Fitter/tes_id/FitSetup_mumu.yml -i input_pt_less_region/againstjet_Medium/againstelectron_VVLoose
  ```
 The id SF NLL parabolae and summary plots are automatically generated.
 
@@ -154,14 +154,14 @@ Achieving the combined fit of TauES and Identification Scale Factor requires usi
 #### Step 1: Generate the Combined Fit Files
 Run the following command to generate the combined fit files:
 ```bash
-python3 TauES_ID/makecombinedfitTES_SF.py -y 2022_postEE -c TauES_ID/config/Default_FitSetupTES_mutau_DM_4pt.yml -o 1 -cmm TauES/config/FitSetup_mumu.yml
+python3 TauES_ID/makecombinedfitTES_SF.py -y 2022_postEE -c TauES_ID/config/Default_FitSetupTES_mutau_DM_4pt.yml -o 1 -cmm ../Configs/Fitter/tes_id/FitSetup_mumu.yml
 ```
 This will generate the necessary files in `postfit_year/blabla`.
 
 #### Step 2: Apply the Fit Parameters
 Once the combined fit files are generated, apply the fit parameters and generate post-fit results using:
 ```bash
-python3 TauES_ID/makecombinedfitTES_SF_postfit.py -y 2022_postEE -c TauES_ID/config/Default_FitSetupTES_mutau_DM_4pt.yml -o 1 -cmm TauES/config/FitSetup_mumu.yml
+python3 TauES_ID/makecombinedfitTES_SF_postfit.py -y 2022_postEE -c TauES_ID/config/Default_FitSetupTES_mutau_DM_4pt.yml -o 1 -cmm ../Configs/Fitter/tes_id/FitSetup_mumu.yml
 ```
 This step ensures that the post-fit results reflect the applied fit parameters.
 

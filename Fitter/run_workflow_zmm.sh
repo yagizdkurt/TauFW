@@ -3,8 +3,8 @@ J_VALUES=("VVLoose" "Loose" "Tight" "VTight" "VLoose" "Medium")
 E_VALUES=("VVLoose" "Tight")
 
 YEAR="2025"
-CONFIG_TT="TauES_ID/config/config_coarse_TT.yml"
-CONFIG_MM="TauES/config/FitSetup_mumu.yml"
+CONFIG_TT="../Configs/Fitter/tes_id/config_coarse_TT.yml"
+CONFIG_MM="../Configs/Fitter/tes_id/FitSetup_mumu.yml"
 
 # Loop over each combination
 for JET_WP in "${J_VALUES[@]}"; do

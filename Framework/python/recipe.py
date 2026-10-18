@@ -82,10 +82,10 @@ Public API:
 import os, re, copy, posixpath
 from dataclasses import dataclass, field, replace
 from typing import Optional, Tuple
-from TauFW.Framework.bundle import leaves_bundle, is_bundle
+from TauFW.Framework.bundle import leaves_bundle, is_bundle, where as path_kind
 from TauFW.Framework.configs import copy_warnings
 from TauFW.Framework.defaults import RECIPE_NAME, DEFAULT_RUN_ROOT, default_file_io
-from TauFW.Framework.stages import STAGES, ORDER, RETIRED, SpecError, spec_from_dict
+from TauFW.Framework.stages import STAGES, ORDER, RETIRED, MOVED_CONFIGS, SpecError, spec_from_dict
 
 __all__ = ['Recipe', 'StageSpec', 'Issue', 'RecipeError', 'recipe_warnings', 'run_root_dir']
 
@@ -331,10 +331,23 @@ def _stage_entry(entry, index, bundle_dir, issues):
         location, _, message = str(err).partition(": ")
         issues.append(Issue(location, message) if message else Issue(where, str(err)))
         return result
+    _check_moved_configs(spec, where, bundle_dir, issues)
     if stage_id is not None:
         result.stage_spec = StageSpec(stage=name, id=stage_id, spec=spec, options=copy.deepcopy(options),
                                       inputs=copy.deepcopy(inputs), description=description or "")
     return result
+
+
+def _check_moved_configs(spec, where, bundle_dir, issues):
+    """A path option naming the old module path of a config that is a Configs/ template now (stages.MOVED_CONFIGS)
+    is an error naming the template; a bundle file with that relative path is the bundle's and is fine."""
+    moved = {os.path.normpath(old): new for old, new in MOVED_CONFIGS.items()}
+    for option in getattr(type(spec), '_paths', ()):
+        value = getattr(spec, option)
+        for item in (value if isinstance(value, tuple) else (value,)):
+            if isinstance(item, str) and os.path.normpath(item) in moved and path_kind(item, bundle_dir) == 'module':
+                issues.append(Issue("%s.%s" % (where, option), "%s moved to %s (CL §25): name the template, or a "
+                                    "copy of it in the bundle" % (item, moved[os.path.normpath(item)])))
 
 
 def _check_id(entry, where, issues):

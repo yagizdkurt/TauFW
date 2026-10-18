@@ -9,15 +9,18 @@
 
 What is checked here and what is not:
     checked:      everything Recipe.load() checks, plus the files the recipe names that do not depend on a module:
-                  pico.config, absolute path options, the `file` of python steps (always a bundle file), the
+                  pico.config, absolute path options, Configs/ templates (`Configs/...`, bundle.py; the old module
+                  path of a config that became a template is a Recipe error, stages.MOVED_CONFIGS),
+                  the `file` of python steps (always a bundle file), the
                   directory of an {external: <pattern>} input (its part before the first $KEY), and the stage
                   directory of a {path: <stage directory>} input: it exists, has a manifest of format 2 (its stage
                   is DONE), was not moved or copied, and its stage makes the kind of data the slot takes
                   (manifest.py; the same rule as between the stages of one recipe).
     samples:      the `samples` option (controlhists, shapes) names files of the bundle (copies of the templates in
-                  Configs/Histogrammer/samples/) or absolute ones, not module files; they are read through the
+                  Configs/Histogrammer/samples/), templates (`Configs/...`) or absolute ones, not module files;
+                  they are read through the
                   Histogrammer API (the format is the Histogrammer's): readable, exactly one per era of the stage.
-    not checked:  path options a module resolves (e.g. Fitter/TauES_ID/config/...), and the environment (CMSSW,
+    not checked:  path options a module resolves (e.g. Fitter/TauES/config/...), and the environment (CMSSW,
                   ROOT, combine, tuples on disk): they are the machine's state, not the recipe's. The stages' plan
                   notes and preflight report them.
 
@@ -84,6 +87,8 @@ def _file_issues(pico_config, stage_specs, bundle_dir):
         for option, value, resolved, kind in path_rows(stage_spec.spec, bundle_dir):
             if kind == 'absolute' and not os.path.isfile(resolved):
                 issues.append(Issue("%s.%s" % (where, option), "file not found: %s" % (resolved)))
+            elif kind == 'template' and not os.path.isfile(resolved):
+                issues.append(Issue("%s.%s" % (where, option), "no such template: %s" % (resolved)))
             elif kind == 'module' and (stage_spec.stage == 'python' or option == 'samples'):
                 issues.append(Issue("%s.%s" % (where, option), "%s is not a file of the bundle (%s)"
                                     % (value, bundle_dir)))

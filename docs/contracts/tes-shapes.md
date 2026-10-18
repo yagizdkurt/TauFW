@@ -51,8 +51,11 @@ histograms of an earlier config).
 
 ## The channel config (read by both sides)
 
-One YAML file per channel (`TauES_ID/config/config_coarse_*.yml`, `TauES/config/FitSetup_mumu.yml`; plan 16 D5
-moves the four maintained ones to `Configs/Fitter/tes_id/`). H = `createinputsTES.py`, F = the fit side
+One YAML file per channel: the templates `Configs/Fitter/tes_id/config_coarse_{TT,PNet,UParT}.yml` and
+`FitSetup_mumu.yml` (ids `fitter.tes_id_*`; `Fitter/TauES_ID/config/`, `Fitter/TauES/config/` until changelog §25
+H2). In each template the top-level keys are grouped under banners by reader, as in the table below; a ROOT-free
+test checks that every template has the keys both readers take without a default (`Tests/Framework/test_configs.py`,
+`read_tes_id`). H = `createinputsTES.py`, F = the fit side
 (harvest, `makecombinedfitTES_SF*.py`, `plotParabola_POI_region.py`, `plotPostFitScan_POI.py`, `runpostfit.py`,
 `createroot_TES.py`, `make_tid_2025.py`, the Fitter API).
 
@@ -86,5 +89,7 @@ read again from that file's cutflow. A missing file is only a warning when the s
 ## Checked by
 
 - BBB `histogrammer.tes_inputs` (CL §25): the script end to end on fixture tuples, the shape file, the rebinned file
-  and the names of the control plots; locked with the code before step 2 moved it.
+  and the names of the control plots; locked with the code before step 2 moved it. Not covered there: the working-point
+  substitution (no `idDeepTau*` branches in the fixture) and the content of the LTF shapes (`ZL`, `TTL` are empty in
+  the fixture's selection; TODO §7).
 - BBB `fitter.shapes`, `fitter.rebin`: the writer (`createinputs`) and `rebinning` on their own.

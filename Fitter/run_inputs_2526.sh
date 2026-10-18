@@ -9,8 +9,8 @@ J_VALUES=("VTight" "VVLoose" "VLoose" "Loose" "Medium" "Tight")
 E_VALUES=("Tight" "VVLoose")
 
 YEAR=2526
-CONFIG="TauES_ID/config/config_coarse_TT.yml"
-CONFIG_MM="TauES/config/FitSetup_mumu.yml" #CR config
+CONFIG="../Configs/Fitter/tes_id/config_coarse_TT.yml"
+CONFIG_MM="../Configs/Fitter/tes_id/FitSetup_mumu.yml" #CR config
 
 # Create timestamped log file
 TIMESTAMP=$(date +"%Y%m%d_%H%M")

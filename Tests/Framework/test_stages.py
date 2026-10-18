@@ -10,6 +10,7 @@ import checkout  # noqa: F401  (must precede TauFW imports)
 import fakes
 import hashlib
 from TauFW.Framework import Framework, Recipe, RecipeError, RunRecord, SilentReporter
+from TauFW.Framework.bundle import resolve
 from TauFW.Framework.stages import (ProductionStage, ControlHistsStage, ControlPlotsStage, ShapesStage, FitStage,
                                     StageContext,
                                     PreflightError)
@@ -23,7 +24,7 @@ SHAPES = {"stage": "shapes", "id": "shapes", "inputs": {"tuples": None}, "eras":
               "jet_wps": ["VTight", "Tight"], "ele_wps": ["Tight"]}
 PLOTS = {"stage": "controlplots", "id": "plots", "inputs": {"hists": "hists"}, "pdf": True}
 FIT = {"stage": "fit", "id": "fit", "inputs": {"shapes": None}, "steps": ["fit", "corrections"]}
-TT, MM = "TauES_ID/config/config_coarse_TT.yml", "TauES/config/FitSetup_mumu.yml"
+TT, MM = "Configs/Fitter/tes_id/config_coarse_TT.yml", "Configs/Fitter/tes_id/FitSetup_mumu.yml"  # templates (CL §25)
 
 
 def recipe(*stages):
@@ -157,7 +158,7 @@ class PipelineTests(LocalStageTestCase):
         self.assertIn("seconds", progress[1])
 
     def test_failed_command_fails_the_stage(self):
-        self.fitter.fail = "shapes 2025 Tight Tight %s" % (TT)
+        self.fitter.fail = "shapes 2025 Tight Tight %s" % (resolve(TT, None))  # the API gets the template's path
         record = self.framework(SHAPES, connected(FIT, shapes="shapes")).start(run_root=self.root)
         stage = record.stage("shapes")
         self.assertEqual(stage.state, "FAILED")
@@ -562,7 +563,7 @@ class CommandLineTests(LocalStageTestCase):
             self.cli.Framework.from_recipe = real
         tables = [text for kind, text in self.reporter.messages if kind == "table"]
         self.assertIn("['option', 'file', 'from']", tables[0])  # the files the stage reads come first
-        self.assertIn("['configs', 'TauES_ID/config/config_coarse_TT.yml', 'module']", tables[0])
+        self.assertIn(repr(['configs', resolve(TT, None), 'template']), tables[0])  # a Configs/ template (CL §25)
         commands = [text for text in tables if "['#', 'step', 'command']" in text]
         self.assertIn("shapes 2025 VTight Tight", commands[0])
         self.assertIn("Working directory: /repo/Fitter", [t for k, t in self.reporter.messages])

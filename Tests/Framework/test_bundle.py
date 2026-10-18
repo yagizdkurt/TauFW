@@ -12,8 +12,11 @@ import checkout  # noqa: F401  (must precede TauFW imports)
 import fakes
 from TauFW.Framework import Framework, Recipe, RecipeError, RunRecord, SilentReporter
 from TauFW.Framework.bundle import resolve, where, bundle_files, BundleError
+from TauFW.Framework.defaults import CONFIGS_DIR
 from TauFW.Framework.stages import ControlHistsStage, ShapesStage, FitStage
 from test_framework import Clock
+
+TEMPLATE = "Configs/Fitter/tes_id/config_coarse_TT.yml"  # a template of the repository (CL §25)
 
 SHAPES = {"stage": "shapes", "id": "shapes", "inputs": {"tuples": None}, "eras": [2025],
               "jet_wps": ["VTight"], "ele_wps": ["Tight"], "configs": ["tt.yml", "mm.yml"]}
@@ -59,8 +62,15 @@ class PathRuleTests(BundleTestCase):
         self.assertEqual(where("tt.yml", self.bundle), "bundle")
         self.assertEqual(resolve("tt.yml", self.bundle),
                          os.path.normpath(os.path.join(self.bundle, "tt.yml")))
-        self.assertEqual(where("TauES/config/FitSetup_mumu.yml", self.bundle), "module")  # not in the bundle
-        self.assertEqual(resolve("TauES/config/FitSetup_mumu.yml", self.bundle), "TauES/config/FitSetup_mumu.yml")
+        self.assertEqual(where("TauES/config/defaultFitSetup_mumu.yml", self.bundle), "module")  # not in the bundle
+        self.assertEqual(resolve("TauES/config/defaultFitSetup_mumu.yml", self.bundle),
+                         "TauES/config/defaultFitSetup_mumu.yml")
+        template = "Configs/Fitter/tes_id/config_coarse_TT.yml"  # a Configs/ template (CL §25): its absolute path
+        self.assertEqual((where(template, self.bundle), resolve(template, self.bundle)),
+                         ("template", os.path.normpath(os.path.join(os.path.dirname(CONFIGS_DIR), template))))
+        self.assertEqual(where(template, None), "template")  # also without a bundle
+        self.write(template, "a copy")  # a bundle file with the same relative path: the bundle's wins
+        self.assertEqual(where(template, self.bundle), "bundle")
         self.assertEqual(resolve("mutau", self.bundle), "mutau")  # a Histogrammer channel name
         absolute = os.path.join(self.root, "x.yml")
         self.assertEqual((where(absolute, self.bundle), resolve(absolute, self.bundle)), ("absolute", absolute))
@@ -150,10 +160,10 @@ class RunSnapshotTests(BundleTestCase):
 
     def test_recipe_file_without_bundle_files(self):
         path = self.write("plain.json", json.dumps({"name": "plain", "stages": [
-            dict(SHAPES, configs=["TauES_ID/config/config_coarse_TT.yml"])]}), base=self.root)
+            dict(SHAPES, configs=["TauES/config/defaultFitSetupTES_mutau.yml"])]}), base=self.root)
         record = self.framework(Recipe.load(path)).start(run_root=os.path.join(self.root, "runs"))
         self.assertEqual(record.bundle["files"], [])
-        self.assertEqual(self.fitter.call("make_shapes")[0]["configs"], ["TauES_ID/config/config_coarse_TT.yml"])
+        self.assertEqual(self.fitter.call("make_shapes")[0]["configs"], ["TauES/config/defaultFitSetupTES_mutau.yml"])
 
 
 class StageIdTests(BundleTestCase):
@@ -301,29 +311,29 @@ class MakeBundleTests(BundleTestCase):
         self.modules = os.path.join(self.root, "modules")
         self.fitter.basedir = os.path.join(self.modules, "Fitter")
         self.histogrammer.basedir = os.path.join(self.modules, "Histogrammer")
-        for path in ("Fitter/TauES_ID/config/config_coarse_TT.yml", "Fitter/TauES/config/FitSetup_mumu.yml",
-                     "Histogrammer/mutau"):
+        for path in ("Fitter/TauES/config/defaultFitSetup_mumu.yml", "Histogrammer/mutau"):
             self.write(path, "module %s\n" % (path), base=self.modules)
 
-    def test_make_bundle_copies_the_module_configs(self):
+    def test_make_bundle_copies_the_module_configs(self):  # and the Configs/ templates (CL §25)
         source = self.write("old.json", json.dumps({"name": "old", "stages": [
             dict(HISTS, configs=["mutau"]),
-            dict(SHAPES, configs=["TauES_ID/config/config_coarse_TT.yml", "TauES/config/FitSetup_mumu.yml"]),
-            {"stage": "fit", "id": "fit", "inputs": {"shapes": "shapes"},
-             "config": "TauES_ID/config/config_coarse_TT.yml",
-             "config_mumu": "TauES/config/FitSetup_mumu.yml"}]}), base=self.root)
+            dict(SHAPES, configs=[TEMPLATE, "TauES/config/defaultFitSetup_mumu.yml"]),
+            {"stage": "fit", "id": "fit", "inputs": {"shapes": "shapes"}, "config": TEMPLATE,
+             "config_mumu": "TauES/config/defaultFitSetup_mumu.yml"}]}), base=self.root)
         target = os.path.join(self.root, "Analyses", "new_one")
         copied = self.framework(Recipe.load(source)).make_bundle(target)
-        self.assertEqual(copied, ("FitSetup_mumu.yml", "config_coarse_TT.yml",
-                                  "mutau"))
+        self.assertEqual(sorted(copied), ["config_coarse_TT.yml", "defaultFitSetup_mumu.yml", "mutau"])
         recipe = Recipe.load(target)
         self.assertEqual(recipe.name, "new_one")
         self.assertEqual(recipe.stage("fit").options["config"], "config_coarse_TT.yml")
         self.assertEqual(recipe.stage("shapes").options["configs"],
-                         ["config_coarse_TT.yml", "FitSetup_mumu.yml"])
+                         ["config_coarse_TT.yml", "defaultFitSetup_mumu.yml"])
         self.assertEqual(set(bundle_files(recipe)), {os.path.normpath(p) for p in copied})
-        with open(os.path.join(target, "config_coarse_TT.yml")) as stream:
-            self.assertEqual(stream.read(), "module Fitter/TauES_ID/config/config_coarse_TT.yml\n")
+        with open(os.path.join(target, "config_coarse_TT.yml"), "rb") as stream, \
+                open(os.path.join(os.path.dirname(CONFIGS_DIR), TEMPLATE), "rb") as original:
+            self.assertEqual(stream.read(), original.read())  # a template (CL §25) is copied as it is, header and all
+        with open(os.path.join(target, "defaultFitSetup_mumu.yml")) as stream:
+            self.assertEqual(stream.read(), "module Fitter/TauES/config/defaultFitSetup_mumu.yml\n")
         self.assertTrue(os.path.isfile(os.path.join(target, "steps", "example.py")))
         with self.assertRaises(BundleError):
             self.framework(Recipe.load(source)).make_bundle(target)

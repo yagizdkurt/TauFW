@@ -13,8 +13,8 @@
 TAGGER="pnet"          # pnet | upart
 
 case "$TAGGER" in
-  pnet)  CONFIG_TT="TauES_ID/config/config_coarse_PNet.yml";  SUFFIX="pnet"  ;;
-  upart) CONFIG_TT="TauES_ID/config/config_coarse_UParT.yml"; SUFFIX="upart" ;;
+  pnet)  CONFIG_TT="../Configs/Fitter/tes_id/config_coarse_PNet.yml";  SUFFIX="pnet"  ;;
+  upart) CONFIG_TT="../Configs/Fitter/tes_id/config_coarse_UParT.yml"; SUFFIX="upart" ;;
   *) echo "unknown TAGGER=$TAGGER (use pnet|upart)"; exit 1 ;;
 esac
 
@@ -24,7 +24,7 @@ YEARS=("2024") # "2025"
 DMS=("DM0" "DM1" "DM2" "DM10" "DM11" "DMrest")           # 6 PNet/UParT decay-mode bins
 DMS_CSV=$(IFS=,; echo "${DMS[*]}")                       # for plotters that take --dms
 TAG="_DeepTau"                                           # embedded fit tag (see NOTE above)
-CONFIG_MM="TauES/config/FitSetup_mumu.yml"
+CONFIG_MM="../Configs/Fitter/tes_id/FitSetup_mumu.yml"
 
 INPUT_ROOT="input_pt_less_region_${SUFFIX}"                 # produced by run_inputs_pnet.sh
 # NOTE: the fit derives its output tree from the input path as

@@ -14,8 +14,14 @@ The path options of a stage (the fields named in its Spec's `_paths`) and `pico.
 
     absolute path                       ─▶ used as is                                        'absolute'
     relative, a file in the bundle      ─▶ that file of the bundle (not above it: ../x)      'bundle'
-    relative, not in the bundle         ─▶ unchanged: the module resolves it, as before       'module'
+    Configs/..., not in the bundle      ─▶ the template in TauFW/Configs/ (absolute path)    'template'
+    relative, otherwise                 ─▶ unchanged: the module resolves it, as before       'module'
                                            (Fitter/ or Histogrammer/; a channel name such as mutau)
+
+A template (CL §25) is named the same way in every stage, e.g. `Configs/Fitter/tes_id/config_coarse_TT.yml` or
+`Configs/Histogrammer/samples/v15_2025.yml`: the stage's API gets the absolute path, so no module needs to know where
+another module's files are. A run reads a template where it is (like a module file); a bundle copy is what a run
+keeps (taufw.py init copies the templates a recipe names into the new bundle).
 
 When a run starts, the bundle is copied to <run_dir>/bundle/ (same relative paths), and the run reads it from
 there: like the recipe, a run never sees later edits. A bundle (a directory with recipe.yml) is copied whole, so a
@@ -39,7 +45,7 @@ import os
 import shutil
 from dataclasses import replace
 
-from TauFW.Framework.defaults import RECIPE_NAME, DEFAULT_RUN_ROOT
+from TauFW.Framework.defaults import CONFIGS_DIR, RECIPE_NAME, DEFAULT_RUN_ROOT
 
 __all__ = ['resolve', 'where', 'leaves_bundle', 'resolve_spec', 'path_rows', 'bundle_files', 'snapshot',
            'is_bundle', 'make_bundle', 'source_files', 'BundleError', 'STEP_TEMPLATE', 'MAX_BUNDLE_BYTES']
@@ -51,6 +57,7 @@ __all__ = ['resolve', 'where', 'leaves_bundle', 'resolve_spec', 'path_rows', 'bu
 
 MAX_BUNDLE_BYTES = 50 * 1024 * 1024                 # largest bundle a run copies (configs and code, not data)
 SKIPPED_DIRS = ('__pycache__', DEFAULT_RUN_ROOT)    # never copied into a run (nor hidden files and directories)
+TEMPLATES = os.path.basename(CONFIGS_DIR)           # 'Configs': a path option starting with it names a template
 
 
 # =============================================================================
@@ -59,17 +66,22 @@ SKIPPED_DIRS = ('__pycache__', DEFAULT_RUN_ROOT)    # never copied into a run (n
 
 def resolve(value, bundle_dir):
     """The path a stage reads for a path option (see the rule at the top of this file)."""
-    if where(value, bundle_dir) == 'bundle':
+    kind = where(value, bundle_dir)
+    if kind == 'bundle':
         return os.path.normpath(os.path.join(bundle_dir, value))
+    if kind == 'template':
+        return os.path.normpath(os.path.join(os.path.dirname(CONFIGS_DIR), value))
     return value
 
 
 def where(value, bundle_dir):
-    """'absolute', 'bundle' or 'module': which rule applies to a path option."""
+    """'absolute', 'bundle', 'template' or 'module': which rule applies to a path option."""
     if os.path.isabs(value):
         return 'absolute'
     if bundle_dir and not leaves_bundle(value) and os.path.isfile(os.path.join(bundle_dir, value)):
         return 'bundle'
+    if os.path.normpath(value).split(os.sep)[0] == TEMPLATES:
+        return 'template'
     return 'module'
 
 

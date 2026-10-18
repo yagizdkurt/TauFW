@@ -7,8 +7,8 @@ J_VALUES=("VVLoose" "Medium" "Loose" "Tight" "VTight" "VLoose")
 E_VALUES=("Tight" "VVLoose") 
 
 YEAR="2024"
-CONFIG_TT="TauES_ID/config/config_coarse_TT.yml"
-CONFIG_MM="TauES/config/FitSetup_mumu.yml"
+CONFIG_TT="../Configs/Fitter/tes_id/config_coarse_TT.yml"
+CONFIG_MM="../Configs/Fitter/tes_id/FitSetup_mumu.yml"
 
 # Separate I/O tree for the corrTES variant — keep uncorrelated outputs intact
 INPUT_ROOT="input_pt_less_region"           # inputs are shared with the uncorrelated workflow

@@ -2,8 +2,8 @@
 
     from TauFW.Fitter.api import TauESID, ShapesRequest, FitRequest
     fitter  = TauESID()                                          # Fitter/ of this CMSSW area; silent
-    shapes  = ShapesRequest(eras=['2025'], configs=['TauES_ID/config/config_coarse_TT.yml',
-                            'TauES/config/FitSetup_mumu.yml'], jet_wps=['VTight'], ele_wps=['Tight'])
+    shapes  = ShapesRequest(eras=['2025'], configs=['../Configs/Fitter/tes_id/config_coarse_TT.yml',
+                            '../Configs/Fitter/tes_id/FitSetup_mumu.yml'], jet_wps=['VTight'], ele_wps=['Tight'])
     plan    = fitter.plan_shapes(shapes)                         # CommandPlan: nothing runs
     problems = fitter.preflight_shapes(shapes)                   # empty: ready
     report  = fitter.make_shapes(shapes, logdir='logs')          # RunReport: report.ok, report.artifacts

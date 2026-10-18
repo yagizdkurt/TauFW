@@ -301,7 +301,8 @@ follow one rule:
 | --- | --- | --- |
 | Absolute path | Used as is. | `absolute` |
 | Relative path of a file in the bundle | That bundle file, e.g. `config_coarse_TT.yml` next to `recipe.yml`. | `bundle` |
-| Any other relative path | Unchanged: the module resolves it as before, relative to `Fitter/` (e.g. `TauES_ID/config/config_coarse_TT.yml`) or `Histogrammer/` (e.g. `config/setup_mutau.yml`). | `module` |
+| `Configs/...`, not a bundle file | The template in `TauFW/Configs/` (changelog §25), e.g. `Configs/Fitter/tes_id/config_coarse_TT.yml`; the stage's module gets its absolute path. | `template` |
+| Any other relative path | Unchanged: the module resolves it as before, relative to `Fitter/` (e.g. `TauES/config/defaultFitSetupTES_mutau.yml`) or `Histogrammer/`. The old module paths of configs that became templates (`TauES_ID/config/config_coarse_TT.yml`, ...) fail the check with the template's name. | `module` |
 | `controlhists.configs` channel name | `mutau` selects `Configs/Histogrammer/setups/setup_mutau.yml` (the template; a bundle copy is better: `taufw.py init --from` makes one). | `module` |
 
 A bundle file **replaces** the module's config as a whole: the script reads the
@@ -574,7 +575,7 @@ Creates the input shapes for the combined TES + tau ID fit. It wraps the
 | `eras` | Required | Non-empty eras; `-y`. |
 | `jet_wps` | Required | Non-empty DeepTau VSjet working points, for example `[VTight]`; `-j`. |
 | `ele_wps` | Required | Non-empty DeepTau VSe working points, for example `[Tight]`; `-e`. |
-| `configs` | `[TauES_ID/config/config_coarse_TT.yml, TauES/config/FitSetup_mumu.yml]` | Non-empty configs (bundle files, or relative to `Fitter/`): by default the mutau fit and mumu control region. |
+| `configs` | `[Configs/Fitter/tes_id/config_coarse_TT.yml, Configs/Fitter/tes_id/FitSetup_mumu.yml]` | Non-empty configs (bundle files, `Configs/` templates, or relative to `Fitter/`): by default the mutau fit and mumu control region. |
 | `serial` | `false` | Serial shape creation; `-s`. |
 | `timeout` | `null` | Seconds per shape-creation command; unset means no time limit. |
 | `samples` | `[]` | Sample model files of the bundle (or absolute), one per era: copies of `Configs/Histogrammer/samples/v15_<era>.yml` (MC table, data, MC weights, stitching); `--samples`. Empty: the tables of `Histogrammer/config/samples_v15.py` (old recipes). See [Which samples](#which-samples). |
@@ -599,8 +600,8 @@ and transverse-momentum region, with the Z→μμ control region.
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `config` | `TauES_ID/config/config_coarse_TT.yml` | Mutau fit config (a bundle file, or relative to `Fitter/`). |
-| `config_mumu` | `TauES/config/FitSetup_mumu.yml` | Mumu control-region config (a bundle file, or relative to `Fitter/`). |
+| `config` | `Configs/Fitter/tes_id/config_coarse_TT.yml` | Mutau fit config (a bundle file, a `Configs/` template, or relative to `Fitter/`). |
+| `config_mumu` | `Configs/Fitter/tes_id/FitSetup_mumu.yml` | Mumu control-region config (a bundle file, a `Configs/` template, or relative to `Fitter/`). |
 | `eras` | `[]` | Eras to fit; when inferring points, empty allows every upstream era. |
 | `jet_wps` | `[]` | VSjet working points; empty together with `ele_wps` means infer points from the input's histogram artifacts. |
 | `ele_wps` | `[]` | VSe working points; supply both WP lists or leave both empty. |
@@ -722,8 +723,8 @@ stages:
     eras: ["2025"]
     jet_wps: [VTight]
     ele_wps: [Tight]
-    config: TauES_ID/config/config_coarse_TT.yml
-    config_mumu: TauES/config/FitSetup_mumu.yml
+    config: Configs/Fitter/tes_id/config_coarse_TT.yml
+    config_mumu: Configs/Fitter/tes_id/FitSetup_mumu.yml
     steps: [fit, postfit, plots, corrections, summary]
     impacts: false
 ```
