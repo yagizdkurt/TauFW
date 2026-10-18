@@ -57,13 +57,11 @@ Items marked **(verify)** may already be done; check before working on them.
       taufw.py plan Analyses/tes_id_2025` (77 lines) the same at `1e4eb77` (before H3), `63f299c` and `e64dfe5`;
       `grep -rn Histogrammer Fitter/python` nothing. (`taufw.py` is not on PATH on lxplus: `python3 taufw.py` in
       `TauFW/`.)
-- [ ] **TES shapes on real data, old code against new (CL §22, H4).** A shapes-only recipe `~/h4/shapes.yml`
-      (the tuples, configs and sample file of `tes_id_2025`, absolute), started three times with `--run-root`:
-      `~/h4/old` in a second CMSSW area at `0c611f4` (before H1), `~/h4/new1` and `~/h4/new2` with HEAD (~3.5 h
-      each; tmux, `kinit && aklog`, `fs lq ~` first). Then `python3 Tests/tools/compare_shapefiles.py` new1 against
-      new2 (the noise), old against new1 with `--rtol` above the noise: every file and key the same, contents within
-      the tolerance, the LTF family with content. Then `python3 taufw.py check`/`plan` of `tes_id_2025` and
-      `example_mutau_long`.
+- [x] **TES shapes on real data, old code against new (CL §22, H4).** Done 2026-10-19 on lxplus: the shapes-only
+      recipe `~/h4/shapes.yml` (tuples, configs, sample file of `tes_id_2025`) with the code before H1 (`0c611f4`, a
+      second CMSSW area) and twice with HEAD: old against new 43 files, every key the same, 775 histograms SAME within
+      1e-12 (largest 5e-13; LTF 96 histograms with content); new against new (the noise) largest 1.07e-12. `check`/
+      `plan` of `tes_id_2025` and `example_mutau_long`: no problems.
 - [ ] **Bug fixes of 2026-10-18:** `python3 Tests/Utilities/test_background.py` five times in a row and once inside
       `python3 Tests/run.py checks` (the flaky cancel test, §7); `taufw.py plan Analyses/no_such_recipe` prints one
       line, no traceback (Framework BUGS K06).
@@ -453,7 +451,8 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
 - [ ] `Tests/PicoProducer/testSFs.py` still imports the legacy `MuonSFs_ROOT`. Nice to have.
 - [ ] BBB `histogrammer.tes_inputs` (CL §22): `ZL`/`TTL`, so the content of the LTF shape systematics, are zero in every
       region (no opposite-sign fixture event with `genmatch_2` 1-4 passes the baseline); the LTF variation files are
-      read, their filled content is not covered (user decision 2026-10-18: accepted; real data covers it in step 2 H4).
+      read, their filled content is not covered (user decision 2026-10-18: accepted; real data covered it in step 2 H4,
+      CL §22: 96 LTF histograms with content, the same as the old code within the noise).
       When the case is re-locked anyway (migration point, or a bug fix that changes it), also cycle `genmatch_2` in
       `_tes_events`.
 - [ ] Utilities menu tests depend on the terminal and colors (quiet-runner changelog section removed); the later menu commits may have fixed this

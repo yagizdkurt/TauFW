@@ -94,3 +94,6 @@ read again from that file's cutflow. A missing file is only a warning when the s
   substitution (no `idDeepTau*` branches in the fixture) and the content of the LTF shapes (`ZL`, `TTL` are empty in
   the fixture's selection; TODO §7).
 - BBB `fitter.shapes`, `fitter.rebin`: the writer (`createinputs`) and `rebinning` on their own.
+- Real data (CL §22, H4, 2026-10-19): `Tests/tools/compare_shapefiles.py` compares two output directories (file
+  names, every key, histograms in full, with a tolerance); the 2025 shapes of the code before and after step 2 were
+  the same within the run-to-run noise of the fill, the LTF shapes included.

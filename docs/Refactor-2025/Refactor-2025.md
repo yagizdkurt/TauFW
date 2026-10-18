@@ -1128,11 +1128,11 @@ before is written the same.
 
 Checked (lxplus): `bbb check` 22/22 without re-lock, `checks`.
 
-## 22. TES shapes leave the Fitter for the Histogrammer (in progress)
+## 22. TES shapes leave the Fitter for the Histogrammer
 
 **Date:** 2026-10-18
-**Status:** H0 (lock `f3079fa`), H1, H2 and H3 (`63f299c`) done and checked on lxplus; H4 (real-data comparison) to
-come.
+**Status:** done. H0-H3 checked on lxplus (BBB 23/23 without re-lock after every step); H4 (2026-10-19): real 2025
+shapes of the old and the new code the same within the run-to-run noise.
 
 The next step of the module isolation: the code that fills the TES/ID input histograms
 (`Fitter/TauES/createinputsTES.py`, `Fitter/python/plot/datacard.py`, `rebinning.py`) imports nothing of the fit;
@@ -1143,6 +1143,33 @@ to `Histogrammer/shapes/<Variant>/`; a `TESShapes` API, recipe unchanged; run sc
 legacy stubs at the old script paths print the new command; recipes naming the old config paths fail with a
 message, no name map; `Fitter/MuTauFR/createinputs.py` stays; what is out of scope is listed in TODO §0. Same method
 as before: lock with the old code first, move byte for byte, prove equality.
+
+### Result
+
+What the TES/ID chain looks like after §22:
+
+```text
+pico tuples ──▶ Histogrammer ──────────────────▶ input_pt_less_region/.../ztt_<ch>_tes_<obs>.inputs-<era>-13TeV<tag>.root ──▶ Fitter
+                shapes/TauES/createinputsTES.py   contract docs/contracts/tes-shapes.md                                     run_workflow_zmm.sh steps
+                (TauFW.Histogrammer.shapes)       channel configs Configs/Fitter/tes_id/ (read by both)
+Framework:      shapes (API TESShapes)            the files are the artifacts                                               fit (API TauESID)
+```
+
+- **Proof that nothing changed:** BBB 23/23 without re-lock after H1, H2 and H3 (the new case
+  `histogrammer.tes_inputs`, locked with the old script in H0; the old code in a worktree gives the same payloads);
+  `taufw.py plan` of `tes_id_2025` unchanged by H2 and H3; real 2025 data (H4): the shapes stage with the code before
+  H1 and with HEAD gives the same 43 files, the same keys in its 4 ROOT files and 775 histograms within 1e-12, the
+  largest difference 5e-13, below the 1.07e-12 between two runs of the same code (the multithreaded fill). The LTF
+  shapes, empty in the BBB fixture, are covered there (96 histograms with content).
+- **Coupling** (`check_import_boundaries`): 30 / 28 / 26 before, 25 / 23 / 21 after H1, 0 new pairs. Fitter ->
+  Histogrammer 6 -> 1 (`Fitter/MuTauFR/createinputs.py`, D11). No Fitter file names a Histogrammer path; the two
+  sides share the file contract and the channel configs.
+- **Kept on purpose, deleted at the migration point (TODO §8):** the five LEGACY stubs at the old script paths,
+  `stages.MOVED_CONFIGS` (the message for the old config paths in recipes).
+- **Registered, not fixed:** Histogrammer BUGS L18-L24 (`createinputsTES.py`, `rebinning`), Fitter BUGS F26; the
+  extension of the BBB case to LTF content at the next legitimate re-lock (TODO §7).
+- **Next:** TODO §0: the variation tuples in the shapes preflight (D8), then the items left out of step 2 (D7);
+  then step 3 of the isolation plan (data contracts).
 
 ### Lock and contract (H0)
 
@@ -1278,7 +1305,9 @@ Checked (lxplus, 2026-10-18): `bbb check` 23/23 without re-lock; `checks` 14/15 
 empty, 77 lines; the shapes stage runs `Histogrammer/shapes/TauES/createinputsTES.py`); `grep -rn Histogrammer
 Fitter/python` finds nothing.
 
-### Real-data comparison (H4, in progress)
+### Real-data comparison (H4)
+
+**Date:** 2026-10-18/19, lxplus.
 
 - `Tests/tools/compare_shapefiles.py DIR_A DIR_B [--rtol] [--atol]` (new): two output directories of
   `createinputsTES.py` (stage directories, or `Fitter/` after `run_inputs.sh`): the same file names on both sides
@@ -1292,3 +1321,20 @@ Fitter/python` finds nothing.
   a `git worktree` cannot run it, the old script imports `TauFW.Fitter.plot.datacard`, which the area's `TauFW`
   package no longer has) and two with HEAD (their difference is the noise of the multithreaded fill; the script is
   byte-identical, so the noise is the same for both codes); the same tuples, configs and sample file for all three.
+- Runs (lxplus, 2026-10-18): the shapes-only recipe `~/h4/shapes.yml` (the tuples, configs and sample file of
+  `tes_id_2025`, absolute paths) started with `--run-root` in two CMSSW areas at the same time: `old` (`0c611f4`,
+  `Fitter/TauES/createinputsTES.py` through the Fitter API) and `new1` (HEAD, `Histogrammer/shapes/TauES/
+  createinputsTES.py` through `TESShapes`); mutau 10690 s / 10709 s, mumu 2023 s / 1998 s; both DONE with 2
+  artifacts; 2.2 MB per stage directory.
+- **Old against new:** 43 files on each side, the same names; 4 ROOT files with every directory and key the same;
+  775 histograms (nominal 295, TES points 240, LTF 96, JTF 144), every one with content. Exactly: 16514 numbers
+  differ, all in the last digits (e.g. a mumu `QCD` bin 4958.769128053072 against 4958.769128053067); with `--rtol
+  1e-12`: SAME. Largest relative difference per family: nominal 5e-13, TES 7.7e-15, LTF 4.2e-15, JTF 7.3e-14, the
+  level of the run-to-run noise measured before (CL §21: 1.9e-13 and 6.5e-13 between two runs of the same code).
+  The LTF shapes, empty in the BBB fixture (TODO §7), are compared here with content.
+- **Noise:** a third run, `new2` (HEAD, alone on the node: mutau 5234 s, mumu 1016 s), against `new1`: the same 43
+  files and keys, 16682 numbers in the last digits; largest relative difference nominal 1.07e-12 (the subtracted
+  `QCD`), TES 9.3e-15, LTF 5.0e-15, JTF 7.3e-14. So old against new (5e-13) differs less than the same code run twice:
+  the move changed no number beyond the noise of the fill.
+- `taufw.py check` and `plan` of `tes_id_2025` and `example_mutau_long`: no problems (only the run_root warnings).
+- The second CMSSW area (`~/h4/CMSSW_14_1_0_pre4`) and the runs in `~/h4/` are not needed any more.
