@@ -28,10 +28,10 @@ What is still open is listed in [TODO.md](TODO.md). Other documents cite its sec
 | 17 | [Framework: Plotter and Fitter outputs in the run directory](#17-framework-plotter-and-fitter-outputs-in-the-run-directory) |
 | 18 | [Framework: tuples as an input, production writes into the run, run_root](#18-framework-tuples-as-an-input-production-writes-into-the-run-run_root) |
 | 19 | [Framework: inputs from another run's stage directory, repeated stages](#19-framework-inputs-from-another-runs-stage-directory-repeated-stages) |
-| 20 | [Menu: commands run beside the screen; the test screen; Framework events](#20-menu-commands-run-beside-the-screen-the-test-screen-framework-events) |
+| 20 | [Menu and UI](#20-menu-and-ui) |
 | 21 | [Configs: config templates with an id, a version and a lock](#21-configs-config-templates-with-an-id-a-version-and-a-lock) |
 | 22 | [Sample lists as data: the sample model](#22-sample-lists-as-data-the-sample-model) |
-| 23 | [Menu: operations run behind the menu](#23-menu-operations-run-behind-the-menu) |
+| 23 | [Menu: operations run behind the menu](#23-menu-operations-run-behind-the-menu) (merged into §20) |
 | 24 | [Plotter becomes Histogrammer; a clean Plotter is extracted](#24-plotter-becomes-histogrammer-a-clean-plotter-is-extracted) |
 
 The reference environment for all of this is `CMSSW_14_1_0_pre4` (Python 3.9, ROOT 6.30).
@@ -563,17 +563,15 @@ problem of a recipe is shown at once. Run behaviour is unchanged otherwise.
 - **Validation collects every problem.** `Recipe.parse()` returns `Issue`s (location + message); `Recipe.load()` /
   `from_dict()` raise one `RecipeError` that lists them all (its `.issues`). `validation.check_recipe()` adds the files a
   recipe names (`pico.config`, absolute paths, python step files) and never raises. `taufw.py check RECIPE` prints the
-  problems (exit 1); `taufw.py` prints a `RecipeError` without a traceback. The menu checks every recipe when the list
-  opens: a recipe with problems is red, and its preview lists the problems above the stage cards (which now show the
-  stage type and description). Unknown options of one stage are reported together.
+  problems (exit 1); `taufw.py` prints a `RecipeError` without a traceback; the menu shows them too. Unknown options of
+  one stage are reported together.
 - **Bundles:** `example_mutau`, `tes_id_2025` (and `steps/fit_summary.py`, which uses `ctx.input('fit')`) follow the new
   format. `Analyses/example_broken/` is a deliberately invalid recipe that demonstrates the four kinds of problems.
 
 ### Tests
 
-New unit cases (`Tests/Framework/test_validation.py` and the menu tests): every input error, duplicate ids, a stage
-that does not see an unnamed earlier stage, a python step without inputs, `taufw.py check`, broken recipes red in the
-menu, the bundled analyses valid. The recipe of the BBB case `framework.production` (`Tests/BBB/cases.py`) gets `id:
+New unit cases (`Tests/Framework/test_validation.py`): every input error, duplicate ids, a stage that does not see an
+unnamed earlier stage, a python step without inputs, `taufw.py check`, the bundled analyses valid. The recipe of the BBB case `framework.production` (`Tests/BBB/cases.py`) gets `id:
 production` and `inputs: null`; its output changes on purpose: the `plan` lines (`=== Stage production (production)
 ===` and a new `Inputs: none` line) and the recipe in the recorded `run.json` (`id`, `inputs` keys).
 
@@ -665,13 +663,12 @@ visible in the recipe.
 ### Recipe warnings and `run_root`
 
 - **Warnings:** a recipe can have warnings besides its problems (it runs, but should change). `check` prints them and
-  exits 0; `plan`, `start` and the menu preview show them; the recipe is not red.
+  exits 0; `plan`, `start` and the menu show them.
 - **`run_root`** (top-level key): the parent directory of the runs; `start --run-root` takes precedence; without both,
   `taufw_runs/` in the working directory with a warning. It must be absolute, not a URL, and outside the bundle; `~`
   and `$VARIABLES` are expanded with a warning. `plan` and `start` print the directory and where it comes from.
 - **Write check:** before `start` with a run root and before every `advance`, the Framework writes and removes a small
   file there; on failure `RunDirectoryError` and nothing is started or moved.
-- The menu's "Continue an existing run" also lists the runs in the `run_root` of every recipe in `Analyses/`.
 
 ### `--tuples` for the scripts and the APIs
 
@@ -773,44 +770,34 @@ the known stages in messages.
 
 ---
 
-## 20. Menu: commands run beside the screen; the test screen; Framework events
+## 20. Menu and UI
 
-**Date:** 2026-10-17
-**Status:** Windows tests pass; lxplus check in TODO §1 "Test screen on lxplus"
+**Dates:** 2026-10-17 to 2026-10-18
+**Status:** the test screen and the operations behind the menu are in use; the run screens exist only in the UI
+preview until the run lock lands (TODO §6 "Menu as a program"). lxplus checks: TODO §1.
 
-The menu should work like a program: an operation must not print into the terminal or block the screen. A long
-operation therefore runs as its own process (the existing CLI command, unchanged) with stdin `/dev/null`, stdout and
-stderr in a log file, and its progress as events in a second file; the screen follows both files. Only this keeps the
-screen intact: ROOT and C++ write to the file descriptor, which no Python redirection catches.
+The menu works like a program: a long operation (tests now, runs later) never prints into the terminal or blocks the
+screen, and leaving a screen does not stop it.
 
-### Infrastructure (`TauFW.Utilities.Process`)
+- **Operations behind the menu** (`TauFW.Utilities.Process`): the existing CLI command runs as its own process under
+  a small supervisor (standard library only), with stdin `/dev/null` and its output in a log file (ROOT and C++ write
+  to the file descriptor, which no Python redirection catches). The supervisor writes a heartbeat and the exit status
+  to files and stops the command when a `stop` or `kill` file appears, so any menu, also on another lxplus machine
+  (AFS), can follow or stop it. `Operation.state()` gives DONE, FAILED, STOPPED, RUNNING, STOPPING, or LOST when the
+  heartbeat is too old (lxplus may kill processes at logout). Esc leaves an operation running; stopping it or quitting
+  the menu while something runs asks first. One test run at a time.
+- **Progress as events:** one JSON object per line in the file named by `$TAUFW_EVENTS`. `Tests/run.py` and the BBB
+  runner report their cases this way, `taufw.py` its runs, stages and commands (`EventReporter`). Without the
+  variable the terminal output and `run.log` are unchanged (checked byte for byte); `taufw.py` removes it from the
+  environment, so stage commands and batch jobs never see it.
+- **Screens:** the test screen and the run screen share one core (`Utilities/python/Menu/_operation_screen.py`); the
+  Menu imports no Framework module. Tests > UI preview shows every screen with made-up data.
+- The recipe list shows each recipe's problems and warnings (§15, §18); "Continue an existing run" also lists the
+  runs in every recipe's `run_root` (§18).
 
-- `_events.py`: one JSON object per line, `{"t": <unix time>, "kind": ...}`, in the file named by `$TAUFW_EVENTS`.
-  `EventWriter` opens and closes the file per event (AFS shows changes only after a close); `EventReader` and
-  `LogTail` read incrementally, survive truncation, handle `\r` progress bars and split UTF-8, and keep memory bounded.
-- `_background.py`: `BackgroundProcess`, for commands that live only as long as their screen (the menu's tests and
-  runs use the supervised operations of §23).
-
-### Tests report events; the test screen
-
-- `Tests/run.py` and `Tests/BBB/runner.py` emit `suite`, `case_start`, `case_end`, `summary`, `warning`, `error`
-  (`Tests/support/events.py` repeats the protocol so the runner works without TauFW; a test checks both sides agree).
-  Without `$TAUFW_EVENTS` the terminal output is unchanged.
-- The test screen: the cases with `[PASS]/[FAIL]/[SKIP]/[ RUN]`, times and counts, the focused case's details and
-  live log, Enter for the whole case log, L for the runner output. It replaces the in-terminal test run.
-
-### Framework events (`EventReporter`)
-
-`taufw.py` reports what it does as events, so a run screen can follow a `start`/`advance` started beside it. Nothing
-reads them yet; the terminal output and `run.log` do not change (checked byte for byte).
-
-- `Reporter.event(kind, **fields)` is ignored by default; `EventReporter(reporter, writer)` passes every call on and
-  also writes headers, messages, warnings, tables and events. Events: `run`, `stage_step`, `stage_state`, `run_state`,
-  `wait`, `progress` (every command of plots, histograms, fit and python), `error`; listed in `reporting.py`.
-- `taufw.py` reads `$TAUFW_EVENTS` once and removes it from the environment, so stage commands and batch jobs never see
-  it. BBB `framework.*` runs without it.
-
-Open: the run screens (TODO §6 "Menu as a program").
+Checked: unit tests for the supervisor (exit codes, heartbeat, stop, kill, every state), the events and the screens;
+on Windows a test run behind the menu, followed from a second menu. Process groups, signals and curses on a real
+terminal: TODO §1.
 
 ---
 
@@ -884,122 +871,7 @@ RDataFrame noise; `data_obs` bit-identical); `plan` of `example_mutau_long` list
 
 ## 23. Menu: operations run behind the menu
 
-**Date:** 2026-10-17
-**Status:** Windows tests pass; lxplus check in TODO §1 "Tests behind the menu on lxplus"
-
-Leaving a screen must never kill what it shows: tests (now) and runs (next) go on behind the menu, which shows their
-state ("Tests (Running 12/40)", "Tests (Failed: 3)") and opens their screen again. In §20 the menu was the commands'
-parent; now a supervisor runs them and keeps everything in files.
-
-### Decisions (2026-10-17)
-
-- Esc never stops an operation; S or Ctrl-C asks, then stops it. Quitting the menu while something runs warns: C stay,
-  S stop all and quit, Q quit and leave it running.
-- Running on after the login session ends is not a goal (lxplus may kill processes at logout); such an operation is
-  shown as **Lost**. One test run at a time. The last five records of a kind are kept.
-- For runs (later): a lock in `Framework.advance`, refused while held on another machine and taken over only on
-  request when Lost; a stop never kills job submission halfway (`escalate=False`); `plan`/`status`/`check` move
-  beside the screen.
-
-### Supervised operations (`Utilities/python/Process/`)
-
-- `_supervisor.py` (standard library only): starts the command in its own process group, writes `heartbeat.json`,
-  reacts to the files `stop` and `kill`, and writes `exit.json` at the end. A stop is a file, so any menu can stop an
-  operation, also from another lxplus machine (AFS). JSON files are written atomically.
-- `_operations.py`: `OperationStore` starts, lists and prunes operations under `<root>/<kind>-<time>/`; `Operation`
-  reads their files and gives `state()`: DONE / FAILED / STOPPED from `exit.json`, else RUNNING / STOPPING, or LOST
-  when the heartbeat is older than 120 s or the supervisor is gone.
-
-### The menu
-
-- Operations live in `<checkout>/.artifacts/menu/operations` (git-ignored). Starting tests while a run is running is
-  refused, naming the host.
-- The main menu labels Tests with the last run's state; Tests reopens the live screen while a run runs, otherwise the
-  Tests menu starts with "Last run: <title> (<state>)". Exit goes through the quit warning.
-- The test screen follows an `Operation`; a run started on another machine shows "RUNNING on <host>", a Lost run
-  explains why.
-- "Run all automated tests" (found on lxplus 2026-10-18): the total is now known from the start, and a case in two
-  families is labelled "suite: id" ("normal: plotter.unroll", "bbb: plotter.unroll").
-
-### UI preview (2026-10-18)
-
-Tests > **UI preview (mock screens)** shows every menu screen with made-up data, so a screen can be looked at (and
-its design discussed) without a run: Left/Right switch screens, R shows the current one again (a made-up run starts
-over), Esc on a screen leaves the preview; any other answer shows the same screen again with the answer in the bar on
-the last line. `Utilities/python/Menu/_preview.py`: the screens are the real `ConsoleUI` methods, drawn in one curses
-session (the preview's curses stand-in hands its screen to each screen's `wrapper()`); a made-up test run is an
-`Operation` whose events, output and case logs a script writes while the screen reads them (running, failed, on
-another machine, lost; S stops it). Nothing is started and nothing is written outside a temporary directory. It is
-not a test family; `Tests/Utilities/test_preview.py` checks that every scenario draws, the keys, and the made-up
-runs. The run screens (TODO §6 "Menu as a program") are added to it as they are designed, before they are wired to
-Start and Continue.
-
-### Shared operation screen (2026-10-18)
-
-The test screen is split: `Utilities/python/Menu/_operation_screen.py` holds the layout and keys of a screen
-that follows an operation (state line, list + Details + the focused item's log, Output view, stop question, Esc keeps
-it running); a model (`ScreenModel`) supplies the items and the words. `_test_run.py` keeps only `TestRun`, now the
-model of the test screen (cases, "Stop the tests?", PASSED for DONE), `follow_tests` and `test_summary`. The run
-screen will be a second model. The model lives in the Menu, not in the Framework: it reads only the events (plain
-JSON), so the Menu still imports no Framework module; the Framework will supply the stages of `run.json` as plain
-data when the screen is wired. Checked: the test screen draws the same, character for character, before and after
-the split; `Tests/Utilities/test_operation_screen.py` (new) drives the core with a model that is not about tests.
-
-### Run screen, in the preview only (2026-10-18)
-
-`Utilities/python/Menu/_run_screen.py`: `RunProgress`, the second model of the operation screen, and
-`ConsoleUI.run_progress(title, operation)`. Not wired to Start and Continue (that waits for the run lock, TODO §6). It
-starts from the stages as `run.json` had them (`operation.data`: run_id, run_dir, stages as plain data, which the
-Framework will supply) and follows the §20 events: a stage row is marker, id and state (`running 3/7 mumu 2025` while
-a step works), Details the state, message, the local commands (`progress`) and, with Keep checking, "Next check in
-07:12" (`wait`); the log is the focused stage's last command log (needs the planned `log` of `progress`). Beside the
-list, a box shows the focused stage's facts ("Info: plots": type, config, inputs, channels, output, ...; on a narrow
-terminal at the top of the Details instead); the Framework will choose them per stage type at the wiring, the preview
-makes them up. The state line says what became of the run (COMPLETE, WAITING FOR JOBS, FAILED, BLOCKED, STOPPED,
-LOST), and once the advance ended a result card sits above the list: run complete (start and end time), waiting for
-jobs, failed at <stage> (its message, with the log path), stopped during <stage> (n/N commands finished), lost; each
-with the full run directory. Three hooks were added to the core for it (the test screen does not use them; it draws
-the same): `current()`, the stage the focus follows until the user moves it, `card()` and `info(item)`.
-
-The preview gained seven screens: an advance (live, about 40 s, ends complete), Keep checking with jobs running
-(live; the countdown and a check every 15 s), and the result cards (complete, waiting for jobs after Advance once,
-failed, stopped, lost). Its made-up operations now write their events with the time of their script, so an ended
-run shows real durations. `Tests/Utilities/test_run_screen.py` (new): stages from data and events, rows, Details,
-the countdown, every card and state line, the console screen.
-
-### Runs in the menus, in the preview only (2026-10-18)
-
-The menu screens for advances behind the menu, not wired yet (`Framework/python/interactive.py` does not pass
-them): `main_menu(runs=...)` shows one advance as a line of its own below Continue, "Run tes_2025 (3/5 plots, 5/7)",
-"(1/5 ntuples, waiting for jobs)", "(Failed at plots)", "(Lost - Continue to resume)" (action `run`), several as
-"Runs (1 active, 1 ended)" (action `runs`, red if one failed or was lost) with `active_runs()` to choose one;
-`select_run(summaries, advances=...)` adds "| advancing: 3/5 plots, 5/7" to the row of a run that advances;
-`run_lock(run_id, lock)` explains a held run lock ("An advance of this run is already running on <host> since ...
-(pid ...)", Esc) or offers to take over a lost one (T). `run_summary(operation)` (`_run_screen.py`) is the text of
-an advance for these menus and for the quit warning. All of these screens are in the preview.
-
-Left for the wiring (with the run lock, TODO §6): which runs the menu passes (running advances, and ended ones until
-their card was seen once: a `seen` file in the operation directory), the `run`/`runs` actions, Continue on an
-advancing run opening its screen, and the lock record that `run_lock()` shows.
-
-### Operation screens: a TauFW badge in the corner (2026-10-18)
-
-The test and run screens draw a small framed wordmark on rows 0-2 instead of "TauFW V0.0": `+-------+` /
-`| TauFW |` / `+-V0.0--+` (`banner.BADGE`, wider for a longer version). The title moves beside it (column 12), the
-state line stays on the right of row 1, and one too long for it goes to row 2 beside the badge (was column 1). The
-panels still start on row 3, so no screen loses a line; no width rule (9 columns fit every terminal the screen
-accepts). `_header(..., badge=True)` draws it; the other menu screens keep the plain header for now. Colors: frame
-`accent`, TauFW purple and bold, the version gold (256-color 135 and 178, else magenta and yellow: on an 8-color
-terminal the version shares the `warning` yellow); new roles `brand` and `version`, pairs 9 and 10. Only the TauFW
-name: no CERN or CMS name or logo. The UI preview frames differ from before on rows 0-2 of the operation screens
-only.
-
-### Checked
-
-`Tests/Utilities/test_operations.py` (new): supervisor exit codes, heartbeat, stop, kill, SIGTERM, every state, a real
-start; the menu tests follow the new behavior. End to end on Windows: a test run through the supervisor, a refused
-second start, a second menu that found it and followed its label to the end. Not checked here: process groups and
-signals, curses on a real terminal (TODO §1).
+Merged into [§20](#20-menu-and-ui).
 
 ---
 
