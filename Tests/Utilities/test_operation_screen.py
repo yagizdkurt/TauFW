@@ -29,7 +29,7 @@ class Stages(ScreenModel):
     def feed(self, events):
         self.stages += [event["name"] for event in events]
 
-    def finish(self, returncode, lost=False):
+    def finish(self, returncode, lost=False, state=None):
         self.ended = (returncode, lost)
 
     def items(self):

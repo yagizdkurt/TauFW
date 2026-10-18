@@ -575,6 +575,13 @@ class ConsoleUI:
         from ._test_run import follow_tests
         return self.curses.wrapper(lambda screen: follow_tests(self, screen, title, process, expected))
 
+    def run_progress(self, title, process):
+        """Follow an advance of a run (an Operation whose data holds run_id, run_dir and stages) until the user
+        leaves; it goes on behind the menu. Return its exit code (None while it runs). Not wired to Start and
+        Continue yet (TODO.md, "Menu as a program"); the UI preview shows it."""
+        from ._run_screen import follow_run  # imported here: see test_run()
+        return self.curses.wrapper(lambda screen: follow_run(self, screen, title, process))
+
     def preview(self):
         """Every screen with made-up data (Tests > UI preview); Left/Right switch screens, Esc leaves."""
         from ._preview import preview  # imported here: see test_run()

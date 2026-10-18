@@ -117,7 +117,8 @@ class MockOperationTests(unittest.TestCase):
         clock.now += 2.0
         self.assertEqual((operation.state(), operation.returncode), ("STOPPED", 130))
         failed = _tests(self.directory(), "failed", clock=clock)
-        self.assertEqual((failed.state(), failed.elapsed()), ("FAILED", 60.0))
+        self.assertEqual(failed.state(), "FAILED")
+        self.assertLess(failed.elapsed(), 60.0)  # it ended when its script did, not now
         self.assertIn("FAIL", [event.get("status") for event in failed.events.read()])
         self.assertEqual(_tests(self.directory(), "lost", clock=clock).state(), "LOST")
         remote = _tests(self.directory(), "remote", clock=clock)

@@ -62,7 +62,7 @@ class TestRun(ScreenModel):
             if handler:
                 handler(event)
 
-    def finish(self, returncode, lost=False):
+    def finish(self, returncode, lost=False, state=None):
         """The run ended (lost: it was lost, see LOST_TEXT): a case still running was stopped with it."""
         for case in self.cases.values():
             if case["status"] == "RUN":

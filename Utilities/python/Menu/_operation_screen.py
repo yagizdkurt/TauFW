@@ -14,7 +14,9 @@ Leaving it (Esc) never stops the operation; S or Ctrl-C asks (model.stop_questio
 then stops it. No Framework imports belong here (see _test_run.py).
 
 A model (see ScreenModel) holds the words of its screen and turns events into
-items; the screen keeps only where the user is (_View).
+items; the screen keeps only where the user is (_View). Two hooks a model may
+use: current() is the item the focus follows until the user moves it (the one
+at work), card() a result card drawn above the list (once it ended).
 """
 import re
 
@@ -54,8 +56,8 @@ class ScreenModel:
     def feed(self, events):
         """Take the events read since the last call."""
 
-    def finish(self, returncode, lost=False):
-        """The operation ended (lost: it was lost); called once."""
+    def finish(self, returncode, lost=False, state=None):
+        """The operation ended (lost: it was lost; state: DONE, FAILED, STOPPED or LOST); called once."""
 
     def items(self):
         """The list, in order."""
@@ -81,6 +83,14 @@ class ScreenModel:
         """The text after the state and the time on the state line."""
         return ""
 
+    def current(self):
+        """The index of the item the focus follows until the user moves it, or None."""
+        return None
+
+    def card(self):
+        """(title, [(text, role)]) of a card drawn above the list, or None."""
+        return None
+
     def __init__(self):
         self.messages = []
 
@@ -102,8 +112,11 @@ def follow(ui, screen, title, process, model):
                 model.feed(process.events.read())
             process.output.read()
             if state not in ACTIVE and not view.finished:
-                model.finish(process.returncode, lost=state == LOST)
+                model.finish(process.returncode, lost=state == LOST, state=state)
                 view.finished = True
+            current = model.current() if view.follow else None
+            if current is not None:
+                view.focus = current
             _draw(ui, screen, title, process, model, view, state)
             key = screen.getch()
         except KeyboardInterrupt:
@@ -123,6 +136,7 @@ class _View:
     def __init__(self):
         self.mode = "items"     # items | item | output
         self.focus = 0
+        self.follow = True      # the focus follows model.current() until the user moves it
         self.offset = None      # first line of a log view; None: follow the end
         self.end = 0            # the first line of the last page of the log view
         self.page = 1           # lines of the log view
@@ -164,6 +178,13 @@ def _items(ui, screen, model, items, view, height, width):
     for role, text in model.messages[-2:]:
         ui._line(screen, top, 1, ("! " + printable(text))[:width - 2], color=ui.styles.get(role, 0))
         top += 1
+    card = model.card()
+    if card is not None:
+        lines = [(part, role) for text, role in card[1] for part in ui._wrap(text, width - 6)][:max(1, height // 3)]
+        inner = ui._panel(screen, top, 1, len(lines) + 2, width - 2, card[0])
+        for index, (text, role) in enumerate(lines):
+            ui._line(screen, inner[0] + index, inner[1], text, color=ui.styles.get(role, 0))
+        top += len(lines) + 2
     list_height = max(4, (height - top - 3) // 2)
     rect = ui._panel(screen, top, 1, list_height, width - 2, model.list_title)
     row, left, rows, columns = rect
@@ -241,6 +262,7 @@ def _key(ui, key, process, model, view, state):
     elif view.mode == "items" and items:
         if key in (curses.KEY_UP, curses.KEY_DOWN):
             view.focus = (view.focus + (1 if key == curses.KEY_DOWN else -1)) % len(items)
+            view.follow = False
         elif key in (10, 13, curses.KEY_ENTER):
             view.mode, view.offset = "item", None
     else:

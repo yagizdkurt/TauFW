@@ -18,6 +18,7 @@ check that every scenario draws. No Framework imports belong here; _menu.py
 imports this module only when the preview opens (see ConsoleUI.test_run()).
 """
 import collections
+import json
 import os
 import socket
 import tempfile
@@ -25,7 +26,6 @@ import time
 
 from ._menu import ConsoleUI
 from .setup_menu import COMPONENTS
-from ..Process import EventWriter
 from ..Process._operations import DONE, FAILED, LOST, RUNNING, STOPPED, STOPPING, Operation
 
 __all__ = ["preview", "SCENARIOS"]
@@ -133,15 +133,15 @@ class _Curses:
 
 
 # =============================================================================
-# ============================ MADE-UP TEST RUN ===============================
+# =========================== MADE-UP OPERATIONS ==============================
 
 
 class _MockOperation(Operation):
-    """A made-up test run behind the menu: an Operation (TauFW.Utilities.Process) whose files a script writes
-    while a screen reads them. script: (seconds after the start, what) in order; what: an event dict (a "log"
-    field names a file of the directory), ("output", line) or ("log", name, line). ago: the run started that
-    many seconds ago (the script up to then is written at once); end: DONE, FAILED or LOST once the script is
-    done. S (stop) stops it after STOP_TAKES seconds."""
+    """A made-up operation behind the menu (a test run, an advance): an Operation (TauFW.Utilities.Process) whose
+    files a script writes while a screen reads them. script: (seconds after the start, what) in order; what: an
+    event dict (a "log" field names a file of the directory), ("output", line) or ("log", name, line). ago: it
+    started that many seconds ago (the script up to then is written at once); end: DONE, FAILED, STOPPED or LOST
+    once the script is done, RUNNING: it never ends. S (stop) stops it after STOP_TAKES seconds."""
 
     def state(self):
         if self.poll() is not None:
@@ -176,22 +176,27 @@ class _MockOperation(Operation):
             return
         now = self.clock()
         while self._script and self._script[0][0] <= now - self.started:
-            self._write(self._script.pop(0)[1])
+            self._at, what = self._script.pop(0)
+            self._write(what)
         if self._stop is not None and now - self._stop >= STOP_TAKES:
             self._write(("output", "KeyboardInterrupt: stopped from the menu."))
             self.returncode, self.stopped, self.finished = 130, True, now
         elif not self._script:
             if self._end == LOST:
                 self._gone = True
-            else:
-                self.returncode, self.finished = (0 if self._end == DONE else 1), now
+            elif self._end == STOPPED:
+                self.returncode, self.stopped, self.finished = 130, True, self.started + self._at
+            elif self._end != RUNNING:
+                self.returncode, self.finished = (0 if self._end == DONE else 1), self.started + self._at
 
     def _write(self, what):
         if isinstance(what, dict):
             fields = dict(what)
             if fields.get("log"):
                 fields["log"] = self._path(fields["log"])
-            self._writer.emit(fields.pop("kind"), **fields)
+            fields.update(t=self.started + self._at)  # when the script says, also for what is written at once
+            with open(self.events_path, "a", encoding="utf-8") as stream:
+                stream.write(json.dumps(fields) + "\n")
             return
         path = self.output_path if what[0] == "output" else self._path(what[1])
         with open(path, "a", encoding="utf-8") as stream:
@@ -200,9 +205,9 @@ class _MockOperation(Operation):
     # =========================================================================
     # ============================= CONSTRUCTION ==============================
 
-    def __init__(self, directory, title, expected, script, end=DONE, ago=0.0, remote=False, clock=time.time):
+    def __init__(self, directory, kind, title, data, script, end=DONE, ago=0.0, remote=False, clock=time.time):
         os.makedirs(directory)
-        record = dict(kind="tests", title=title, data=dict(expected=list(expected)), started=clock() - ago,
+        record = dict(kind=kind, title=title, data=data, started=clock() - ago,
                       host=REMOTE_HOST if remote else socket.gethostname())
         super().__init__(directory, record, clock=clock)
         self._script = list(script)
@@ -210,7 +215,7 @@ class _MockOperation(Operation):
         self._remote = remote
         self._stop = None
         self._gone = False
-        self._writer = EventWriter(self.events_path)
+        self._at = 0.0
         open(self.output_path, "a").close()
         self._play()
 
@@ -292,7 +297,112 @@ def _tests(directory, kind="running", **options):
     else:
         script = _test_script(skip="fitter.tes_id")
         options = dict(dict(remote=kind == "remote"), **options)
-    return _MockOperation(directory, "Normal tests", expected, script, **options)
+    return _MockOperation(directory, "tests", "Normal tests", dict(expected=expected), script, **options)
+
+
+RUN_ID = "tes_2025_20261018-140211"
+RUN_DIR = "/eos/user/u/username/taufw_runs/" + RUN_ID
+RUN_STAGES = (("ntuples", "production"), ("histograms", "histogrammer"), ("plots", "plotter"), ("fit", "fitter"),
+              ("results", "local"))
+PLOTS = [("etau", "2025"), ("mutau", "2025"), ("mumu", "2025"), ("etau", "2024"), ("mutau", "2024"),
+         ("mumu", "2024"), ("tautau", "2025")]
+# stage -> (label, seconds, log lines) of its local commands
+RUN_COMMANDS = {
+    "plots": [("%s %s" % pair, 3.0, ["Info in <TCanvas::Print>: png file %s_%s_m_vis.png has been created" % pair,
+                                     "Info in <TCanvas::Print>: png file %s_%s_pt_1.png has been created" % pair])
+              for pair in PLOTS],
+    "fit": [("tes_DM%d" % mode, 4.0, ["combine -M MultiDimFit datacards/tes_DM%d.txt" % mode,
+                                      "tes = %.3f +0.008 -0.009" % (0.99 + 0.005 * mode)]) for mode in (0, 1, 10)],
+    "results": [("summary table", 1.5, ["Writing results/tes_summary.tex"])],
+}
+FAILED_COMMAND = ("mumu 2025", ["Error in <TFile::TFile>: file histograms/mumu_2025.root does not exist",
+                                "ValueError: no histogram m_vis for mumu 2025"])
+
+
+def _run_data(states):
+    return dict(run_id=RUN_ID, run_dir=RUN_DIR,
+                stages=[dict(id=name, type=kind, state=states.get(name, "NEW"), message="")
+                        for name, kind in RUN_STAGES])
+
+
+def _advance_script(stages, fail=None, stop=None):
+    """The script of an advance (see _MockOperation) of local stages: fail: the label of the plots command that
+    fails; stop: the script ends with the plots command of that index running."""
+    steps = [(0.0, dict(kind="run", run_id=RUN_ID, run_dir=RUN_DIR)),
+             (0.0, ("output", ">>> Advancing run %s" % RUN_ID))]
+    at = 0.5
+    for name in stages:
+        steps += [(at, dict(kind="stage_step", stage=name, type=dict(RUN_STAGES)[name], state="NEW")),
+                  (at, ("output", ">>> Stage %s (NEW)" % name))]
+        commands = RUN_COMMANDS[name]
+        for index, (label, seconds, lines) in enumerate(commands, 1):
+            log = "%s_%s.log" % (name, label.replace(" ", "_"))
+            failed = name == "plots" and label == fail
+            lines = FAILED_COMMAND[1] if failed else lines
+            steps += [(at, dict(kind="progress", stage=name, index=index, total=len(commands), label=label,
+                                status="run", log=log)),
+                      (at, ("output", "[%s] %d/%d %s ..." % (name, index, len(commands), label)))]
+            steps += [(at + seconds * number / (len(lines) + 1), ("log", log, line))
+                      for number, line in enumerate(lines, 1)]
+            if name == "plots" and stop == index:
+                return steps
+            at += seconds
+            outcome = "FAILED" if failed else "ok"
+            steps += [(at, dict(kind="progress", stage=name, index=index, total=len(commands), label=label,
+                                status=outcome.lower(), seconds=seconds, log=log)),
+                      (at, ("output", "[%s] %d/%d %s %s (%.0f s)" % (name, index, len(commands), label, outcome,
+                                                                    seconds)))]
+            if failed:
+                message = "%s: exit code 1; log: %s/logs/plots/%s" % (label, RUN_DIR, log)
+                return steps + [(at, dict(kind="warning", text="Command %r failed (exit code 1)." % label)),
+                                (at, dict(kind="stage_state", stage=name, state="FAILED", message=message)),
+                                (at, dict(kind="run_state", run_id=RUN_ID, state="FAILED")),
+                                (at, ("output", "Run %s: FAILED" % RUN_ID))]
+        steps += [(at, dict(kind="stage_state", stage=name, state="DONE",
+                            message="%d command(s) ran" % len(commands))),
+                  (at, ("output", "Stage %s: DONE" % name))]
+        at += 0.5
+    return steps + [(at, dict(kind="run_state", run_id=RUN_ID, state="DONE")),
+                    (at, ("output", "Run %s: DONE" % RUN_ID))]
+
+
+def _jobs_script(checks=4, poll=15.0, wait=True, first=0):
+    """An advance of a production stage whose jobs run: a check every `poll` seconds (wait: with --wait)."""
+    steps, at = [(0.0, dict(kind="run", run_id=RUN_ID, run_dir=RUN_DIR))], 0.5
+    for check in range(first, first + checks):
+        done = 270 * check
+        before, after = ("NEW", "SUBMITTED") if check == 0 else ("WAITING", "WAITING")
+        message = ("852 jobs submitted in 41 samples" if check == 0 else
+                   "jobs: %d done, %d running, %d idle" % (done, 852 - done - 12, 12))
+        steps += [(at, dict(kind="stage_step", stage="ntuples", type="production", state=before)),
+                  (at, ("output", ">>> Stage ntuples (%s)" % before)),
+                  (at + 1.0, dict(kind="stage_state", stage="ntuples", state=after, message=message)),
+                  (at + 1.0, ("output", "Stage ntuples: %s - %s" % (after, message))),
+                  (at + 1.0, dict(kind="run_state", run_id=RUN_ID, state="WAITING"))]
+        if wait:
+            steps += [(at + 1.0, dict(kind="wait", seconds=poll)),
+                      (at + 1.0, ("output", "Waiting %d s before the next check..." % poll))]
+        at += 1.0 + poll
+    return steps
+
+
+def _advance(directory, kind="advancing", **options):
+    """A made-up advance of RUN_ID: advancing (live; ends complete), jobs (live, Keep checking), complete,
+    waiting (an Advance once that ended), failed, stopped or lost."""
+    local = ("plots", "fit", "results")
+    data = _run_data(dict(ntuples="DONE", histograms="DONE"))
+    if kind == "jobs":
+        data, script, end = _run_data({}), _jobs_script(), RUNNING
+    elif kind == "waiting":
+        data, script, end = _run_data(dict(ntuples="WAITING")), _jobs_script(checks=1, wait=False, first=3), DONE
+    elif kind == "failed":
+        script, end = _advance_script(local, fail=FAILED_COMMAND[0]), FAILED
+    elif kind in ("stopped", "lost"):
+        script, end = _advance_script(local, stop=4), STOPPED if kind == "stopped" else LOST
+    else:
+        script, end = _advance_script(local), DONE
+    options = dict(dict(end=end, ago=0.0 if kind in ("advancing", "jobs") else 3600.0), **options)
+    return _MockOperation(directory, "run", "Runs / tes_2025", data, script, **options)
 
 
 # =============================================================================
@@ -328,6 +438,13 @@ def _review(ui, directory):
     return ui.confirm_recipe("recipes/tes_2025.yml", review=review, position={})
 
 
+def _run(kind, **options):
+    def show(ui, directory):
+        operation = _advance(directory, kind, **options)
+        return ui.run_progress(operation.title, operation)
+    return show
+
+
 def _test_run(kind, **options):
     def show(ui, directory):
         operation = _tests(directory, kind, **options)
@@ -356,6 +473,13 @@ SCENARIOS = [
     Scenario("Test run", "failed", _test_run("failed")),
     Scenario("Test run", "on another machine", _test_run("remote", ago=4.0)),
     Scenario("Test run", "lost", _test_run("lost")),
+    Scenario("Run", "advancing (ends complete)", _run("advancing")),
+    Scenario("Run", "waiting for jobs, Keep checking", _run("jobs")),
+    Scenario("Run result", "complete", _run("complete")),
+    Scenario("Run result", "waiting for jobs (Advance once)", _run("waiting")),
+    Scenario("Run result", "failed", _run("failed")),
+    Scenario("Run result", "stopped", _run("stopped")),
+    Scenario("Run result", "lost", _run("lost")),
     Scenario("Quit", "while tests run", lambda ui, directory: ui.quit_running([_tests(directory, ago=12.0)])),
     Scenario("Help", "topics", lambda ui, directory: ui.help()),
     Scenario("FastSetup", "installer checklist",

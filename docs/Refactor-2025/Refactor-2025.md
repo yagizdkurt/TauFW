@@ -983,6 +983,26 @@ character, in 172 preview frames with a frozen clock (before/after; all views, s
 `test_test_run.py` unchanged and passing; `Tests/Utilities/test_operation_screen.py` (new) drives the core with a
 model that is not about tests.
 
+### Run screen, in the preview only (2026-10-18)
+
+`Utilities/python/Menu/_run_screen.py`: `RunProgress`, the second model of the operation screen, and
+`ConsoleUI.run_progress(title, operation)`. Not wired to Start and Continue (that waits for the run lock, TODO §6).
+It starts from the stages as `run.json` had them (`operation.data`: run_id, run_dir, stages as plain data, which the
+Framework will supply) and follows the §22 events: a stage row is marker, id, type and state (`running 3/7 mumu
+2025` while a step works), Details the type, state, message, the local commands (`progress`) and, with Keep
+checking, "Next check in 07:12" (`wait`); the log is the focused stage's last command log (needs the planned `log`
+of `progress`). The state line says what became of the run (COMPLETE, WAITING FOR JOBS, FAILED, BLOCKED, STOPPED,
+LOST), and once the advance ended a result card sits above the list: run complete (start and end time), waiting for
+jobs, failed at <stage> (its message, with the log path), stopped during <stage> (n/N commands finished), lost; each
+with the full run directory. Two hooks were added to the core for it (the test screen does not use them; it draws
+the same): `current()`, the stage the focus follows until the user moves it, and `card()`.
+
+The preview gained seven screens: an advance (live, about 40 s, ends complete), Keep checking with jobs running
+(live; the countdown and a check every 15 s), and the result cards (complete, waiting for jobs after Advance once,
+failed, stopped, lost). Its made-up operations now write their events with the time of their script, so an ended
+run shows real durations. `Tests/Utilities/test_run_screen.py` (new): stages from data and events, rows, Details,
+the countdown, every card and state line, the console screen.
+
 ### Checked
 
 `Tests/Utilities/test_operations.py` (new): supervisor exit codes, heartbeat, stop, kill, SIGTERM, every state, a real

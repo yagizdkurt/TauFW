@@ -85,7 +85,8 @@ group the related responsibilities. `python/Menu/_preview.py` is the UI preview
 `Scenario` there for a new screen. A screen that follows an operation behind the
 menu is `python/Menu/_operation_screen.py` (`follow(ui, screen, title, process,
 model)`) with a `ScreenModel` subclass for its items and words; the test screen's
-model is `TestRun` in `python/Menu/_test_run.py`.
+model is `TestRun` in `python/Menu/_test_run.py`, the run screen's (an advance; not
+wired yet) `RunProgress` in `python/Menu/_run_screen.py`.
 
 `ConsoleUI.open(parser)` lazily loads curses on an interactive Linux terminal.
 It returns a UI, or `None` after explaining the failure and showing CLI help.
