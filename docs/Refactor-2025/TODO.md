@@ -47,16 +47,17 @@ Items marked **(verify)** may already be done; check before working on them.
 - [x] **The lock describes the code before the move (CL §25, H0/H1).** Done 2026-10-18 on lxplus: the old code
       (`0c611f4`, in a `git worktree`, the case running `Fitter/TauES/createinputsTES.py`) against the lock:
       `bbb check --case histogrammer.tes_inputs --case fitter.shapes --case fitter.rebin` 3 checked, 0 failed.
-- [ ] **Channel configs to `Configs/Fitter/tes_id/` (CL §25, H2): nothing may change.** Before `git pull`, in `TauFW/`:
-      `python3 Framework/scripts/taufw.py plan Analyses/tes_id_2025 > ~/h1_plan.txt`. After the pull: (1) `python3
-      Tests/run.py bbb check` (23/23, no re-lock) and `python3 Tests/run.py checks`; (2) `python3
-      Framework/scripts/taufw.py configs`: 19 templates, the four `fitter.tes_id_*` among them, lock ok; (3) `python3
-      Framework/scripts/taufw.py plan Analyses/tes_id_2025 > ~/h2_plan.txt; diff ~/h1_plan.txt ~/h2_plan.txt`: no
-      difference (the bundle copies are read; only their header is new); (4) in a copy of the bundle, the fit stage
-      with `config: TauES_ID/config/config_coarse_TT.yml`: `check`, `plan` and `start` refuse with "moved to
-      Configs/Fitter/tes_id/config_coarse_TT.yml"; with `config: Configs/Fitter/tes_id/config_coarse_TT.yml`, `plan`
-      lists it as `template`; (5) in `Fitter/`, `python3 TauES_ID/plot2DScan_MultiDimFit.py -h` shows the default
-      `../Configs/Fitter/tes_id/config_coarse_TT.yml`.
+- [x] **Channel configs to `Configs/Fitter/tes_id/` (CL §25, H2).** Done 2026-10-18 on lxplus: `bbb check` 23/23
+      without re-lock; `checks` 14/15 (`check_import_boundaries` known debt, 25 / 23 / 21, 0 new pairs); `taufw.py
+      configs` 19 templates, the four `fitter.tes_id_*` with `lock ok`; `taufw.py plan Analyses/tes_id_2025` before
+      and after the pull: no difference. The refusal of an old config path in a recipe is checked by the unit test
+      `test_templates_and_moved_configs` only.
+- [ ] **TES shapes API to the Histogrammer (CL §25, H3): nothing may change.** Before the pull save
+      `taufw.py plan Analyses/tes_id_2025 > ~/h2_plan.txt`; after `git pull` and `scram b -j4`:
+      `python3 -c "from TauFW.Histogrammer.api import TESShapes, ShapesRequest"`; `bbb check` 23/23 without re-lock
+      (no case uses the API); `checks` 14/15 (`check_import_boundaries` known debt, 25 / 23 / 21, 0 new pairs);
+      `taufw.py plan Analyses/tes_id_2025 > ~/h3_plan.txt; diff ~/h2_plan.txt ~/h3_plan.txt` empty;
+      `grep -rn Histogrammer Fitter/python` nothing.
 - [ ] **Bug fixes of 2026-10-18:** `python3 Tests/Utilities/test_background.py` five times in a row and once inside
       `python3 Tests/run.py checks` (the flaky cancel test, §7); `taufw.py plan Analyses/no_such_recipe` prints one
       line, no traceback (Framework BUGS K06).
@@ -478,8 +479,7 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
 - [ ] **Backward compatibility to delete at the migration point (CL §25, TES shapes to the Histogrammer):** the five
       LEGACY stubs at the old script paths (`Fitter/TauES/createinputsTES.py`,
       `Fitter/{ETauFR,HighPT,paper,tutorial}/createinputs.py`; they print the new command and exit with 2) and their
-      test `Tests/Histogrammer/compat/test_legacy_shape_scripts.py`. Not compatibility but temporary until H3:
-      `SHAPES_SCRIPT` in `Fitter/python/api/tes_id.py` (the Fitter API runs the Histogrammer's script by path).
+      test `Tests/Histogrammer/compat/test_legacy_shape_scripts.py`.
 - [ ] **At the migration point, after S4 (CL §24):** `fillhists.py` still draws by default (commands typed by hand
       keep their result, user rule of S4); then drawing leaves it (`--hists --no-draw` becomes the default, the
       legacy `plot.py` texts show the two commands). Remove `stages.RETIRED` (the messages for `plots` and

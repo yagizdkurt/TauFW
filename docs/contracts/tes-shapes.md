@@ -1,10 +1,11 @@
 # Contract: TES shapes (the input histograms of the TES / tau ID fit)
 
-Written by `createinputsTES.py` (`Fitter/TauES/` today; the Histogrammer after step 2 of the isolation work, CL §25,
-plan 16), read by the fit (`Fitter/TauES_ID/harvestDatacards_TES_idSF_MCStat.py`, `harvestDatacards_zmm.py`). The two
+Written by `createinputsTES.py` (`Histogrammer/shapes/TauES/`, in `Fitter/TauES/` until step 2 of the isolation
+work, CL §25), read by the fit (`Fitter/TauES_ID/harvestDatacards_TES_idSF_MCStat.py`, `harvestDatacards_zmm.py`). The two
 sides never import each other; this page and the channel config (below) are all they share. In a TauFW recipe the
 Framework carries the files from the `shapes` stage to the `fit` stage: the artifact `{kind: shapes, path, era,
-channel, config, jet_wp, ele_wp, observable}` names a file (`TauFW.Fitter.api` `_shape_files` today).
+channel, config, jet_wp, ele_wp, observable}` names a file (`TauFW.Histogrammer.api.TESShapes`, `_shape_files`;
+the Fitter API's until CL §25 H3).
 
 Unlike `control-histograms.md` this format has no version field and no metadata in the file: it is the format the fit
 has read since 2021, written down as it is (CL §25, H0). Changing anything below means changing both sides together.
@@ -29,8 +30,8 @@ One ROOT file per observable and channel config:
 Example: `input_pt_less_region/againstjet_Medium/againstelectron_VVLoose/ztt_mt_tes_m_vis.inputs-2025-13TeV_mutau.root`.
 
 Defined today in four places that must agree: the writer (`createinputsTES.py:238`), the two readers (both
-`"%s/%s_%s_tes_%s.inputs-%s%s.root"` with `era='<year>-13TeV'`), the Fitter API (`_shape_files`) and the fit
-preflight glob `*.inputs-<era>-*.root`.
+`"%s/%s_%s_tes_%s.inputs-%s%s.root"` with `era='<year>-13TeV'`), the Histogrammer API (`tes_shapes.py`
+`_shape_files`, the artifacts) and the fit preflight glob `*.inputs-<era>-*.root` (Fitter API `preflight_fit`).
 
 ## Inside
 

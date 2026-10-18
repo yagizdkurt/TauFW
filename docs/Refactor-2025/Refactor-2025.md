@@ -6,8 +6,6 @@
 
 This document records the changes made on the `Refactor-2025` branch: what changed and why.
 What is still open is listed in [TODO.md](TODO.md). Other documents cite its sections as "CL §N" (or "changelog §N").
-Plans named `LocalR/architecture/...` are local, Git-ignored notes; the decisions needed to read a section are
-restated in it.
 
 | # | Change |
 | --- | --- |
@@ -37,6 +35,13 @@ restated in it.
 | 24 | [Plotter becomes Histogrammer; a clean Plotter is extracted](#24-plotter-becomes-histogrammer-a-clean-plotter-is-extracted) |
 
 The reference environment for all of this is `CMSSW_14_1_0_pre4` (Python 3.9, ROOT 6.30).
+
+**How to read the checks.** Every step was checked on Windows with `python Tests/run.py checks` (the unit suites;
+`check_root` needs ROOT and `check_import_boundaries` fails on the known coupling debt, so neither passes there).
+The "lxplus" lines give the checks that need ROOT. "`bbb check` N/N without re-lock" means every BBB regression case
+gave exactly its locked output. Import-boundary totals are written as occurrences / file-module pairs / files.
+IDs such as L17, F25, K07, P08 or S17 are entries of the BUGS registers of Histogrammer, Fitter, Framework and
+PicoProducer.
 
 ---
 
@@ -131,13 +136,8 @@ Removed files had replacements or no remaining use; used scripts without replace
 ### Why
 
 These scripts fail in the reference Python 3.9 environment and obscure live dependencies in searches and audits.
-All deleted files remain in Git history.
-
-### Still to do
-
-Python 3 migration and stale README references are tracked in [TODO.md](TODO.md).
-Priority migrations include `Fitter/ETauFR/writedatacard.py` and the Zpt helpers imported by `measureZpt*.py`.
-Later sections record subsequent archival and removal of other retained scripts.
+All deleted files remain in Git history. The Python 3 migration of the retained scripts is tracked in
+[TODO.md](TODO.md).
 
 ---
 
@@ -318,7 +318,7 @@ PicoProducer, Plotter and Fitter commands.
   wait/resubmit/merge/fail with `max_tries`. Histograms and fit initially have placeholder contracts (implemented in §10).
 - **Run record:** `taufw_runs/<name>_<time>/run.json` (schema 1) stores the recipe/config snapshot and each stage's
   state, attempts, requests, submissions, status, artifacts and history. Saved atomically after every stage step.
-  (The layout changed in §16, the schema in §16 and §19.)
+  (The layout changed in §16.)
 - **Reporting:** terminal output and `run.log` share Framework/PicoProducer messages; silent reporting is supported.
 - **CLI:** `taufw.py plan RECIPE [--local -m N]`, `start RECIPE [--run-root DIR] [--wait --poll S]`,
   `advance RUN_DIR [--wait --poll S]`, `status RUN_DIR`; all delegate to Framework.
@@ -403,7 +403,7 @@ Bundles collect analysis configs in one directory; Python recipe steps add custo
 - **Python steps:** `stage: python` specifies `file`, `function` (default `run`), `options`, `timeout` and optional `id`.
   Each runs in a separate process with bundle/upstream context and returns a message/artifacts. Preflight checks
   the function without importing it; failures show log tails. Multiple steps use unique ids; built-in stages
-  remain ordered and unique. (Since §15 every stage has a required id; since §19 built-in stages may repeat.)
+  remain ordered and unique.
 - **Config propagation:** APIs pass `$TAUFW_PICO_CONFIG` to scripts. Loading is read-only; a missing configured file
   is an error, and unset behavior is unchanged. Shared `CommandPlan`/`RunReport` records moved to Utilities.Process,
   with existing API exports retained.
@@ -415,7 +415,7 @@ Plotter's sample lists became bundle files in §22; PicoProducer's catalogs are 
 
 Offline tests cover path resolution, isolated copies, old records, stage ids, initialization and real Python steps
 passing artifacts or failing. BBB `framework.production` changes on purpose for bundle/config metadata; PicoProducer
-cases stay unchanged. (Its current baseline is the one re-locked in §19.)
+cases stay unchanged.
 
 ---
 
@@ -592,12 +592,11 @@ per-run output directories come in §16 and §17).
 
 ### Tests
 
-Framework unit tests (now 90, with `Tests/Framework/test_validation.py`) and the menu tests (27) pass on Windows. New
-cases: every input error, reserved and duplicate ids, a stage that does not see an unnamed earlier stage, a python step
+New unit cases (`Tests/Framework/test_validation.py` and the menu tests): every input error, reserved and duplicate ids, a stage that does not see an unnamed earlier stage, a python step
 without inputs, `taufw.py check`, broken recipes red in the menu, the bundled analyses valid. The recipe of the BBB case
 `framework.production` (`Tests/BBB/cases.py`) gets `id: production` and `inputs: null`; its output changes on
 purpose: the `plan` lines (`=== Stage production (production) ===` and a new `Inputs: none` line) and the recipe in the
-recorded `run.json` (`id`, `inputs` keys). (Its current baseline is the one re-locked in §19.)
+recorded `run.json` (`id`, `inputs` keys).
 
 ---
 
@@ -628,10 +627,10 @@ next step can run the Plotter and Fitter scripts inside it (§17).
 
 ### Tests
 
-Framework unit tests (90) pass on Windows: log and output directories of every stage, the manifest content of a DONE
+New unit cases: log and output directories of every stage, the manifest content of a DONE
 stage and its absence for a failed one, production's directory with only the manifest, a python step's files split
 between `logs/` and `stages/`, ids `bundle`/`logs` now allowed and `..` refused, schema 1 refused. BBB
-`framework.production` records `run.json`, so `"schema": 2` adds to the §15 difference (current baseline: §19).
+`framework.production` records `run.json`, so `"schema": 2` adds to the §15 difference.
 
 ---
 
@@ -645,7 +644,7 @@ BUGS L08-L11
 
 Third step of the recipe IO work: the plots, shapes and fit results of a run go to its stage directories, so runs no
 longer overwrite each other in `Plotter/` and `Fitter/`, and the summary scripts no longer pick up the working points
-of other runs. Plan: `LocalR/architecture/archive/10-r3-plan.md`.
+of other runs.
 
 ### What changed
 
@@ -667,8 +666,7 @@ of other runs. Plan: `LocalR/architecture/archive/10-r3-plan.md`.
 
 ### Tests
 
-Windows: Framework, Plotter API, Fitter API and Utilities process tests pass, with new cases for the commands,
-working directories, artifacts and preflight problems with an output directory.
+New unit cases for the commands, working directories, artifacts and preflight problems with an output directory.
 lxplus (2025 tuples of the TauFW group area): the plots equal those of `plot.py` in `Plotter/` and nothing is written
 to `Plotter/` or `Fitter/`; `bbb check` 20/20 unchanged. For VTight/Tight the shell scripts with the new code give the
 baseline's fit parameters and corrections exactly; the Framework's shapes equal the baseline's up to 1e-13
@@ -686,7 +684,7 @@ shapes + fit from the same tuples can differ by a grid step in the fitted POIs (
 K04, K05, K07, PicoProducer BUGS S17, Histogrammer BUGS L12
 
 The Framework, not the global `$PICODIR`, decides where the pico tuples are read and written, and everything is
-visible in the recipe. Plan, decisions D1-D13 and steps: `LocalR/architecture/archive/12-tuples-plan.md`.
+visible in the recipe.
 
 ### Step 1: recipe warnings and `run_root`
 
@@ -760,7 +758,7 @@ run"), "Outputs and logs", "Troubleshooting"; [Framework](../../Framework/README
 "Revise: one rule for the paths in a recipe"
 
 The last part of the recipe IO work (R1-R3, §15-17; tuple locations, §18): a stage may read the output of another,
-finished run, and the built-in stages may repeat. Plan and decisions: `LocalR/architecture/archive/11-r4-plan.md`.
+finished run, and the built-in stages may repeat.
 
 ### Repeated stages, no fixed order
 
@@ -789,8 +787,8 @@ the known stages in messages.
 
 ### Checked
 
-- Windows: Framework, Fitter API, Plotter API and Utilities tests pass (new `test_manifest.py`; repeated stages,
-  `{path}` rules, a fit, plots and a python step reading another run, provenance).
+- New unit cases (`test_manifest.py`; repeated stages, `{path}` rules, a fit, plots and a python step reading
+  another run, provenance).
 - lxplus (2026-10-17): `bbb check` 19 cases unchanged; `framework.production` differed only in `schema` 2 → 3 and
   `sources`, and was re-locked.
 - **Fit on another run's shapes** (the §17 run, manifest converted to format 2): the 13 commands equal the §17 fit's;
@@ -819,8 +817,8 @@ screen intact: ROOT and C++ write to the file descriptor, which no Python redire
   `EventWriter` opens and closes the file per event (AFS shows changes only after a close); `EventReader` and
   `LogTail` read incrementally, survive truncation, handle `\r` progress bars and split UTF-8, and keep memory bounded.
 - `_background.py`: `BackgroundProcess` runs a command in its own process group with output straight into the log;
-  `cancel()` sends SIGINT, then SIGTERM after 3 s, SIGKILL after 8 s. (Since §23 the menu uses supervised operations
-  instead; `BackgroundProcess` remains for commands that live only as long as their screen.)
+  `cancel()` sends SIGINT, then SIGTERM after 3 s, SIGKILL after 8 s. (§23 replaced it in the menu with supervised
+  operations; it remains for commands that live only as long as their screen.)
 
 ### Tests report events; the test screen
 
@@ -842,10 +840,7 @@ reads them yet; the terminal output and `run.log` do not change (checked byte fo
 - `taufw.py` reads `$TAUFW_EVENTS` once and removes it from the environment, so stage commands and batch jobs never see
   it. BBB `framework.*` runs without it.
 
-### What is left
-
-The run screens: `start`/`advance` detached with a run lock that records the host, `status`/`plan` beside the screen,
-one curses session for the whole menu, errors on screen instead of printed (TODO §6 "Menu as a program").
+Open: the run screens (TODO §6 "Menu as a program").
 
 ---
 
@@ -884,7 +879,7 @@ The recipe must say which samples an analysis reads; until now `Plotter/config/s
 (MC cross sections, data datasets, weights, stitching, joining and splitting, per era). Its samples became templates in
 `Configs/Plotter/samples/` (§21; `Configs/Histogrammer/samples/` since §24 S2), one per era, that an analysis copies
 into its bundle. **No physics or data change:** every sample set built from a template gets exactly the calls the old
-function makes, and a test proves it. Plan: `LocalR/architecture/archive/14-sample-model-plan.md`.
+function makes, and a test proves it.
 
 - **S0, recorder and BBB case:** `Tests/Plotter/sample_model/recorder.py` records every call of a sample-set function
   (8 eras × 6 channels × 7 caller options = 336 cases). BBB case `plotter.sample_model` was locked on lxplus with the
@@ -902,8 +897,7 @@ function makes, and a test proves it. Plan: `LocalR/architecture/archive/14-samp
 - **S5, Framework and recipes:** `plots` and `histograms` take the option `samples` (bundle files or absolute paths).
   `TauFW.Framework.samples.sample_issues`: a requested sample that the recipe's production does not make is a problem,
   a produced sample nobody reads is a warning; `plan` shows them and `start` refuses problems.
-  `Analyses/tes_id_2025` uses a copy of `v15_2025.yml`. `Analyses/example_mutau` was split in two, by decision of the
-  author: its production made only `DY*` and `TT*`, which the plots could not use since §18; now
+  `Analyses/tes_id_2025` uses a copy of `v15_2025.yml`. `Analyses/example_mutau` was split in two: its production made only `DY*` and `TT*`, which the plots could not use since §18; now
   `example_mutau_short` is production only, and `example_mutau_long` produces data and the 22 MC samples of its sample
   file and then makes the plots.
 - **S7, channel setups:** `Plotter/config/setup_*.yml` (7 files) moved to `Configs/Plotter/setups/` with headers
@@ -932,10 +926,10 @@ parent; now a supervisor runs them and keeps everything in files.
 - Esc never stops an operation; S or Ctrl-C asks, then stops it. Quitting the menu while something runs warns: C stay,
   S stop all and quit, Q quit and leave it running.
 - Running on after the login session ends is not a goal (lxplus may kill processes at logout); such an operation is
-  shown as **Lost** (D1). One test run at a time (D2). The last five records of a kind are kept (D4).
+  shown as **Lost**. One test run at a time. The last five records of a kind are kept.
 - For runs (later): a lock in `Framework.advance`, refused while held on another machine and taken over only on
-  request when Lost (D3); a stop never kills job submission halfway (`escalate=False`). The shared screen comes with
-  the run screen (K1, K2); `setup_runner` stays (K5); `plan`/`status`/`check` move beside the screen (K4).
+  request when Lost; a stop never kills job submission halfway (`escalate=False`); `plan`/`status`/`check` move
+  beside the screen.
 
 ### Supervised operations (`Utilities/python/Process/`)
 
@@ -972,16 +966,14 @@ Start and Continue.
 
 ### Shared operation screen (2026-10-18)
 
-The test screen is split (K1): `Utilities/python/Menu/_operation_screen.py` holds the layout and keys of a screen
+The test screen is split: `Utilities/python/Menu/_operation_screen.py` holds the layout and keys of a screen
 that follows an operation (state line, list + Details + the focused item's log, Output view, stop question, Esc keeps
 it running); a model (`ScreenModel`) supplies the items and the words. `_test_run.py` keeps only `TestRun`, now the
 model of the test screen (cases, "Stop the tests?", PASSED for DONE), `follow_tests` and `test_summary`. The run
-screen will be a second model. The model lives in the Menu, not in the Framework (K2 revised, user 2026-10-18): it
-reads only the events (plain JSON), so the Menu still imports no Framework module; the Framework will supply the
-stages of `run.json` as plain data when the screen is wired. Checked: the test screen draws the same, character for
-character, in 172 preview frames with a frozen clock (before/after; all views, stop, lost, remote);
-`test_test_run.py` unchanged and passing; `Tests/Utilities/test_operation_screen.py` (new) drives the core with a
-model that is not about tests.
+screen will be a second model. The model lives in the Menu, not in the Framework: it reads only the events (plain
+JSON), so the Menu still imports no Framework module; the Framework will supply the stages of `run.json` as plain
+data when the screen is wired. Checked: the test screen draws the same, character for character, before and after
+the split; `Tests/Utilities/test_operation_screen.py` (new) drives the core with a model that is not about tests.
 
 ### Run screen, in the preview only (2026-10-18)
 
@@ -1012,8 +1004,7 @@ them): `main_menu(runs=...)` shows one advance as a line of its own below Contin
 `select_run(summaries, advances=...)` adds "| advancing: 3/5 plots, 5/7" to the row of a run that advances;
 `run_lock(run_id, lock)` explains a held run lock ("An advance of this run is already running on <host> since ...
 (pid ...)", Esc) or offers to take over a lost one (T). `run_summary(operation)` (`_run_screen.py`) is the text of
-an advance for these menus and for the quit warning. The preview has 36 screens (the new ones: five main menus with
-runs, the runs chooser, the run list with an advance, the two lock screens, the quit warning with a run).
+an advance for these menus and for the quit warning. All of these screens are in the preview.
 
 Left for the wiring (with the run lock, TODO §6): which runs the menu passes (running advances, and ended ones until
 their card was seen once: a `seen` file in the operation directory), the `run`/`runs` actions, Continue on an
@@ -1021,15 +1012,12 @@ advancing run opening its screen, and the lock record that `run_lock()` shows.
 
 ### Run screen: a box of the stage's facts (2026-10-18)
 
-Decided (user): the Stages list of the run screen shares its row with a box of the focused stage's facts on the
-right ("Info: plots": config, inputs, channels, output, ...); not on the test screen. A third hook of the operation
-screen, `info(item)` -> (title, [(label, value)]): the box takes the larger part of the row (the list gets
-`LIST_SHARE`, 40 %, and at least `LIST_MIN_WIDTH`, 52 columns: room for more facts later, user); a terminal narrower
-than `INFO_MIN_WIDTH` (100) shows the facts at the top of the Details instead (kept there, the end of the rest below
-them). A stage row is now marker, id and state; its type is the first fact of the box (and stays in the Details of
-a stage without facts). `RunProgress.info()` takes them from `operation.data` (each stage's `info`, [label, value]
-pairs): the Framework will choose them per stage type at the wiring; the preview makes them up. The test screen
-draws the same (140 preview frames, before/after).
+The Stages list of the run screen shares its row with a box of the focused stage's facts on the right ("Info:
+plots": config, inputs, channels, output, ...); not on the test screen. A third hook of the operation screen,
+`info(item)` -> (title, [(label, value)]): the box takes the larger part of the row; a narrow terminal shows the
+facts at the top of the Details instead. A stage row is now marker, id and state; its type is the first fact of the
+box. `RunProgress.info()` takes them from `operation.data`: the Framework will choose them per stage type at the
+wiring; the preview makes them up. The test screen draws the same.
 
 ### Checked
 
@@ -1045,7 +1033,6 @@ signals, curses on a real terminal (TODO §1).
 **Date:** 2026-10-18
 **Status:** done. S0-S4 checked on lxplus (BBB 22/22 without re-lock after every step, real plots identical); see
 [Result](#result-of-24) at the end.
-Plan: `LocalR/architecture/archive/18-histogrammer-split-plan.md`.
 
 After the drawing moved to `TauFW.Utilities.Drawing` (§12), almost everything left in `Plotter/` produces
 histograms: the sample model, normalisation, stitching, the RDataFrame filling, the variable/selection language and
@@ -1071,11 +1058,7 @@ data change:** the filling code is moved, not edited, and every step is proven b
   drawing attributes instead of the Variable; compares the drawn canvases and the PNG bytes. It checks the two
   assumptions of the extraction before it is designed.
 
-### Checked
-
-- Windows: `python Tests/run.py checks`: `unit.tools` passes (6 tests); only the known failures (`check_root`: no
-  ROOT on Windows; `check_import_boundaries`: known debt, 0 new pairs). `cases.py` parses with Python 3.9 syntax.
-- lxplus (2026-10-18): the new case was locked (22 cases) and the spike gave 12/12 SAME (TODO §1).
+Checked (lxplus, 2026-10-18): the new case was locked (22 cases) and the spike gave 12/12 SAME.
 
 ### The rename (S1)
 
@@ -1086,10 +1069,9 @@ data change:** the filling code is moved, not edited, and every step is proven b
   (`Variable`, `Selection`, `Context`, `string`), `MultiDraw.py`/`.cxx` -> `python/sample/` (a filling engine).
   `docs/Plotter/BUGS.md` -> `docs/Histogrammer/BUGS.md` (same IDs).
 - Inside the moved code only these lines changed: the `TauFW.Plotter.*` imports, the two `GLOB` imports of the
-  module state (`Sample.py:31`, `SampleSet.py:106`), the package of the method modules (`SampleSet.py:286`,
-  `ensuremodule(method,'Histogrammer.methods')`), and docstrings that name paths. `Tests/tools/move_check.py` over
-  the 25 moved Python files: every changed line is an import or one of those lines (commented-out old imports were
-  left as they were).
+  module state, the package of the method modules (`ensuremodule(method,'Histogrammer.methods')`), and docstrings
+  that name paths. `Tests/tools/move_check.py` over the 25 moved Python files: every changed line is an import or
+  one of those lines.
 - `api/control_plots.py`: the script is one constant (`SCRIPT = 'fillhists.py'`), the default `basedir` is
   `$CMSSW_BASE/src/TauFW/Histogrammer`; messages and docstrings name the Histogrammer. The Framework's plots stage,
   its sample checks and `validation.py` use `TauFW.Histogrammer.api` (no old `TauFW.Plotter.api` name is kept: only
@@ -1098,7 +1080,7 @@ data change:** the filling code is moved, not edited, and every step is proven b
   (`python/sample/*`, `python/plot/*`, `python/methods/QCD_OSSS.py`). Each is
   `import <new module> as _module; sys.modules[__name__] = _module`: the old name is the very same module object,
   so `setera` through either name changes the same era and luminosity (a star re-export would freeze them). No alias
-  for `TauFW.Plotter.plot.datacard` (it would repair `Fitter/MuTauFR/createinputs.py:11`). `Plotter/plot.py` and
+  for `TauFW.Plotter.plot.datacard` (it would repair `Fitter/MuTauFR/createinputs.py`). `Plotter/plot.py` and
   `Histogrammer/plot.py` print the new command (same arguments, path relative to the working directory) and exit
   with status 2; they run nothing. `Plotter/README.md` describes the coming drawing-only Plotter and its rules.
 - Paths: the 6 Fitter `createinputs*.py` find `config.samples*` in `Histogrammer/`, `Fitter/Zpt` loads
@@ -1108,30 +1090,16 @@ data change:** the filling code is moved, not edited, and every step is proven b
   (moved in S2).
 - Import boundaries: `Histogrammer` is a stage of `Tests/check_import_boundaries.py` (a new detector test: the
   Histogrammer and the Plotter never import each other, the Framework may import only `TauFW.Histogrammer.api`,
-  the Fitter not the Histogrammer). Allowlist: 13 new entries for the aliases (end: migration point), the A03 entry
-  now in `Histogrammer/python/sample/utils.py`; the 6 Fitter `config.samples*` entries keep their keys but now count
-  as Fitter -> Histogrammer (the same debt at a new address; step 2 removes it). Totals 30 / 28 / 26 (17 / 15 / 13
-  before + the 13 aliases), 0 new pairs. **No cross-stage import was removed by this step**; it prepares step 2.
-- Tests: `Tests/Plotter/{api,sample_model}` -> `Tests/Histogrammer/` (suites `unit.histogrammer.api`,
-  `unit.histogrammer.sample_model`), new `Tests/Histogrammer/compat/test_compat_paths.py` (`unit.histogrammer.compat`:
-  each alias file is exactly the alias of its module, the pattern shares state on a throw-away package, and with
-  ROOT the old and new names are one object). BBB cases: only import lines, `_stack_modules`, the Unroll path and the
-  `_DRAWING_MODULE` normaliser (old and new paths map to the same text) changed; the case names stay `plotter.*`.
-  The old scripts in `Tests/Plotter/` keep the old names (they exercise the aliases); their inventory `package` is
-  now `Histogrammer` (they load macros from `python/macros/` of the working directory). `Tests/support/bootstrap.py`
-  copies `Histogrammer` too.
-- Docs: READMEs (root, `Histogrammer/`, new `Plotter/`, Framework, Analyses, Tests, Utilities, Fitter `TauES_ID`
-  and `Zpt`), `Utilities/IOInventory.md` (the Histogrammer and Plotter sections regenerated by `_audit_io.py`, which
-  now scans `Histogrammer/` too; the rest of the file unchanged), `scripts_arg_changes.md` (old -> new table), TODO §1
-  and §8, recipe comments.
+  the Fitter not the Histogrammer). The 13 aliases are new allowlist entries, removed at the migration point; the
+  6 Fitter `config.samples*` imports now count as Fitter -> Histogrammer (the same debt at a new address, removed in
+  §25). Totals 30 / 28 / 26 (17 / 15 / 13 before + the 13 aliases), 0 new pairs. **No cross-stage import was removed
+  by this step**; it prepares §25.
+- Tests: the Plotter unit tests moved to `Tests/Histogrammer/`; a new compat suite checks that each alias is the
+  very same module object as its new name. BBB cases changed only their import lines and paths; their names stay
+  `plotter.*`. The old scripts in `Tests/Plotter/` keep the old names, so they exercise the aliases.
 
-Checked (Windows): `python Tests/run.py checks`: all unit suites pass (Framework 166, `unit.histogrammer.api` 14,
-`unit.histogrammer.compat` 6 with 2 skipped for ROOT, `unit.tools`, `check_harness`); `check_import_boundaries`
-fails as designed with 0 new pairs, `check_root` needs ROOT.
-
-Checked (lxplus, 2026-10-18): `bbb check` 22/22 without re-lock; `checks` (one fix: the compat test now ignores an
-untracked `Plotter/python/api/__pycache__/` left by `git pull`); the old scripts `plotter.unroll`, `plotter.samples`
-through the aliases; `fillhists.py` against the old `plot.py` on the 2025 tuples (`-c mutau -V m_vis pt_1 -S
+Checked (lxplus, 2026-10-18): `bbb check` 22/22 without re-lock; `checks`; the old scripts `plotter.unroll`,
+`plotter.samples` through the aliases; `fillhists.py` against the old `plot.py` on the 2025 tuples (`-c mutau -V m_vis pt_1 -S
 baseline`): the 4 PNG files byte-identical, the logs equal except the ACLiC line of `mapDecayModes.C` in its new
 directory and the timing; `Plotter/plot.py` prints the new command and exits with 2. S0's `roundtrip_spike.py`:
 12/12 SAME, so a Plotter drawing from a histogram file with only the 17 drawing attributes is feasible (S3).
@@ -1153,17 +1121,10 @@ only command-line options and the histogram file.
 - **Backward compatibility (TODO §8):** `RENAMED_IDS` and `renamed_id()` in `Framework/python/configs.py`. A copy whose
   id is a renamed one (an analyst's bundle made before S2) is compared with the renamed template; `check`, `plan` and
   `start` warn "copy of plotter.X, which was renamed histogrammer.X (...): change the id in the copy's taufw_config
-  header" (and still warn when the template is newer), instead of "not in Configs/ any more". New test
-  `test_copy_with_the_id_from_before_a_rename`.
-- Paths: `fillhists.py`, `plot_postfit*.py`, `plot_v10.py` (`SETUPS`), the API (`SETUPS`, channel names), the help
-  texts, the docstrings of the Framework, Fitter and Histogrammer, the tests (`READERS` keys `histogrammer.samples_`,
-  `histogrammer.setup_`), `export.py` (writes the new id and paths), READMEs (`Configs/` explains the rename),
-  `scripts_arg_changes.md`, recipe comments. The BBB case `plotter.sample_model` reads the templates from the new
-  directory (its payload does not contain the path).
-
-Checked (Windows): `python Tests/run.py checks`: all unit suites pass (`unit.framework` with the bundle checks: the
-copies match their templates, no warning; `test_configs.py` 22 tests, 1 of them new); `check_import_boundaries` unchanged
-(30 / 28 / 26, 0 new pairs).
+  header" (and still warn when the template is newer), instead of "not in Configs/ any more".
+- Paths: `fillhists.py`, `plot_postfit*.py`, `plot_v10.py`, the API and `export.py` read and write the new
+  directory. The BBB case `plotter.sample_model` reads the templates from there (its payload does not contain the
+  path).
 
 Checked (lxplus, 2026-10-18): `bbb check` 22/22 without re-lock; `checks`; `taufw.py configs` lists the 15
 `histogrammer.*` templates (lock ok); `check`/`plan` of the two bundles without copy warnings; a copy of
@@ -1198,18 +1159,10 @@ attributes in place of the Variable) give byte-identical canvases and PNG files.
   character (a test compares them with plot.py's two lines); the CMS label is set from the file's era. It imports only
   `TauFW.Utilities`.
 - BBB `plotter.stack` now fills, writes the file, reads it and draws with the Plotter's code; its payload must equal
-  the S0 lock (canvases, histograms, drawing attributes, file names). Tests (no ROOT): `Tests/Utilities/test_histfile.py`
-  (refusals; the round trip with ROOT), `Tests/Histogrammer/controlhists` (copies, detachment, metadata, the same
-  contract constants as the Plotter), `Tests/Plotter/draw` (names and texts equal plot.py's, the contract check, the
-  drawing variable); suites `unit.histogrammer.controlhists`, `unit.plotter.draw`.
-- Not changed (decided with the user): `plot_postfit*.py`, `plot_v10.py` and the tutorial keep filling and drawing
-  in one script (TODO §6: Legacy or two steps later); the Framework (S4).
-- Docs: the contract page (start of `docs/contracts/`), READMEs (Plotter, Histogrammer, Utilities, Tests),
-  `scripts_arg_changes.md`, IOInventory rows, TODO §1 and §6.
-
-Checked (Windows): `python Tests/run.py checks`: 12 of 14 suites pass, the two new ones included;
-`check_import_boundaries` unchanged (30 / 28 / 26, 0 new pairs: the Plotter imports only Utilities), `check_root`
-needs ROOT. Not checked here: anything with ROOT (BBB, the round trip, real plots: TODO §1).
+  the S0 lock (canvases, histograms, drawing attributes, file names). New unit suites cover the histogram file, the
+  copies taken by the Histogrammer and the Plotter's names and texts.
+- Not changed: `plot_postfit*.py`, `plot_v10.py` and the tutorial keep filling and drawing in one script (TODO §6);
+  the Framework (S4).
 
 Checked (lxplus, 2026-10-18): `bbb check` 22/22 without re-lock (`plotter.stack` through the file gives the
 canvases locked from memory in S0); the HistFile round trip passes with ROOT. Real data (2025 tuples, baseline):
@@ -1220,9 +1173,8 @@ wrote entries into the parent directory, because ROOT's `mkdir("a/b")` returns `
 
 ### The histograms stage becomes shapes (S4a)
 
-**Date:** 2026-10-18, Windows. Decisions of S4 with the user: plan 18 §14. Rule (user): recipes and Framework stages
-have no users yet, so they take the clean design without a compatibility layer; commands run by hand keep their
-behaviour.
+**Date:** 2026-10-18, Windows. Rule of S4: recipes and Framework stages have no users yet, so they take the clean
+design without a compatibility layer; commands run by hand keep their behaviour.
 
 Every stage is now named after what it makes. The stage that runs `createinputsTES.py` made `kind: shapes` but was
 called `histograms`, and S4 adds a second stage that fills histograms (the control histograms): two names with
@@ -1237,14 +1189,7 @@ called `histograms`, and S4 adds a second stage that fills histograms (the contr
   nothing. **Runs started before this change** (their `run.json` names `histograms`) can no longer be continued or
   shown with `status`/`advance`; start them again.
 - `Analyses/tes_id_2025/recipe.yml`: `stage: shapes`, `id: shapes` (its directory in a run is now
-  `stages/shapes/`), `fit` reads `inputs: {shapes: shapes}`. READMEs (Framework, Analyses), `docs/PicoProducer/API.md`.
-- Tests: the Framework tests and `Tests/Fitter/api/test_tes_id.py` name the stage `shapes` (only strings, comments
-  and the two class names changed); new assertion for the retired name in `test_bundle.py`.
-- Not changed: earlier sections of this changelog, `CPPMigration.md`, `scripts_arg_changes.md`, the BUGS tables and
-  the hardcoded-paths inventory, which describe what was there at their time.
-
-Checked (Windows): `python Tests/run.py checks`: 12 of 14 suites pass as before (`unit.framework` included);
-`check_import_boundaries` unchanged (30 / 28 / 26, 0 new pairs), `check_root` needs ROOT.
+  `stages/shapes/`), `fit` reads `inputs: {shapes: shapes}`.
 
 Checked (lxplus, 2026-10-18): `taufw.py plan Analyses/tes_id_2025` before and after (shapes, fit and python
 part): every command, input and directory equal once `histograms` reads `shapes`; only the width of the table's
@@ -1252,7 +1197,7 @@ separator line differs (it was computed from the longer old paths).
 
 ### Control plots as two Framework stages (S4)
 
-**Date:** 2026-10-18, Windows. Decisions with the user: plan 18 §14 (K1-K11). The Framework now makes control
+**Date:** 2026-10-18, Windows. The Framework now makes control
 plots in two stages, each through the API of its own module, and carries the control-histogram file between them;
 the Histogrammer never draws in a run, the Plotter never fills, and neither imports the other.
 
@@ -1263,8 +1208,7 @@ tuples ──[controlhists: Histogrammer API, fillhists.py --hists --no-draw]─
 
 - `Histogrammer/fillhists.py --no-draw` (new, only with `--hists`, else an error): writes the file, draws nothing,
   makes no `plots/` directory; `-F`/`-p`/`-T` are then ignored with a warning. Without it nothing changes: a command
-  typed by hand fills and draws as before (user rule: plain commands keep their result; the default changes at the
-  migration point, TODO §8). The copies in the file are taken before drawing (S3), so the file is the same with and
+  typed by hand fills and draws as before (the default changes at the migration point, TODO §8). The copies in the file are taken before drawing (S3), so the file is the same with and
   without drawing (checked on lxplus, TODO §1).
 - Histogrammer API: `ControlPlots` -> `ControlHists`, `PlotsRequest` -> `HistsRequest` (`git mv
   api/control_plots.py api/control_hists.py`), renamed in place (no shim: only the Framework used it). The command
@@ -1285,7 +1229,7 @@ tuples ──[controlhists: Histogrammer API, fillhists.py --hists --no-draw]─
   general mechanism. `STAGES`, `ORDER` (production, controlhists, controlplots, shapes, fit),
   `Framework.from_recipe(..., histogrammer=, plotter=)` (`plotter` was the Histogrammer's API until now), the
   `samples_api` of the shapes stage is `ControlHists`. **The one-step `plots` stage is removed** (no recipe users
-  yet, user decision): `stage: plots` fails the check with "control plots are two stages now: controlhists (tuples
+  yet): `stage: plots` fails the check with "control plots are two stages now: controlhists (tuples
   -> histogram files) and controlplots (files -> plots)" (`stages.RETIRED`). Runs started before this change cannot
   be continued.
 - Bundles: `tes_id_2025`, `example_mutau_long` (`controlhists` id `hists`, `controlplots` id `plots`, so the plots
@@ -1293,21 +1237,11 @@ tuples ──[controlhists: Histogrammer API, fillhists.py --hists --no-draw]─
 - Boundary: no new import edge (Framework -> `TauFW.Plotter.api` is an API); `Tests/Histogrammer/compat` now allows
   `TauFW.Plotter.api` as long as it imports nothing of the Histogrammer (it is the new Plotter's own API, not an
   alias of the old one).
-- Tests: `Tests/Plotter/api` (new suite `unit.plotter.api`: commands, expected names, artifacts, preflight with a
-  planned file), `Tests/Histogrammer/api/test_control_hists.py` (the renamed test: `--hists --no-draw`, the file
-  artifact, no drawing options), Framework tests with a fake Histogrammer and a fake Plotter (new
-  `ControlPlotsTests`: the files of the input, a plan before the files exist, the input kind, `{path}` of another
-  run; the retired name), `Tests/tools/compare_histfiles.py` + test (two histogram files entry by entry, for the
-  lxplus check).
-- Not changed: the legacy `plot.py` messages (`fillhists.py` is still one command, K6), the BBB cases, the old
-  variants (`plot_postfit*`, `plot_v10`, tutorial).
-- Docs: READMEs (Framework, Analyses, Histogrammer, Plotter, Tests), the contract page, `scripts_arg_changes.md`,
-  IOInventory rows (by hand: `python Utilities/_audit_io.py` regenerates a much smaller file than the committed one,
-  so it was not rerun), TODO §1 (lxplus), §6 (later), §8 (migration point).
-
-Checked (Windows): `python Tests/run.py checks`: 13 of 15 suites pass (`unit.plotter.api` new, `unit.framework`,
-`unit.histogrammer.api`, `unit.histogrammer.compat`, `unit.tools` included); `check_import_boundaries` unchanged
-(30 / 28 / 26, 0 new pairs), `check_root` needs ROOT.
+- Tests: a new suite for the Plotter API, the Histogrammer API test follows the rename, the Framework tests use a
+  fake Histogrammer and a fake Plotter; `Tests/tools/compare_histfiles.py` compares two histogram files entry by
+  entry (for the lxplus check).
+- Not changed: the legacy `plot.py` messages (`fillhists.py` is still one command), the BBB cases, the old variants
+  (`plot_postfit*`, `plot_v10`, tutorial).
 
 Checked (lxplus, 2026-10-18): `bbb check` 22/22 without re-lock. The reference was taken with the code before this
 change: the old `plots` stage on a copy of `tes_id_2025` (mutau all variables, mumu the 18 variables of the S3 check,
@@ -1345,12 +1279,11 @@ Framework:      controlhists                  the file is the artifact          
   names, both legacy `plot.py`, `RENAMED_IDS` of `configs.py`, `stages.RETIRED`, `fillhists.py` drawing by default.
 - **Registered, not fixed:** Histogrammer BUGS L17 (`m_ll` of the mumu variables), Framework BUGS K08 (the run-root
   message), the flaky `test_background` and the IOInventory generator (TODO §7).
-- **Next:** step 2 of `LocalR/architecture/13` (the TES shapes leave the Fitter for the Histogrammer, plan 16, revised
-  after this section); its first step locks a new BBB case, which needs the 22 cases above unchanged.
+- **Next:** the TES shapes leave the Fitter for the Histogrammer (§25).
 
 ### Review fixes of §24
 
-**Date:** 2026-10-18, Windows, after S5. A code review of `8a3531a..e713f16` (rename, aliases, config ids, histogram
+**Date:** 2026-10-18, Windows, after the split. A code review of `8a3531a..e713f16` (rename, aliases, config ids, histogram
 file, stages, tests, docs) found nothing broken; these fixes of what the split itself introduced. No filling or
 drawing code changed; a file that was written before is written the same.
 
@@ -1369,32 +1302,26 @@ drawing code changed; a file that was written before is written the same.
 - `TauFW.Histogrammer.controlhists.write_control_hists`: two variables with the same file name in one selection are
   refused with both names (before, the HistFile writer refused the duplicate entry path with a less direct message;
   the plain `fillhists.py` overwrites the first PNG, unchanged).
-- Tests: the refusals above (`Tests/Utilities/test_histfile.py`, with ROOT the header without keys;
-  `Tests/Plotter/draw`, `Tests/Histogrammer/controlhists`); a run whose `run.json` names a retired stage (`plots`,
-  `histograms`) is refused by `Framework.from_record` with the recipe error that `taufw.py status`/`advance` print
-  (`test_framework.py`); the Utilities import ban also names `Histogrammer`; the bundle test's fake Histogrammer
-  directory is called `Histogrammer`.
-- Docs: `Histogrammer/README.md` (where the API runs the script), `stages/shapes.py` docstring, IOInventory rows of
-  `fillhists.py` and `controlplots.py` (line numbers, the `--hists` file), TODO paths of the renamed files, TODO §8
-  (`PLOTTER_ROOT`/`PLOTTER_DATA_DIR`), TODO §9 (three docs that were stale before §24).
+- Tests: the refusals above; a run whose `run.json` names a retired stage (`plots`, `histograms`) is refused by
+  `Framework.from_record` with the recipe error that `taufw.py status`/`advance` print.
 
-Checked (Windows): `python Tests/run.py checks`. On lxplus: `bbb check` 22/22 without re-lock, `checks` (TODO §1).
+Checked (lxplus): `bbb check` 22/22 without re-lock, `checks`.
 
 ## 25. TES shapes leave the Fitter for the Histogrammer (in progress)
 
 **Date:** 2026-10-18
-**Status:** H0 (lock `f3079fa`) and H1 done and checked on lxplus; H2 done on Windows; H3, H4 to come.
-Plan: `LocalR/architecture/16-histograms-plan.md` (decisions §13).
+**Status:** H0 (lock `f3079fa`), H1 and H2 done and checked on lxplus; H3 done on Windows (lxplus checks in TODO
+§1); H4 (real-data comparison) to come.
 
-Step 2 of the isolation work (`LocalR/architecture/13`): the code that fills the TES/ID input histograms
+The next step of the module isolation: the code that fills the TES/ID input histograms
 (`Fitter/TauES/createinputsTES.py`, `Fitter/python/plot/datacard.py`, `rebinning.py`) imports nothing of the fit;
 it moves to the Histogrammer, the Framework's `shapes` stage gets a Histogrammer API, and the four maintained channel
-configs move to `Configs/Fitter/tes_id/`. Decisions with the user (plan 16 §13): one config per channel with a
-written key contract, inside grouped under banners by reader (D1); `Histogrammer/python/shapes/{inputs,rebinning}.py`
-and `Histogrammer/shapes/<Variant>/` (D2); a `TESShapes` API, recipe unchanged (D3); run scripts keep their working
-directory, legacy stubs at the old script paths print the new command (D4); recipes naming the old config paths fail
-with a message, no name map (D5); `Fitter/MuTauFR/createinputs.py` stays (D11); out of scope and the variation-tuple
-preflight: TODO §0 (D7, D8). Same method as before: lock with the old code first, move byte for byte, prove equality.
+configs move to `Configs/Fitter/tes_id/`. Decisions: one config per channel with a written key contract, its keys
+grouped under banners by reader; the code goes to `Histogrammer/python/shapes/{inputs,rebinning}.py` and the scripts
+to `Histogrammer/shapes/<Variant>/`; a `TESShapes` API, recipe unchanged; run scripts keep their working directory,
+legacy stubs at the old script paths print the new command; recipes naming the old config paths fail with a
+message, no name map; `Fitter/MuTauFR/createinputs.py` stays; what is out of scope is listed in TODO §0. Same method
+as before: lock with the old code first, move byte for byte, prove equality.
 
 ### Lock and contract (H0)
 
@@ -1425,10 +1352,6 @@ preflight: TODO §0 (D7, D8). Same method as before: lock with the old code firs
   they go to the Histogrammer with the script in H1), L22-L24 (found by the first lock attempt: `rebinning` stops on a
   region without a bin under 30 % relative error, its error accumulation, the doubled tag in the plot names), Fitter
   BUGS F26 (option 6 reads `tidRegions`).
-- Docs: `Tests/README.md` (the case, how to run it alone), TODO §1 (lock), §4 (bug ids).
-
-Checked (Windows): `python Tests/run.py checks`; `bbb list` shows 23 cases; the mini sample model loads with
-`load_sample_model`. The case needs ROOT: it runs only on lxplus (TODO §1).
 
 ### The move (H1)
 
@@ -1441,14 +1364,14 @@ Checked (Windows): `python Tests/run.py checks`; `bbb list` shows 23 cases; the 
   `createinputsTES.py` the `sys.path` line that finds `Histogrammer/` from `__file__` (now two directories up).
   `Tests/tools/move_check.py` over the seven files: only those lines, no function or class whose AST differs (HighPT:
   Python 2, line diff only). New package `__init__.py`, whitelisted in `.gitignore`.
-- **Working directories unchanged (D4):** `Fitter/run_inputs.sh`, `run_inputs_2526.sh`, `run_inputs_pnet.sh` call
+- **Working directories unchanged:** `Fitter/run_inputs.sh`, `run_inputs_2526.sh`, `run_inputs_pnet.sh` call
   `python3 ../Histogrammer/shapes/TauES/createinputsTES.py` from `Fitter/`, so the shapes still land in
   `Fitter/input_pt_less_region/` where `run_workflow_zmm*.sh` reads them; the variants run from `Fitter/<Variant>/`,
   where their `sys.path` lines and configs are relative to.
 - **Backward compatibility (TODO §8):** the five old paths are LEGACY stubs (as the legacy `plot.py` of §24): they
   print the new command with the same arguments, relative to the working directory, and exit with status 2; they
   import and run nothing. No alias for `TauFW.Fitter.plot.datacard`/`.rebinning`: it would be a Fitter -> Histogrammer
-  import. `Fitter/MuTauFR/createinputs.py` stays (D11).
+  import. `Fitter/MuTauFR/createinputs.py` stays.
 - Temporary until H3: the Fitter API runs the moved script by path (`SHAPES_SCRIPT =
   '../Histogrammer/shapes/TauES/createinputsTES.py'`, relative to `Fitter/` as in `run_inputs.sh`): no import, but a
   Fitter file names a Histogrammer path for one step.
@@ -1460,16 +1383,7 @@ Checked (Windows): `python Tests/run.py checks`; `bbb list` shows 23 cases; the 
   `Histogrammer/shapes/TauES/` importing `Histogrammer/config/samples_v15.py` is not a cross-stage import; a detector
   test covers it, and an import that is found nowhere is still reported). Totals 25 / 23 / 21 (30 / 28 / 26 before),
   0 new pairs: Fitter -> Histogrammer 6 -> 1 (MuTauFR's), Fitter -> Plotter unchanged (9 / 8 / 7).
-- Tests: `Tests/Fitter/api/test_tes_id.py` (the script path), `Tests/Histogrammer/compat/test_legacy_shape_scripts.py`
-  (new: the stubs import nothing, print the new command, exit with 2; MuTauFR not moved).
-- Docs: READMEs (Histogrammer layout and old names, Fitter, `TauES`, `TauES_ID`, `ETauFR`, Analyses, Utilities example),
-  `scripts_arg_changes.md` (old -> new table), IOInventory (the moved rows in the Histogrammer section, the stubs in the
-  Fitter section), the recipe comment of `tes_id_2025`, the `shapes` stage docstring, TODO §1 and §8. Also fixed: the
-  Fitter README still named the stage `histograms` (missed in §24 S4a).
-
-Checked (Windows): `python Tests/run.py checks`: 13 of 15 suites pass (`unit.histogrammer.compat` with the stub
-tests, `unit.fitter.api`, `unit.framework`); `check_import_boundaries` 25 / 23 / 21, 0 new pairs (known debt),
-`check_root` needs ROOT; `move_check` 7 files, 0 disallowed changes. Not checked here: BBB (lxplus, TODO §1).
+- Tests: a new compat test checks that the stubs import nothing, print the new command and exit with 2.
 
 Checked (lxplus, 2026-10-18): after `scram b` the new package imports; `bbb check` 23/23 without re-lock (the
 case runs the moved script, `fitter.shapes`/`fitter.rebin` import `TauFW.Histogrammer.shapes`: the same payloads as
@@ -1479,32 +1393,31 @@ pairs); the old path prints the new command and exits with 2; `taufw.py plan Ana
 commit (`f3079fa`), so the old code (`0c611f4`, in a `git worktree`) was run once more against the lock: the
 three cases of the moved code (`histogrammer.tes_inputs`, `fitter.shapes`, `fitter.rebin`) 3/3 the same. The lock
 describes the code before the move, and the move changed nothing.
-What the case does not cover (user decision 2026-10-18: accepted, documented): `ZL`/`TTL`, so the content of the
+What the case does not cover (accepted): `ZL`/`TTL`, so the content of the
 LTF shape systematics, are zero in every region of the fixture (no opposite-sign event with `genmatch_2` 1-4 passes
 the baseline); the LTF variation files are read. The real-shape comparison of H4 covers them; TODO §7 notes the
 extension for the next legitimate re-lock.
 
 ### Channel configs to Configs/ (H2)
 
-**Date:** 2026-10-18, Windows; the lxplus checks are in TODO §1. Decisions (plan 16 §13): D1 (one config per
-channel, keys grouped by reader), D5 (no recipe compat), K1 and K2 of this step (below).
+**Date:** 2026-10-18, Windows; the lxplus checks are in TODO §1.
 
 - `git mv` the four maintained configs to `Configs/Fitter/tes_id/`: `config_coarse_TT.yml`, `config_coarse_PNet.yml`,
   `config_coarse_UParT.yml` (from `Fitter/TauES_ID/config/`), `FitSetup_mumu.yml` (from `Fitter/TauES/config/`).
-  File names kept (K2); ids `fitter.tes_id_coarse_tt`, `fitter.tes_id_coarse_pnet`, `fitter.tes_id_coarse_upart`,
+  File names kept; ids `fitter.tes_id_coarse_tt`, `fitter.tes_id_coarse_pnet`, `fitter.tes_id_coarse_upart`,
   `fitter.tes_id_mumu` (ids are lower case, `configs.py`), version 1, locked (`configs.lock`).
 - **Values unchanged:** each file got the `taufw_config` header, and its top-level keys are grouped under four
-  banners by reader (D1, user): both read / Histogrammer only / Fitter only / not read (`fitSpecs`). The YAML anchor
+  banners by reader: both read / Histogrammer only / Fitter only / not read (`fitSpecs`). The YAML anchor
   `&region_list` moved from `plottingOrder` (now `*region_list`, Fitter group) to `observables.m_vis.fitRegions`
   (shared group, where it is first used). `yaml.safe_load` of every new file without the header equals the old
   file's (checked for all four); comments moved with their keys. The bundle copies of `tes_id_2025` were byte copies
   of the old templates and are now byte copies of the new ones.
-- **`Configs/` templates in recipes (K1, user: option a):** a path option starting with `Configs/` that is not a
+- **`Configs/` templates in recipes:** a path option starting with `Configs/` that is not a
   bundle file names a template; the Framework resolves it against the TauFW directory and gives the stage's API the
   absolute path (`bundle.py`, kind `template`, shown by `plan`). The same rule for every stage, so after H3 the
   Histogrammer reads a Fitter template without knowing `Fitter/`. `taufw.py init --from` copies the templates a
   recipe names into the new bundle; `check` reports a template that does not exist.
-- **No recipe compat (D5):** `stages.MOVED_CONFIGS` maps the four old module paths to their templates; a recipe naming
+- **No recipe compat:** `stages.MOVED_CONFIGS` maps the four old module paths to their templates; a recipe naming
   an old path fails (in `check`, `plan` and `start`, a Recipe error) with "... moved to Configs/Fitter/tes_id/... (CL
   §25): name the template, or a copy of it in the bundle". A bundle file with that relative path is the bundle's.
 - Defaults: `DEFAULT_CONFIGS` of the `shapes` and `fit` stages are the two templates. Commands run by hand: the run
@@ -1512,17 +1425,58 @@ channel, keys grouped by reader), D5 (no recipe compat), K1 and K2 of this step 
   `makecombinedfitTES_SF_postfit_corrTES.py` name `../Configs/Fitter/tes_id/...` (the same files from `Fitter/`); a
   hand-typed old path is "file not found" (`scripts_arg_changes.md`). The fit scripts only open the path and pass it
   on (no output name is derived from it), so the outputs do not change.
-- Contract test (D1): `READERS['fitter.tes_id_']` in `Tests/Framework/test_configs.py` (`read_tes_id`): every
+- Contract test: `READERS['fitter.tes_id_']` in `Tests/Framework/test_configs.py` (`read_tes_id`): every
   template has the keys its two readers take without a default (channel, tag, baselineCuts, samples.filename/join/
   data, observables with binning and fit regions that exist, processes, systematics with their fields, regions with
   definition and title, TES variations with values and processes); a mutated copy is refused.
-- Tests: `test_bundle.py` (the template kind, a bundle file wins, `init` copies a template byte for byte),
-  `test_validation.py` (missing template, the moved-path error), `test_stages.py` (the default configs are templates),
-  `Tests/Fitter/api/test_tes_id.py` (the API with `../Configs/...`, as the run scripts).
-- Docs: `Configs/README.md`, Analyses README (path rule, stage defaults, example), Framework README, Fitter READMEs,
-  the contract (where the configs are, the banners, the test), `scripts_arg_changes.md`, TODO §1, §8.
+- Tests: template resolution in bundles (a bundle file wins, `init` copies a template), the missing-template and
+  moved-path errors, the default configs.
 
-Checked (Windows): `python Tests/run.py checks`: 13 of 15 suites pass (`unit.framework` 174 tests with the new ones,
-`unit.fitter.api`); `check_import_boundaries` unchanged (25 / 23 / 21, known debt), `check_root` needs ROOT; the
-parsed-equality check of the four configs. On lxplus (TODO §1): BBB 23/23 (no case reads these files), `configs`,
-`check`/`plan` of `tes_id_2025`.
+Checked (lxplus, 2026-10-18): `bbb check` 23/23 without re-lock; `checks` 14/15 (known import debt); `taufw.py
+configs` lists the four `fitter.tes_id_*` templates, lock ok; `taufw.py plan Analyses/tes_id_2025` unchanged by the
+pull (`diff` empty).
+
+### TES shapes API to the Histogrammer (H3)
+
+**Date:** 2026-10-18, Windows; the lxplus checks are in TODO §1. Decisions: D3 (plan 16 §13), and E1, E2 of this step
+(user, 2026-10-18, both option a).
+
+- New `Histogrammer/python/api/tes_shapes.py`: `TESShapes` with `plan_shapes`, `make_shapes`, `preflight_shapes`,
+  `shapes_request`, `config_file`, `pico_config_source`: the shapes half of the Fitter API (`TauESID`), moved with
+  the same command building (the `run_inputs.sh` order, labels, `-s`, `--tuples`, `--samples`, `$TAUFW_PICO_CONFIG`),
+  the same shape file names (`_shape_files`, the contract rule) and the same artifacts; the script is its own module's
+  `shapes/TauES/createinputsTES.py` (no `../Histogrammer` path). It reuses `ControlHists`' module helpers
+  (`_pico_env`, `_module_exists`, `_default_basedir`, `_read_yaml`). Configs are relative to `Histogrammer/` or
+  absolute (`../Configs/...` names the same templates as from `Fitter/`).
+- `ShapesRequest` moved to `Histogrammer/python/api/types.py` (same fields); exported from `TauFW.Histogrammer.api`.
+- **`outdir` is required (E1, user: option a):** a `ShapesRequest` without it is a `ValueError` naming the two ways
+  (the Framework's stage directory, or `Fitter/run_inputs.sh` by hand). So the Histogrammer never writes into or names
+  `Fitter/`, and the "without an output directory, relative script and configs" branch is gone. By hand nothing
+  changes: `run_inputs.sh` still runs the script from `Fitter/`. What is lost: making shapes into `Fitter/` from
+  Python through the API (only the README example did).
+- `Fitter/python/api/tes_id.py` keeps only the fit: the shapes pipelines, `_shape_command`, `_shape_files` and
+  `SHAPES_SCRIPT` are deleted; `INPUTS`, `_wp_dir` and the preflight glob stay (the fit reads by the contract).
+  Fitter `types.py` keeps `FitRequest`. No shim (only the Framework used the shapes half). `grep Histogrammer
+  Fitter/python` finds nothing.
+- Framework: `Framework.from_recipe(..., tes_shapes=None)` (and `from_record`) builds `ShapesStage(TESShapes(),
+  samples_api=ControlHists())`, so each stage talks to one module's API; `fitter` is the fit stage's only.
+- **Module-relative configs of the shapes stage (E2, user: option a):** `ShapesSpec._no_module_paths = ('configs',)`;
+  `recipe.py` `_check_module_paths` makes such a path a Recipe error in `check`, `plan` and `start`: "<path> is not a
+  file of the bundle or a Configs/ template: copy it into the bundle (or give an absolute path)". The old paths of
+  `stages.MOVED_CONFIGS` keep their own message. The fit stage still takes module paths (the Fitter API resolves them
+  against `Fitter/`). No recipe in the repository is affected (`tes_id_2025` names bundle copies).
+- Tests: the shapes tests of `Tests/Fitter/api/test_tes_id.py` moved to `Tests/Histogrammer/api/test_tes_shapes.py`
+  (suite `unit.histogrammer.api`; with `outdir`, the commands of `run_inputs.sh` with absolute script and configs, and
+  the new `outdir` error); the Fitter file keeps the fit tests and checks that no shapes method is left;
+  `Tests/Framework/fakes.py` `FakeTESShapes` (the shapes methods of `FakeFitter`); `test_bundle.py`: the E2 error, a
+  plain recipe file with an absolute config, recipes without a bundle use a template.
+- Equality: the plan of the `tes_id_2025` shapes request (bundle configs, sample file, tuple pattern, output directory)
+  from the old `TauESID.plan_shapes` (HEAD) and the new `TESShapes.plan_shapes` is the same (commands, argv, working
+  directory, expected files, environment, artifacts; JSON `diff` empty, Windows).
+- Docs: READMEs (Histogrammer API section and old names, Fitter API section, Framework stage diagram, Analyses
+  `shapes` stage and path rule), the contract (where `_shape_files` is), the docstrings of the `shapes` stage, the
+  Fitter and Histogrammer API packages, `validation.py`; IOInventory rows; TODO §1, §8.
+
+Checked (Windows): `python Tests/run.py checks`: 13 of 15 suites pass (`unit.histogrammer.api` 23 tests,
+`unit.fitter.api` 14, `unit.framework`); `check_import_boundaries` unchanged (25 / 23 / 21, 0 new pairs: the
+Framework imports `TauFW.Histogrammer.api` as before), `check_root` needs ROOT.

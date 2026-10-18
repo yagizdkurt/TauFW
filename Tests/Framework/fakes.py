@@ -300,13 +300,12 @@ class FakePlotter(_FakeLocalAPI):
         return self._run(self.plan(request), logdir, progress)
 
 
-class FakeFitter(_FakeLocalAPI):
-    @staticmethod
-    def shapes_request(**fields):
-        return dict(fields)
+class FakeTESShapes(_FakeLocalAPI):
+    """The Histogrammer's TESShapes (the shapes half of the Fitter API until CL §25 H3)."""
+    basedir: str = "/repo/Histogrammer"
 
     @staticmethod
-    def fit_request(**fields):
+    def shapes_request(**fields):
         return dict(fields)
 
     def plan_shapes(self, request):
@@ -319,7 +318,7 @@ class FakeFitter(_FakeLocalAPI):
                         commands.append(Command("shapes %s %s %s %s" % (era, jet, ele, config)))
                         artifacts.append({"kind": "shapes", "path": "/fit/%s_%s_%s.root" % (era, jet, ele),
                                           "era": era, "jet_wp": jet, "ele_wp": ele, "config": config})
-        return CommandPlan("/repo/Fitter", tuple(commands), tuple(artifacts))
+        return CommandPlan(request.get("outdir") or "/repo/shapes", tuple(commands), tuple(artifacts))
 
     def preflight_shapes(self, request):
         self.calls.append(("preflight_shapes", request))
@@ -328,6 +327,12 @@ class FakeFitter(_FakeLocalAPI):
     def make_shapes(self, request, logdir, progress):
         self.calls.append(("make_shapes", request))
         return self._run(self.plan_shapes(request), logdir, progress)
+
+
+class FakeFitter(_FakeLocalAPI):
+    @staticmethod
+    def fit_request(**fields):
+        return dict(fields)
 
     def plan_fit(self, request):
         self.calls.append(("plan_fit", request))

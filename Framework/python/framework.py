@@ -43,7 +43,8 @@ Pipeline map:
                  model files ask for (samples.py): plan() lists the problems, start() refuses them (RecipeError).
 
 Public API:
-  Framework.from_recipe(recipe_or_path, reporter, pico, fitter, histogrammer, plotter) / from_record(record, ...)
+  Framework.from_recipe(recipe_or_path, reporter, pico, fitter, histogrammer, plotter, tes_shapes) /
+  from_record(record, ...)
   plan, start, advance, run, status           pipelines
   make_bundle(target)                         a new analysis bundle with copies of the module configs used
   load_run(run_dir)                           the RunRecord of a run directory
@@ -88,7 +89,8 @@ class Framework:
                     status(record)                            -> RunSummary  read-only: saved and live state
                     make_bundle(target, name)                 -> paths       new bundle from this recipe
     Stage dispatch: _advance_stages, _advance_stage, _apply, _write_manifest, _stage_for
-    Construction:   from_recipe(recipe_or_path, reporter, pico, fitter, histogrammer, plotter); from_record(...);
+    Construction:   from_recipe(recipe_or_path, reporter, pico, fitter, histogrammer, plotter, tes_shapes);
+                    from_record(...);
                     Framework(recipe, stages, reporter, files, sleep, clock)
 
     Naming used below: a `stage_spec` is one stage of the recipe (a StageSpec: its name, id and options), and a
@@ -370,15 +372,17 @@ class Framework:
 
     @classmethod
     def from_recipe(cls, recipe, reporter=None, pico=None, fitter=None, histogrammer=None, plotter=None,
-                    runner=None):
+                    runner=None, tes_shapes=None):
         """recipe: a Recipe, or the path of a recipe file or analysis bundle directory.
         pico:    the PicoProducer to use (default: one built from the recipe's pico.config, reporting through the
                  Framework's reporter).
-        fitter:  the Fitter API of the shapes and fit stages (default: TauFW.Fitter.api.TauESID()).
+        fitter:  the Fitter API of the fit stage (default: TauFW.Fitter.api.TauESID()).
         histogrammer: the API of the controlhists stage, which also reads the sample files of the shapes stage
                  (default: TauFW.Histogrammer.api.ControlHists(); CL §24).
         plotter: the API of the controlplots stage (default: TauFW.Plotter.api.ControlPlots(); CL §24 S4).
         runner:  the ProcessRunner of the python steps (default: new).
+        tes_shapes: the API of the shapes stage (default: TauFW.Histogrammer.api.TESShapes(); the Fitter's until
+                 CL §25 H3).
         Only the APIs of the stages in the recipe are built. Only reads files."""
         if isinstance(recipe, str):
             recipe = Recipe.load(recipe)
@@ -394,12 +398,13 @@ class Framework:
             elif name == 'controlplots':
                 plotter = plotter or _plotter()
                 stages[stage_id] = ControlPlotsStage(plotter)
-            elif name in ('shapes', 'fit'):
+            elif name == 'shapes':
+                tes_shapes = tes_shapes or _tes_shapes()
+                histogrammer = histogrammer or _histogrammer()
+                stages[stage_id] = ShapesStage(tes_shapes, samples_api=histogrammer)
+            elif name == 'fit':
                 fitter = fitter or _fitter()
-                if name == 'shapes':
-                    histogrammer = histogrammer or _histogrammer()
-                stages[stage_id] = (ShapesStage(fitter, samples_api=histogrammer) if name == 'shapes'
-                                    else FitStage(fitter))
+                stages[stage_id] = FitStage(fitter)
             elif name == 'python':
                 stages[stage_id] = PythonStage(runner=runner)
             else:
@@ -408,10 +413,10 @@ class Framework:
 
     @classmethod
     def from_record(cls, record, reporter=None, pico=None, fitter=None, histogrammer=None, plotter=None,
-                    runner=None):
+                    runner=None, tes_shapes=None):
         """A Framework that continues a run, with the recipe saved in its run.json and the run's bundle copy."""
         return cls.from_recipe(_run_recipe(record), reporter=reporter, pico=pico, fitter=fitter,
-                               histogrammer=histogrammer, plotter=plotter, runner=runner)
+                               histogrammer=histogrammer, plotter=plotter, runner=runner, tes_shapes=tes_shapes)
 
     def __init__(self, recipe, stages, reporter=None, files=None, sleep=None, clock=None):
         """All services can be passed in (the tests pass fakes). Creating a Framework never writes, submits or
@@ -563,7 +568,7 @@ def _picoproducer(recipe, reporter):
 
 
 def _fitter():
-    """The Fitter API of the shapes and fit stages (imported only here; it does not import ROOT)."""
+    """The Fitter API of the fit stage (imported only here; it does not import ROOT)."""
     from TauFW.Fitter.api import TauESID
     return TauESID()
 
@@ -573,6 +578,13 @@ def _histogrammer():
     ControlHists (CL §24; imported only here; it does not import ROOT)."""
     from TauFW.Histogrammer.api import ControlHists
     return ControlHists()
+
+
+def _tes_shapes():
+    """The API of the shapes stage: the Histogrammer's TESShapes (CL §25 H3; imported only here; it does not import
+    ROOT)."""
+    from TauFW.Histogrammer.api import TESShapes
+    return TESShapes()
 
 
 def _plotter():

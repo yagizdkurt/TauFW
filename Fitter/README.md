@@ -19,20 +19,19 @@ See [the README.md in the parent directory](../../../#taufw).
 
 `TauESID` runs the combined TES + TauID fit as the shell scripts do, with the same arguments, one process per
 script in `Fitter/`, and checks that every command wrote its expected outputs (the scripts call `combine` through
-`os.system`, so their exit code alone proves nothing). The TauFW Framework uses it for its `shapes` and `fit`
-stages (see [Framework/README.md](../Framework/README.md)).
+`os.system`, so their exit code alone proves nothing). The TauFW Framework uses it for its `fit` stage (see
+[Framework/README.md](../Framework/README.md)). The shapes it reads are made by `run_inputs.sh` (in `Fitter/`) or the
+Framework's `shapes` stage, whose API is the Histogrammer's `TESShapes` since changelog §25 H3 (before, `TauESID`
+also had `plan_shapes`/`make_shapes`/`preflight_shapes` and `ShapesRequest`; no old name is kept). The two sides
+share only the file contract [docs/contracts/tes-shapes.md](../docs/contracts/tes-shapes.md).
 
 ```python
-from TauFW.Fitter.api import TauESID, ShapesRequest, FitRequest
+from TauFW.Fitter.api import TauESID, FitRequest
 fitter = TauESID()                                            # Fitter/ of this CMSSW area; reads and runs nothing
-shapes = ShapesRequest(eras=['2025'], jet_wps=['VTight'], ele_wps=['Tight'],
-                       configs=['../Configs/Fitter/tes_id/config_coarse_TT.yml',
-                                '../Configs/Fitter/tes_id/FitSetup_mumu.yml'])
-fitter.plan_shapes(shapes)      # CommandPlan: the run_inputs.sh commands and the shape files; nothing runs
-fitter.preflight_shapes(shapes) # problems (no cmsenv, no ROOT, missing config); empty: ready
-fitter.make_shapes(shapes, logdir='logs')                     # RunReport: ok, results (one log per command), artifacts
 fit = FitRequest(points=[('2025', 'VTight', 'Tight')], config='../Configs/Fitter/tes_id/config_coarse_TT.yml',
                  config_mumu='../Configs/Fitter/tes_id/FitSetup_mumu.yml')   # steps: fit, postfit, plots, corrections, summary
+fitter.plan_fit(fit)            # CommandPlan: the run_workflow_zmm.sh commands; nothing runs
+fitter.preflight_fit(fit)       # problems (no cmsenv, combine missing, no shapes in Fitter/input_pt_less_region/)
 fitter.fit(fit, logdir='logs')  # the run_workflow_zmm.sh steps; artifacts carry the fitted tes and tid_SF values
 ```
 

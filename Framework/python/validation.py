@@ -10,7 +10,8 @@
 What is checked here and what is not:
     checked:      everything Recipe.load() checks, plus the files the recipe names that do not depend on a module:
                   pico.config, absolute path options, Configs/ templates (`Configs/...`, bundle.py; the old module
-                  path of a config that became a template is a Recipe error, stages.MOVED_CONFIGS),
+                  path of a config that became a template is a Recipe error, stages.MOVED_CONFIGS; so is a
+                  module-relative config of the shapes stage, whose API is not the configs' module, CL §25 H3),
                   the `file` of python steps (always a bundle file), the
                   directory of an {external: <pattern>} input (its part before the first $KEY), and the stage
                   directory of a {path: <stage directory>} input: it exists, has a manifest of format 2 (its stage
@@ -20,7 +21,7 @@ What is checked here and what is not:
                   Configs/Histogrammer/samples/), templates (`Configs/...`) or absolute ones, not module files;
                   they are read through the
                   Histogrammer API (the format is the Histogrammer's): readable, exactly one per era of the stage.
-    not checked:  path options a module resolves (e.g. Fitter/TauES/config/...), and the environment (CMSSW,
+    not checked:  path options a module resolves (e.g. the fit's TauES/config/...), and the environment (CMSSW,
                   ROOT, combine, tuples on disk): they are the machine's state, not the recipe's. The stages' plan
                   notes and preflight report them.
 

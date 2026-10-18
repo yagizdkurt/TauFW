@@ -332,6 +332,7 @@ def _stage_entry(entry, index, bundle_dir, issues):
         issues.append(Issue(location, message) if message else Issue(where, str(err)))
         return result
     _check_moved_configs(spec, where, bundle_dir, issues)
+    _check_module_paths(spec, where, bundle_dir, issues)
     if stage_id is not None:
         result.stage_spec = StageSpec(stage=name, id=stage_id, spec=spec, options=copy.deepcopy(options),
                                       inputs=copy.deepcopy(inputs), description=description or "")
@@ -348,6 +349,20 @@ def _check_moved_configs(spec, where, bundle_dir, issues):
             if isinstance(item, str) and os.path.normpath(item) in moved and path_kind(item, bundle_dir) == 'module':
                 issues.append(Issue("%s.%s" % (where, option), "%s moved to %s (CL §25): name the template, or a "
                                     "copy of it in the bundle" % (item, moved[os.path.normpath(item)])))
+
+
+def _check_module_paths(spec, where, bundle_dir, issues):
+    """A path option that takes no module-relative path (the Spec's _no_module_paths) names a bundle file, a
+    Configs/ template or an absolute path: the shapes stage's API is the Histogrammer's, while its configs were
+    Fitter files (CL §25 H3). An old path of stages.MOVED_CONFIGS has its own message (_check_moved_configs)."""
+    moved = {os.path.normpath(old) for old in MOVED_CONFIGS}
+    for option in getattr(type(spec), '_no_module_paths', ()):
+        value = getattr(spec, option)
+        for item in (value if isinstance(value, tuple) else (value,)):
+            if (isinstance(item, str) and path_kind(item, bundle_dir) == 'module'
+                    and os.path.normpath(item) not in moved):
+                issues.append(Issue("%s.%s" % (where, option), "%s is not a file of the bundle or a Configs/ "
+                                    "template: copy it into the bundle (or give an absolute path)" % (item)))
 
 
 def _check_id(entry, where, issues):

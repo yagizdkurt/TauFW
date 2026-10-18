@@ -302,7 +302,7 @@ follow one rule:
 | Absolute path | Used as is. | `absolute` |
 | Relative path of a file in the bundle | That bundle file, e.g. `config_coarse_TT.yml` next to `recipe.yml`. | `bundle` |
 | `Configs/...`, not a bundle file | The template in `TauFW/Configs/` (changelog §25), e.g. `Configs/Fitter/tes_id/config_coarse_TT.yml`; the stage's module gets its absolute path. | `template` |
-| Any other relative path | Unchanged: the module resolves it as before, relative to `Fitter/` (e.g. `TauES/config/defaultFitSetupTES_mutau.yml`) or `Histogrammer/`. The old module paths of configs that became templates (`TauES_ID/config/config_coarse_TT.yml`, ...) fail the check with the template's name. | `module` |
+| Any other relative path | Unchanged: the module resolves it as before, relative to `Fitter/` (e.g. the fit's `TauES/config/defaultFitSetupTES_mutau.yml`) or `Histogrammer/`. The old module paths of configs that became templates (`TauES_ID/config/config_coarse_TT.yml`, ...) fail the check with the template's name; the `shapes` stage's `configs` take no module path at all (changelog §25 H3). | `module` |
 | `controlhists.configs` channel name | `mutau` selects `Configs/Histogrammer/setups/setup_mutau.yml` (the template; a bundle copy is better: `taufw.py init --from` makes one). | `module` |
 
 A bundle file **replaces** the module's config as a whole: the script reads the
@@ -567,15 +567,16 @@ channel, directory, the number of plots it made), the same form as the former `p
 ### `shapes`
 
 Creates the input shapes for the combined TES + tau ID fit. It wraps the
-`Fitter/run_inputs.sh` workflow via `TauFW.Fitter.api.TauESID.make_shapes`, running
-`../Histogrammer/shapes/TauES/createinputsTES.py` (in `Fitter/TauES/` until changelog §25) locally for every era, jet WP, electron WP, and config.
+`Fitter/run_inputs.sh` workflow via `TauFW.Histogrammer.api.TESShapes.make_shapes` (the Fitter API's until changelog
+§25 H3), running `Histogrammer/shapes/TauES/createinputsTES.py` locally for every era, jet WP, electron WP, and
+config. The `fit` stage reads the files by the contract [docs/contracts/tes-shapes.md](../docs/contracts/tes-shapes.md).
 
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `eras` | Required | Non-empty eras; `-y`. |
 | `jet_wps` | Required | Non-empty DeepTau VSjet working points, for example `[VTight]`; `-j`. |
 | `ele_wps` | Required | Non-empty DeepTau VSe working points, for example `[Tight]`; `-e`. |
-| `configs` | `[Configs/Fitter/tes_id/config_coarse_TT.yml, Configs/Fitter/tes_id/FitSetup_mumu.yml]` | Non-empty configs (bundle files, `Configs/` templates, or relative to `Fitter/`): by default the mutau fit and mumu control region. |
+| `configs` | `[Configs/Fitter/tes_id/config_coarse_TT.yml, Configs/Fitter/tes_id/FitSetup_mumu.yml]` | Non-empty configs (bundle files, `Configs/` templates or absolute): by default the mutau fit and mumu control region. A module-relative path (e.g. `TauES/config/...`) fails the check: the stage's API is the Histogrammer's, the configs were Fitter files (changelog §25 H3); copy the file into the bundle. |
 | `serial` | `false` | Serial shape creation; `-s`. |
 | `timeout` | `null` | Seconds per shape-creation command; unset means no time limit. |
 | `samples` | `[]` | Sample model files of the bundle (or absolute), one per era: copies of `Configs/Histogrammer/samples/v15_<era>.yml` (MC table, data, MC weights, stitching); `--samples`. Empty: the tables of `Histogrammer/config/samples_v15.py` (old recipes). See [Which samples](#which-samples). |

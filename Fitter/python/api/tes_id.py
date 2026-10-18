@@ -4,26 +4,26 @@
 The fit is still done by the existing scripts. This API runs them as separate processes, with the arguments of the
 shell scripts that analysts use, and checks what they produce. Without an output directory (request.outdir) they
 run in Fitter/ with exactly the arguments of the shell scripts. With one (the TauFW Framework gives
-<run_dir>/stages/<id>/) they run there, the fit in <outdir>/<era>/: the scripts and configs are then given as
-absolute paths, the shapes come from request.shapes_dirs, and the few options listed in
-docs/Refactor-2025/scripts_arg_changes.md keep every output inside the output directory:
+<run_dir>/stages/<id>/) they run in <outdir>/<era>/: the scripts and configs are then given as absolute paths, the
+shapes come from request.shapes_dirs, and the few options listed in docs/Refactor-2025/scripts_arg_changes.md keep
+every output inside the output directory:
 
-    ShapesRequest ─▶ plan_shapes() ─▶ make_shapes()   = Fitter/run_inputs.sh       (../Histogrammer/shapes/TauES/createinputsTES.py)
-                     CommandPlan      RunReport (shape artifacts)
     FitRequest    ─▶ plan_fit()    ─▶ fit()           = Fitter/run_workflow_zmm.sh (option 3: 2D scan of tes and
                      CommandPlan      RunReport (fit and correction artifacts)      tid_SF per DM and pt region)
-    preflight_shapes(), preflight_fit(): what is missing in the environment (empty: ready)
+    preflight_fit(): what is missing in the environment (empty: ready)
+
+The shapes (input histograms) are not made here since CL §25 (H3): another module writes them (by hand
+Fitter/run_inputs.sh, in the Framework the shapes stage), and the fit reads them by the file contract
+docs/contracts/tes-shapes.md (the INPUTS tree and the file names that preflight_fit() looks for).
 
 Each command must exit with 0 AND write its expected outputs (see TauFW.Utilities.Process): the scripts call combine
 through os.system and ignore its exit code, so a zero exit code alone proves nothing. A run stops at the first
 command that fails.
 
-Inputs:  pico tuples in the shapes request's tuple pattern (createinputsTES.py --tuples), or else found by the
-         scripts through $PICODIR of the request's PicoProducer config (passed as $TAUFW_PICO_CONFIG; default
-         PicoProducer/config/config.json); the YAML configs.
-Outputs: written by the scripts in the output directory (shapes) or <outdir>/<era>/ (fit); without one in Fitter/
-         (shared by all runs):
-           input_pt_less_region/againstjet_<J>/againstelectron_<E>/      shapes
+Inputs:  the shapes of every point (request.shapes_dirs, else Fitter/input_pt_less_region/againstjet_<J>/
+         againstelectron_<E>/); the YAML configs; the request's PicoProducer config (passed as $TAUFW_PICO_CONFIG;
+         default PicoProducer/config/config.json).
+Outputs: written by the scripts in <outdir>/<era>/; without an output directory in Fitter/ (shared by all runs):
            output_pt_less_region/..., postfit_pt_less_region/...         datacards, fits, post-fit shapes
            plots_pt_less_region/, output_plots/, Measurements/, impacts/  plots
            tau_sf/, data/tau/                                            correction files (ROOT, JSON)
@@ -31,8 +31,8 @@ Outputs: written by the scripts in the output directory (shapes) or <outdir>/<er
 
 Public API:
   TauESID(basedir, runner, read_yaml, python, which, find_module)
-  plan_shapes, make_shapes, preflight_shapes, plan_fit, fit, preflight_fit     pipelines
-  shapes_request(**fields), fit_request(**fields)                            requests
+  plan_fit, fit, preflight_fit                                               pipelines
+  fit_request(**fields)                                                      a FitRequest
   config_file(config)                                                        a config as an absolute path
   pico_config_source(request)                                                where $PICODIR is read from
 """
@@ -43,9 +43,8 @@ import posixpath
 import shutil
 import sys
 
-from TauFW.Utilities.Process import (Command, CommandPlan, ProcessRunner, RunReport, output_dir_problems,
-                                     tuple_pattern_problems)
-from TauFW.Fitter.api.types import ShapesRequest, FitRequest
+from TauFW.Utilities.Process import Command, CommandPlan, ProcessRunner, RunReport, output_dir_problems
+from TauFW.Fitter.api.types import FitRequest
 from TauFW.Fitter.api.results import read_fit_values
 
 __all__ = ['TauESID']
@@ -55,10 +54,7 @@ __all__ = ['TauESID']
 # ================================= CONSTANTS =================================
 
 
-# The shapes script, relative to Fitter/ as run_inputs.sh calls it. Temporary (CL §25 H1): it moved to the
-# Histogrammer; H3 moves the shapes half of this API there too, and then the Fitter names no Histogrammer path.
-SHAPES_SCRIPT = '../Histogrammer/shapes/TauES/createinputsTES.py'
-INPUTS = 'input_pt_less_region'      # shape tree; the later scripts hard-code these names
+INPUTS = 'input_pt_less_region'      # shape tree (docs/contracts/tes-shapes.md); the later scripts hard-code these names
 OUTPUTS = 'output_pt_less_region'    # datacards and fit results
 POSTFIT = 'postfit_pt_less_region'   # post-fit shapes
 PLOTS = 'plots_pt_less_region'       # scan plots
@@ -70,59 +66,16 @@ IMPACT_TOOLS = ('combineTool.py', 'plotImpacts.py')
 class TauESID:
     """The TES + tau ID fit of Fitter/; see the module docstring.
 
-    Pipelines:    plan_shapes(request)                     -> CommandPlan   changes nothing
-                  make_shapes(request, logdir, progress)   -> RunReport     runs createinputsTES.py
-                  preflight_shapes(request)                -> tuple of problems (empty: ready)
-                  plan_fit(request)                        -> CommandPlan   changes nothing
+    Pipelines:    plan_fit(request)                        -> CommandPlan   changes nothing
                   fit(request, logdir, progress)           -> RunReport     runs the fit workflow
                   preflight_fit(request, check_shapes)     -> tuple of problems (empty: ready)
-    Requests:     shapes_request(**fields), fit_request(**fields)
-    Commands:     _shape_commands, _point_commands, _summary_commands (one per step of the shell scripts)
+    Requests:     fit_request(**fields)
+    Commands:     _point_commands, _summary_commands (one per step of the shell script)
     Construction: TauESID(basedir, runner, read_yaml, python, which, find_module)
     """
 
     # =========================================================================
     # =============================== PIPELINES ===============================
-
-    def plan_shapes(self, request):
-        """The createinputsTES.py commands, in the order of run_inputs.sh, and the shape files they make."""
-        commands, artifacts, notes = [], [], []
-        cwd = self._cwd(request)
-        for era in request.eras:
-            for jet_wp in request.jet_wps:
-                for ele_wp in request.ele_wps:
-                    for config in request.configs:
-                        setup = self._setup(config, notes)
-                        command, shapes = self._shape_command(request, era, jet_wp, ele_wp, config, setup, cwd)
-                        commands.append(command)
-                        artifacts.extend(shapes)
-        return CommandPlan(cwd=cwd, commands=tuple(commands), artifacts=tuple(artifacts),
-                           notes=tuple(dict.fromkeys(notes)))
-
-    def make_shapes(self, request, logdir, progress=None):
-        """Run plan_shapes(); stops at the first failure. Side effects: the shape files in the output directory
-        (made if needed) or Fitter/, the logs."""
-        plan = self.plan_shapes(request)
-        if request.outdir is not None:
-            os.makedirs(plan.cwd, exist_ok=True)
-        report = RunReport(results=self.runner.run_all(plan.commands, logdir, progress), total=len(plan.commands))
-        return RunReport(results=report.results, total=report.total, artifacts=plan.artifacts if report.ok else ())
-
-    def preflight_shapes(self, request):
-        """What is missing to make the shapes: CMSSW, ROOT, the tuple pattern's keys or else the PicoProducer
-        config, the config files, the sample model files (only that they exist: their content is the Histogrammer's,
-        which the Framework checks through the Histogrammer API)."""
-        problems = self._environment(root=True)
-        source = None if request.tuples else self.pico_config_source(request)
-        if request.tuples:
-            problems.extend(tuple_pattern_problems(request.tuples))
-        elif not os.path.isfile(source):
-            problems.append("no PicoProducer configuration %s: the scripts read $PICODIR from it" % (source))
-        problems.extend(self._missing_configs(request.configs))
-        problems.extend("sample file %s not found" % (path) for path in request.samples if not os.path.isfile(path))
-        if request.outdir is not None:
-            problems.extend(output_dir_problems(request.outdir, source, tuples=request.tuples))
-        return tuple(problems)
 
     def plan_fit(self, request):
         """The commands of run_workflow_zmm.sh for each point (and the summary once per era), with the fit and
@@ -183,10 +136,6 @@ class TauESID:
             problems.extend(output_dir_problems(request.outdir, self.pico_config_source(request)))
         return tuple(problems)
 
-    def shapes_request(self, **fields):
-        """A ShapesRequest (unknown fields are an error), so callers need not import the records."""
-        return ShapesRequest(**fields)
-
     def fit_request(self, **fields):
         """A FitRequest (unknown fields are an error), so callers need not import the records."""
         return FitRequest(**fields)
@@ -196,35 +145,13 @@ class TauESID:
         return self._path(config)
 
     def pico_config_source(self, request=None):
-        """The PicoProducer configuration that the scripts read $PICODIR from (through the Histogrammer samples): the
-        request's, else the default."""
+        """The PicoProducer configuration that the scripts read $PICODIR from: the request's, else the default."""
         if request is not None and request.pico_config:
             return request.pico_config
         return os.path.join(os.path.dirname(self.basedir), 'PicoProducer', 'config', 'config.json')
 
     # =========================================================================
     # =============================== COMMANDS ================================
-
-    def _shape_command(self, request, era, jet_wp, ele_wp, config, setup, cwd):
-        """One createinputsTES.py run (run_inputs.sh) and the shape files it makes, one per observable."""
-        argv = [self.python, self._script(request, SHAPES_SCRIPT), '-y', era,
-                '-c', self._config(request, config), '-j', jet_wp, '-e', ele_wp]
-        if request.serial:
-            argv.append('-s')
-        if request.tuples:
-            argv += ['--tuples', request.tuples]
-        if request.samples:
-            argv += ['--samples'] + [path if request.outdir is None else os.path.abspath(path)
-                                     for path in request.samples]
-        files = _shape_files(setup, era, jet_wp, ele_wp) if setup is not None else []
-        channel = setup.get('channel', config) if setup is not None else config
-        shapes = [{'kind': 'shapes', 'path': os.path.normpath(os.path.join(cwd, path)), 'era': era,
-                   'channel': channel, 'config': config, 'jet_wp': jet_wp, 'ele_wp': ele_wp,
-                   'observable': observable} for observable, path in files]
-        command = Command("shapes %s %s %s %s" % (era, jet_wp, ele_wp, channel), tuple(argv), cwd,
-                          expects=tuple(path for _, path in files), timeout=request.timeout,
-                          env=_pico_env(request))
-        return command, shapes
 
     def _point_commands(self, request, era, jet_wp, ele_wp, setup, setup_mumu):
         """The commands of run_workflow_zmm.sh for one working point pair. With an output directory they run in
@@ -412,10 +339,9 @@ class TauESID:
 
 
 def _pico_env(request):
-    """$TAUFW_PICO_CONFIG for the scripts, if the request names a PicoProducer config (read by getconfig()) and no
-    tuple pattern (a FitRequest has none); absolute with an output directory, since the scripts then run elsewhere
-    than the caller."""
-    if not request.pico_config or getattr(request, 'tuples', None):
+    """$TAUFW_PICO_CONFIG for the scripts, if the request names a PicoProducer config (read by getconfig());
+    absolute with an output directory, since the scripts then run elsewhere than the caller."""
+    if not request.pico_config:
         return ()
     return (('TAUFW_PICO_CONFIG', request.pico_config if request.outdir is None else
              os.path.abspath(request.pico_config)),)
@@ -423,18 +349,6 @@ def _pico_env(request):
 
 def _wp_dir(tree, jet_wp, ele_wp):
     return "%s/againstjet_%s/againstelectron_%s" % (tree, jet_wp, ele_wp)
-
-
-def _shape_files(setup, era, jet_wp, ele_wp):
-    """(observable, path) of the shape files createinputsTES.py writes for one config (createinputsTES.py:236)."""
-    chshort = setup.get('channel', '').replace('tau', 't').replace('mu', 'm')
-    tag = "13TeV" + setup.get('tag', '')
-    files = []
-    for observable, options in (setup.get('observables') or {}).items():
-        name = ((options or {}).get('extra') or {}).get('filename', observable)
-        files.append((observable, "%s/ztt_%s_tes_%s.inputs-%s-%s.root"
-                      % (_wp_dir(INPUTS, jet_wp, ele_wp), chshort, name, era, tag)))
-    return files
 
 
 def _scan_regions(setup):

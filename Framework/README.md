@@ -11,7 +11,7 @@ bundle ─▶ plan() ─▶ start() ─▶ advance() ─▶ … ─▶ advance()
           RunPlan   RunRecord     RunRecord (run.json, saved after every stage step)
 
 stages:   production ──────▶ controlhists ────▶ controlplots ──▶ shapes ──────────▶ fit
-          PicoProducer API   Histogrammer API    Plotter API      Fitter API         Fitter API
+          PicoProducer API   Histogrammer API    Plotter API      Histogrammer API   Fitter API
           batch, stepwise    fillhists.py        draw.py, local   createinputsTES    run_workflow_zmm.sh steps,
                              --hists --no-draw,                   local              local
                              local

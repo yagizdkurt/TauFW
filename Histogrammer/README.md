@@ -47,6 +47,7 @@ modules and macros under `Legacy/Plotter/python/`.
 | `sys.path.append(".../Plotter")` + `from config.samples_v15 import *` | `.../Histogrammer` |
 | `Fitter/TauES/createinputsTES.py`, `Fitter/{ETauFR,HighPT,paper,tutorial}/createinputs.py` | `Histogrammer/shapes/...` (changelog §25); the old paths are LEGACY stubs that print the new command and exit with 2 |
 | `TauFW.Fitter.plot.datacard`, `TauFW.Fitter.plot.rebinning` | `TauFW.Histogrammer.shapes.inputs`, `TauFW.Histogrammer.shapes.rebinning` (no alias: the Fitter would import the Histogrammer) |
+| `TauFW.Fitter.api.TauESID.plan_shapes`, `.make_shapes`, `.preflight_shapes`, `.shapes_request`, `TauFW.Fitter.api.ShapesRequest` | `TauFW.Histogrammer.api.TESShapes` (same methods), `TauFW.Histogrammer.api.ShapesRequest` (same fields; `outdir` is required), changelog §25 H3; no old name kept (only the Framework used them) |
 
 The old module names still work: each is an alias of the new module (the same module object, so `setera` through
 either name changes the same era and luminosity). They are deleted at the migration point
@@ -79,5 +80,23 @@ histogrammer.make(request, logdir='logs')   # RunReport: ok, one log per command
 era; `fillhists.py --samples`) instead of the tables of `config/samples_v15.py`. They are read by
 `TauFW.Histogrammer.sample.model` (no ROOT for reading); `sample_names`, `samples_problems` and
 `sample_file_problems` check them without running anything.
+
+`TESShapes` makes the input shapes of the combined TES + tau ID fit with `shapes/TauES/createinputsTES.py`, in the
+order and with the arguments of `Fitter/run_inputs.sh`, run in the request's output directory (`outdir`, required:
+the Framework gives `<run_dir>/stages/<id>/`; by hand, `Fitter/run_inputs.sh` writes the shapes into `Fitter/` where
+the fit scripts read them). It checks that each command wrote its shape files, one per observable, named by the
+contract [docs/contracts/tes-shapes.md](../docs/contracts/tes-shapes.md). The Framework uses it for its `shapes`
+stage. It was the shapes half of the Fitter API (`TauESID`) until changelog §25 H3.
+
+```python
+from TauFW.Histogrammer.api import TESShapes, ShapesRequest
+shapes = TESShapes()                                           # Histogrammer/ of this CMSSW area; reads and runs nothing
+request = ShapesRequest(eras=['2025'], jet_wps=['VTight'], ele_wps=['Tight'], outdir='/tmp/shapes',
+                        configs=['../Configs/Fitter/tes_id/config_coarse_TT.yml',     # relative to Histogrammer/
+                                 '../Configs/Fitter/tes_id/FitSetup_mumu.yml'])     # or absolute
+shapes.plan_shapes(request)       # CommandPlan: python3 <abs>/shapes/TauES/createinputsTES.py -y 2025 -c <abs config> -j VTight -e Tight, ...
+shapes.preflight_shapes(request)  # problems (no cmsenv, no ROOT, missing config, output directory not empty); empty: ready
+shapes.make_shapes(request, logdir='logs')   # RunReport: ok, one log per command, one shapes artifact per file
+```
 
 Bugs found and fixed on this path: [docs/Histogrammer/BUGS.md](../docs/Histogrammer/BUGS.md).

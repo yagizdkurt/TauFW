@@ -1,0 +1,179 @@
+"""Histogrammer API TESShapes (the shapes half of the Fitter API until CL §25 H3): the createinputsTES.py commands of
+run_inputs.sh, run in the request's output directory; the shape files are checked (no ROOT)."""
+import os
+import shlex
+import shutil
+import sys
+import tempfile
+import types
+import unittest
+from unittest import mock
+
+import checkout  # noqa: F401  (must precede TauFW imports)
+from TauFW.Histogrammer.api import TESShapes, ShapesRequest
+from TauFW.Utilities.Process import ProcessRunner
+
+TT, MM = "../Configs/Fitter/tes_id/config_coarse_TT.yml", "../Configs/Fitter/tes_id/FitSetup_mumu.yml"  # as run_inputs.sh (CL §25)
+IN = "input_pt_less_region/againstjet_VTight/againstelectron_Tight"
+
+# Fitter/run_inputs.sh, one working point pair; the API gives the script and the configs as absolute paths
+RUN_INPUTS = [
+    "python3 %(script)s -y 2025 -c %(tt)s -j VTight -e Tight",
+    "python3 %(script)s -y 2025 -c %(mm)s -j VTight -e Tight",
+]
+
+
+class TESShapesTestCase(unittest.TestCase):
+    def setUp(self):
+        self.base = tempfile.mkdtemp(prefix="taufw-shapes-")
+        self.addCleanup(shutil.rmtree, self.base, ignore_errors=True)
+        self.histogrammer_dir = os.path.join(self.base, "Histogrammer")
+        os.makedirs(self.histogrammer_dir)
+        for config in (TT, MM):  # the templates next to Histogrammer/, as in TauFW
+            os.makedirs(os.path.dirname(os.path.join(self.histogrammer_dir, config)), exist_ok=True)
+            shutil.copy(os.path.join(str(checkout.REPO), "Configs", "Fitter", "tes_id", os.path.basename(config)),
+                        os.path.join(self.histogrammer_dir, config))
+        self.outdir = os.path.join(self.base, "run", "stages", "shapes")
+        self.modules = {"ROOT"}
+        self.write = True
+        self.calls = []
+        self.shapes = TESShapes(basedir=self.histogrammer_dir, python="python3",
+                                runner=ProcessRunner(execute=self.execute), find_module=lambda m: m in self.modules)
+        self.script = os.path.join(self.histogrammer_dir, "shapes", "TauES", "createinputsTES.py")
+        self.paths = {"script": self.script, "tt": os.path.normpath(os.path.join(self.histogrammer_dir, TT)),
+                      "mm": os.path.normpath(os.path.join(self.histogrammer_dir, MM))}
+
+    def execute(self, argv, cwd, stream, timeout, env):  # writes the expected files of the command that runs
+        self.calls.append((tuple(argv), cwd))
+        if self.write:
+            command = next(c for c in self.planned if tuple(c.argv) == tuple(argv))
+            for path in command.expects:
+                os.makedirs(os.path.dirname(os.path.join(cwd, path)), exist_ok=True)
+                open(os.path.join(cwd, path), "w").close()
+        return 0
+
+    def request(self, **fields):
+        return ShapesRequest(**dict(dict(eras=[2025], configs=[TT, MM], jet_wps=["VTight"], ele_wps=["Tight"],
+                                         outdir=self.outdir), **fields))
+
+    def lines(self, commands):
+        return [command.shell() for command in commands]
+
+    def run_inputs(self, suffix=""):
+        return [line % {key: shlex.quote(path) for key, path in self.paths.items()} + suffix for line in RUN_INPUTS]
+
+
+class ShapesTests(TESShapesTestCase):
+    def test_commands_equal_run_inputs(self):
+        plan = self.shapes.plan_shapes(self.request())
+        self.assertEqual(self.lines(plan.commands), self.run_inputs())
+        self.assertEqual({plan.cwd} | {c.cwd for c in plan.commands}, {self.outdir})
+        self.assertEqual(plan.commands[0].expects, (IN + "/ztt_mt_tes_m_vis.inputs-2025-13TeV_mutau.root",))
+        self.assertEqual(plan.commands[1].expects, (IN + "/ztt_mm_tes_m_vis.inputs-2025-13TeV_mumu.root",))
+        self.assertEqual([(a["channel"], a["config"]) for a in plan.artifacts], [("mutau", TT), ("mumu", MM)])
+        self.assertEqual(plan.notes, ())
+        self.assertEqual(self.lines(self.shapes.plan_shapes(self.request(serial=True)).commands)[0],
+                         self.run_inputs(" -s")[0])
+
+    def test_outdir_is_required(self):  # CL §25 H3, E1: the Histogrammer never writes into Fitter/
+        with self.assertRaises(ValueError) as context:
+            ShapesRequest(eras=[2025], configs=[TT], jet_wps=["VTight"], ele_wps=["Tight"])
+        self.assertIn("outdir is required", str(context.exception))
+        with self.assertRaises(TypeError):  # unknown fields are an error
+            self.shapes.shapes_request(eras=[2025], configs=[TT], jet_wps=["VTight"], ele_wps=["Tight"],
+                                       outdir=self.outdir, nope=1)
+
+    def test_loop_order(self):
+        plan = self.shapes.plan_shapes(self.request(jet_wps=["Medium", "Tight"], ele_wps=["VVLoose", "Tight"]))
+        self.assertEqual([c.label for c in plan.commands][:3],
+                         ["shapes 2025 Medium VVLoose mutau", "shapes 2025 Medium VVLoose mumu",
+                          "shapes 2025 Medium Tight mutau"])
+        self.assertEqual(len(plan.commands), 8)
+
+    def test_make_shapes(self):
+        request = self.request(pico_config="pico.json")
+        plan = self.shapes.plan_shapes(request)
+        self.assertEqual(plan.commands[0].env, (("TAUFW_PICO_CONFIG", os.path.abspath("pico.json")),))
+        self.planned = plan.commands
+        logdir = os.path.join(self.base, "logs")
+        report = self.shapes.make_shapes(request, logdir)  # makes outdir
+        self.assertTrue(report.ok, report.failed)
+        self.assertEqual(len(report.artifacts), 2)
+        self.assertEqual(report.artifacts[0]["path"],
+                         os.path.join(self.outdir, os.path.normpath(IN), "ztt_mt_tes_m_vis.inputs-2025-13TeV_mutau.root"))
+        self.assertTrue(all(os.path.isfile(a["path"]) for a in report.artifacts))
+        self.assertEqual(sorted(os.listdir(logdir)), ["01_shapes_2025_VTight_Tight_mutau.log",
+                                                      "02_shapes_2025_VTight_Tight_mumu.log"])
+        self.assertFalse(os.path.exists(os.path.join(self.histogrammer_dir, "input_pt_less_region")))
+        self.assertIn("output directory %s is not empty" % (self.outdir),
+                      " ".join(self.shapes.preflight_shapes(request)))
+        placeholder = os.path.join("<run_dir>", "stages", "shapes")  # a plan before the run exists: kept as given
+        self.assertEqual(self.shapes.plan_shapes(self.request(outdir=placeholder)).cwd, placeholder)
+
+    def test_missing_output_fails_although_exit_code_is_zero(self):
+        self.write = False  # like a script whose ROOT step failed without a nonzero exit code
+        request = self.request()
+        self.planned = self.shapes.plan_shapes(request).commands
+        report = self.shapes.make_shapes(request, os.path.join(self.base, "logs"))
+        self.assertFalse(report.ok)
+        self.assertEqual(len(report.results), 1)  # stopped at the first command
+        self.assertEqual(report.failed.missing, (IN + "/ztt_mt_tes_m_vis.inputs-2025-13TeV_mutau.root",))
+        self.assertEqual(report.artifacts, ())
+
+    def test_missing_config_is_a_note_and_a_preflight_problem(self):
+        plan = self.shapes.plan_shapes(self.request(configs=["nope.yml"]))
+        self.assertIn("config nope.yml not found", plan.notes[0])
+        self.assertEqual(plan.artifacts, ())
+        problems = self.shapes.preflight_shapes(self.request(configs=["nope.yml"]))
+        self.assertTrue(any("config nope.yml not found" in p for p in problems))
+        self.assertEqual(self.shapes.config_file(TT), self.paths["tt"])
+
+    def test_default_module_lookup(self):  # find_spec raises for an imported module without __spec__
+        imported = types.ModuleType("taufw_test_imported")
+        imported.__spec__ = None  # like CMSSW's ROOT once PicoProducer imported it
+        with mock.patch.dict(sys.modules, {"taufw_test_imported": imported, "taufw_test_blocked": None}):
+            lookup = TESShapes(basedir=self.base).find_module
+            self.assertTrue(lookup("taufw_test_imported"))
+            self.assertFalse(lookup("taufw_test_blocked"))
+            self.assertFalse(lookup("taufw_test_missing.sub"))
+
+    def test_preflight_environment(self):
+        self.modules = set()
+        problems = " | ".join(self.shapes.preflight_shapes(self.request()))
+        self.assertIn("python cannot import ROOT", problems)
+        self.assertIn("PicoProducer configuration", problems)  # no PicoProducer next to the temporary Histogrammer
+        request = self.request(pico_config="/run/bundle/pico.json")
+        self.assertIn("no PicoProducer configuration /run/bundle/pico.json",
+                      " ".join(self.shapes.preflight_shapes(request)))
+        self.assertTrue(all(c.env == (("TAUFW_PICO_CONFIG", os.path.abspath("/run/bundle/pico.json")),)
+                            for c in self.shapes.plan_shapes(request).commands))
+        self.assertEqual(self.shapes.plan_shapes(self.request()).commands[0].env, ())
+
+    def test_tuple_pattern(self):
+        pattern = "/eos/cms/store/group/phys_tau/TauFW/pico2024/TES_variations/$ERA/$GROUP"
+        request = self.request(tuples=pattern, pico_config="/run/bundle/pico.json")
+        commands = self.shapes.plan_shapes(request).commands
+        self.assertEqual(self.lines(commands), self.run_inputs(" --tuples '%s'" % (pattern)))
+        self.assertTrue(all(c.env == () for c in commands))  # the PicoProducer configuration is not used
+        self.assertNotIn("PicoProducer configuration", " ".join(self.shapes.preflight_shapes(request)))
+        self.assertIn("has $DAS, which the scripts do not fill",
+                      " ".join(self.shapes.preflight_shapes(self.request(tuples="/eos/x/$DAS"))))
+        self.assertIn("tuple pattern 'pico/$ERA' is relative",
+                      " ".join(self.shapes.preflight_shapes(self.request(tuples="pico/$ERA"))))
+
+
+class ShapesSampleFilesTests(TESShapesTestCase):  # CL §22: sample model files, --samples
+    def test_samples_option(self):
+        samples = (os.path.join(self.base, "v15_2025.yml"),)
+        commands = self.shapes.plan_shapes(self.request(samples=samples)).commands
+        self.assertEqual(self.lines(commands), self.run_inputs(" --samples " + shlex.quote(samples[0])))
+        self.assertNotIn("--samples", self.shapes.plan_shapes(self.request()).commands[0].argv)
+        self.assertIn("sample file %s not found" % (samples[0]),
+                      self.shapes.preflight_shapes(self.request(samples=samples)))
+        open(samples[0], "w").close()
+        self.assertNotIn("sample file %s not found" % (samples[0]),
+                         self.shapes.preflight_shapes(self.request(samples=samples)))
+
+
+if __name__ == "__main__":
+    unittest.main()
