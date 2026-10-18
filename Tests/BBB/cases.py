@@ -578,22 +578,23 @@ systematics:
 
 # A mini sample model (Histogrammer/python/sample/model.py format) for era 2025: two samples per group, so that the
 # joins of the model (DY, WJ) and of the config (VV, TT, ST) really merge; weight genweight*idweight (idweight is
-# removed by the config's removeSFs).
+# removed by the config's removeSFs). Cross sections [pb] so that MC is about a third of the data with the 2025
+# luminosity (QCD from same-sign data minus MC stays positive, as on real data).
 _TES_SAMPLES = """\
 era: "2025"
 cme: 13.6
 extraweights: {}
 mc:
-  - {group: "DY", name: "DYto2Tau_Bin-MLL-50to120", title: "Drell-Yan tautau", xsec: 2000.0}
-  - {group: "DY", name: "DYto2Mu_Bin-MLL-50to120", title: "Drell-Yan mumu", xsec: 2100.0}
-  - {group: "WJ", name: "WtoMuNu-2Jets", title: "Wmu + jets", xsec: 21000.0}
-  - {group: "WJ", name: "WtoTauNu-2Jets", title: "Wtau + jets", xsec: 20000.0}
-  - {group: "VV", name: "WZ", title: "WZ", xsec: 41.0}
-  - {group: "VV", name: "ZZto4L", title: "ZZ 4l", xsec: 6.6}
-  - {group: "TT", name: "TTto2L2Nu", title: "ttbar 2l2#nu", xsec: 98.0}
-  - {group: "TT", name: "TTtoLNu2Q", title: "ttbar semileptonic", xsec: 405.0}
-  - {group: "ST", name: "TWminusto2L2Nu", title: "ST tW 2l2#nu", xsec: 3.8}
-  - {group: "ST", name: "TbarWplusto2L2Nu", title: "ST atW 2l2#nu", xsec: 3.9}
+  - {group: "DY", name: "DYto2Tau_Bin-MLL-50to120", title: "Drell-Yan tautau", xsec: 0.0012}
+  - {group: "DY", name: "DYto2Mu_Bin-MLL-50to120", title: "Drell-Yan mumu", xsec: 0.0012}
+  - {group: "WJ", name: "WtoMuNu-2Jets", title: "Wmu + jets", xsec: 0.0006}
+  - {group: "WJ", name: "WtoTauNu-2Jets", title: "Wtau + jets", xsec: 0.0006}
+  - {group: "VV", name: "WZ", title: "WZ", xsec: 0.0001}
+  - {group: "VV", name: "ZZto4L", title: "ZZ 4l", xsec: 0.0001}
+  - {group: "TT", name: "TTto2L2Nu", title: "ttbar 2l2#nu", xsec: 0.0003}
+  - {group: "TT", name: "TTtoLNu2Q", title: "ttbar semileptonic", xsec: 0.0003}
+  - {group: "ST", name: "TWminusto2L2Nu", title: "ST tW 2l2#nu", xsec: 0.00005}
+  - {group: "ST", name: "TbarWplusto2L2Nu", title: "ST atW 2l2#nu", xsec: 0.00005}
 data:
   muon: "Muon*Run2025*"
 weights:
@@ -603,10 +604,23 @@ join:
   - {patterns: ["Wto*Nu-2Jets"], name: "WJ"}
 """
 
-# Variation tuples: <sample>_mutau<tag>.root next to the nominal ones, the fixture rows with m_vis scaled (so the
-# shifted shapes differ); only the samples the script shifts (TES: the DY samples of ZTT; LTF: DY and TT).
+# Variation tuples: <sample>_mutau<tag>.root next to the nominal ones, the events with m_vis scaled (so the shifted
+# shapes differ); only the samples the script shifts (TES: the DY samples of ZTT; LTF: DY and TT).
 _TES_VARIATIONS = {"_TES0p970": (0.970, "DY"), "_TES1p030": (1.030, "DY"),
                    "_LTF1p030": (1.030, "DY", "TT"), "_LTF0p970": (0.970, "DY", "TT")}
+_TES_COPIES = 100  # copies of the fixture rows per tuple, dm_2 cycling over _TES_DECAY_MODES
+_TES_DECAY_MODES = (0, 1, 10, 11)
+
+
+def _tes_events(scale=1.0):
+    """The events of every tuple of the case: _TES_COPIES copies of the fixture rows (unique evt), dm_2 cycling over
+    0, 1, 10, 11, m_vis times `scale`. With the 16 rows alone the DM1 region is empty and the others have one bin of a
+    few events, and rebinning() stops (Histogrammer BUGS L22: no bin of a region reaches a 30 % relative error);
+    with the copies every region has bins with a relative error of about 0.15. events.json is not changed."""
+    from support.fixtures import rows
+    base = rows()
+    return [dict(row, evt=copy * len(base) + row["evt"], dm_2=_TES_DECAY_MODES[copy % len(_TES_DECAY_MODES)],
+                 m_vis=row["m_vis"] * scale) for copy in range(_TES_COPIES) for row in base]
 
 
 def _tes_inputs_script():
@@ -650,18 +664,19 @@ def histogrammer_tes_inputs(workspace):
     multithreaded fill differs in the last bits between runs)."""
     import subprocess
     import sys
-    from support.fixtures import rows, write_tree
+    from support.fixtures import write_tree
     base = Path(workspace) / "tes"
     tuples = base / "tuples" / "2025"
+    nominal = _tes_events()
     groups = {}
     for line in _TES_SAMPLES.splitlines():
         if line.startswith("  - {group:"):
             group, name = re.search(r'group: "(\w+)", name: "([\w-]+)"', line).groups()
             groups.setdefault(group, []).append(name)
-            write_tree(tuples / group / ("%s_mutau.root" % name))
-    write_tree(tuples / "Data" / "Muon_Run2025C_mutau.root", data=True)
+            write_tree(tuples / group / ("%s_mutau.root" % name), events=nominal)
+    write_tree(tuples / "Data" / "Muon_Run2025C_mutau.root", events=nominal, data=True)
     for tag, (scale, *shifted) in _TES_VARIATIONS.items():
-        events = [dict(row, m_vis=row["m_vis"] * scale) for row in rows()]
+        events = _tes_events(scale)
         for group in shifted:
             for name in groups[group]:
                 write_tree(tuples / group / ("%s_mutau%s.root" % (name, tag)), events=events)

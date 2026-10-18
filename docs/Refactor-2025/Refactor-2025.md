@@ -1336,11 +1336,21 @@ preflight: TODO §0 (D7, D8). Same method as before: lock with the old code firs
   the names of the PNG files; never the script's output text. The script path is one function,
   `_tes_inputs_script()`, the line H1 changes. Not covered: the working-point substitution (the fixture has no
   `idDeepTau*` branches); it moves byte for byte.
+- Fix of the case after the first lxplus run (2026-10-18): the 16 fixture rows gave an empty DM1 region and a few
+  events elsewhere, and the mini sample model normalised MC about 10^9 times above the data (cross sections of real
+  samples with 16-event tuples), so QCD (same-sign data minus MC) was negative everywhere and zeroed with large
+  errors; `rebinning` then found no bin under 30 % relative error and stopped (Histogrammer BUGS L22, registered with
+  L23 and L24, not fixed). The case now writes 100 copies of the fixture rows per tuple (`dm_2` cycling over 0, 1,
+  10, 11; still from `rows()`, so `events.json` and the fixture fingerprint are unchanged) and uses cross sections
+  that make MC about a third of the data. The other 22 cases were `same` in that lock attempt (`bbb diff`: 22 same, 0
+  changed), so the review fixes of §24 changed nothing.
 - `docs/contracts/tes-shapes.md` (new): the shape file name (today defined in four places), what is inside and what
   the fit reads, the config keys each side reads, the variation tuples.
 - Bugs registered, not fixed: Histogrammer BUGS L18-L21 (`createinputsTES.py`: control plots only with
   `systematics`, `varprocs` only for mutau/mumu, shape files never recreated, rebinning of the first observable only;
-  they go to the Histogrammer with the script in H1), Fitter BUGS F26 (option 6 reads `tidRegions`).
+  they go to the Histogrammer with the script in H1), L22-L24 (found by the first lock attempt: `rebinning` stops on a
+  region without a bin under 30 % relative error, its error accumulation, the doubled tag in the plot names), Fitter
+  BUGS F26 (option 6 reads `tidRegions`).
 - Docs: `Tests/README.md` (the case, how to run it alone), TODO §1 (lock), §4 (bug ids).
 
 Checked (Windows): `python Tests/run.py checks`; `bbb list` shows 23 cases; the mini sample model loads with
