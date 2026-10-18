@@ -14,9 +14,11 @@ operation screen (_operation_screen.py):
     process.state() + run_state ─────▶ the state line, then the result card once it ended:
                                        complete / waiting for jobs / failed / blocked / stopped / lost
 
-operation.data: run_id, run_dir and stages, [dict(id, type, state, message)] in
-recipe order (the Framework supplies them from run.json as plain data). The
-events it reads:
+operation.data: run_id, run_dir and stages, [dict(id, type, state, message,
+info)] in recipe order (the Framework supplies them from run.json as plain
+data); info: [label, value] pairs of the stage's facts (its config, inputs,
+output, ...), shown in a box next to the list (the Framework chooses them per
+stage type; the preview makes them up). The events it reads:
 
   run          run_id, run_dir                    stage_step  stage, type, state (before the step)
   stage_state  stage, state, message              run_state   run_id, state
@@ -59,7 +61,7 @@ LOST_TEXT = ("The advance gave no sign of life for minutes: its login session en
 
 class RunProgress(ScreenModel):
     """What the screen knows about a run while it advances, from its events (see the module docstring). stages:
-    id -> dict(id, type, state, message, started, seconds, commands, log) in recipe order; state is a run.json
+    id -> dict(id, type, state, message, started, seconds, commands, log, info) in recipe order; state is a run.json
     stage state, RUN while a step works, STOP once the advance stopped during it; commands: index ->
     dict(index, total, label, status, started, seconds, log)."""
 
@@ -132,6 +134,9 @@ class RunProgress(ScreenModel):
 
     def log(self, stage):
         return stage["log"]
+
+    def info(self, stage):
+        return ("Info: %s" % stage["id"], stage["info"]) if stage["info"] else None
 
     def summary(self):
         done = sum(stage["state"] == "DONE" for stage in self.stages.values())
@@ -238,7 +243,7 @@ class RunProgress(ScreenModel):
     def _stage(self, name, kind=None):
         if name not in self.stages:
             self.stages[name] = dict(id=name, type=kind or "", state="NEW", message="", started=None, seconds=None,
-                                     commands={}, log=None)
+                                     commands={}, log=None, info=[])
         elif kind:
             self.stages[name]["type"] = kind
         return self.stages[name]
@@ -281,7 +286,8 @@ class RunProgress(ScreenModel):
         self.stages = {}
         for stage in data.get("stages", ()):
             self._stage(stage["id"], stage.get("type")).update(state=stage.get("state") or "NEW",
-                                                               message=stage.get("message") or "")
+                                                               message=stage.get("message") or "",
+                                                               info=[tuple(fact) for fact in stage.get("info", ())])
         self.run_state = None
         self.next_check = None
         self.poll = 0.0

@@ -47,6 +47,9 @@ class Stages(ScreenModel):
     def summary(self):
         return "%d stage(s)" % len(self.stages)
 
+    def info(self, stage):
+        return ("Info: %s" % stage, [("Config", "plots_2025.yml"), ("Output", "a very long output directory name")])
+
 
 class Process:
     def __init__(self, output, states):
@@ -76,9 +79,9 @@ class OperationScreenTests(unittest.TestCase):
             stream.write("Info in <TCanvas::Print>: png file a.png has been created\n")
         open(self.output, "w").close()
 
-    def screen(self, keys):
+    def screen(self, keys, size=(24, 90)):
         screen = mock.Mock()
-        screen.getmaxyx.return_value = (24, 90)
+        screen.getmaxyx.return_value = size
         screen.getch.side_effect = keys
         curses = mock.Mock(KEY_UP=UP, KEY_DOWN=DOWN, KEY_ENTER=ENTER, KEY_NPAGE=1004, KEY_PPAGE=1005, KEY_END=1007,
                            A_REVERSE=256)
@@ -103,6 +106,24 @@ class OperationScreenTests(unittest.TestCase):
         self.assertTrue(any("png file a.png" in line for line in drawn))  # the focused item's log
         process.cancel.assert_called_once_with()
         self.assertEqual(model.ended, (0, False))  # finish() once the operation ended
+
+    def test_the_info_box_beside_the_list_or_on_top_of_the_details(self):
+        for size, beside in (((24, 120), True), ((24, 90), False)):
+            with self.subTest(size=size):
+                ui, screen = self.screen([-1, 27], size=size)
+                follow(ui, screen, "Runs / tes_2025", Process(self.output, ["RUNNING"]), Stages(self.log))
+                calls = [call.args for call in screen.addnstr.call_args_list]
+                drawn = [args[2] for args in calls]
+                self.assertEqual(any(" Info: ntuples " in line for line in drawn), beside)
+                fact = [args for args in calls if args[2].startswith("Config")]
+                self.assertTrue(fact)
+                if beside:
+                    self.assertEqual(fact[0][1], 120 - 1 - 36 + 2)  # inside the box right of the list
+                    self.assertIn("Output  a very long output", drawn)  # wrapped under its value
+                    self.assertIn("        directory name", drawn)
+                else:
+                    self.assertEqual(fact[0][1], 3)  # the first line of the Details
+                    self.assertIn("Output  a very long output directory name", drawn)
 
     def test_printable(self):
         self.assertEqual(printable("\x1b[1ma\tb\x07"), "a   b")

@@ -11,7 +11,8 @@ from TauFW.Utilities.Menu._run_screen import RunProgress, LOST_TEXT, run_summary
 
 T = 1000.0
 DATA = dict(run_id="tes_2025", run_dir="/eos/runs/tes_2025",
-            stages=[dict(id="ntuples", type="production", state="DONE", message=""),
+            stages=[dict(id="ntuples", type="production", state="DONE", message="",
+                         info=[["Config", "pico_2025.yml"], ["Samples", "41"]]),
                     dict(id="plots", type="plotter", state="NEW", message=""),
                     dict(id="fit", type="fitter", state="NEW", message="")])
 
@@ -49,6 +50,11 @@ class RunProgressTests(unittest.TestCase):
         self.assertEqual(run.log(plot), "/l/mumu.log")
         self.assertIsNone(run.card())  # not ended
         self.assertEqual(run.states["RUNNING"], ("RUNNING", "accent"))
+
+    def test_the_facts_of_a_stage(self):
+        run = RunProgress(DATA)
+        self.assertEqual(run.info(run.items()[0]), ("Info: ntuples", [("Config", "pico_2025.yml"), ("Samples", "41")]))
+        self.assertIsNone(run.info(run.items()[1]))  # none supplied: no box
 
     def test_waiting_for_jobs_counts_down_to_the_next_check(self):
         run = RunProgress(dict(DATA, stages=[dict(id="ntuples", type="production", state="NEW")]))

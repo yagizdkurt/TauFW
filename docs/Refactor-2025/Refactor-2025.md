@@ -1019,6 +1019,16 @@ Left for the wiring (with the run lock, TODO §6): which runs the menu passes (r
 their card was seen once: a `seen` file in the operation directory), the `run`/`runs` actions, Continue on an
 advancing run opening its screen, and the lock record that `run_lock()` shows.
 
+### Run screen: a box of the stage's facts (2026-10-18)
+
+Decided (user): the Stages list of the run screen shares its row with a box of the focused stage's facts on the
+right ("Info: plots": config, inputs, channels, output, ...); not on the test screen. A third hook of the operation
+screen, `info(item)` -> (title, [(label, value)]): the box is `INFO_WIDTH` (36) columns next to the list; a terminal
+narrower than `INFO_MIN_WIDTH` (110) shows the facts at the top of the Details instead (kept there, the end of the
+rest below them). `RunProgress.info()` takes them from `operation.data` (each stage's `info`, [label, value] pairs):
+the Framework will choose them per stage type at the wiring; the preview makes them up. The test screen draws the
+same (140 preview frames, before/after).
+
 ### Checked
 
 `Tests/Utilities/test_operations.py` (new): supervisor exit codes, heartbeat, stop, kill, SIGTERM, every state, a real
@@ -1371,7 +1381,7 @@ Checked (Windows): `python Tests/run.py checks`. On lxplus: `bbb check` 22/22 wi
 ## 25. TES shapes leave the Fitter for the Histogrammer (in progress)
 
 **Date:** 2026-10-18
-**Status:** H0 committed, the lock is on lxplus (TODO §1); H1 done on Windows; H2-H4 to come.
+**Status:** H0 (lock `f3079fa`) and H1 done and checked on lxplus; H2-H4 to come.
 Plan: `LocalR/architecture/16-histograms-plan.md` (decisions §13).
 
 Step 2 of the isolation work (`LocalR/architecture/13`): the code that fills the TES/ID input histograms
@@ -1458,3 +1468,12 @@ Checked (Windows): `python Tests/run.py checks`; `bbb list` shows 23 cases; the 
 Checked (Windows): `python Tests/run.py checks`: 13 of 15 suites pass (`unit.histogrammer.compat` with the stub
 tests, `unit.fitter.api`, `unit.framework`); `check_import_boundaries` 25 / 23 / 21, 0 new pairs (known debt),
 `check_root` needs ROOT; `move_check` 7 files, 0 disallowed changes. Not checked here: BBB (lxplus, TODO §1).
+
+Checked (lxplus, 2026-10-18): after `scram b` the new package imports; `bbb check` 23/23 without re-lock (the
+case runs the moved script, `fitter.shapes`/`fitter.rebin` import `TauFW.Histogrammer.shapes`: the same payloads as
+the lock taken with the old code); `checks` 14/15 (`check_import_boundaries`: known debt, 25 / 23 / 21, 0 new
+pairs); the old path prints the new command and exits with 2; `taufw.py plan Analyses/tes_id_2025` runs
+`Histogrammer/shapes/TauES/createinputsTES.py`. In the history the H1 commit (`9d072a9`) comes before the lock
+commit (`f3079fa`), so the old code (`0c611f4`, in a `git worktree`) was run once more against the lock: the
+three cases of the moved code (`histogrammer.tes_inputs`, `fitter.shapes`, `fitter.rebin`) 3/3 the same. The lock
+describes the code before the move, and the move changed nothing.

@@ -14,11 +14,14 @@ Leaving it (Esc) never stops the operation; S or Ctrl-C asks (model.stop_questio
 then stops it. No Framework imports belong here (see _test_run.py).
 
 A model (see ScreenModel) holds the words of its screen and turns events into
-items; the screen keeps only where the user is (_View). Two hooks a model may
-use: current() is the item the focus follows until the user moves it (the one
-at work), card() a result card drawn above the list (once it ended).
+items; the screen keeps only where the user is (_View). Three hooks a model
+may use: current() is the item the focus follows until the user moves it (the
+one at work), card() a result card drawn above the list (once it ended), and
+info() a box of the focused item's facts to the right of the list (on a
+terminal narrower than INFO_MIN_WIDTH, at the top of its Details instead).
 """
 import re
+import textwrap
 
 from ._menu import _clock
 from ..Process import LogTail
@@ -33,6 +36,8 @@ __all__ = ["ScreenModel", "follow", "printable"]
 
 FRAME = 0.1           # seconds between frames
 LOG_LINES = 400       # lines of an item log kept on screen
+INFO_WIDTH = 36       # columns of the info box (model.info) next to the list
+INFO_MIN_WIDTH = 110  # narrower terminals show the info at the top of the Details
 CONTROL = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|[\x00-\x08\x0b-\x1f\x7f]")
 
 
@@ -89,6 +94,10 @@ class ScreenModel:
 
     def card(self):
         """(title, [(text, role)]) of a card drawn above the list, or None."""
+        return None
+
+    def info(self, item):
+        """(title, [(label, value)]) of the box of an item's facts next to the list, or None."""
         return None
 
     def __init__(self):
@@ -186,22 +195,31 @@ def _items(ui, screen, model, items, view, height, width):
             ui._line(screen, inner[0] + index, inner[1], text, color=ui.styles.get(role, 0))
         top += len(lines) + 2
     list_height = max(4, (height - top - 3) // 2)
-    rect = ui._panel(screen, top, 1, list_height, width - 2, model.list_title)
-    row, left, rows, columns = rect
     view.focus = min(view.focus, len(items) - 1)
+    item = items[view.focus]
+    info = model.info(item)
+    beside = info is not None and width >= INFO_MIN_WIDTH
+    list_width = width - 1 - INFO_WIDTH if beside else width - 2
+    rect = ui._panel(screen, top, 1, list_height, list_width, model.list_title)
+    row, left, rows, columns = rect
     first = max(0, view.focus - rows + 1)
-    for index, item in enumerate(items[first:first + rows], first):
-        label, time_text, role = model.row(item)
+    for index, entry in enumerate(items[first:first + rows], first):
+        label, time_text, role = model.row(entry)
         line = label[:max(1, columns - len(time_text) - 1)].ljust(max(1, columns - len(time_text))) + time_text
         ui._line(screen, row + index - first, left, line[:columns], index == view.focus, ui.styles.get(role, 0))
-    item = items[view.focus]
+    if beside:  # the boxes share their edge
+        box = ui._panel(screen, top, list_width, list_height, INFO_WIDTH, info[0])
+        ui._viewport(screen, box, _info_lines(info[1], box[3]), 0)
     details = ui._panel(screen, top + list_height, 1, height - top - list_height - 3, width - 2,
                         "Details: %s" % model.label(item))
     lines = [printable(line) for line in model.details(item)]
     log = _item_lines(model, view, item)
     if log:
         lines += ["--- last lines of the log ---"] + log[-max(1, details[2]):]
-    ui._viewport(screen, details, [part for line in lines for part in ui._wrap(line, details[3])][-details[2]:], 0)
+    pinned = _info_lines(info[1], details[3]) + [""] if info is not None and not beside else []
+    pinned = pinned[:max(0, details[2] // 2)]  # the facts at the top, the end of the rest below them
+    rest = [part for line in lines for part in ui._wrap(line, details[3])][-max(1, details[2] - len(pinned)):]
+    ui._viewport(screen, details, pinned + rest, 0)
 
 
 def _log(ui, screen, view, title, lines, height, width):
@@ -276,6 +294,16 @@ def _key(ui, key, process, model, view, state):
 
 # =============================================================================
 # ================================ HELPERS ====================================
+
+
+def _info_lines(facts, width):
+    """`label  value` lines, the values aligned and wrapped under themselves."""
+    pad = min(max([len(str(label)) for label, _ in facts] or [0]), max(1, width // 2))
+    lines = []
+    for label, value in facts:
+        parts = textwrap.wrap(printable(value), max(1, width - pad - 2)) or [""]
+        lines += [(str(label) if index == 0 else "").ljust(pad) + "  " + part for index, part in enumerate(parts)]
+    return lines
 
 
 def _focused(items, view):

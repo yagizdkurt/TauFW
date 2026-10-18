@@ -319,9 +319,24 @@ FAILED_COMMAND = ("mumu 2025", ["Error in <TFile::TFile>: file histograms/mumu_2
                                 "ValueError: no histogram m_vis for mumu 2025"])
 
 
+# stage -> its facts, as the Framework will supply them (made up: the real fields are chosen at the wiring)
+RUN_INFO = {
+    "ntuples": [("Config", "configs/pico_2025.yml"), ("Era", "2025"), ("Channels", "mutau etau"),
+                ("Samples", "41 (852 jobs)"), ("Storage", "/eos/user/u/username/samples/nano_2025"), ("Attempt", "1")],
+    "histograms": [("Config", "Histogrammer/shapes/tes_2025.yml"), ("Input", "ntuples"),
+                   ("Variables", "m_vis pt_1 m_2"), ("Output", "stages/histograms/")],
+    "plots": [("Config", "Plotter/config/plots_2025.yml"), ("Input", "histograms"),
+              ("Channels", "etau mutau mumu tautau"), ("Years", "2024 2025"), ("Output", "stages/plots/")],
+    "fit": [("Config", "Fitter/TauES/config_tes_2025.yml"), ("Input", "histograms"), ("Decay modes", "DM0 DM1 DM10"),
+            ("POI", "tes"), ("Output", "stages/fit/")],
+    "results": [("Command", "Fitter/TauES/summary.py"), ("Input", "fit"), ("Output", "stages/results/")],
+}
+
+
 def _run_data(states):
     return dict(run_id=RUN_ID, run_dir=RUN_DIR,
-                stages=[dict(id=name, type=kind, state=states.get(name, "NEW"), message="")
+                stages=[dict(id=name, type=kind, state=states.get(name, "NEW"), message="",
+                             info=[list(fact) for fact in RUN_INFO[name]])
                         for name, kind in RUN_STAGES])
 
 

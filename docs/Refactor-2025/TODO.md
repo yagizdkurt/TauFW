@@ -35,20 +35,18 @@ Items marked **(verify)** may already be done; check before working on them.
       `python3 Tests/run.py bbb check` (22/22, **no re-lock**: `plotter.stack` writes and reads the histogram file
       through the stricter checks); `python3 Tests/run.py checks` (with ROOT `test_histfile.py` also runs the header
       test).
-- [ ] **Lock the BBB case `histogrammer.tes_inputs` (CL §25, H0), with the code before step 2 moves anything.** Only
-      after the item above (22/22 `same` on that commit). After `git pull` of H0, in `TauFW/`: (1) try the case alone:
-      `rm -rf ~/tes_try && mkdir ~/tes_try && python3 Tests/support/launch.py bbb histogrammer.tes_inputs ~/tes_try
-      ~/tes_try/result.json; echo $?` (0, and `result.json` written); (2) `python3 Tests/run.py bbb lock --replace`;
-      (3) `python3 Tests/run.py bbb diff`: only `histogrammer.tes_inputs` is new, the 22 others unchanged; (4)
-      `python3 Tests/run.py bbb check` twice: 23/23. Commit the baselines on their own.
-- [ ] **Shape scripts moved to the Histogrammer (CL §25, H1): nothing may change.** Only after the lock above. After
-      `git pull` and `scram b -j4` (new package `TauFW.Histogrammer.shapes`), in `TauFW/`: (1) `python3 -c "import
-      TauFW.Histogrammer.shapes.inputs, TauFW.Histogrammer.shapes.rebinning"`; (2) `python3 Tests/run.py bbb check`:
-      23/23, **no re-lock** (`histogrammer.tes_inputs` now runs `Histogrammer/shapes/TauES/createinputsTES.py`,
-      `fitter.shapes`/`fitter.rebin` import `TauFW.Histogrammer.shapes`); (3) `python3 Tests/run.py checks`; (4) the
-      old path prints the new command: `cd Fitter && python3 TauES/createinputsTES.py -y 2025; echo $?` (2); (5)
-      `python3 Framework/scripts/taufw.py plan Analyses/tes_id_2025`: the shapes commands name
-      `Histogrammer/shapes/TauES/createinputsTES.py`, nothing else changes.
+- [x] **BBB lock with `histogrammer.tes_inputs` (CL §25, H0).** Done 2026-10-18 on lxplus with the old script
+      (`f3079fa`): the first attempt stopped in the old `rebinning` (sparse fixture, BUGS L22; fixed in the case,
+      `0c611f4`); then the case alone exit 0 (14 s), `lock --replace` 23 cases, `bbb diff` 22 same + 1 added, `bbb check`
+      twice 23/23. The 22 others were `same` in both attempts, so the review fixes of CL §24 changed nothing.
+- [x] **Shape scripts moved to the Histogrammer (CL §25, H1).** Done 2026-10-18 on lxplus after `scram b`: the new
+      package imports; `bbb check` 23/23 without re-lock (`histogrammer.tes_inputs` with the moved script,
+      `fitter.shapes`/`fitter.rebin` with `TauFW.Histogrammer.shapes`); `checks` 14/15 (`check_import_boundaries` known
+      debt, 25 / 23 / 21, 0 new pairs); the old path prints the new command and exits with 2; `taufw.py plan
+      Analyses/tes_id_2025` runs `Histogrammer/shapes/TauES/createinputsTES.py`.
+- [x] **The lock describes the code before the move (CL §25, H0/H1).** Done 2026-10-18 on lxplus: the old code
+      (`0c611f4`, in a `git worktree`, the case running `Fitter/TauES/createinputsTES.py`) against the lock:
+      `bbb check --case histogrammer.tes_inputs --case fitter.shapes --case fitter.rebin` 3 checked, 0 failed.
 - [ ] **Bug fixes of 2026-10-18:** `python3 Tests/Utilities/test_background.py` five times in a row and once inside
       `python3 Tests/run.py checks` (the flaky cancel test, §7); `taufw.py plan Analyses/no_such_recipe` prints one
       line, no traceback (Framework BUGS K06).
@@ -309,7 +307,8 @@ Parts 1–5 are done (CL §5–§8; the Part 2 changelog section was removed).
       menu run line, the runs chooser, the run list label and the lock screens (CL §23 "Runs in the menus").
       Left: (1), then the wiring (CL §23 lists what): `interactive.py` starts start/advance as operations
       (`kind="run"`, data run_id/run_dir/stages from `run.json`), passes the runs to `main_menu`/`select_run`, the
-      `seen` file, Continue on an advancing run opens it, the lock record to `run_lock()`.
+      `seen` file, Continue on an advancing run opens it, the lock record to `run_lock()`, and each stage's
+      `info` facts for the box next to the Stages list (which fields per stage type: to choose then).
 
 Next-work proposals (not designed in detail yet):
 
