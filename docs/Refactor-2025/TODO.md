@@ -28,14 +28,10 @@ Items marked **(verify)** may already be done; check before working on them.
       changes no plot (`plots/2025/*_s3ref.png` vs `*_s3.png`), `draw.py` draws the same plots (`plots/2025/*_s3.png`
       vs `drawn/2025/*_s3.png`, same number of files), and the logs of (1) and (2) differ only in the tag, the
       "Wrote the histograms" line and the timing.
-- [ ] **Configs to `Configs/Histogrammer/` (CL §24, S2).** After `git pull`, in `TauFW/`: `python3 Tests/run.py bbb
-      check` (22/22, no re-lock: `plotter.sample_model` reads the moved templates), `python3 Tests/run.py checks`,
-      `python3 Framework/scripts/taufw.py configs` (15 templates, all `histogrammer.*`), `taufw.py check` and `plan` of
-      `Analyses/tes_id_2025` and `Analyses/example_mutau_long` (no copy warning). Old-id copy: `cp -r
-      Analyses/tes_id_2025 /tmp/$USER/oldid && sed -i 's/id: histogrammer\./id: plotter./' /tmp/$USER/oldid/*.yml &&
-      python3 Framework/scripts/taufw.py check /tmp/$USER/oldid` must warn "renamed ... change the id" for the three
-      copies and nothing else. Real plots: in `Histogrammer/` the S1 command with `-t _h18s2` and `--samples
-      ../Configs/Histogrammer/samples/v15_2025.yml`; its 4 PNG files equal `../Plotter/plots/2025/*_h18old.png`.
+- [x] **Configs to `Configs/Histogrammer/` (CL §24, S2).** Done 2026-10-18 on lxplus: `bbb check` 22/22
+      without re-lock, `checks`, `taufw.py configs` (15 templates `histogrammer.*`, lock ok), `check`/`plan` of
+      `tes_id_2025` and `example_mutau_long` without copy warnings; a copy with the old ids gets exactly the three
+      "renamed ... change the id" warnings; `fillhists.py -c mutau` reads the moved setup: 4 PNG byte-identical.
 - [x] **Plotter -> Histogrammer, S0 and S1 (CL §24).** Done 2026-10-18 on lxplus: BBB locked with `plotter.stack`
       (22 cases; `bbb diff`: only the new case; `bbb check` twice 22/22); `roundtrip_spike.py` 12/12 SAME (drawing
       from a histogram file, also with only the 17 drawing attributes, gives the same canvases and PNG bytes). After
