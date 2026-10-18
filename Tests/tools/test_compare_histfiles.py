@@ -1,4 +1,5 @@
 """compare_histfiles.py without ROOT: what counts as a difference of two snapshots (CL §24, S4)."""
+import struct
 import unittest
 
 from compare_histfiles import differences, numbers_differ
@@ -26,6 +27,11 @@ class CompareTests(unittest.TestCase):
         self.assertEqual(found, ["file.entries[0].contents[1]: 2.0 in A, %r in B" % (2.0 + 2e-14)])
         self.assertAlmostEqual(largest, 1e-14, delta=1e-15)
         self.assertEqual(self.compare(a, b, rtol=1e-12)[0], [])
+        # the BBB snapshot stores floats exactly, as hex ({"float64": ...}): compared as numbers, so rtol applies
+        exact = {"contents": [{"float64": struct.pack("<d", 2.0).hex()}]}
+        close = {"contents": [{"float64": struct.pack("<d", 2.0 + 4e-14).hex()}]}
+        self.assertEqual(len(self.compare(exact, close)[0]), 1)
+        self.assertEqual(self.compare(exact, close, rtol=1e-12)[0], [])
         found, _ = self.compare(a, {"meta": {}, "entries": []})
         self.assertEqual(found, ["file.entries: 1 values in A, 0 in B", "file.meta.era: only in A"])
 

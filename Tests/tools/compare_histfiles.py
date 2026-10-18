@@ -18,6 +18,7 @@ Exit status 0 when the files are equal (within rtol), 1 otherwise.
 """
 import argparse
 import math
+import struct
 import sys
 from pathlib import Path
 
@@ -34,9 +35,20 @@ def numbers_differ(a, b, rtol):
     return True
 
 
+def as_number(value):
+    """A float of the BBB snapshot ({'float64': <hex>} or {'float32': <hex>}, its exact encoding) as a number;
+    anything else as it is."""
+    if isinstance(value, dict) and len(value) == 1:
+        (key, text), = value.items()
+        if key in ('float32', 'float64') and isinstance(text, str):
+            return struct.unpack('<f' if key == 'float32' else '<d', bytes.fromhex(text))[0]
+    return value
+
+
 def differences(a, b, where, rtol, found, largest):
     """Append to `found` where the snapshots (nested dicts, lists, numbers) a and b differ; `largest` keeps the
     largest relative difference of numbers that are not exactly equal."""
+    a, b = as_number(a), as_number(b)
     if isinstance(a, dict) and isinstance(b, dict):
         for key in sorted(set(a) | set(b), key=str):
             if key not in a or key not in b:
