@@ -16,20 +16,14 @@ Items marked **(verify)** may already be done; check before working on them.
 ## 1. Checks to run on lxplus
 
 
-- [ ] **BBB lock with the new case `plotter.stack` (CL §24, S0), before S1 renames the Plotter.** After `git pull`:
-      `python3 Tests/run.py bbb lock --replace`, `bbb diff` (only `plotter.stack` is new), `bbb check` twice (the case
-      must be deterministic). Then `python3 Tests/tools/roundtrip_spike.py` (memory vs histogram-file drawing: every
-      line must say SAME; send the output if not). Reference plots for S1, in `Plotter/`: `python3 plot.py -y 2025 -c
-      mutau -V m_vis pt_1 -S baseline -t _h18old -v 1 --tuples '/eos/cms/store/group/phys_tau/TauFW/pico2024/
-      TES_variations/$ERA/$GROUP' --samples ../Configs/Plotter/samples/v15_2025.yml > ~/h18_old.log 2>&1`.
-- [ ] **Plotter -> Histogrammer rename (CL §24, S1), after the lock above.** After `git pull`: `cd $CMSSW_BASE/src &&
-      scram b -j4` (new Python package `TauFW.Histogrammer`), then in `TauFW/`: `python3 Tests/run.py bbb check`
-      (22/22, **no re-lock**: only import lines changed), `python3 Tests/run.py checks` (`unit.histogrammer.compat`
-      now also runs the identity tests of the 13 old names), `python3 Tests/run.py normal --case plotter.unroll
-      --case plotter.samples` (old scripts through the aliases, `cwd` now `Histogrammer/`). Real data: in `Histogrammer/`
-      the reference command of S0 with `fillhists.py`, `-t _h18new` and `> ~/h18_new.log`; compare the logs (without
-      timing lines) and the PNG files of `../Plotter/plots/2025/*_h18old.png` with `plots/2025/*_h18new.png` (`cmp`).
-      `python3 ../Plotter/plot.py -y 2025 -c mutau` must print the LEGACY message and exit with 2.
+- [x] **Plotter -> Histogrammer, S0 and S1 (CL §24).** Done 2026-10-18 on lxplus: BBB locked with `plotter.stack`
+      (22 cases; `bbb diff`: only the new case; `bbb check` twice 22/22); `roundtrip_spike.py` 12/12 SAME (drawing
+      from a histogram file, also with only the 17 drawing attributes, gives the same canvases and PNG bytes). After
+      the rename: `bbb check` 22/22 without re-lock, `checks` (the compat test was too strict about an untracked
+      `Plotter/python/api/__pycache__/`, fixed), `normal` `plotter.unroll` and `plotter.samples` pass through the
+      aliases; `fillhists.py` vs the old `plot.py` on the 2025 tuples: 4 PNG byte-identical, logs equal except the
+      ACLiC line of the macro in its new directory and the timing; the legacy `Plotter/plot.py` prints the new
+      command and exits with 2.
 - [x] **BBB lock with the new case `plotter.sample_model` (CL §22), before S2 switches it.** Done 2026-10-17: locked
       with the old code, the case switched to the model, `bbb check` 21/21 with no difference (also after the S7 and
       §23 pull); `unit.plotter.sample_model` passes on lxplus.

@@ -61,7 +61,8 @@ class ShimFileTests(unittest.TestCase):
 
     def test_no_shim_for_removed_or_broken_names(self):
         self.assertFalse((SHIM_DIR / "plot" / "datacard.py").exists())  # would repair Fitter/MuTauFR (TODO §8)
-        self.assertFalse((SHIM_DIR / "api").exists())                   # only the Framework used it
+        # no TauFW.Plotter.api (only the Framework used it); a checkout may keep an untracked api/__pycache__/
+        self.assertEqual(list((SHIM_DIR / "api").glob("*.py")), [])
 
 
 class AliasMechanismTests(unittest.TestCase):

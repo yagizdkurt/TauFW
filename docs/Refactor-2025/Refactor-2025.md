@@ -1543,4 +1543,11 @@ data change:** the filling code is moved, not edited, and every step is proven b
 
 Checked (Windows): `python Tests/run.py checks`: all unit suites pass (Framework 166, `unit.histogrammer.api` 14,
 `unit.histogrammer.compat` 6 with 2 skipped for ROOT, `unit.tools`, `check_harness`); `check_import_boundaries`
-fails as designed with 0 new pairs, `check_root` needs ROOT. Not checked here: BBB, the old scripts, real plots (lxplus).
+fails as designed with 0 new pairs, `check_root` needs ROOT.
+
+Checked (lxplus, 2026-10-18): `bbb check` 22/22 without re-lock; `checks` (one fix: the compat test now ignores an
+untracked `Plotter/python/api/__pycache__/` left by `git pull`); the old scripts `plotter.unroll`, `plotter.samples`
+through the aliases; `fillhists.py` against the old `plot.py` on the 2025 tuples (`-c mutau -V m_vis pt_1 -S
+baseline`): the 4 PNG files byte-identical, the logs equal except the ACLiC line of `mapDecayModes.C` in its new
+directory and the timing; `Plotter/plot.py` prints the new command and exits with 2. S0's `roundtrip_spike.py`:
+12/12 SAME, so a Plotter drawing from a histogram file with only the 17 drawing attributes is feasible (S3).
