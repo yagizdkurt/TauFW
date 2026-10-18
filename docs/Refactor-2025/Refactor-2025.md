@@ -20,9 +20,9 @@ What is still open is listed in [TODO.md](TODO.md). Other documents cite its sec
 | 9 | [Framework: the TauFW orchestrator](#9-framework-the-taufw-orchestrator) |
 | 10 | [Framework: plots, histograms and fit stages](#10-framework-plots-histograms-and-fit-stages) |
 | 11 | [Framework: analysis bundles and Python steps](#11-framework-analysis-bundles-and-python-steps) |
-| 12 | [Shared code moved to Utilities](#12-shared-code-moved-to-utilities) |
+| 12 | [Shared code moved to Utilities](#12-shared-code-moved-to-utilities) (merged into §4) |
 | 13 | [Import-boundary test and coupling inventory](#13-import-boundary-test-and-coupling-inventory) |
-| 14 | [Fitter imports drawing helpers from their own home](#14-fitter-imports-drawing-helpers-from-their-own-home) |
+| 14 | [Fitter imports drawing helpers from their own home](#14-fitter-imports-drawing-helpers-from-their-own-home) (merged into §4) |
 | 15 | [Framework: explicit stage ids, inputs and recipe validation](#15-framework-explicit-stage-ids-inputs-and-recipe-validation) |
 | 16 | [Framework: run directory with logs/ and stages/, stage manifests](#16-framework-run-directory-with-logs-and-stages-stage-manifests) |
 | 17 | [Framework: Plotter and Fitter outputs in the run directory](#17-framework-plotter-and-fitter-outputs-in-the-run-directory) |
@@ -100,19 +100,9 @@ remain unchanged. Intentional output changes require an explicit `bbb lock --rep
 **Commit:** `41c7c0e`
 **Details:** [docs/FastSetup.md](../FastSetup.md)
 
-### What changed
+### What & Why
 
-- Added root [setup.sh](../../setup.sh), backed by `Utilities/FastSetup.sh`. From a fresh clone, run `source setup.sh`.
-  It creates `CMSSW_14_1_0_pre4`, detects EL8/EL9 for `SCRAM_ARCH`, moves TauFW into the release's `src/`,
-  installs TauIDSFs, HTT lepton efficiencies, Combine `v10.6.1` and CombineHarvester `v3.1.0`, and builds.
-- Options: `--cmssw-dir`, `--jobs`, `--run2-jme` (standalone NanoAODTools for Run 2 JEC/JER), `--help`.
-- Reuses existing checkouts, backs up HTT before replacement, and supports resuming failed installations.
-- README installation instructions now offer automatic and manual setup.
-
-### Why
-
-Automates a multi-step installation and standardizes the reference environment used for BBB tests.
-Standalone NanoAODTools remains opt-in for Run 2 JEC/JER workflows.
+- Added [setup.sh](../../setup.sh) that automates installation and standardizes the ref env used for BBB tests.
 
 ---
 
@@ -143,11 +133,16 @@ All deleted files remain in Git history. The Python 3 migration of the retained 
 
 ## 4. Utilities package for future development
 
+Everything about the shared `TauFW.Utilities` packages: the package itself, then the code moved onto it.
+Former §12 and §14 are merged here.
+
+### The package: CLI and FileIO
+
 **Date:** 2026-10-12
 **Commit:** `65ed36b`
 **Details:** [Utilities/README.md](../../Utilities/README.md), [Utilities/IOInventory.md](../../Utilities/IOInventory.md)
 
-### What changed
+#### What changed
 
 - Added `TauFW.Utilities` with two independent interfaces:
   - **`CLI`**: verbosity, stderr warnings/errors, headers, tables, progress and prompts.
@@ -157,13 +152,123 @@ All deleted files remain in Git history. The Python 3 migration of the retained 
 - Added an I/O inventory mapping existing terminal/file operations to `CLI`/`FileIO` methods.
 - Added offline unit tests with mocked remote/ROOT operations; the test runner includes Utilities in its workspaces.
 
-**No existing framework code used these packages at this point.** This commit only added them; §12 moves code onto them.
+**No existing framework code used these packages at this point.** This commit only added them; the subsections below move code onto them.
 
-### Why
+#### Why
 
 Provide shared, tested I/O implementations with explicit remote paths, safe writes and ROOT ownership,
 replacing duplicated helpers incrementally. Each later migration can be reviewed separately and checked
 against the existing BBB baselines for unchanged covered outputs.
+
+### Shared code moved to Utilities (former §12)
+
+Moves from `common` and Plotter into shared Utilities packages. The rule for all of them: Utilities does not import
+`TauFW.common`, callers are updated and the old module is deleted (or keeps only what is not moved), and the output
+stays the same; old output quirks are kept in a block marked `# ===== LEGACY, CLEAN UP LATER =====` and listed in
+[TODO.md](TODO.md) for a later commit with an explicit output change.
+
+#### Parallel processes and the loading bar
+
+**Date:** 2026-10-13
+**Details:** [Utilities](../../Utilities/README.md) (Terminal I/O, Parallel Python calls)
+
+| Old | New |
+|---|---|
+| `TauFW.common.tools.parallel.MultiProcessor(max=...)` | `TauFW.Utilities.Process.ParallelProcessor(max_parallel=...)` |
+| `TauFW.common.tools.LoadingBar.LoadingBar(pre=...)` | `CLI.loading_bar(steps, prefix=...)`; advance with `count(message="", steps=1)` |
+| `TauFW.common.math_helper` exports | Import `sqrt`, `log10`, `ceil`, `floor` from Python `math` |
+
+Parallel processing retains queue limits, pipe results, `kwret` merging, serial mode and `close()`; loading bars keep
+their terminal bytes. Removed: the unused import-time multiprocessing manager (which broke spawn), unused `Thread`
+demos, and `LoadingBar.update()`/`message()`. Integer-step counting previously crashed on a tuple operation; use
+`count(steps=n)` (no in-repo caller used the broken form).
+
+#### Numeric helpers
+
+**Date:** 2026-10-13
+**Details:** [Utilities/README.md](../../Utilities/README.md#numeric-helpers)
+
+`common/python/tools/math.py` became `TauFW.Utilities.Math` (`Math/_math.py`): same results for the same inputs.
+
+| Old (`TauFW.common.tools.math`) | New (`TauFW.Utilities.Math`) | Notes |
+|---|---|---|
+| `frange(start, end, step, scale)` | `float_range(start, end, step, scale)` | Same values (an `int` start stays `int`). |
+| `partition(mylist, nparts, nmax)` | `partition(items, parts, max_size)` | Neither given raises `ValueError` (was `IOError`). |
+| `partition_by_max(mylist, nmax)` | `partition_by_sum(values, maximum)` | Sorts a copy, not the caller's list. |
+| `columnize(oldlist, ncol)` | `columnize(items, columns)` | Same order. |
+| `magnitude(x)`, `reldiff(x, y)` | `magnitude(x)`, `relative_difference(x, y)` | Unchanged. |
+| `scalevec(a, b, r, log)` | `scale_vector(start, end, ratio, log)` | Log-mode `assert`s are `ValueError`s with the same messages. |
+| `sqrt, log10, ceil, floor` | standard `math` module | |
+
+Dropped without callers: `ceil2digit` (raised `NameError`: `log` was never imported) and `round2digit`.
+
+#### Printf-style table
+
+**Date:** 2026-10-13
+**Details:** [Utilities/README.md](../../Utilities/README.md#terminal-io) (`CLI.table`)
+
+`common/python/tools/Table.py` became `CLI.table(...)`, returning a `Table` (`Utilities/python/CLI/_internal/table.py`);
+every line is byte for byte what the old class wrote. Kept as legacy: the four constructor forms told apart by
+argument types, the header always underlined with raw ANSI codes, the old `LOG.warning` text and the debug lines.
+
+| Old | New |
+|---|---|
+| `LOG.table(*formats, verb=0, level=0, pre=">>> ", ul=True)` | `CLI(verbosity=verb, prefix=pre).table(*formats, minimum_verbosity=level, underline=ul)` |
+| `Table.printheader(*titles, post="")` | `print_header(*titles, suffix="")` |
+| `Table.printrow(*values)` / `Table.printtable()` | `print_row(*values)` / `print_rows()` |
+| `Table.header(...)`, `Table.row(...)`, `str(table)` | unchanged |
+| `LOG.tableheader()`, `LOG.row()` | removed (no callers) |
+
+The import cycle between `Table.py` and `log.py` is gone. One caller quirk is kept and listed in TODO: the
+`TGraph`/`TGraph` ratio table in `Plotter/python/plot/utils.py` prints its rows with `print_header`.
+
+#### Drawing library
+
+**Date:** 2026-10-14
+
+Plotter's drawing code moved to `TauFW.Utilities.Drawing`, so Fitter and PicoProducer can draw without importing the
+Plotter. The code moved as it was (`git mv`; function bodies unchanged, Plotter's 2-space style kept, only imports
+changed); modernizing it is a TODO item ("Drawing library").
+
+| Old | New |
+|---|---|
+| `Plotter/python/plot/{Plot,Plot2D,Stack,Ratio,CMSStyle}.py` | `Utilities/python/Drawing/` (same names) |
+| `Plotter/python/plot/utils.py` | `Drawing/hist_tools.py` |
+| `Plotter/python/sample/SampleStyle.py` | `Drawing/SampleStyle.py` (owns `Logger('Sample')`) |
+| Label helpers of `Plotter/python/plot/string.py` (`makelatex`, `maketitle`, `makehistname`, ...) | `Drawing/labels.py`; `string.py` imports them back |
+| `LOG = Logger('Plot')` | `TauFW.Utilities.Drawing.LOG`, the same single object for the drawing code and the Plotter |
+| `TauFW.common.tools.log` and a few `common` helpers | verbatim copies in `Drawing/_internal/legacy_log.py`, `legacy_helpers.py` |
+
+The output stays the same because there is one logger object and one module object per stateful module (`CMSStyle`,
+`SampleStyle`, `hist_tools` with its `TGraph` and `TNamed.__repr__` patches), each imported from one place only. The
+library recognizes the Plotter's `Variable` by duck typing (`hist_tools._is_variable`) instead of importing it;
+`Plot` no longer re-exports `Variable`/`Var`. About 55 callers changed their imports only.
+
+#### ROOT expression helpers
+
+**Date:** 2026-10-14
+
+The helpers of `Plotter/python/plot/string.py` that know only ROOT's C++ syntax (`getselstr`, `joinweights`,
+`joincuts`, `replacepattern`, `cleanbool`, private `doubleboolrexp`) moved verbatim to the new package
+`TauFW.Utilities.Expressions`, so that the Fitter builds cuts without the Plotter (`Fitter/python/plot/datacard.py`).
+They import no ROOT; the package is named by its job, not by a dependency. `string.py` imports the five public names
+back for its star-importers; the helpers that know pico branch names (`shift`, `invertcharge`, ...) stay there.
+Registered, not fixed: [Histogrammer BUGS](../Histogrammer/BUGS.md) L05 (`joinweights` with weight `0`), L06
+(`replacepattern` applies only the last pattern), L07 (`joincuts` does not bracket `(x)||y`).
+
+### Fitter imports drawing helpers from their own home (former §14)
+
+**Date:** 2026-10-14
+
+Fitter files now import helpers directly, preserving the same objects while avoiding unnecessary Plotter setup.
+
+| Files | Direct import |
+|---|---|
+| `Fitter/TauES_ID/{plot2DScan_MultiDimFit,plotParabola_POI_region,plotPostFitScan_POI}.py` | `TauFW.Utilities.Drawing.CMSStyle` |
+| `Fitter/python/plot/postfit_TES.py` | Drawing's `CMSStyle`; `setera` still comes from Plotter |
+
+`postfit_TES.py` retains its Plotter dependency because `setera` updates both CMS text and sample normalization globals.
+Only imports changed; the decoupled files left the boundary inventory.
 
 ---
 
@@ -412,99 +517,7 @@ cases stay unchanged.
 
 ## 12. Shared code moved to Utilities
 
-Moves from `common` and Plotter into shared Utilities packages. The rule for all of them: Utilities does not import
-`TauFW.common`, callers are updated and the old module is deleted (or keeps only what is not moved), and the output
-stays the same; old output quirks are kept in a block marked `# ===== LEGACY, CLEAN UP LATER =====` and listed in
-[TODO.md](TODO.md) for a later commit with an explicit output change.
-
-### Parallel processes and the loading bar
-
-**Date:** 2026-10-13
-**Details:** [Utilities](../../Utilities/README.md) (Terminal I/O, Parallel Python calls)
-
-| Old | New |
-|---|---|
-| `TauFW.common.tools.parallel.MultiProcessor(max=...)` | `TauFW.Utilities.Process.ParallelProcessor(max_parallel=...)` |
-| `TauFW.common.tools.LoadingBar.LoadingBar(pre=...)` | `CLI.loading_bar(steps, prefix=...)`; advance with `count(message="", steps=1)` |
-| `TauFW.common.math_helper` exports | Import `sqrt`, `log10`, `ceil`, `floor` from Python `math` |
-
-Parallel processing retains queue limits, pipe results, `kwret` merging, serial mode and `close()`; loading bars keep
-their terminal bytes. Removed: the unused import-time multiprocessing manager (which broke spawn), unused `Thread`
-demos, and `LoadingBar.update()`/`message()`. Integer-step counting previously crashed on a tuple operation; use
-`count(steps=n)` (no in-repo caller used the broken form).
-
-### Numeric helpers
-
-**Date:** 2026-10-13
-**Details:** [Utilities/README.md](../../Utilities/README.md#numeric-helpers)
-
-`common/python/tools/math.py` became `TauFW.Utilities.Math` (`Math/_math.py`): same results for the same inputs.
-
-| Old (`TauFW.common.tools.math`) | New (`TauFW.Utilities.Math`) | Notes |
-|---|---|---|
-| `frange(start, end, step, scale)` | `float_range(start, end, step, scale)` | Same values (an `int` start stays `int`). |
-| `partition(mylist, nparts, nmax)` | `partition(items, parts, max_size)` | Neither given raises `ValueError` (was `IOError`). |
-| `partition_by_max(mylist, nmax)` | `partition_by_sum(values, maximum)` | Sorts a copy, not the caller's list. |
-| `columnize(oldlist, ncol)` | `columnize(items, columns)` | Same order. |
-| `magnitude(x)`, `reldiff(x, y)` | `magnitude(x)`, `relative_difference(x, y)` | Unchanged. |
-| `scalevec(a, b, r, log)` | `scale_vector(start, end, ratio, log)` | Log-mode `assert`s are `ValueError`s with the same messages. |
-| `sqrt, log10, ceil, floor` | standard `math` module | |
-
-Dropped without callers: `ceil2digit` (raised `NameError`: `log` was never imported) and `round2digit`.
-
-### Printf-style table
-
-**Date:** 2026-10-13
-**Details:** [Utilities/README.md](../../Utilities/README.md#terminal-io) (`CLI.table`)
-
-`common/python/tools/Table.py` became `CLI.table(...)`, returning a `Table` (`Utilities/python/CLI/_internal/table.py`);
-every line is byte for byte what the old class wrote. Kept as legacy: the four constructor forms told apart by
-argument types, the header always underlined with raw ANSI codes, the old `LOG.warning` text and the debug lines.
-
-| Old | New |
-|---|---|
-| `LOG.table(*formats, verb=0, level=0, pre=">>> ", ul=True)` | `CLI(verbosity=verb, prefix=pre).table(*formats, minimum_verbosity=level, underline=ul)` |
-| `Table.printheader(*titles, post="")` | `print_header(*titles, suffix="")` |
-| `Table.printrow(*values)` / `Table.printtable()` | `print_row(*values)` / `print_rows()` |
-| `Table.header(...)`, `Table.row(...)`, `str(table)` | unchanged |
-| `LOG.tableheader()`, `LOG.row()` | removed (no callers) |
-
-The import cycle between `Table.py` and `log.py` is gone. One caller quirk is kept and listed in TODO: the
-`TGraph`/`TGraph` ratio table in `Plotter/python/plot/utils.py` prints its rows with `print_header`.
-
-### Drawing library
-
-**Date:** 2026-10-14
-
-Plotter's drawing code moved to `TauFW.Utilities.Drawing`, so Fitter and PicoProducer can draw without importing the
-Plotter. The code moved as it was (`git mv`; function bodies unchanged, Plotter's 2-space style kept, only imports
-changed); modernizing it is a TODO item ("Drawing library").
-
-| Old | New |
-|---|---|
-| `Plotter/python/plot/{Plot,Plot2D,Stack,Ratio,CMSStyle}.py` | `Utilities/python/Drawing/` (same names) |
-| `Plotter/python/plot/utils.py` | `Drawing/hist_tools.py` |
-| `Plotter/python/sample/SampleStyle.py` | `Drawing/SampleStyle.py` (owns `Logger('Sample')`) |
-| Label helpers of `Plotter/python/plot/string.py` (`makelatex`, `maketitle`, `makehistname`, ...) | `Drawing/labels.py`; `string.py` imports them back |
-| `LOG = Logger('Plot')` | `TauFW.Utilities.Drawing.LOG`, the same single object for the drawing code and the Plotter |
-| `TauFW.common.tools.log` and a few `common` helpers | verbatim copies in `Drawing/_internal/legacy_log.py`, `legacy_helpers.py` |
-
-The output stays the same because there is one logger object and one module object per stateful module (`CMSStyle`,
-`SampleStyle`, `hist_tools` with its `TGraph` and `TNamed.__repr__` patches), each imported from one place only. The
-library recognizes the Plotter's `Variable` by duck typing (`hist_tools._is_variable`) instead of importing it;
-`Plot` no longer re-exports `Variable`/`Var`. About 55 callers changed their imports only.
-
-### ROOT expression helpers
-
-**Date:** 2026-10-14
-
-The helpers of `Plotter/python/plot/string.py` that know only ROOT's C++ syntax (`getselstr`, `joinweights`,
-`joincuts`, `replacepattern`, `cleanbool`, private `doubleboolrexp`) moved verbatim to the new package
-`TauFW.Utilities.Expressions`, so that the Fitter builds cuts without the Plotter (`Fitter/python/plot/datacard.py`).
-They import no ROOT; the package is named by its job, not by a dependency. `string.py` imports the five public names
-back for its star-importers; the helpers that know pico branch names (`shift`, `invertcharge`, ...) stay there.
-Registered, not fixed: [Histogrammer BUGS](../Histogrammer/BUGS.md) L05 (`joinweights` with weight `0`), L06
-(`replacepattern` applies only the last pattern), L07 (`joincuts` does not bracket `(x)||y`).
+Merged into [§4](#4-utilities-package-for-future-development).
 
 ---
 
@@ -526,17 +539,7 @@ Production code and baselines are unchanged.
 
 ## 14. Fitter imports drawing helpers from their own home
 
-**Date:** 2026-10-14
-
-Fitter files now import helpers directly, preserving the same objects while avoiding unnecessary Plotter setup.
-
-| Files | Direct import |
-|---|---|
-| `Fitter/TauES_ID/{plot2DScan_MultiDimFit,plotParabola_POI_region,plotPostFitScan_POI}.py` | `TauFW.Utilities.Drawing.CMSStyle` |
-| `Fitter/python/plot/postfit_TES.py` | Drawing's `CMSStyle`; `setera` still comes from Plotter |
-
-`postfit_TES.py` retains its Plotter dependency because `setera` updates both CMS text and sample normalization globals.
-Only imports changed; the decoupled files left the boundary inventory.
+Merged into [§4](#4-utilities-package-for-future-development).
 
 ---
 
@@ -796,7 +799,7 @@ screen, and leaving a screen does not stop it.
   runs in every recipe's `run_root` (§18).
 
 Checked: unit tests for the supervisor (exit codes, heartbeat, stop, kill, every state), the events and the screens;
-on Windows a test run behind the menu, followed from a second menu. Process groups, signals and curses on a real
+end to end, a test run behind the menu, followed from a second menu. Process groups, signals and curses on a real
 terminal: TODO §1.
 
 ---
@@ -804,7 +807,7 @@ terminal: TODO §1.
 ## 21. Configs: config templates with an id, a version and a lock
 
 **Date:** 2026-10-17
-**Status:** Windows tests pass; nothing to check on lxplus (no ROOT, no BBB case)
+**Status:** done; nothing to check on lxplus (no ROOT, no BBB case)
 **Details:** [Configs/README.md](../../Configs/README.md)
 
 Analysts should not have to enter the module directories: everything an analysis can change is a copy in its bundle,
@@ -880,7 +883,7 @@ Merged into [§20](#20-menu-and-ui).
 **Date:** 2026-10-18
 **Status:** done. S0-S4 checked on lxplus (BBB 22/22 without re-lock after every step, real plots identical).
 
-After the drawing moved to `TauFW.Utilities.Drawing` (§12), almost everything left in `Plotter/` produces
+After the drawing moved to `TauFW.Utilities.Drawing` (§4), almost everything left in `Plotter/` produces
 histograms: the sample model, normalisation, stitching, the RDataFrame filling, the variable/selection language and
 the QCD method. "Plotter" therefore names the module after the one thing it no longer does. The plan: rename the
 module to `Histogrammer/` (`plot.py` -> `fillhists.py`, `python/plot/` -> `python/spec/`), keep the old import paths
@@ -932,7 +935,7 @@ Checked (lxplus, 2026-10-18): the new case was locked (22 cases) and the spike g
 
 ### The rename (S1)
 
-**Date:** 2026-10-18, Windows; checked on lxplus (below).
+**Date:** 2026-10-18
 
 - `git mv Plotter Histogrammer`; in it `plot.py` -> `fillhists.py` (fills, and until S4 also draws, exactly as
   before; only its header comment, the usage lines and `prog` in `-h` changed), `python/plot/` -> `python/spec/`
@@ -973,11 +976,11 @@ directory and the timing; `Plotter/plot.py` prints the new command and exits wit
 
 ### Configs to Configs/Histogrammer/ (S2)
 
-**Date:** 2026-10-18, Windows; the lxplus checks are in TODO §1.
+**Date:** 2026-10-18
 
-The Plotter's config templates belong to the Histogrammer (they say which samples to fill and which selections), and
-a template's id must start with its module directory (§21). The new Plotter has no user config: drawing needs
-only command-line options and the histogram file.
+The Plotter's config templates belong to the Histogrammer (they say which samples to fill and which selections), and a
+template's id must start with its module directory (§21). The new Plotter has no user config: drawing needs only
+command-line options and the histogram file.
 
 - `git mv Configs/Plotter Configs/Histogrammer`: 8 sample model templates (`samples/v15_<era>.yml`) and 7 channel
   setups (`setups/setup_<channel>.yml`). In each header only the id changed (`plotter.*` -> `histogrammer.*`; a setup's
@@ -1000,8 +1003,10 @@ and sample file gives the 4 reference PNG files byte for byte.
 
 ### The histogram file and draw.py (S3)
 
-**Date:** 2026-10-18, Windows; the lxplus checks are in TODO §1. Rule of this step: **nothing that exists changes**;
-everything new is opt-in, and its output is compared with the old one.
+**Date:** 2026-10-18
+
+Rule of this step: **nothing that exists changes**; everything new is opt-in, and its output is compared with the old
+one.
 
 The Histogrammer can now write the histograms it fills to a file, and the new Plotter draws the control plots from
 that file, giving the same plots. The S0 spike showed both assumptions (a ROOT file round trip and the 17 drawing
@@ -1037,8 +1042,10 @@ Fixed on the way: the HistFile writer wrote entries into the parent directory (R
 
 ### The histograms stage becomes shapes (S4a)
 
-**Date:** 2026-10-18, Windows. Rule of S4: recipes and Framework stages have no users yet, so they take the clean
-design without a compatibility layer; commands run by hand keep their behaviour.
+**Date:** 2026-10-18
+
+Rule of S4: recipes and Framework stages have no users yet, so they take the clean design without a compatibility
+layer; commands run by hand keep their behaviour.
 
 Every stage is now named after what it makes. The stage that runs `createinputsTES.py` made `kind: shapes` but was
 called `histograms`, and S4 adds a second stage that fills histograms (the control histograms): two names with
@@ -1061,9 +1068,11 @@ separator line differs (it was computed from the longer old paths).
 
 ### Control plots as two Framework stages (S4)
 
-**Date:** 2026-10-18, Windows. The Framework now makes control plots in two stages, each through the API of its own
-module, and carries the control-histogram file between them; the Histogrammer never draws in a run, the Plotter never
-fills, and neither imports the other.
+**Date:** 2026-10-18
+
+The Framework now makes control plots in two stages, each through the API of its own module, and carries the
+control-histogram file between them; the Histogrammer never draws in a run, the Plotter never fills, and neither
+imports the other.
 
 ```text
 tuples ──[controlhists: Histogrammer API, fillhists.py --hists --no-draw]──▶ hists/<era>/<channel><tag>.root
@@ -1114,9 +1123,11 @@ Checked (lxplus, 2026-10-18): `bbb check` 22/22 without re-lock. Against a refer
 
 ### Review fixes of §24
 
-**Date:** 2026-10-18, Windows, after the split. A code review of `8a3531a..e713f16` (rename, aliases, config ids,
-histogram file, stages, tests, docs) found nothing broken; these fixes of what the split itself introduced. No filling
-or drawing code changed; a file that was written before is written the same.
+**Date:** 2026-10-18
+
+A code review of `8a3531a..e713f16` (rename, aliases, config ids, histogram file, stages, tests, docs) found nothing
+broken; these fixes of what the split itself introduced. No filling or drawing code changed; a file that was written
+before is written the same.
 
 - **Two `__init__.py` lost in S1:** `Plotter/config/__init__.py` (empty) and `Plotter/python/plot/__init__.py`
   (`moddir`) were tracked although `.gitignore` ignores `__init__.py`; `git mv` put them under ignored names, so in a
@@ -1172,7 +1183,7 @@ as before: lock with the old code first, move byte for byte, prove equality.
 
 ### The move (H1)
 
-**Date:** 2026-10-18, Windows; the lxplus checks are in TODO §1 (after the H0 lock).
+**Date:** 2026-10-18
 
 - `git mv` (bodies unchanged): `Fitter/python/plot/datacard.py` -> `Histogrammer/python/shapes/inputs.py`
   (`TauFW.Histogrammer.shapes.inputs`), `Fitter/python/plot/rebinning.py` -> `Histogrammer/python/shapes/rebinning.py`,
@@ -1213,7 +1224,7 @@ extension for the next legitimate re-lock.
 
 ### Channel configs to Configs/ (H2)
 
-**Date:** 2026-10-18, Windows; the lxplus checks are in TODO §1.
+**Date:** 2026-10-18
 
 - `git mv` the four maintained configs to `Configs/Fitter/tes_id/`: `config_coarse_TT.yml`, `config_coarse_PNet.yml`,
   `config_coarse_UParT.yml` (from `Fitter/TauES_ID/config/`), `FitSetup_mumu.yml` (from `Fitter/TauES/config/`).
@@ -1251,8 +1262,7 @@ pull (`diff` empty).
 
 ### TES shapes API to the Histogrammer (H3)
 
-**Date:** 2026-10-18, Windows; the lxplus checks are in TODO §1. Decisions: D3 (plan 16 §13), and E1, E2 of this step
-(user, 2026-10-18, both option a).
+**Date:** 2026-10-18
 
 - New `Histogrammer/python/api/tes_shapes.py`: `TESShapes` with `plan_shapes`, `make_shapes`, `preflight_shapes`,
   `shapes_request`, `config_file`, `pico_config_source`: the shapes half of the Fitter API (`TauESID`), moved with
@@ -1262,7 +1272,7 @@ pull (`diff` empty).
   (`_pico_env`, `_module_exists`, `_default_basedir`, `_read_yaml`). Configs are relative to `Histogrammer/` or
   absolute (`../Configs/...` names the same templates as from `Fitter/`).
 - `ShapesRequest` moved to `Histogrammer/python/api/types.py` (same fields); exported from `TauFW.Histogrammer.api`.
-- **`outdir` is required (E1, user: option a):** a `ShapesRequest` without it is a `ValueError` naming the two ways
+- **`outdir` is required:** a `ShapesRequest` without it is a `ValueError` naming the two ways
   (the Framework's stage directory, or `Fitter/run_inputs.sh` by hand). So the Histogrammer never writes into or names
   `Fitter/`, and the "without an output directory, relative script and configs" branch is gone. By hand nothing
   changes: `run_inputs.sh` still runs the script from `Fitter/`. What is lost: making shapes into `Fitter/` from
@@ -1273,26 +1283,16 @@ pull (`diff` empty).
   Fitter/python` finds nothing.
 - Framework: `Framework.from_recipe(..., tes_shapes=None)` (and `from_record`) builds `ShapesStage(TESShapes(),
   samples_api=ControlHists())`, so each stage talks to one module's API; `fitter` is the fit stage's only.
-- **Module-relative configs of the shapes stage (E2, user: option a):** `ShapesSpec._no_module_paths = ('configs',)`;
+- **Module-relative configs of the shapes stage:** `ShapesSpec._no_module_paths = ('configs',)`;
   `recipe.py` `_check_module_paths` makes such a path a Recipe error in `check`, `plan` and `start`: "<path> is not a
   file of the bundle or a Configs/ template: copy it into the bundle (or give an absolute path)". The old paths of
   `stages.MOVED_CONFIGS` keep their own message. The fit stage still takes module paths (the Fitter API resolves them
   against `Fitter/`). No recipe in the repository is affected (`tes_id_2025` names bundle copies).
-- Tests: the shapes tests of `Tests/Fitter/api/test_tes_id.py` moved to `Tests/Histogrammer/api/test_tes_shapes.py`
-  (suite `unit.histogrammer.api`; with `outdir`, the commands of `run_inputs.sh` with absolute script and configs, and
-  the new `outdir` error); the Fitter file keeps the fit tests and checks that no shapes method is left;
-  `Tests/Framework/fakes.py` `FakeTESShapes` (the shapes methods of `FakeFitter`); `test_bundle.py`: the E2 error, a
-  plain recipe file with an absolute config, recipes without a bundle use a template.
+- Tests: the shapes tests moved from the Fitter API tests to `Tests/Histogrammer/api/test_tes_shapes.py`; new cases
+  for the `outdir` error and the module-relative config error.
 - Equality: the plan of the `tes_id_2025` shapes request (bundle configs, sample file, tuple pattern, output directory)
   from the old `TauESID.plan_shapes` (HEAD) and the new `TESShapes.plan_shapes` is the same (commands, argv, working
-  directory, expected files, environment, artifacts; JSON `diff` empty, Windows).
-- Docs: READMEs (Histogrammer API section and old names, Fitter API section, Framework stage diagram, Analyses
-  `shapes` stage and path rule), the contract (where `_shape_files` is), the docstrings of the `shapes` stage, the
-  Fitter and Histogrammer API packages, `validation.py`; IOInventory rows; TODO §1, §8.
-
-Checked (Windows): `python Tests/run.py checks`: 13 of 15 suites pass (`unit.histogrammer.api` 23 tests,
-`unit.fitter.api` 14, `unit.framework`); `check_import_boundaries` unchanged (25 / 23 / 21, 0 new pairs: the
-Framework imports `TauFW.Histogrammer.api` as before), `check_root` needs ROOT.
+  directory, expected files, environment, artifacts; JSON `diff` empty).
 
 Checked (lxplus, 2026-10-18): `bbb check` 23/23 without re-lock; `checks` 14/15 (known import debt, 25 / 23 / 21);
 `taufw.py plan Analyses/tes_id_2025` the same before H3 (`1e4eb77`), after it (`63f299c`) and at `e64dfe5` (`diff`
