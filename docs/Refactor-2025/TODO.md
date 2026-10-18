@@ -52,12 +52,18 @@ Items marked **(verify)** may already be done; check before working on them.
       configs` 19 templates, the four `fitter.tes_id_*` with `lock ok`; `taufw.py plan Analyses/tes_id_2025` before
       and after the pull: no difference. The refusal of an old config path in a recipe is checked by the unit test
       `test_templates_and_moved_configs` only.
-- [ ] **TES shapes API to the Histogrammer (CL §25, H3): nothing may change.** Before the pull save
-      `taufw.py plan Analyses/tes_id_2025 > ~/h2_plan.txt`; after `git pull` and `scram b -j4`:
-      `python3 -c "from TauFW.Histogrammer.api import TESShapes, ShapesRequest"`; `bbb check` 23/23 without re-lock
-      (no case uses the API); `checks` 14/15 (`check_import_boundaries` known debt, 25 / 23 / 21, 0 new pairs);
-      `taufw.py plan Analyses/tes_id_2025 > ~/h3_plan.txt; diff ~/h2_plan.txt ~/h3_plan.txt` empty;
-      `grep -rn Histogrammer Fitter/python` nothing.
+- [x] **TES shapes API to the Histogrammer (CL §25, H3).** Done 2026-10-18 on lxplus (`63f299c`): `bbb check` 23/23
+      without re-lock; `checks` 14/15 (`check_import_boundaries` known debt, 25 / 23 / 21, 0 new pairs); `python3
+      taufw.py plan Analyses/tes_id_2025` (77 lines) the same at `1e4eb77` (before H3), `63f299c` and `e64dfe5`;
+      `grep -rn Histogrammer Fitter/python` nothing. (`taufw.py` is not on PATH on lxplus: `python3 taufw.py` in
+      `TauFW/`.)
+- [ ] **TES shapes on real data, old code against new (CL §25, H4).** A shapes-only recipe `~/h4/shapes.yml`
+      (the tuples, configs and sample file of `tes_id_2025`, absolute), started three times with `--run-root`:
+      `~/h4/old` in a second CMSSW area at `0c611f4` (before H1), `~/h4/new1` and `~/h4/new2` with HEAD (~3.5 h
+      each; tmux, `kinit && aklog`, `fs lq ~` first). Then `python3 Tests/tools/compare_shapefiles.py` new1 against
+      new2 (the noise), old against new1 with `--rtol` above the noise: every file and key the same, contents within
+      the tolerance, the LTF family with content. Then `python3 taufw.py check`/`plan` of `tes_id_2025` and
+      `example_mutau_long`.
 - [ ] **Bug fixes of 2026-10-18:** `python3 Tests/Utilities/test_background.py` five times in a row and once inside
       `python3 Tests/run.py checks` (the flaky cancel test, §7); `taufw.py plan Analyses/no_such_recipe` prints one
       line, no traceback (Framework BUGS K06).

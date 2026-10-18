@@ -1322,8 +1322,8 @@ Checked (lxplus): `bbb check` 22/22 without re-lock, `checks`.
 ## 25. TES shapes leave the Fitter for the Histogrammer (in progress)
 
 **Date:** 2026-10-18
-**Status:** H0 (lock `f3079fa`), H1 and H2 done and checked on lxplus; H3 done on Windows (lxplus checks in TODO
-§1); H4 (real-data comparison) to come.
+**Status:** H0 (lock `f3079fa`), H1, H2 and H3 (`63f299c`) done and checked on lxplus; H4 (real-data comparison) to
+come.
 
 The next step of the module isolation: the code that fills the TES/ID input histograms
 (`Fitter/TauES/createinputsTES.py`, `Fitter/python/plot/datacard.py`, `rebinning.py`) imports nothing of the fit;
@@ -1492,3 +1492,23 @@ pull (`diff` empty).
 Checked (Windows): `python Tests/run.py checks`: 13 of 15 suites pass (`unit.histogrammer.api` 23 tests,
 `unit.fitter.api` 14, `unit.framework`); `check_import_boundaries` unchanged (25 / 23 / 21, 0 new pairs: the
 Framework imports `TauFW.Histogrammer.api` as before), `check_root` needs ROOT.
+
+Checked (lxplus, 2026-10-18): `bbb check` 23/23 without re-lock; `checks` 14/15 (known import debt, 25 / 23 / 21);
+`taufw.py plan Analyses/tes_id_2025` the same before H3 (`1e4eb77`), after it (`63f299c`) and at `e64dfe5` (`diff`
+empty, 77 lines; the shapes stage runs `Histogrammer/shapes/TauES/createinputsTES.py`); `grep -rn Histogrammer
+Fitter/python` finds nothing.
+
+### Real-data comparison (H4, in progress)
+
+- `Tests/tools/compare_shapefiles.py DIR_A DIR_B [--rtol] [--atol]` (new): two output directories of
+  `createinputsTES.py` (stage directories, or `Fitter/` after `run_inputs.sh`): the same file names on both sides
+  (the run's `manifest.json` skipped; PNG and other files by name), each `.root` file as the BBB case
+  `histogrammer.tes_inputs` sees it (`_tes_file_snapshot`: directories and keys by name, cycle and class, histograms in
+  full, TNamed titles, TCanvas/TStyle by key and class), keys matched by name; the summary gives per histogram family
+  (nominal, TES points, LTF `shape_mTauFake`, JTF `shape_jTauFake`) the count, how many have content and the largest
+  relative difference, so the LTF shapes that the BBB fixture leaves empty (TODO §7) are seen to be compared. The
+  logic is ROOT-free and tested (`Tests/tools/test_compare_shapefiles.py`, suite `unit.tools`).
+- Plan (lxplus, TODO §1): one run of a shapes-only recipe with the code before H1 (`0c611f4`, a second CMSSW area:
+  a `git worktree` cannot run it, the old script imports `TauFW.Fitter.plot.datacard`, which the area's `TauFW`
+  package no longer has) and two with HEAD (their difference is the noise of the multithreaded fill; the script is
+  byte-identical, so the noise is the same for both codes); the same tuples, configs and sample file for all three.
