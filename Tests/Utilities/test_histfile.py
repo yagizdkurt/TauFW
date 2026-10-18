@@ -89,7 +89,7 @@ class RoundTripTests(unittest.TestCase):
             self.assertEqual(read.GetEntries(), written.GetEntries())
             self.assertEqual([read.GetBinContent(i) for i in range(6)], [written.GetBinContent(i) for i in range(6)])
             self.assertEqual([read.GetBinError(i) for i in range(6)], [written.GetBinError(i) for i in range(6)])
-            self.assertIsNone(read.GetDirectory())
+            self.assertFalse(read.GetDirectory())  # detached: a null TDirectory pointer (PyROOT: falsy, not None)
 
     def test_not_a_histfile(self):
         import ROOT
