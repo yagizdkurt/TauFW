@@ -41,7 +41,7 @@ class RunProgressTests(unittest.TestCase):
         self.assertEqual(plot["state"], "RUN")
         with mock.patch("time.time", return_value=T + 5):
             text, time_text, role = run.row(plot)
-            self.assertEqual(text, "[ RUN] plots    plotter     running 2/2 mumu 2025")
+            self.assertEqual(text, "[ RUN] plots    running 2/2 mumu 2025")
             self.assertEqual((time_text, role), ("00:05", "accent"))
             self.assertEqual(run.summary(), "stage 2/3 plots | 2/2 mumu 2025")
             self.assertEqual(run.details(plot), ["Type: plotter", "State: running 2/2 mumu 2025 for 00:05",
@@ -53,7 +53,9 @@ class RunProgressTests(unittest.TestCase):
 
     def test_the_facts_of_a_stage(self):
         run = RunProgress(DATA)
-        self.assertEqual(run.info(run.items()[0]), ("Info: ntuples", [("Config", "pico_2025.yml"), ("Samples", "41")]))
+        self.assertEqual(run.info(run.items()[0]), ("Info: ntuples", [("Type", "production"),
+                                                                      ("Config", "pico_2025.yml"), ("Samples", "41")]))
+        self.assertNotIn("Type: production", run.details(run.items()[0]))  # in the box
         self.assertIsNone(run.info(run.items()[1]))  # none supplied: no box
 
     def test_waiting_for_jobs_counts_down_to_the_next_check(self):

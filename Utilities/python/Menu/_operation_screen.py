@@ -36,8 +36,9 @@ __all__ = ["ScreenModel", "follow", "printable"]
 
 FRAME = 0.1           # seconds between frames
 LOG_LINES = 400       # lines of an item log kept on screen
-INFO_WIDTH = 36       # columns of the info box (model.info) next to the list
-INFO_MIN_WIDTH = 110  # narrower terminals show the info at the top of the Details
+LIST_SHARE = 0.4      # of the width for the list when the info box (model.info) is next to it, the rest for the box
+LIST_MIN_WIDTH = 52   # columns of the list at least
+INFO_MIN_WIDTH = 100  # narrower terminals show the info at the top of the Details
 CONTROL = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|[\x00-\x08\x0b-\x1f\x7f]")
 
 
@@ -199,7 +200,7 @@ def _items(ui, screen, model, items, view, height, width):
     item = items[view.focus]
     info = model.info(item)
     beside = info is not None and width >= INFO_MIN_WIDTH
-    list_width = width - 1 - INFO_WIDTH if beside else width - 2
+    list_width = max(LIST_MIN_WIDTH, int(width * LIST_SHARE)) if beside else width - 2
     rect = ui._panel(screen, top, 1, list_height, list_width, model.list_title)
     row, left, rows, columns = rect
     first = max(0, view.focus - rows + 1)
@@ -208,7 +209,7 @@ def _items(ui, screen, model, items, view, height, width):
         line = label[:max(1, columns - len(time_text) - 1)].ljust(max(1, columns - len(time_text))) + time_text
         ui._line(screen, row + index - first, left, line[:columns], index == view.focus, ui.styles.get(role, 0))
     if beside:  # the boxes share their edge
-        box = ui._panel(screen, top, list_width, list_height, INFO_WIDTH, info[0])
+        box = ui._panel(screen, top, list_width, list_height, width - 1 - list_width, info[0])
         ui._viewport(screen, box, _info_lines(info[1], box[3]), 0)
     details = ui._panel(screen, top + list_height, 1, height - top - list_height - 3, width - 2,
                         "Details: %s" % model.label(item))

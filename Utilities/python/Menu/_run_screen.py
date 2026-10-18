@@ -112,13 +112,12 @@ class RunProgress(ScreenModel):
 
     def row(self, stage):
         width = max(len(name) for name in self.stages)
-        types = max(len(item["type"]) for item in self.stages.values())
-        text = "%s %s  %s  %s" % (MARKERS.get(stage["state"], "[    ]"), stage["id"].ljust(width),
-                                  stage["type"].ljust(types), self._state_text(stage))
+        text = "%s %s  %s" % (MARKERS.get(stage["state"], "[    ]"), stage["id"].ljust(width), self._state_text(stage))
         return text, _time(stage, "started", "seconds"), ROLES.get(stage["state"])
 
     def details(self, stage):
-        lines = ["Type: %s" % stage["type"], "State: %s" % self._state_text(stage, long=True)]
+        lines = [] if stage["info"] else ["Type: %s" % stage["type"]]  # else the first fact of info()
+        lines.append("State: %s" % self._state_text(stage, long=True))
         if stage["message"]:
             lines.append("Message: %s" % stage["message"])
         if stage["state"] in JOBS and self.next_check and self.ended is None:
@@ -136,7 +135,7 @@ class RunProgress(ScreenModel):
         return stage["log"]
 
     def info(self, stage):
-        return ("Info: %s" % stage["id"], stage["info"]) if stage["info"] else None
+        return ("Info: %s" % stage["id"], [("Type", stage["type"])] + stage["info"]) if stage["info"] else None
 
     def summary(self):
         done = sum(stage["state"] == "DONE" for stage in self.stages.values())

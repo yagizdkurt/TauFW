@@ -1023,11 +1023,13 @@ advancing run opening its screen, and the lock record that `run_lock()` shows.
 
 Decided (user): the Stages list of the run screen shares its row with a box of the focused stage's facts on the
 right ("Info: plots": config, inputs, channels, output, ...); not on the test screen. A third hook of the operation
-screen, `info(item)` -> (title, [(label, value)]): the box is `INFO_WIDTH` (36) columns next to the list; a terminal
-narrower than `INFO_MIN_WIDTH` (110) shows the facts at the top of the Details instead (kept there, the end of the
-rest below them). `RunProgress.info()` takes them from `operation.data` (each stage's `info`, [label, value] pairs):
-the Framework will choose them per stage type at the wiring; the preview makes them up. The test screen draws the
-same (140 preview frames, before/after).
+screen, `info(item)` -> (title, [(label, value)]): the box takes the larger part of the row (the list gets
+`LIST_SHARE`, 40 %, and at least `LIST_MIN_WIDTH`, 52 columns: room for more facts later, user); a terminal narrower
+than `INFO_MIN_WIDTH` (100) shows the facts at the top of the Details instead (kept there, the end of the rest below
+them). A stage row is now marker, id and state; its type is the first fact of the box (and stays in the Details of
+a stage without facts). `RunProgress.info()` takes them from `operation.data` (each stage's `info`, [label, value]
+pairs): the Framework will choose them per stage type at the wiring; the preview makes them up. The test screen
+draws the same (140 preview frames, before/after).
 
 ### Checked
 

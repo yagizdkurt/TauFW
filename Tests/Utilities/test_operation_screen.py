@@ -48,7 +48,8 @@ class Stages(ScreenModel):
         return "%d stage(s)" % len(self.stages)
 
     def info(self, stage):
-        return ("Info: %s" % stage, [("Config", "plots_2025.yml"), ("Output", "a very long output directory name")])
+        return ("Info: %s" % stage, [("Config", "plots_2025.yml"),
+                                     ("Output", "a very long output directory name " + "x" * 50)])
 
 
 class Process:
@@ -118,12 +119,12 @@ class OperationScreenTests(unittest.TestCase):
                 fact = [args for args in calls if args[2].startswith("Config")]
                 self.assertTrue(fact)
                 if beside:
-                    self.assertEqual(fact[0][1], 120 - 1 - 36 + 2)  # inside the box right of the list
-                    self.assertIn("Output  a very long output", drawn)  # wrapped under its value
-                    self.assertIn("        directory name", drawn)
+                    self.assertEqual(fact[0][1], 52 + 2)  # inside the box right of the list (52 columns)
+                    self.assertIn("Output  a very long output directory name", drawn)
+                    self.assertIn("        " + "x" * 50, drawn)  # wrapped under its value
                 else:
                     self.assertEqual(fact[0][1], 3)  # the first line of the Details
-                    self.assertIn("Output  a very long output directory name", drawn)
+                    self.assertTrue(any(line.startswith("Output  a very long output") for line in drawn))
 
     def test_printable(self):
         self.assertEqual(printable("\x1b[1ma\tb\x07"), "a   b")
