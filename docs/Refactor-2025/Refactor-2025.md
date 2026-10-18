@@ -34,7 +34,7 @@ restated in it.
 | 21 | [Configs: config templates with an id, a version and a lock](#21-configs-config-templates-with-an-id-a-version-and-a-lock) |
 | 22 | [Sample lists as data: the sample model](#22-sample-lists-as-data-the-sample-model) |
 | 23 | [Menu: operations run behind the menu](#23-menu-operations-run-behind-the-menu) |
-| 24 | [Plotter becomes Histogrammer; a clean Plotter is extracted (in progress)](#24-plotter-becomes-histogrammer-a-clean-plotter-is-extracted-in-progress) |
+| 24 | [Plotter becomes Histogrammer; a clean Plotter is extracted](#24-plotter-becomes-histogrammer-a-clean-plotter-is-extracted) |
 
 The reference environment for all of this is `CMSSW_14_1_0_pre4` (Python 3.9, ROOT 6.30).
 
@@ -966,10 +966,11 @@ signals, curses on a real terminal (TODO §1).
 
 ---
 
-## 24. Plotter becomes Histogrammer; a clean Plotter is extracted (in progress)
+## 24. Plotter becomes Histogrammer; a clean Plotter is extracted
 
 **Date:** 2026-10-18
-**Status:** S0, S1 checked on lxplus; S2 lxplus checks in TODO §1
+**Status:** done. S0-S4 checked on lxplus (BBB 22/22 without re-lock after every step, real plots identical); see
+[Result](#result-of-24) at the end.
 Plan: `LocalR/architecture/18-histogrammer-split-plan.md`.
 
 After the drawing moved to `TauFW.Utilities.Drawing` (§12), almost everything left in `Plotter/` produces
@@ -1136,6 +1137,13 @@ Checked (Windows): `python Tests/run.py checks`: 12 of 14 suites pass, the two n
 `check_import_boundaries` unchanged (30 / 28 / 26, 0 new pairs: the Plotter imports only Utilities), `check_root`
 needs ROOT. Not checked here: anything with ROOT (BBB, the round trip, real plots: TODO §1).
 
+Checked (lxplus, 2026-10-18): `bbb check` 22/22 without re-lock (`plotter.stack` through the file gives the
+canvases locked from memory in S0); the HistFile round trip passes with ROOT. Real data (2025 tuples, baseline):
+mutau all variables, `--hists` changes no plot (31/31 identical PNGs) and `draw.py` draws the same 31; mumu stops at
+`m_ll` with and without `--hists` alike (BUGS L17, a bug of the variable list, registered, not fixed), so mumu was
+checked with its 18 other variables: 19/19 and 19/19. Found on the way and fixed (committed): the HistFile writer
+wrote entries into the parent directory, because ROOT's `mkdir("a/b")` returns `a`.
+
 ### The histograms stage becomes shapes (S4a)
 
 **Date:** 2026-10-18, Windows. Decisions of S4 with the user: plan 18 §14. Rule (user): recipes and Framework stages
@@ -1162,9 +1170,11 @@ called `histograms`, and S4 adds a second stage that fills histograms (the contr
   the hardcoded-paths inventory, which describe what was there at their time.
 
 Checked (Windows): `python Tests/run.py checks`: 12 of 14 suites pass as before (`unit.framework` included);
-`check_import_boundaries` unchanged (30 / 28 / 26, 0 new pairs), `check_root` needs ROOT. On lxplus (TODO §1):
-`taufw.py plan Analyses/tes_id_2025` equals the one saved before the change except the stage name and its
-directory.
+`check_import_boundaries` unchanged (30 / 28 / 26, 0 new pairs), `check_root` needs ROOT.
+
+Checked (lxplus, 2026-10-18): `taufw.py plan Analyses/tes_id_2025` before and after (shapes, fit and python
+part): every command, input and directory equal once `histograms` reads `shapes`; only the width of the table's
+separator line differs (it was computed from the longer old paths).
 
 ### Control plots as two Framework stages (S4)
 
@@ -1223,6 +1233,43 @@ tuples ──[controlhists: Histogrammer API, fillhists.py --hists --no-draw]─
 
 Checked (Windows): `python Tests/run.py checks`: 13 of 15 suites pass (`unit.plotter.api` new, `unit.framework`,
 `unit.histogrammer.api`, `unit.histogrammer.compat`, `unit.tools` included); `check_import_boundaries` unchanged
-(30 / 28 / 26, 0 new pairs), `check_root` needs ROOT. On lxplus (TODO §1): BBB 22/22 without re-lock, the PNGs of
-the two stages equal those of the old plots stage (reference `~/s4ref`, taken before this change), the file of
-`--hists --no-draw` equals that of `--hists`.
+(30 / 28 / 26, 0 new pairs), `check_root` needs ROOT.
+
+Checked (lxplus, 2026-10-18): `bbb check` 22/22 without re-lock. The reference was taken with the code before this
+change: the old `plots` stage on a copy of `tes_id_2025` (mutau all variables, mumu the 18 variables of the S3 check,
+baseline). The same bundle as `controlhists` + `controlplots`: every PNG equal (`cmp`: 31/31 mutau, 19/19 mumu), the
+`controlhists` directory holds only the files. The file of `--hists --no-draw` equals that of `--hists`
+(`compare_histfiles.py`, SAME within 1e-12); the last bits (largest relative difference 4.6e-13) are run-to-run noise
+of the multithreaded fill: running the old path again differs by 1.9e-13 from the first run. Filling mutau took
+388 s, drawing it 5 s. A fix on the way: `compare_histfiles.py` first compared the exact floats of the BBB snapshot
+as text, so its tolerance did not apply to bin contents (fixed, with a test). `.gitignore` needed
+`!Plotter/python/api/__init__.py` (every other `__init__.py` is ignored); without it the API would not import on
+lxplus.
+
+### Result of §24
+
+What the analysis code looks like now:
+
+```text
+pico tuples ──▶ Histogrammer ─────────────▶ hists/<era>/<channel><tag>.root ──▶ Plotter ──────▶ PNG
+                fillhists.py --hists          contract                             draw.py
+                [--no-draw]: samples,         taufw.control_histograms             draws only
+                normalisation, QCD, filling
+Framework:      controlhists                  the file is the artifact             controlplots
+                (API ControlHists)                                                 (API ControlPlots)
+```
+
+- **Proof that nothing changed:** BBB 22/22 without re-lock after S1, S2, S3, S4 (the new case `plotter.stack`,
+  locked with the old code in S0, covers plot.py's path and, since S3, the path through the file); real 2025 data:
+  the renamed `fillhists.py` and the old `plot.py` give the same PNGs (S1), `--hists` changes no plot and `draw.py`
+  draws the same ones (S3: 31 mutau, 19 mumu), the two Framework stages give the PNGs of the old one-step stage
+  (S4, reference taken before the change), the file is the same with and without drawing (within the run-to-run
+  noise of the multithreaded fill, 1e-13), `taufw.py plan` of `tes_id_2025` unchanged by the stage rename (S4a).
+- **Coupling** (`check_import_boundaries`): 30 / 28 / 26 throughout, 0 new pairs. The Plotter imports only
+  `TauFW.Utilities` (apart from the 13 compat aliases); the Histogrammer and the Plotter never import each other.
+- **Kept on purpose, deleted at the migration point (TODO §8):** the 13 alias modules of the old `TauFW.Plotter.*`
+  names, both legacy `plot.py`, `RENAMED_IDS` of `configs.py`, `stages.RETIRED`, `fillhists.py` drawing by default.
+- **Registered, not fixed:** Histogrammer BUGS L17 (`m_ll` of the mumu variables), Framework BUGS K08 (the run-root
+  message), the flaky `test_background` and the IOInventory generator (TODO §7).
+- **Next:** step 2 of `LocalR/architecture/13` (the TES shapes leave the Fitter for the Histogrammer, plan 16, revised
+  after this section); its first step locks a new BBB case, which needs the 22 cases above unchanged.

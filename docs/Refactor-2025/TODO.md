@@ -16,38 +16,33 @@ Items marked **(verify)** may already be done; check before working on them.
 ## 1. Checks to run on lxplus
 
 
-- [ ] **Histogram file and `draw.py` (CL §24, S3): nothing may change.** After `git pull` (and `scram b -j4`), in
-      `TauFW/`: `python3 Tests/run.py bbb check` (22/22, **no re-lock**: `plotter.stack` now fills, writes the file,
-      reads it and draws with the Plotter, and must give the canvases locked from memory in S0);
-      `python3 Tests/run.py checks` (with ROOT `unit.utilities` also runs the file round trip). Real data, all
-      variables of `mutau` and `mumu` (baseline), in `Histogrammer/` with `T='--tuples
-      /eos/cms/store/group/phys_tau/TauFW/pico2024/TES_variations/$ERA/$GROUP --samples
-      ../Configs/Histogrammer/samples/v15_2025.yml'`: (1) `python3 fillhists.py -y 2025 -c mutau mumu -S baseline
-      -t _s3ref $T > ~/s3_ref.log 2>&1`; (2) the same with `-t _s3 --hists > ~/s3_hists.log 2>&1`; (3)
-      `python3 ../Plotter/draw.py hists/2025/mutau_s3.root hists/2025/mumu_s3.root -o drawn/2025`. Then `--hists`
-      changes no plot (`plots/2025/*_s3ref.png` vs `*_s3.png`), `draw.py` draws the same plots (`plots/2025/*_s3.png`
-      vs `drawn/2025/*_s3.png`, same number of files), and the logs of (1) and (2) differ only in the tag, the
-      "Wrote the histograms" line and the timing.
-- [ ] **`histograms` stage renamed `shapes` (CL §24, S4a): the same commands.** Before `git pull` of
-      this change: `python3 Framework/scripts/taufw.py plan Analyses/tes_id_2025 > ~/s4ref/plan_tes_id_2025.txt`.
-      After `git pull`, in `TauFW/`: the same into `~/s4a_plan.txt`, then
-      `diff <(sed 's#stages/histograms#stages/shapes#g; s#(histograms)#(shapes)#g; s#Stage histograms#Stage shapes#g; s#<- histograms#<- shapes#g' ~/s4ref/plan_tes_id_2025.txt) ~/s4a_plan.txt`:
-      no difference (or only lines naming the stage, to be looked at); `python3 Tests/run.py checks`.
-- [ ] **Control plots as two stages (CL §24, S4): the same plots.** Reference (done 2026-10-18, code before S4):
-      `~/s4ref/` holds the PNGs of the old `plots` stage of a copy of `tes_id_2025` (`~/s4ref_bundle`: mutau all
-      variables, mumu the 18 variables of the S3 check, baseline; 31 + 19 PNGs) and `png.md5`. After `git pull`
-      and `scram b -j4` (new package `TauFW.Plotter.api`), in `TauFW/`: (1) `python3 Tests/run.py checks` and
-      `python3 Tests/run.py bbb check` (22/22, no re-lock). (2) `~/s4new_bundle`: the same bundle with each `plots`
-      stage replaced by a `controlhists` (id `hists_<channel>`, the same filling options) and a `controlplots` (id
-      `plots_<channel>`, `inputs: {hists: hists_<channel>}`); `taufw.py start ~/s4new_bundle --run-root
-      ~/s4new_runs`: all four stages DONE; every PNG of `stages/plots_<channel>/plots/2025/` equals the reference
-      (`cmp`), the same number of files and `nfiles`.
-      (3) `--no-draw` changes nothing in the file: in an empty directory, `fillhists.py ... -t _s3 --hists
-      --no-draw` (mutau, all variables) and `python3 Tests/tools/compare_histfiles.py` against
-      `Histogrammer/hists/2025/mutau_s3.root` of the S3 check: SAME (if only last bits differ, rerun with
-      `--rtol 1e-12` and note it: two fills, multithreaded sums). No `plots/` directory is made. (4)
-      `taufw.py check Analyses/example_broken` lists `stages[1] (controlhists).inputs.tuples`; a recipe with
-      `stage: plots` fails with the message naming the two stages.
+- [x] **Histogram file and `draw.py` (CL §24, S3): nothing may change.** Done 2026-10-18 on lxplus: `bbb check`
+      22/22 without re-lock (`plotter.stack` through the file equals the S0 lock from memory); `checks` with ROOT:
+      the file round trip of `Tests/Utilities/test_histfile.py` passes. Real data, baseline, in `Histogrammer/`:
+      mutau all variables: `--hists` changes no plot (31/31 identical PNGs) and `draw.py` draws the same plots
+      (31/31); mumu with every variable stops in both runs alike at `m_ll` (no such branch, BUGS L17, registered),
+      so it was checked with the 18 other variables: 19/19 identical with and without `--hists`, 19/19 `draw.py`.
+      The logs of the two runs were not compared line by line.
+- [x] **`histograms` stage renamed `shapes` (CL §24, S4a): the same commands.** Done 2026-10-18 on lxplus:
+      `taufw.py plan Analyses/tes_id_2025` saved before the pull (`~/s4ref/plan_tes_id_2025.txt`) vs after S4 (the
+      shapes, fit and python part; the control plots part changed in S4): 49 of 50 lines equal once the old name is
+      replaced by the new one; the one other line is the table's dashed separator, as wide as the longest command
+      was before the replacement (`histograms` -> `shapes` is 4 characters shorter per path).
+- [x] **Control plots as two stages (CL §24, S4): the same plots.** Done 2026-10-18 on lxplus. Reference taken
+      with the code before S4: `~/s4ref` (old `plots` stage of a copy of `tes_id_2025`, mutau all variables, mumu
+      the 18 variables of the S3 check, baseline: 31 + 19 PNGs). After the pull: `bbb check` 22/22 without re-lock;
+      `checks` 13/15 (`unit.plotter.api` passes; `check_import_boundaries` known debt as always, 30 / 28 / 26, 0 new
+      pairs; `unit.utilities` fails in `test_background` (CL §20), unrelated to S4, see the item below). The same
+      bundle as `controlhists` + `controlplots` pairs (`~/s4new_bundle`): all four stages DONE, **every PNG equal
+      to the reference (`cmp`: mutau 31/31, mumu 19/19)**, the `controlhists` directory holds only `hists/` and the
+      manifest. `--no-draw` changes nothing in the file: `compare_histfiles.py` S3 file vs `--hists --no-draw`
+      largest relative difference 4.6e-13, SAME with `--rtol 1e-12`; the control measurement (the old path,
+      `--hists` with drawing, run again) differs from the S3 file by 1.9e-13 and from the `--no-draw` file by
+      6.5e-13, so the last bits are run-to-run noise of the multithreaded fill, not `--no-draw`. `taufw.py check
+      Analyses/example_broken` names `stages[1] (controlhists).inputs.tuples`. Timing: mutau fill 388 s (fill and
+      draw 426 s before), drawing 5 s per file. The retired-name message is checked by the unit tests only.
+- [x] **`Tests/Utilities/test_background.py` on lxplus (CL §20):** `test_cancel_stops_a_real_command_and_its_children`
+      failed once in `checks` on 2026-10-18; alone it passed 5 of 5 times. A flaky test, registered in §7.
 - [x] **Configs to `Configs/Histogrammer/` (CL §24, S2).** Done 2026-10-18 on lxplus: `bbb check` 22/22
       without re-lock, `checks`, `taufw.py configs` (15 templates `histogrammer.*`, lock ok), `check`/`plan` of
       `tes_id_2025` and `example_mutau_long` without copy warnings; a copy with the old ids gets exactly the three
@@ -447,6 +442,15 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
 - [ ] `Tests/PicoProducer/testSFs.py` still imports the legacy `MuonSFs_ROOT`. Nice to have.
 - [ ] Utilities menu tests depend on the terminal and colors (quiet-runner changelog section removed); the later menu commits may have fixed this
       **(verify)**.
+- [ ] **Flaky: `Tests/Utilities/test_background.py` `test_cancel_stops_a_real_command_and_its_children` (CL §20).**
+      On lxplus it failed once inside `python3 Tests/run.py checks` (`os.killpg(pid, 0)` still found the process
+      group right after the cancel; "subprocess ... is still running" warning) and passed 5 of 5 times alone
+      (2026-10-18). Likely a race: the test checks the group at once, while the orphaned child of the command can
+      still be in it until it is reaped. Fix later (the test should wait until the group is gone, with a deadline);
+      not a bug of `BackgroundProcess` as far as seen.
+- [ ] **`Utilities/IOInventory.md` and its generator disagree (seen in CL §24 S4):** `python Utilities/_audit_io.py`
+      writes a much smaller file than the committed one (no author line; 349 instead of 425 files, the Legacy rows
+      gone). The rows were edited by hand since. Find which scope the committed file was made with, then regenerate.
 
 ## 8. Legacy code and architecture
 
@@ -458,8 +462,8 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
       modules in `Plotter/python/{sample,plot,methods}/` (and their 13 entries in
       `Tests/import_boundary_allowlist.json`, `Tests/Histogrammer/compat/`), the legacy `Plotter/plot.py` and
       `Histogrammer/plot.py`. Callers of the old names left today: Fitter 8 files (`setera` in the postfit scripts,
-      `Zpt`, `ETauFR/Plotter/plotpostfit.py`; they leave with step 2 of 13 / the setera TODO), Legacy 19 files (they
-      break then; Legacy policy), the old scripts in `Tests/Plotter/` (retarget or retire them first). The BBB case
+      `Zpt`, `ETauFR/Plotter/plotpostfit.py`: not histogram filling, so not step 2 of 13 either; their own items,
+      16 D7: a `TauFW.Utilities.Drawing` era setter, Zpt), Legacy 19 files (they break then; Legacy policy), the old scripts in `Tests/Plotter/` (retarget or retire them first). The BBB case
       names `plotter.*` can be renamed at the same point (one re-lock). Also `RENAMED_IDS` in
       `Framework/python/configs.py` (bundle copies with the ids `plotter.samples_*` / `plotter.setup_*` from before
       S2) and its test `test_copy_with_the_id_from_before_a_rename`.
