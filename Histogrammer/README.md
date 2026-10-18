@@ -28,6 +28,9 @@ modules and macros under `Legacy/Plotter/python/`.
 | `python/spec/` | what to fill: `Variable`, `Selection`, `Context` (contextual binning and titles), `string` (selection strings) |
 | `python/methods/` | data-driven methods added to `SampleSet` by name (`QCD_OSSS`) |
 | `python/macros/`, `python/corrections/` | ROOT macros loaded by path (e.g. `mapDecayModes.C`) |
+| `shapes/TauES/createinputsTES.py` | the input shapes of the combined TES + tau ID fit (moved from `Fitter/TauES/` in changelog §25, unchanged): run from `Fitter/` by `Fitter/run_inputs*.sh` (`python3 ../Histogrammer/shapes/TauES/createinputsTES.py ...`), so the shapes land in `Fitter/input_pt_less_region/` where the fit reads them; the file format is [docs/contracts/tes-shapes.md](../docs/contracts/tes-shapes.md) |
+| `shapes/{ETauFR,HighPT,paper,tutorial}/createinputs.py` | the input shapes of the other Fitter measurements (moved from `Fitter/<Variant>/`, unchanged): run them from `Fitter/<Variant>/` as before (`python3 ../../Histogrammer/shapes/<Variant>/createinputs.py ...`); their `config` paths are relative to that directory |
+| `python/shapes/` | `TauFW.Histogrammer.shapes.inputs` (`createinputs`, `plotinputs`, ...: the shape writer, formerly `TauFW.Fitter.plot.datacard`) and `.rebinning` |
 | `python/controlhists.py` | `TauFW.Histogrammer.controlhists`: `stack_entry` (copies of a stack's histograms as filled, with the drawing attributes) and `write_control_hists` (`--hists`) |
 | `python/api/` | the public API below |
 
@@ -42,6 +45,8 @@ modules and macros under `Legacy/Plotter/python/`.
 | `TauFW.Plotter.api.ControlPlots` | `TauFW.Histogrammer.api.ControlHists` (no old name kept: only the Framework used it; `TauFW.Plotter.api` is the new Plotter's own API since S4) |
 | `Plotter/plot.py` | `Histogrammer/fillhists.py` |
 | `sys.path.append(".../Plotter")` + `from config.samples_v15 import *` | `.../Histogrammer` |
+| `Fitter/TauES/createinputsTES.py`, `Fitter/{ETauFR,HighPT,paper,tutorial}/createinputs.py` | `Histogrammer/shapes/...` (changelog §25); the old paths are LEGACY stubs that print the new command and exit with 2 |
+| `TauFW.Fitter.plot.datacard`, `TauFW.Fitter.plot.rebinning` | `TauFW.Histogrammer.shapes.inputs`, `TauFW.Histogrammer.shapes.rebinning` (no alias: the Fitter would import the Histogrammer) |
 
 The old module names still work: each is an alias of the new module (the same module object, so `setera` through
 either name changes the same era and luminosity). They are deleted at the migration point

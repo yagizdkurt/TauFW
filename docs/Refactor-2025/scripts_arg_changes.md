@@ -201,3 +201,17 @@ migration point (TODO §8). Options, defaults and outputs of every script are un
 | recipe `stage: plots` | two stages: `controlhists` (tuples -> files, `fillhists.py --hists --no-draw`; the options that change the histograms) and `controlplots` (files -> plots, `Plotter/draw.py`; `fraction`, `pdf`, `text`) | none: the old name fails the check with a message; runs started before cannot be continued |
 | `TauFW.Histogrammer.api.ControlPlots`, `PlotsRequest` | renamed `ControlHists`, `HistsRequest` (no `fraction`, `pdf`, `text`); the artifact is the file (`kind: control_histograms`) | none (only the Framework used it) |
 | `TauFW.Plotter.api` (new) | `ControlPlots`, `PlotsRequest`, `HistFileInput`: `draw.py` once per file | - |
+
+## TES shapes move to the Histogrammer (changelog §25, H1)
+
+The scripts that make input shapes import nothing of the fit; they moved to `Histogrammer/shapes/`, unchanged except
+for their import lines. They are run from the same directories as before, so relative config paths and the outputs
+stay where they were.
+
+| Before | Now | Old name |
+|---|---|---|
+| `cd Fitter; python3 TauES/createinputsTES.py ARGS` | `cd Fitter; python3 ../Histogrammer/shapes/TauES/createinputsTES.py ARGS` (same options; the shapes still land in `Fitter/input_pt_less_region/`); `run_inputs.sh`, `run_inputs_2526.sh`, `run_inputs_pnet.sh` and the Fitter API call the new path | `Fitter/TauES/createinputsTES.py` prints the new command and exits with status 2 (nothing runs) |
+| `cd Fitter/<Variant>; python3 createinputs.py ARGS` (ETauFR, HighPT, paper, tutorial) | `cd Fitter/<Variant>; python3 ../../Histogrammer/shapes/<Variant>/createinputs.py ARGS` | `Fitter/<Variant>/createinputs.py` prints the new command and exits with status 2 |
+| `TauFW.Fitter.plot.datacard` (`createinputs`, `plotinputs`, ...) | `TauFW.Histogrammer.shapes.inputs` | none (an alias in the Fitter would import the Histogrammer) |
+| `TauFW.Fitter.plot.rebinning` | `TauFW.Histogrammer.shapes.rebinning` | none |
+| `Fitter/MuTauFR/createinputs.py` | unchanged (its import `TauFW.Plotter.plot.datacard` was already broken, TODO §8) | - |

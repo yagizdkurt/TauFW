@@ -41,6 +41,14 @@ Items marked **(verify)** may already be done; check before working on them.
       ~/tes_try/result.json; echo $?` (0, and `result.json` written); (2) `python3 Tests/run.py bbb lock --replace`;
       (3) `python3 Tests/run.py bbb diff`: only `histogrammer.tes_inputs` is new, the 22 others unchanged; (4)
       `python3 Tests/run.py bbb check` twice: 23/23. Commit the baselines on their own.
+- [ ] **Shape scripts moved to the Histogrammer (CL §25, H1): nothing may change.** Only after the lock above. After
+      `git pull` and `scram b -j4` (new package `TauFW.Histogrammer.shapes`), in `TauFW/`: (1) `python3 -c "import
+      TauFW.Histogrammer.shapes.inputs, TauFW.Histogrammer.shapes.rebinning"`; (2) `python3 Tests/run.py bbb check`:
+      23/23, **no re-lock** (`histogrammer.tes_inputs` now runs `Histogrammer/shapes/TauES/createinputsTES.py`,
+      `fitter.shapes`/`fitter.rebin` import `TauFW.Histogrammer.shapes`); (3) `python3 Tests/run.py checks`; (4) the
+      old path prints the new command: `cd Fitter && python3 TauES/createinputsTES.py -y 2025; echo $?` (2); (5)
+      `python3 Framework/scripts/taufw.py plan Analyses/tes_id_2025`: the shapes commands name
+      `Histogrammer/shapes/TauES/createinputsTES.py`, nothing else changes.
 - [ ] **Bug fixes of 2026-10-18:** `python3 Tests/Utilities/test_background.py` five times in a row and once inside
       `python3 Tests/run.py checks` (the flaky cancel test, §7); `taufw.py plan Analyses/no_such_recipe` prints one
       line, no traceback (Framework BUGS K06).
@@ -64,11 +72,11 @@ Items marked **(verify)** may already be done; check before working on them.
 - [ ] **Confirm import-boundary reporting on lxplus:** `python3 Tests/run.py checks --case check_import_boundaries`.
       Nonzero status is expected while coupling remains; compare the debt report, do not rebaseline or fix production
       code to make this validation pass. Detector-only command: `python3 Tests/check_import_boundaries.py DetectorTests -q`. (CL §13)
-- [ ] **Fitter scripts after the import change:** with `cmsenv`, `python3 -c "import TauFW.Fitter.plot.rebinning,
-      TauFW.Fitter.plot.postfit_TES"` and `python3 plotParabola_POI_region.py -h` (in `Fitter/TauES_ID/`) must import
+- [ ] **Fitter scripts after the import change:** with `cmsenv`, `python3 -c "import TauFW.Histogrammer.shapes.rebinning,
+      TauFW.Fitter.plot.postfit_TES"` (`rebinning` moved in CL §25) and `python3 plotParabola_POI_region.py -h` (in `Fitter/TauES_ID/`) must import
       without error. (CL §14)
 - [ ] **BBB check after the expression helpers move:** `python3 Tests/run.py bbb check`, the `plotter.*` cases must
-      pass unchanged (no re-lock); `python3 -c "import TauFW.Fitter.plot.datacard"` with `cmsenv`. (CL §12)
+      pass unchanged (no re-lock); `python3 -c "import TauFW.Histogrammer.shapes.inputs"` (the former `TauFW.Fitter.plot.datacard`, CL §25) with `cmsenv`. (CL §12)
 - [ ] **BBB check after the drawing move.** `python3 Tests/run.py bbb check`: every case, `drawing.canvas` included,
       must pass with no difference; no re-lock. Then `python3 Tests/run.py normal` (the `Tests/Plotter` scripts import
       the new paths) and, by eye, one `Plotter/plot.py` run and one Fitter postfit plot. (CL §12)
@@ -216,6 +224,9 @@ Each changes logs, so do each in its own commit, with a BBB re-lock where a base
 - [ ] L18-L21 (`createinputsTES.py`, Histogrammer after step 2 H1; CL §25): control plots only with `systematics`
       (latent), `varprocs` only for mutau/mumu (latent), shape files never recreated, so a rerun keeps old
       histograms (wrong, standalone reruns), rebinning of the first observable only (latent).
+- [ ] L22-L24 (`rebinning.py`, `createinputsTES.py`; CL §25): `rebinning` stops on a region without a bin under 30 %
+      relative error (crash, sparse regions), its error accumulation grows instead of shrinking (wrong, rebinned
+      plots only), the control-plot names repeat the tag (cosmetic).
 - [ ] L12: `getmcsample` ignores its `pico=` keyword (`python/sample/utils.py:119-120`; no callers, latent).
 - [x] L13: fixed ROOT detection for production + plots planning and advancement. (CL §18)
 
@@ -433,6 +444,11 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
       S2) and its test `test_copy_with_the_id_from_before_a_rename`. Also `PLOTTER_ROOT`/`PLOTTER_DATA_DIR` of
       `TauFW.Utilities.Paths` (no caller in the repository; `Plotter/data` does not exist since CL §24, the data is
       in `HISTOGRAMMER_DATA_DIR`): delete them, or keep `PLOTTER_ROOT` for the new Plotter (review of CL §24).
+- [ ] **Backward compatibility to delete at the migration point (CL §25, TES shapes to the Histogrammer):** the five
+      LEGACY stubs at the old script paths (`Fitter/TauES/createinputsTES.py`,
+      `Fitter/{ETauFR,HighPT,paper,tutorial}/createinputs.py`; they print the new command and exit with 2) and their
+      test `Tests/Histogrammer/compat/test_legacy_shape_scripts.py`. Not compatibility but temporary until H3:
+      `SHAPES_SCRIPT` in `Fitter/python/api/tes_id.py` (the Fitter API runs the Histogrammer's script by path).
 - [ ] **At the migration point, after S4 (CL §24):** `fillhists.py` still draws by default (commands typed by hand
       keep their result, user rule of S4); then drawing leaves it (`--hists --no-draw` becomes the default, the
       legacy `plot.py` texts show the two commands). Remove `stages.RETIRED` (the messages for `plots` and
@@ -440,7 +456,7 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
 
 - [ ] Python 2 scripts kept for migration (CL §3): high priority `Fitter/ETauFR/writedatacard.py` (its
       `prefitFR.json` is read by `text2wp.py`), `Fitter/Zpt/utils.py`, `Fitter/Zpt/config/samples.py` (imported by
-      `measureZpt*.py`, `validateZpt.py`); normal `Fitter/HighPT/createinputs.py`,
+      `measureZpt*.py`, `validateZpt.py`); normal `Histogrammer/shapes/HighPT/createinputs.py` (`Fitter/HighPT/` until CL §25),
       `PicoProducer/utils/{checkEvents,convertGENSIM,getDASParents}.py`.
 - [ ] Stale references to removed scripts: `Fitter/TauID/README.md:57-58` (`plotfit.py`, `plotfit_dm.py`),
       `Fitter/ETauFR/README.md:63` (`paper/plotpostfit.py`).

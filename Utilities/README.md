@@ -193,7 +193,7 @@ XRootD `READ` handles stream directly. Other remote ROOT reads are staged; writa
 
 ```python
 runner = ProcessRunner()
-command = Command("shapes 2025", ("python3", "TauES/createinputsTES.py", "-y", "2025"),
+command = Command("shapes 2025", ("python3", "../Histogrammer/shapes/TauES/createinputsTES.py", "-y", "2025"),
                   cwd="/path/to/Fitter", expects=("input_pt_less_region/*/*/*.root",), timeout=None)
 results = runner.run_all([command], logdir="taufw_runs/<run>/logs/histograms")
 results[-1].ok, results[-1].log, results[-1].missing

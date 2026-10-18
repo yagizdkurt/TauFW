@@ -28,13 +28,13 @@ for j in "${J_VALUES[@]}"; do
             echo "------------------------------------------------------------"
         } | tee -a "$LOGFILE"
 
-        python3 TauES/createinputsTES.py \
+        python3 ../Histogrammer/shapes/TauES/createinputsTES.py \
             -y ${YEAR} \
             -c ${CONFIG} \
             -j ${j} \
             -e ${e} 2>&1 | tee -a "$LOGFILE"
         STATUS=${PIPESTATUS[0]}   # BUGS F03: status of the mutau command (it was read after the mumu command)
-        python3 TauES/createinputsTES.py \
+        python3 ../Histogrammer/shapes/TauES/createinputsTES.py \
             -y ${YEAR} \
             -c ${CONFIG_MM} \
             -j ${j} \

@@ -12,7 +12,7 @@ Input root files containing all the shape systematic variation for samples defin
 Exemple of command :
 
  ```sh
- python3 TauES/createinputsTES.py -y 2023C -c TauES_ID/config/Default_FitSetupTES_mutau_DM_mt65pt_lessptregion.yml -d DM0 -j Medium -e VVLoose
+ python3 ../Histogrammer/shapes/TauES/createinputsTES.py -y 2023C -c TauES_ID/config/Default_FitSetupTES_mutau_DM_mt65pt_lessptregion.yml -d DM0 -j Medium -e VVLoose
   ```
 The above command will create root file `ztt_mt_tes_m_visDM0.inputs-2023C-13TeV_mutau_mt65_DM_pt_Dt2p5_puppimet.root` inside the directory `Fitter/input_pt_less_region/againstjet_Medium/againstelectron_VVLoose`. Once root files are created for deacy `dm`, these rootfiles needs to be hadded to the final output root file `ztt_mt_tes_m_vis.inputs-2023C-13TeV_mutau_mt65_DM_pt_Dt2p5_puppimet.root` inside the directory `Fitter/input_pt_less_region/againstjet_Medium/againstelectron_VVLoose`, and this root file will be used to extract the SF for `Medium` against jet wp and `VVLoose` against electron wp for era 2023C and for all `dms` and all `pt` regions defined in the config file `TauES_ID/config/Default_FitSetupTES_mutau_DM_mt65pt_lessptregion.yml`.
 
@@ -118,7 +118,7 @@ Control plot of the differents variables are saved in `/plots` folder. See [the 
 
 4. Create the inputs :
  ```sh
-  python TauES/createinputsTES.py -y 2023C -c TauES_ID/config/Default_FitSetupTES_mutau_DM_mt65pt_lessptregion.yml -d DM0 -j Medium -e VVLoose 
+  python ../Histogrammer/shapes/TauES/createinputsTES.py -y 2023C -c TauES_ID/config/Default_FitSetupTES_mutau_DM_mt65pt_lessptregion.yml -d DM0 -j Medium -e VVLoose 
   ```
 Inputs are saved in `Fitter/input_pt_less_region/againstjet_Medium/againstelectron_VVLoose`.
 

@@ -126,7 +126,8 @@ def inspect_source(source, relative_file, root):
                     target = parts[1]
             elif importer in STAGES and parts[0] in IMPLICIT_ROOTS:
                 local = Path(root).joinpath(*path.parent.parts, *parts)
-                if not local.with_suffix(".py").is_file() and not local.is_dir():
+                own = Path(root).joinpath(importer, *parts)  # in the module's own config/ (from a subdirectory, CL §25)
+                if not any(found.with_suffix(".py").is_file() or found.is_dir() for found in (local, own)):
                     candidates = []
                     for stage in STAGES:
                         if stage == importer:
@@ -287,6 +288,13 @@ class DetectorTests(unittest.TestCase):
             self.assertEqual([item.module for item in found],
                              ["config.samples_v15", "plot.helpers", "sample.utils"])
             self.assertEqual(len(self.inspect(source, "Fitter/tutorial/example.py", directory)[0]), 4)
+            # a script in a subdirectory of the module that owns config/ (Histogrammer/shapes/TauES, CL §25)
+            own = Path(directory) / "Histogrammer/config"
+            own.mkdir(parents=True)
+            (own / "samples_v15.py").write_text("", encoding="utf-8")
+            found, _, _ = self.inspect("from config.samples_v15 import *\nfrom config.samples_v12 import *\n",
+                                       "Histogrammer/shapes/TauES/x.py", directory)
+            self.assertEqual([item.module for item in found], ["config.samples_v12"])  # only the missing one
 
     def test_python2_multiline_function_comments_and_strings(self):
         source = ('print "old syntax"\n# import TauFW.Plotter.fake\n'

@@ -7,18 +7,6 @@
       "roadmap_step": "4"
     },
     {
-      "file": "Fitter/ETauFR/createinputs.py",
-      "module": "config.samples_v12",
-      "reason": "Histogram-input script implicitly loads Histogrammer/config (Plotter/config until CL 24) via the configured path.",
-      "roadmap_step": "4"
-    },
-    {
-      "file": "Fitter/HighPT/createinputs.py",
-      "module": "config.samples_HighPT",
-      "reason": "Histogram-input script implicitly loads Histogrammer/config (Plotter/config until CL 24) via the configured path.",
-      "roadmap_step": "4"
-    },
-    {
       "file": "Fitter/MuTauFR/createinputs.py",
       "module": "TauFW.Plotter.plot.datacard",
       "reason": "Known broken Plotter datacard import; recorded in TODO section 8.",
@@ -27,12 +15,6 @@
     {
       "file": "Fitter/MuTauFR/createinputs.py",
       "module": "config.samples",
-      "reason": "Histogram-input script implicitly loads Histogrammer/config (Plotter/config until CL 24) via the configured path.",
-      "roadmap_step": "4"
-    },
-    {
-      "file": "Fitter/TauES/createinputsTES.py",
-      "module": "config.samples_v15",
       "reason": "Histogram-input script implicitly loads Histogrammer/config (Plotter/config until CL 24) via the configured path.",
       "roadmap_step": "4"
     },
@@ -55,12 +37,6 @@
       "roadmap_step": "4"
     },
     {
-      "file": "Fitter/paper/createinputs.py",
-      "module": "config.samples",
-      "reason": "Histogram-input script implicitly loads Histogrammer/config (Plotter/config until CL 24) via the configured path.",
-      "roadmap_step": "4"
-    },
-    {
       "file": "Fitter/python/plot/postfit.py",
       "module": "TauFW.Plotter.sample.utils",
       "reason": "Fitter script still imports Plotter sample/selection helpers; isolate histogram filling and shared helpers.",
@@ -70,12 +46,6 @@
       "file": "Fitter/python/plot/postfit_TES.py",
       "module": "TauFW.Plotter.sample.utils",
       "reason": "Fitter script still imports Plotter sample/selection helpers; isolate histogram filling and shared helpers.",
-      "roadmap_step": "4"
-    },
-    {
-      "file": "Fitter/tutorial/createinputs.py",
-      "module": "config.samples",
-      "reason": "Histogram-input script implicitly loads Histogrammer/config (Plotter/config until CL 24) via the configured path.",
       "roadmap_step": "4"
     },
     {
@@ -176,7 +146,7 @@
       "roadmap_step": "5 / TODO section 8"
     },
     {
-      "file": "Fitter/HighPT/createinputs.py",
+      "file": "Histogrammer/shapes/HighPT/createinputs.py",
       "reason": "Existing Python 2 print syntax; imports remain inspected with tokenizer/AST recovery.",
       "roadmap_step": "5 / TODO section 8"
     },

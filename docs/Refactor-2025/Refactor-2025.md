@@ -1309,7 +1309,7 @@ Checked (Windows): `python Tests/run.py checks`. On lxplus: `bbb check` 22/22 wi
 ## 25. TES shapes leave the Fitter for the Histogrammer (in progress)
 
 **Date:** 2026-10-18
-**Status:** H0 done on Windows, the lock is on lxplus (TODO §1); H1-H4 to come.
+**Status:** H0 committed, the lock is on lxplus (TODO §1); H1 done on Windows; H2-H4 to come.
 Plan: `LocalR/architecture/16-histograms-plan.md` (decisions §13).
 
 Step 2 of the isolation work (`LocalR/architecture/13`): the code that fills the TES/ID input histograms
@@ -1355,3 +1355,44 @@ preflight: TODO §0 (D7, D8). Same method as before: lock with the old code firs
 
 Checked (Windows): `python Tests/run.py checks`; `bbb list` shows 23 cases; the mini sample model loads with
 `load_sample_model`. The case needs ROOT: it runs only on lxplus (TODO §1).
+
+### The move (H1)
+
+**Date:** 2026-10-18, Windows; the lxplus checks are in TODO §1 (after the H0 lock).
+
+- `git mv` (bodies unchanged): `Fitter/python/plot/datacard.py` -> `Histogrammer/python/shapes/inputs.py`
+  (`TauFW.Histogrammer.shapes.inputs`), `Fitter/python/plot/rebinning.py` -> `Histogrammer/python/shapes/rebinning.py`,
+  `Fitter/TauES/createinputsTES.py` -> `Histogrammer/shapes/TauES/`, `Fitter/{ETauFR,HighPT,paper,tutorial}/createinputs.py`
+  -> `Histogrammer/shapes/<Variant>/`. Changed lines: the import of the writer and of `rebinning`, and in
+  `createinputsTES.py` the `sys.path` line that finds `Histogrammer/` from `__file__` (now two directories up).
+  `Tests/tools/move_check.py` over the seven files: only those lines, no function or class whose AST differs (HighPT:
+  Python 2, line diff only). New package `__init__.py`, whitelisted in `.gitignore`.
+- **Working directories unchanged (D4):** `Fitter/run_inputs.sh`, `run_inputs_2526.sh`, `run_inputs_pnet.sh` call
+  `python3 ../Histogrammer/shapes/TauES/createinputsTES.py` from `Fitter/`, so the shapes still land in
+  `Fitter/input_pt_less_region/` where `run_workflow_zmm*.sh` reads them; the variants run from `Fitter/<Variant>/`,
+  where their `sys.path` lines and configs are relative to.
+- **Backward compatibility (TODO §8):** the five old paths are LEGACY stubs (as the legacy `plot.py` of §24): they
+  print the new command with the same arguments, relative to the working directory, and exit with status 2; they
+  import and run nothing. No alias for `TauFW.Fitter.plot.datacard`/`.rebinning`: it would be a Fitter -> Histogrammer
+  import. `Fitter/MuTauFR/createinputs.py` stays (D11).
+- Temporary until H3: the Fitter API runs the moved script by path (`SHAPES_SCRIPT =
+  '../Histogrammer/shapes/TauES/createinputsTES.py'`, relative to `Fitter/` as in `run_inputs.sh`): no import, but a
+  Fitter file names a Histogrammer path for one step.
+- BBB: `_tes_inputs_script()` names the new path; `fitter.shapes`/`fitter.rebin` import `TauFW.Histogrammer.shapes`.
+  The payloads must equal the lock (no re-lock).
+- Import boundaries: the five `config.samples*` entries of the moved scripts left the allowlist (they now import the
+  Histogrammer's own `config/`), the HighPT unparseable entry follows the file. `check_import_boundaries.py` now also
+  looks for an implicit `config.*`/`plot.*`/`sample.*` module in the importing module's own directory (a script in
+  `Histogrammer/shapes/TauES/` importing `Histogrammer/config/samples_v15.py` is not a cross-stage import; a detector
+  test covers it, and an import that is found nowhere is still reported). Totals 25 / 23 / 21 (30 / 28 / 26 before),
+  0 new pairs: Fitter -> Histogrammer 6 -> 1 (MuTauFR's), Fitter -> Plotter unchanged (9 / 8 / 7).
+- Tests: `Tests/Fitter/api/test_tes_id.py` (the script path), `Tests/Histogrammer/compat/test_legacy_shape_scripts.py`
+  (new: the stubs import nothing, print the new command, exit with 2; MuTauFR not moved).
+- Docs: READMEs (Histogrammer layout and old names, Fitter, `TauES`, `TauES_ID`, `ETauFR`, Analyses, Utilities example),
+  `scripts_arg_changes.md` (old -> new table), IOInventory (the moved rows in the Histogrammer section, the stubs in the
+  Fitter section), the recipe comment of `tes_id_2025`, the `shapes` stage docstring, TODO §1 and §8. Also fixed: the
+  Fitter README still named the stage `histograms` (missed in §24 S4a).
+
+Checked (Windows): `python Tests/run.py checks`: 13 of 15 suites pass (`unit.histogrammer.compat` with the stub
+tests, `unit.fitter.api`, `unit.framework`); `check_import_boundaries` 25 / 23 / 21, 0 new pairs (known debt),
+`check_root` needs ROOT; `move_check` 7 files, 0 disallowed changes. Not checked here: BBB (lxplus, TODO §1).

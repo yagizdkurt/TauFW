@@ -3,7 +3,7 @@
 called `histograms` until CL §24 (S4a): every stage is named after what it makes, and the control histograms of the
 Histogrammer are another stage (controlhists).
 
-It runs what Fitter/run_inputs.sh runs: TauES/createinputsTES.py for every era, working point pair and config.
+It runs what Fitter/run_inputs.sh runs: Histogrammer/shapes/TauES/createinputsTES.py for every era, working point pair and config.
 
     inputs:   tuples: pico tuples, given to createinputsTES.py as --tuples <pattern>: those of the production
               stage the slot names (the pattern on its artifacts), or {external: <pattern>}; with null (old

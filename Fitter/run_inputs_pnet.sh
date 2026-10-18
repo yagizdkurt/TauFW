@@ -29,9 +29,9 @@ for YEAR in "${YEARS[@]}"; do
       echo "[${TAGGER}] year=${YEAR}  VSjet=${j}  VSe(DeepTau)=${e}"        | tee -a "$LOGFILE"
       echo "------------------------------------------------------------" | tee -a "$LOGFILE"
 
-      python3 TauES/createinputsTES.py -y ${YEAR} -c ${CONFIG}    -j ${j} -e ${e} -O ${OUTBASE} 2>&1 | tee -a "$LOGFILE"
+      python3 ../Histogrammer/shapes/TauES/createinputsTES.py -y ${YEAR} -c ${CONFIG}    -j ${j} -e ${e} -O ${OUTBASE} 2>&1 | tee -a "$LOGFILE"
       STATUS=${PIPESTATUS[0]}
-      python3 TauES/createinputsTES.py -y ${YEAR} -c ${CONFIG_MM} -j ${j} -e ${e} -O ${OUTBASE}
+      python3 ../Histogrammer/shapes/TauES/createinputsTES.py -y ${YEAR} -c ${CONFIG_MM} -j ${j} -e ${e} -O ${OUTBASE}
       STATUS_MM=$?
       [[ $STATUS -eq 0 ]] && STATUS=$STATUS_MM   # BUGS F03: a mumu failure counts too
 

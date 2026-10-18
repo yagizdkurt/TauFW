@@ -8,7 +8,7 @@ run in Fitter/ with exactly the arguments of the shell scripts. With one (the Ta
 absolute paths, the shapes come from request.shapes_dirs, and the few options listed in
 docs/Refactor-2025/scripts_arg_changes.md keep every output inside the output directory:
 
-    ShapesRequest ─▶ plan_shapes() ─▶ make_shapes()   = Fitter/run_inputs.sh       (TauES/createinputsTES.py)
+    ShapesRequest ─▶ plan_shapes() ─▶ make_shapes()   = Fitter/run_inputs.sh       (../Histogrammer/shapes/TauES/createinputsTES.py)
                      CommandPlan      RunReport (shape artifacts)
     FitRequest    ─▶ plan_fit()    ─▶ fit()           = Fitter/run_workflow_zmm.sh (option 3: 2D scan of tes and
                      CommandPlan      RunReport (fit and correction artifacts)      tid_SF per DM and pt region)
@@ -55,6 +55,9 @@ __all__ = ['TauESID']
 # ================================= CONSTANTS =================================
 
 
+# The shapes script, relative to Fitter/ as run_inputs.sh calls it. Temporary (CL §25 H1): it moved to the
+# Histogrammer; H3 moves the shapes half of this API there too, and then the Fitter names no Histogrammer path.
+SHAPES_SCRIPT = '../Histogrammer/shapes/TauES/createinputsTES.py'
 INPUTS = 'input_pt_less_region'      # shape tree; the later scripts hard-code these names
 OUTPUTS = 'output_pt_less_region'    # datacards and fit results
 POSTFIT = 'postfit_pt_less_region'   # post-fit shapes
@@ -204,7 +207,7 @@ class TauESID:
 
     def _shape_command(self, request, era, jet_wp, ele_wp, config, setup, cwd):
         """One createinputsTES.py run (run_inputs.sh) and the shape files it makes, one per observable."""
-        argv = [self.python, self._script(request, 'TauES/createinputsTES.py'), '-y', era,
+        argv = [self.python, self._script(request, SHAPES_SCRIPT), '-y', era,
                 '-c', self._config(request, config), '-j', jet_wp, '-e', ele_wp]
         if request.serial:
             argv.append('-s')

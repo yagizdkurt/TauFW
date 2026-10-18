@@ -44,7 +44,7 @@ stages:
     inputs: {hists: hists}  # the control-histogram files of the stage above
     pdf: false              # also save pdf files; the plots: stages/plots/plots/2025/ of the run
 
-  - stage: shapes           # input shapes (Fitter/TauES/createinputsTES.py, run in stages/shapes/)
+  - stage: shapes           # input shapes (Histogrammer/shapes/TauES/createinputsTES.py, run in stages/shapes/)
     id: shapes
     description: TES and tau ID shapes, mutau and the mumu control region
     inputs: {tuples: *tuples_2025}   # the same tuples as the hists (a YAML alias of the input above)

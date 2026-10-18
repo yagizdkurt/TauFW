@@ -16,7 +16,7 @@ In this script you can set up (by hardcoding) which samples set shall be used in
 Using the command options, you can choose era and channel and to create (or not) the FES variations for combined fit (fV parameter).
 Example:
 ```
-python createinputs.py -c etau -y UL2017 -fV True
+python ../../Histogrammer/shapes/ETauFR/createinputs.py -c etau -y UL2017 -fV True   # from Fitter/ETauFR/ (moved in changelog §25)
 ```
 will produce the inputs for UL2017 samples where event selections for etau channel are applied and the FES templates specified in the script are created.
 Inputs files and plots will be stored into the `input` folder.

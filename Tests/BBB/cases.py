@@ -478,7 +478,7 @@ def framework_production(workspace):
 
 
 def fitter_shapes(workspace):
-    from TauFW.Fitter.plot.datacard import createinputs
+    from TauFW.Histogrammer.shapes.inputs import createinputs  # Fitter/python/plot/datacard.py until CL §25
     from TauFW.Histogrammer.spec.Variable import Variable
     from TauFW.Histogrammer.spec.Selection import Selection
     from BBB.snapshot import file_snapshot
@@ -500,7 +500,7 @@ def fitter_shapes(workspace):
 
 
 def fitter_rebin(workspace):
-    from TauFW.Fitter.plot.rebinning import rebinning
+    from TauFW.Histogrammer.shapes.rebinning import rebinning  # Fitter/python/plot/ until CL §25
     from support.fixtures import write_shapes
     from BBB.snapshot import file_snapshot
     path = write_shapes(Path(workspace) / "input_shapes.root")
@@ -624,8 +624,9 @@ def _tes_events(scale=1.0):
 
 
 def _tes_inputs_script():
-    """The script under test: the only line that changes when createinputsTES.py moves (plan 16, H1)."""
-    return Path(__file__).resolve().parents[2] / "Fitter" / "TauES" / "createinputsTES.py"
+    """The script under test: the only line that changed when createinputsTES.py moved (plan 16, H1; locked with
+    Fitter/TauES/createinputsTES.py)."""
+    return Path(__file__).resolve().parents[2] / "Histogrammer" / "shapes" / "TauES" / "createinputsTES.py"
 
 
 def _tes_file_snapshot(path):

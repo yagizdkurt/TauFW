@@ -23,8 +23,8 @@ REGIONS = ["DM0_pt1", "DM0_pt2", "DM0_pt3", "DM1_pt1", "DM1_pt2", "DM1_pt3", "DM
 
 # Fitter/run_inputs.sh, one working point pair
 RUN_INPUTS = [
-    "python3 TauES/createinputsTES.py -y 2025 -c %s -j VTight -e Tight" % (TT),
-    "python3 TauES/createinputsTES.py -y 2025 -c %s -j VTight -e Tight" % (MM),
+    "python3 ../Histogrammer/shapes/TauES/createinputsTES.py -y 2025 -c %s -j VTight -e Tight" % (TT),
+    "python3 ../Histogrammer/shapes/TauES/createinputsTES.py -y 2025 -c %s -j VTight -e Tight" % (MM),
 ]
 # Fitter/run_workflow_zmm.sh, one working point pair, then the summary
 RUN_WORKFLOW = [
@@ -211,7 +211,9 @@ class ShapesTests(TauESIDTestCase):
         outdir = os.path.join(self.base, "run", "stages", "shapes")
         request = self.shapes(outdir=outdir, pico_config="pico.json")
         plan = self.fitter.plan_shapes(request)
-        self.assertEqual(plan.commands[0].argv[:6], ("python3", os.path.join(self.fitter_dir, "TauES", "createinputsTES.py"),
+        script = os.path.normpath(os.path.join(self.fitter_dir, "..", "Histogrammer", "shapes", "TauES",
+                                               "createinputsTES.py"))  # moved in CL §25 (H1)
+        self.assertEqual(plan.commands[0].argv[:6], ("python3", script,
                                                      "-y", "2025", "-c", os.path.join(self.fitter_dir, os.path.normpath(TT))))
         self.assertEqual({plan.cwd} | {c.cwd for c in plan.commands}, {outdir})
         self.assertEqual(plan.commands[0].expects, (IN + "/ztt_mt_tes_m_vis.inputs-2025-13TeV_mutau.root",))

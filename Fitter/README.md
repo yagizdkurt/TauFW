@@ -8,7 +8,10 @@ See [the README.md in the parent directory](../../../#taufw).
 
 - **Combined TES + TauID fit (current):** [TauES_ID/README_2DTES_TauID_Fit.md](TauES_ID/README_2DTES_TauID_Fit.md)
   (`run_inputs*.sh` → `run_workflow_zmm*.sh`). More background in [TauES_ID/README.md](TauES_ID/README.md).
-- **Input creation / config format:** [TauES/README.md](TauES/README.md).
+- **Input creation / config format:** [TauES/README.md](TauES/README.md). The scripts that make the input shapes
+  (`createinputsTES.py`, the `createinputs.py` of ETauFR, HighPT, paper, tutorial) moved to the Histogrammer
+  (`Histogrammer/shapes/`, changelog §25); they run from the same directories as before, the old paths print the new
+  command. `MuTauFR/createinputs.py` stays here (broken import, TODO §8).
 - **Other measurements:** [ETauFR/](ETauFR/README.md), [TauID/](TauID/README.md), [Zpt/](Zpt/README.md),
   `HighPT/`, `MuTauFR/`, `paper/`, `tutorial/`.
 
@@ -16,7 +19,7 @@ See [the README.md in the parent directory](../../../#taufw).
 
 `TauESID` runs the combined TES + TauID fit as the shell scripts do, with the same arguments, one process per
 script in `Fitter/`, and checks that every command wrote its expected outputs (the scripts call `combine` through
-`os.system`, so their exit code alone proves nothing). The TauFW Framework uses it for its `histograms` and `fit`
+`os.system`, so their exit code alone proves nothing). The TauFW Framework uses it for its `shapes` and `fit`
 stages (see [Framework/README.md](../Framework/README.md)).
 
 ```python
