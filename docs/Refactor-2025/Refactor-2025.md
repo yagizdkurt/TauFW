@@ -32,6 +32,7 @@ What is still open is listed in [TODO.md](TODO.md). Other documents cite its sec
 | 21 | [Plotter becomes Histogrammer; a clean Plotter is extracted](#21-plotter-becomes-histogrammer-a-clean-plotter-is-extracted) |
 | 22 | [TES shapes leave the Fitter for the Histogrammer](#22-tes-shapes-leave-the-fitter-for-the-histogrammer) |
 | 23 | [Variation tuples in the shapes preflight](#23-variation-tuples-in-the-shapes-preflight) |
+| 24 | [Review of the tes_id_2025 bundle: fit-result comparison, result files in the summary](#24-review-of-the-tes_id_2025-bundle-fit-result-comparison-result-files-in-the-summary) |
 
 The reference environment for all of this is `CMSSW_14_1_0_pre4` (Python 3.9, ROOT 6.30).
 
@@ -872,3 +873,29 @@ after the nominal histograms; a missing one failed hours into a run (`Sample.app
   hours of the shapes). The script itself is unchanged (run by hand it still fails late; user decision 2026-10-19).
 - `tes_id_2025` (mutau, 2025): 144 files: TES 10 x 9 (DY, through `ZTT`), LTF 2 x 12 (DY + TT: `ZL`, `TTL`),
   JTF 2 x 15 (DY + TT + WJ: `ZJ`, `TTJ`, `W`); the mumu config has none.
+
+## 24. Review of the tes_id_2025 bundle: fit-result comparison, result files in the summary
+
+**Date:** 2026-10-19
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#24-review-of-the-tes_id_2025-bundle-fit-result-comparison-result-files-in-the-summary)
+
+**Details:** TODO §1 "Framework, TES/ID bundle"
+
+A review of `Analyses/tes_id_2025` as the way to run the TES + tau ID measurement today. The bundle is complete,
+not a placeholder: its copies of the five configs are the `Configs/` templates byte for byte, and `plan` gives the
+commands of `run_inputs.sh` (VTight/Tight, mutau and mumu) and of `run_workflow_zmm.sh` for that point (13 fit
+commands, the five summary scripts included). What was missing is the tool for the one open check, the whole run
+against the shell drivers, and a pointer to the results. Physics and the stages are unchanged.
+
+- New `Tests/tools/compare_fitresults.py` (no ROOT): compares two fit result trees by relative path (the shell
+  drivers' `Fitter/` and a run's `stages/fit/<era>/` have the same layout): `FitparameterValues_*.txt` parameter by
+  parameter (parameters of interest with their own absolute tolerance `--poi-atol`, e.g. one grid step;
+  `--pois-only` leaves the nuisance parameters out), the correction JSON files of `tau_sf/` and `data/tau/` value by
+  value (`--rtol`/`--atol`), the `tau_sf/*.root` files by name. Test: `Tests/tools/test_compare_fitresults.py`.
+- `tes_id_2025/steps/fit_summary.py`: `summary.txt` also lists the correction files of the fit (per point and the
+  era files of the summary step, a missing one marked), the results to copy to their final place.
+- `tes_id_2025/recipe.yml` (comments only): the commands as on lxplus (`python3 taufw.py`, `check`, `start
+  --run-root`), where the results are, and how to continue after a failed stage (a new run reusing the finished
+  stages through `{path: ...}`).
+- `Analyses/README.md`: a section reference left from before the renumbering (§25 H3 -> §22 H3).
+

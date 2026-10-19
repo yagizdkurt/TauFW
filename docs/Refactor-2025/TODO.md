@@ -104,7 +104,16 @@ Items marked **(verify)** may already be done; check before working on them.
 - [ ] **PicoProducer with `ncores>=2`**: one run through `iterevts`/`itervalid` (fork with nested functions).
 - [ ] **Framework, TES/ID bundle:** `taufw.py plan Analyses/tes_id_2025`, then a VTight/Tight `taufw.py start` run
       compared with `run_inputs.sh` + `run_workflow_zmm.sh` in a clean copy (`FitparameterValues__mutau_*`,
-      `tau_sf/*VSjetVTight_VSeleTight*`). (CL §10 "Tests", §11)
+      `tau_sf/*VSjetVTight_VSeleTight*`). (CL §10 "Tests", §11) Procedure (2026-10-19):
+      (1) `python3 taufw.py start Analyses/tes_id_2025 --run-root <AFS work dir>` (hours; `status` at the end shows
+      the values, `stages/fit_summary/summary.txt` the values and the correction files); (2) in a clean copy of the
+      same commit, `cd Fitter && ./run_inputs.sh` and the VTight/Tight point of `run_workflow_zmm.sh` (its
+      `J_VALUES`/`E_VALUES` cut to `VTight`/`Tight` there, since `run_inputs.sh` makes only that point; the shell
+      scripts read the tuples from `picodir` of `PicoProducer/config/config.json`: set it to the recipe's tuple
+      pattern); (3) `python3 Tests/tools/compare_fitresults.py <copy>/Fitter <run_dir>/stages/fit/2025`
+      (FitparameterValues by parameter, the correction JSON files, the ROOT files by name). Separate shape fills
+      move a POI by up to one grid step (TODO §6 C): if it is not SAME, rerun with `--poi-atol <grid step>
+      --pois-only`, and compare the shapes themselves with `compare_shapefiles.py --rtol 1e-12` as in CL §22 H4.
 - [ ] **Runner validation:** `bbb check`, `bbb check -v`, `bbb lock --replace`, then `git diff --exit-code`
       on `Tests/BBB/baselines/` **(verify)**. (quiet-runner changelog section removed)
 - [ ] `python3 Tests/run.py normal` after the Plotter legacy move **(verify)**. (Plotter legacy cleanup; changelog section removed)

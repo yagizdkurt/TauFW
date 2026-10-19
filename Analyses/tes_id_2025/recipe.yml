@@ -1,9 +1,18 @@
 # TauFW analysis bundle: the combined tau energy scale (TES) + tau ID scale factor fit for 2025, on existing pico
 # tuples. It runs what Fitter/run_inputs.sh and Fitter/run_workflow_zmm.sh run (option 3: 2D scan of tes and tid_SF
 # per decay mode and pt region, with the Z->mumu control region), control plots first, and a summary step last.
-#   taufw.py plan    Analyses/tes_id_2025                       # the commands of every stage (nothing runs)
-#   taufw.py start   Analyses/tes_id_2025                       # runs hists, plots, shapes, fit, summary (hours)
-#   taufw.py status  taufw_runs/tes_id_2025_<time>              # the fitted values
+#   python3 taufw.py check   Analyses/tes_id_2025               # the recipe and the files it names
+#   python3 taufw.py plan    Analyses/tes_id_2025               # the commands of every stage, and the preflight:
+#                                                               # missing tuples (also the 144 variation tuples),
+#                                                               # ROOT, combine, CombineHarvester (nothing runs)
+#   python3 taufw.py start   Analyses/tes_id_2025 --run-root /afs/cern.ch/work/<u>/<user>/taufw_runs
+#                                                               # runs hists, plots, shapes, fit, summary (hours)
+#   python3 taufw.py status  <run_root>/tes_id_2025_<time>      # the fitted values
+# The results: stages/fit_summary/summary.txt of the run (the table of the fitted values and the paths of the
+# correction files, e.g. stages/fit/2025/data/tau/TauCorrections_2025_with_uncorrelated_systs.json; copying them to
+# their final place is up to you). A failed stage fails the run (a failed run is final): start a new run, which can
+# reuse the finished stages of this one, e.g. the fit alone on its shapes with inputs: {shapes: {path:
+# <run_dir>/stages/shapes}} (Analyses/README.md, "Choosing fit working points and steps").
 # Everything this analysis reads is in this directory: the .yml configs next to this file replace the module
 # configs (whole files), steps/ holds its Python steps. Paths are relative to this directory. A run copies the
 # directory to taufw_runs/<run>/bundle/, so editing it later never changes a started run. Copy or send this

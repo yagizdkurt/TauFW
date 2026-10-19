@@ -330,3 +330,17 @@ tuples, configs and samples. `Tests/tools/compare_shapefiles.py` compares file n
   ("Stage shapes is not ready: ...") and runs no command. `taufw.py check` validates the recipe only (no stage
   preflight), so it does not show the missing file.
 - `checks` 14/15 (known import-boundary debt, 25 / 23 / 21, 0 new pairs).
+
+## 24. Review of the tes_id_2025 bundle: fit-result comparison, result files in the summary
+
+**Change:** [CL §24](Refactor-2025.md#24-review-of-the-tes_id_2025-bundle-fit-result-comparison-result-files-in-the-summary)
+
+**Status:** Windows checks done; the lxplus run is TODO §1 "Framework, TES/ID bundle".
+
+- `Tests/tools/test_compare_fitresults.py` (7 tests): parameters by name, the tolerance per kind (a difference of
+  exactly one grid step is equal), JSON trees, the result-file lists, nothing to compare is a failure.
+- `taufw.py check` and `plan` of `tes_id_2025` (Windows, test bootstrap): the same commands as before; the bundle's
+  configs equal the `Configs/` templates. `fit_summary.py` run with a fake context: the table, then the correction
+  files with a missing one marked.
+- `python Tests/run.py checks`: 13/15 (`check_import_boundaries` known debt 25 / 23 / 21, `check_root` needs ROOT).
+

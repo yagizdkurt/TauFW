@@ -568,7 +568,7 @@ channel, directory, the number of plots it made), the same form as the former `p
 
 Creates the input shapes for the combined TES + tau ID fit. It wraps the
 `Fitter/run_inputs.sh` workflow via `TauFW.Histogrammer.api.TESShapes.make_shapes` (the Fitter API's until changelog
-§25 H3), running `Histogrammer/shapes/TauES/createinputsTES.py` locally for every era, jet WP, electron WP, and
+§22 H3), running `Histogrammer/shapes/TauES/createinputsTES.py` locally for every era, jet WP, electron WP, and
 config. The `fit` stage reads the files by the contract [docs/contracts/tes-shapes.md](../docs/contracts/tes-shapes.md).
 
 | Option | Default | Meaning |
