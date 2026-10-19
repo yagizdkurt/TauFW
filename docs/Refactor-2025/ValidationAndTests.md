@@ -348,7 +348,7 @@ tuples, configs and samples. `Tests/tools/compare_shapefiles.py` compares file n
 
 **Change:** [CL §25](Refactor-2025.md#25-postfit-scripts-set-the-era-through-cmsstyle-no-plotter-import)
 
-**Status:** Windows checks done; lxplus checks in TODO §1.
+**Status:** done; checked on lxplus 2026-10-19 (TODO §1, CL §25-§27 item).
 
 - `python Tests/check_import_boundaries.py -q`: 21 / 19 / 17, 0 new pairs, no stale allowlist entry (Fitter ->
   Plotter 5 / 4 / 3).
@@ -359,7 +359,7 @@ tuples, configs and samples. `Tests/tools/compare_shapefiles.py` compares file n
 
 **Change:** [CL §26](Refactor-2025.md#26-the-luminosity-of-the-normalisation-in-the-sample-model-and-the-control-histogram-file)
 
-**Status:** Windows checks done; lxplus checks in TODO §1.
+**Status:** done; checked on lxplus 2026-10-19 (TODO §1, CL §25-§27 item).
 
 - `Tests/Histogrammer/sample_model/test_sample_model.py`: the call-equality grid (old `samples_v15.py` against the
   model) passes once the model's `lumi=` is checked to equal the table lookup and removed
@@ -375,7 +375,7 @@ tuples, configs and samples. `Tests/tools/compare_shapefiles.py` compares file n
 
 **Change:** [CL §27](Refactor-2025.md#27-the-fit-plots-show-the-luminosity-of-the-normalisation-explicit-lumi-on-the-samples)
 
-**Status:** Windows checks done; lxplus checks in TODO §1.
+**Status:** done; checked on lxplus 2026-10-19 (TODO §1, CL §25-§27 item).
 
 - `Tests/Histogrammer/api/test_tes_shapes.py` `test_artifacts_carry_the_normalisation`: lumi/cme of the sample file,
   `None` without one or with an unreadable one.
@@ -388,3 +388,11 @@ tuples, configs and samples. `Tests/tools/compare_shapefiles.py` compares file n
 - The command strings the `makecombinedfit` scripts build were checked by hand (`... -i out/ --lumi 110.18 --cme
   13.6`); the scripts themselves need ROOT/combine: lxplus.
 - `python Tests/run.py checks`: 13/15 (known import debt 21 / 19 / 17, `check_root`).
+
+**Validation (lxplus, 2026-10-19), CL §25-§27 together:** a `hists` + `plots` copy of `tes_id_2025` with the code
+before (`74d8e68`) and after (`4afa0bd`): every PNG byte-identical, the new files are version 2 with `lumi 110.18`,
+`cme 13.6`. `check_setera.py` SAME (28 cases). BBB: `plotter.sample_model` re-locked (approved, plan 22 K2; `lock`
+re-captures the whole suite: 22 same, 1 changed): 658 `lumi` fields added, each equal to the old
+`CMSStyle.lumi_dict` value of its era (2022_postEE 27.0072, 2022_preEE 8.077, 2023C 17.06, 2023D 9.525, 2024
+109.08, 2025 110.18, 2026 25.3, 2526 135.48), the baseline otherwise identical. `histogrammer.tes_inputs` needed
+`lumi` in its own mini model (`3268066`) and then passed without re-lock. `bbb check` 23/23; `checks` 14/15.
