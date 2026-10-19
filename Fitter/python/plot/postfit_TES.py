@@ -55,7 +55,8 @@ def drawpostfit(fname,region,procs,**kwargs):
       text = "#mu#tau_{h}"
 
   print(">>>   era = %r"%(era))
-  CMSStyle.setCMSEra(era, cms="CMS", extra="Preliminary") 
+  CMSStyle.setCMSEra(era, cms="CMS", extra="Preliminary",  # lumi/cme: of the shapes' normalisation if given (CL §27)
+                     **{key: kwargs[key] for key in ('lumi', 'cme') if kwargs.get(key) is not None})
   CMSStyle.setTDRStyle()
   # canvas = TCanvas("canvas","canvas",100,100,800,800)
   # CMSStyle.setCMSLumiStyle(canvas,3,outOfFrame=False,verbosity=2) # 

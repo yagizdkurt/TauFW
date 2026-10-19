@@ -4,7 +4,8 @@ Written by `createinputsTES.py` (`Histogrammer/shapes/TauES/`, in `Fitter/TauES/
 work, CL §22), read by the fit (`Fitter/TauES_ID/harvestDatacards_TES_idSF_MCStat.py`, `harvestDatacards_zmm.py`). The two
 sides never import each other; this page and the channel config (below) are all they share. In a TauFW recipe the
 Framework carries the files from the `shapes` stage to the `fit` stage: the artifact `{kind: shapes, path, era,
-channel, config, jet_wp, ele_wp, observable}` names a file (`TauFW.Histogrammer.api.TESShapes`, `_shape_files`;
+channel, config, jet_wp, ele_wp, observable, lumi, cme}` names a file (`lumi`, `cme`: the normalisation, from the
+era's sample model, `None` without one; the fit labels its plots with them, CL §27) (`TauFW.Histogrammer.api.TESShapes`, `_shape_files`;
 the Fitter API's until CL §22 H3).
 
 Unlike `control-histograms.md` this format has no version field and no metadata in the file: it is the format the fit

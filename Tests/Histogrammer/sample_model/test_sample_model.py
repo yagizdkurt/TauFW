@@ -18,12 +18,13 @@ table_lumi = recorder.table_lumi
 
 
 def without_model_lumi(calls):
-    """The calls with the model's setera(..., lumi=) argument removed, after checking that it is the value setera
-    looked up itself before (so the samples are normalised as before); a different value stays a difference."""
+    """The calls with the model's lumi= argument removed (of setera, and of the core getsampleset, which gives it to
+    every sample, CL §27), after checking that it is the value setera looked up itself before (so the samples are
+    normalised as before); a different value stays a difference."""
     result = []
     for call in calls:
-        if call[0] == 'setera' and 'lumi' in call[2]:
-            era = call[1][0]
+        if call[0] in ('setera', 'getsampleset') and 'lumi' in call[2]:
+            era = call[1][0] if call[0] == 'setera' else call[2]['era']
             if call[2]['lumi'] != table_lumi(era):
                 return calls
             call = [call[0], call[1], {key: value for key, value in call[2].items() if key != 'lumi'}]
@@ -75,6 +76,7 @@ class EqualityTests(unittest.TestCase):
                                             recorder.model_targets(utils), 'mutau', sample_model.era)
                 self.assertEqual(calls[0], ['setera', [sample_model.era], {'lumi': sample_model.lumi,
                                                                            'cme': sample_model.cme}])
+                self.assertEqual(calls[1][2]['lumi'], sample_model.lumi)  # every sample gets it (CL §27)
 
     def test_samples_keyword_of_samples_v15(self):
         """samples_v15.getsampleset(..., samples=[templates]) hands over to the model (what plot.py --samples and

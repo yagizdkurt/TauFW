@@ -54,10 +54,13 @@ class FitRequest:
     pico_config: Optional[str] = None    # $TAUFW_PICO_CONFIG of the commands
     outdir:      Optional[str] = None    # where the fit writes (None: Fitter/)
     shapes_dirs: Tuple[Tuple[str, str, str, str], ...] = ()  # (era, jet WP, electron WP, directory)
+    labels:      Tuple[Tuple[str, Optional[float], Optional[float]], ...] = ()  # (era, lumi, cme) of the shapes'
+                 # normalisation: the scripts that draw the CMS label get --lumi/--cme (CL §27); none: their tables
 
     def __post_init__(self):
         object.__setattr__(self, 'shapes_dirs', tuple(tuple(str(value) for value in entry)
                                                       for entry in self.shapes_dirs))
+        object.__setattr__(self, 'labels', tuple((str(era), lumi, cme) for era, lumi, cme in self.labels))
         if any(len(entry) != 4 for entry in self.shapes_dirs):
             raise ValueError("FitRequest: shapes_dirs must be (era, jet WP, electron WP, directory)")
         points = tuple(tuple(str(value) for value in point) for point in self.points)

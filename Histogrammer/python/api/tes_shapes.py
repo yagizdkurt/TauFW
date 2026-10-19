@@ -26,7 +26,8 @@ Inputs:  pico tuples in the request's tuple pattern (--tuples), or else found by
          checks them all (variation_problems; TauFW.Histogrammer.sample.variations names them).
 Outputs: <outdir>/input_pt_less_region/againstjet_<J>/againstelectron_<E>/ztt_<ch>_tes_<obs>.inputs-<era>-13TeV<tag>.root
          (and what the script writes next to them, contract page), one log file per command in the caller's log
-         directory. Artifact: {kind: shapes, path, era, channel, config, jet_wp, ele_wp, observable}.
+         directory. Artifact: {kind: shapes, path, era, channel, config, jet_wp, ele_wp, observable, lumi, cme}
+         (lumi, cme: of the era's sample model, the normalisation; None without sample files; CL §27).
 
 Public API:
   TESShapes(basedir, runner, read_yaml, python, find_module)
@@ -71,11 +72,13 @@ class TESShapes:
         commands, artifacts, notes = [], [], []
         cwd = os.path.normpath(request.outdir)  # as given: absolute from the Framework, or a plan's placeholder
         for era in request.eras:
+            normalisation = self._normalisation(request, era)
             for jet_wp in request.jet_wps:
                 for ele_wp in request.ele_wps:
                     for config in request.configs:
                         setup = self._setup(config, notes)
-                        command, shapes = self._shape_command(request, era, jet_wp, ele_wp, config, setup, cwd)
+                        command, shapes = self._shape_command(request, era, jet_wp, ele_wp, config, setup, cwd,
+                                                              normalisation)
                         commands.append(command)
                         artifacts.extend(shapes)
         return CommandPlan(cwd=cwd, commands=tuple(commands), artifacts=tuple(artifacts),
@@ -147,7 +150,7 @@ class TESShapes:
     # =========================================================================
     # =============================== COMMANDS ================================
 
-    def _shape_command(self, request, era, jet_wp, ele_wp, config, setup, cwd):
+    def _shape_command(self, request, era, jet_wp, ele_wp, config, setup, cwd, normalisation=(None, None)):
         """One createinputsTES.py run (run_inputs.sh) and the shape files it makes, one per observable."""
         argv = [self.python, self._path(SCRIPT), '-y', era, '-c', self.config_file(config), '-j', jet_wp,
                 '-e', ele_wp]
@@ -161,7 +164,8 @@ class TESShapes:
         channel = setup.get('channel', config) if setup is not None else config
         shapes = [{'kind': 'shapes', 'path': os.path.normpath(os.path.join(cwd, path)), 'era': era,
                    'channel': channel, 'config': config, 'jet_wp': jet_wp, 'ele_wp': ele_wp,
-                   'observable': observable} for observable, path in files]
+                   'observable': observable, 'lumi': normalisation[0], 'cme': normalisation[1]}
+                  for observable, path in files]
         command = Command("shapes %s %s %s %s" % (era, jet_wp, ele_wp, channel), tuple(argv), cwd,
                           expects=tuple(path for _, path in files), timeout=request.timeout,
                           env=_pico_env(request))
@@ -169,6 +173,17 @@ class TESShapes:
 
     # =========================================================================
     # ================================ HELPERS ================================
+
+    def _normalisation(self, request, era):
+        """(lumi, cme) of the era's sample model, the normalisation of the shapes (the fit labels its plots with
+        them); (None, None) without sample files or if they cannot be read (the preflight says why)."""
+        if not request.samples:
+            return None, None
+        try:
+            model = sample_model.pick(request.samples, str(era))
+        except sample_model.SampleModelError:
+            return None, None
+        return model.lumi, model.cme
 
     def _setup(self, config, notes):
         """The YAML config, or None with a note if it cannot be read."""

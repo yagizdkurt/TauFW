@@ -75,7 +75,8 @@ def getsampleset(channel, era, model, **kwargs):
   filter   = kwargs.get('filter',   None         ) # only include these MC samples
   vetoes   = kwargs.get('vetoes',   None         ) # veto these MC samples
   table    = kwargs.get('table',    True         ) # print sample set table
-  setera(era,lumi=model.lumi,cme=model.cme) # set era for plot style and lumi-xsec normalization (the model's lumi)
+  lumi     = kwargs.setdefault('lumi', model.lumi) # given to every sample, not left to the module global (CL §27)
+  setera(era,lumi=lumi,cme=model.cme) # set era for plot style and lumi-xsec normalization (the model's lumi)
   if 'TT' in split and 'Top' in join: # don't join TT & ST
     join.remove('Top')
     join += ['TT','ST']

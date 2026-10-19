@@ -969,7 +969,7 @@ def plot_measurement_summary(region_labels, measurements, **kwargs):
     year_latex.SetTextFont(42)
     year_latex.SetTextAlign(31)
     year_latex.SetNDC(True)
-    year_latex.DrawLatex(1.0 - right_margin, 1.0 - top_margin + 0.01, f"{year}, {CMSStyle.lumi_dict.get(year, 109):.0f} fb^{{-1}} ({CMSStyle.cme_dict.get(year, 13.6):.1f} TeV)")
+    year_latex.DrawLatex(1.0 - right_margin, 1.0 - top_margin + 0.01, lumi_text(year))
     
     # Add title
     if title:
@@ -1125,7 +1125,7 @@ def plot_scan_correlations(scan_results_all_regions, **kwargs):
     year_latex.SetTextFont(42)
     year_latex.SetTextAlign(31)
     year_latex.SetNDC(True)
-    year_latex.DrawLatex(1.0 - right_margin, 1.0 - top_margin + 0.01, f"{year}, {CMSStyle.lumi_dict.get(year, 109):.0f} fb^{{-1}} ({CMSStyle.cme_dict.get(year, 13.6):.1f} TeV)")
+    year_latex.DrawLatex(1.0 - right_margin, 1.0 - top_margin + 0.01, lumi_text(year))
     
     # Add title
     title_latex = ROOT.TLatex()
@@ -1186,8 +1186,20 @@ def write_2d_fit_results(poi1_name, poi2_name, poi1_val, poi1_err_down, poi1_err
     
     return outfname
 
+LABEL = {}  # --lumi/--cme of the command line (CL §27); empty: CMSStyle's tables
+
+
+def lumi_text(year):
+    """The year/lumi/energy text of the plots: '<year>, <lumi> fb^{-1} (<cme> TeV)', with --lumi/--cme if given, else
+    CMSStyle's tables; no lumi part for an era without one (was a fixed 109, CL §27)."""
+    lumi = LABEL.get('lumi', CMSStyle.lumi_dict.get(year))
+    cme = LABEL.get('cme', CMSStyle.cme_dict.get(year, 13.6))
+    return "%s, %s(%.1f TeV)" % (year, "%.0f fb^{-1} " % (lumi) if lumi else "", cme)
+
+
 def main(args):
     """Main function - handle multiple regions and create summary plots"""
+    LABEL.update({key: value for key, value in (('lumi', args.lumi), ('cme', args.cme)) if value is not None})
     
     print("Using configuration file: %s" % args.config)
     with open(args.config, 'r') as file:
@@ -1332,6 +1344,8 @@ if __name__ == '__main__':
     
     parser.add_argument('-v', '--verbose', dest='verbose', 
                        default=False, action='store_true', help="set verbose")
+    parser.add_argument('--lumi', dest='lumi', type=float, default=None, help="integrated luminosity [/fb] of the CMS label (default: CMSStyle.lumi_dict of the era; the TauFW Framework gives the one of the shapes' normalisation, CL §27)")
+    parser.add_argument('--cme', dest='cme', type=float, default=None, help="centre-of-mass energy [TeV] of the CMS label (default: CMSStyle.cme_dict of the era)")
     
     args = parser.parse_args()
     main(args)

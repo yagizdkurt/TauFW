@@ -216,6 +216,19 @@ stay where they were.
 | `TauFW.Fitter.plot.rebinning` | `TauFW.Histogrammer.shapes.rebinning` | none |
 | `Fitter/MuTauFR/createinputs.py` | unchanged (its import `TauFW.Plotter.plot.datacard` was already broken, TODO §8) | - |
 
+## CMS label of the fit plots (changelog §27)
+
+New optional options; without them every script draws as before (the luminosity of `CMSStyle.lumi_dict`).
+
+| Script | New options | Effect |
+|---|---|---|
+| `TauES_ID/plotParabola_POI_region.py`, `TauES_ID/plotPostFitScan_POI.py` | `--lumi L --cme E` | `CMSStyle.setCMSEra(year, lumi=L, cme=E)` |
+| `TauES_ID/plot2DScan_MultiDimFit.py`, `plot_measurements.py` | `--lumi L --cme E` | their year/lumi text; an era without a luminosity now shows none (was a fixed 109) |
+| `python/plot/runpostfit.py` | `--lumi L --cme E` | passed to `postfit_TES.drawpostfit` (`lumi=`, `cme=`) |
+| `TauES_ID/makecombinedfitTES_SF.py`, `TauES_ID/makecombinedfitTES_SF_postfit.py` | `--lumi L --cme E` | passed on to the plot scripts they start |
+
+The TauFW Framework gives them the normalisation of the shapes (the sample model's `lumi`, `cme`).
+
 ## TES/ID channel configs to Configs/ (changelog §22, H2)
 
 The four maintained channel configs of the TES + tau ID fit are templates now: `Configs/Fitter/tes_id/` (ids

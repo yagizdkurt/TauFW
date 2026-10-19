@@ -164,6 +164,17 @@ class ShapesTests(TESShapesTestCase):
 
 
 class ShapesSampleFilesTests(TESShapesTestCase):  # CL §20: sample model files, --samples
+    def test_artifacts_carry_the_normalisation(self):  # CL §27: the fit labels its plots with them
+        samples = (os.path.join(self.base, "v15_2025.yml"),)
+        shutil.copy(os.path.join(str(checkout.REPO), "Analyses", "tes_id_2025", "v15_2025.yml"), samples[0])
+        artifacts = self.shapes.plan_shapes(self.request(samples=samples)).artifacts
+        self.assertEqual({(a['lumi'], a['cme']) for a in artifacts}, {(110.18, 13.6)})
+        self.assertEqual({(a['lumi'], a['cme']) for a in self.shapes.plan_shapes(self.request()).artifacts},
+                         {(None, None)})  # no sample files: the fit keeps CMSStyle's tables
+        missing = (os.path.join(self.base, "missing.yml"),)
+        self.assertEqual({a['lumi'] for a in self.shapes.plan_shapes(self.request(samples=missing)).artifacts},
+                         {None})  # the preflight says why
+
     def test_samples_option(self):
         samples = (os.path.join(self.base, "v15_2025.yml"),)
         commands = self.shapes.plan_shapes(self.request(samples=samples)).commands

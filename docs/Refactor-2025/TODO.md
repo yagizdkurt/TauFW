@@ -56,6 +56,13 @@ Items marked **(verify)** may already be done; check before working on them.
       second CMSSW area) and twice with HEAD: old against new 43 files, every key the same, 775 histograms SAME within
       1e-12 (largest 5e-13; LTF 96 histograms with content); new against new (the noise) largest 1.07e-12. `check`/
       `plan` of `tes_id_2025` and `example_mutau_long`: no problems.
+- [ ] **The fit plots' lumi and the explicit sample lumi (CL §27).** With the CL §26 checks: (1) `python3 -c
+      "import TauFW.Fitter.plot.postfit_TES"`; in `Fitter/`: `python3 TauES_ID/plotParabola_POI_region.py -h`,
+      `plotPostFitScan_POI.py -h`, `plot2DScan_MultiDimFit.py -h`, `python3 plot_measurements.py -h`, `python3
+      python/plot/runpostfit.py -h`, `TauES_ID/makecombinedfitTES_SF.py -h`, `TauES_ID/makecombinedfitTES_SF_postfit.py
+      -h`: each lists `--lumi`, `--cme`; (2) `python3 taufw.py plan Analyses/tes_id_2025`: the four fit commands end
+      with `--lumi 110.18 --cme 13.6`; (3) when the fit runs next (the bundle review, TODO §1 "Framework, TES/ID
+      bundle"): the postfit, parabola, scan and measurement plots show "110 fb^-1 (13.6 TeV)" as before.
 - [ ] **The lumi of the normalisation in the sample model (CL §26).** After `git pull` and `scram b`, with
       `cmsenv`: (1) `python3 Tests/run.py bbb check`: every case passes except `plotter.sample_model`, whose only
       difference is `"lumi": <value>` in the `setera` calls (`python3 Tests/run.py bbb diff --case
@@ -495,6 +502,14 @@ Other limitations ([Analyses/README.md](../../Analyses/README.md) "Current limit
       `Plotter/config/`) stays for recipes and commands without `samples:` / `--samples` (CL §20, decision D4: no
       warning for now). When it goes, the BBB case `plotter.sample_model` keeps the reference (it runs the model with
       the templates).
+- [ ] **At the migration point, with `samples_v15.py` (CL §26, §27): the luminosity of the normalisation has one
+      source.** Until then two: the sample model's `lumi` (the new path) and `CMSStyle.lumi_dict`, which `setera`
+      still uses when no lumi is given (`Histogrammer/python/sample/utils.py:148`, the old path) and which the fit
+      scripts use without `--lumi`. Then: `setera` without a lumi becomes an error (or takes the model's only);
+      `CMSStyle.lumi_dict` stays a label default only (or goes); the test `test_template_lumi_is_the_table_value` and
+      `table_lumi`/`without_model_lumi` of the sample-model tests go (they compare the templates with the table); the
+      fit scripts' `--lumi`/`--cme` become required when run by the Framework. Before that point, a new lumi value
+      (brilcalc) goes into the template and the table together, or the equality test fails (plan 22, open point 4).
 - [ ] **Backward compatibility to delete at the migration point (CL §21, Plotter -> Histogrammer):** the 13 alias
       modules in `Plotter/python/{sample,plot,methods}/` (and their 13 entries in
       `Tests/import_boundary_allowlist.json`, `Tests/Histogrammer/compat/`), the legacy `Plotter/plot.py` and

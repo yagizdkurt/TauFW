@@ -170,6 +170,7 @@ class TauESID:
         tag = (setup or {}).get('tag', '')
         regions = _scan_regions(setup or {})
         point = "%s %s %s" % (era, jet_wp, ele_wp)
+        label = _label_args(request, era)  # --lumi/--cme of the CMS label (CL §27)
         commands = []
 
         def add(step, label, argv, expects=()):
@@ -187,24 +188,24 @@ class TauESID:
             [mumu_card])
         add('fit', 'multidimfit',
             [script('TauES_ID/makecombinedfitTES_SF.py'), '-y', era, '-c', config, '-i', indir + '/',
-             '-o', '3', '--mumu_datacard_file', mumu_card] + outputs,
+             '-o', '3', '--mumu_datacard_file', mumu_card] + outputs + label,
             [posixpath.join(eradir, "higgsCombine.mt_m_vis-%s%s%s-%s-13TeV.MultiDimFit.mH90.root"
                             % (region, tag, EXTRATAG, era)) for region in regions]
             + [posixpath.join(eradir, _values_file(tag, era, region)) for region in regions])
         add('postfit', 'fitdiagnostics',
             [script('TauES_ID/makecombinedfitTES_SF_postfit.py'), '-y', era, '-c', config, '--indir', outdir + '/',
              '-o', '3', '--mumu_input_file', mumu_card, '-cmm', config_mumu, '--jet_wp', jet_wp,
-             '--ele_wp', ele_wp] + (['--impacts'] if request.impacts else []),
+             '--ele_wp', ele_wp] + (['--impacts'] if request.impacts else []) + label,
             [posixpath.join(_wp_dir(POSTFIT, jet_wp, ele_wp), era, "PostFitShape_%s_%s_*.root" % (era, tag))])
         add('plots', 'postfit plots',
             [script('python/plot/runpostfit.py'), '-c', config, '-j', jet_wp, '-e', ele_wp, '-y', era,
-             '--include-cr'],
+             '--include-cr'] + label,
             ["output_plots/jet_%s_ele_%s/*" % (jet_wp, ele_wp)])
         add('plots', 'combined plots',
             [script('pre_post_plot_combiner.py'), '--scan_dir', posixpath.join(plotdir, era) + '/',
              '--jet_wp', jet_wp, '--ele_wp', ele_wp])
         add('plots', 'measurements',
-            [script('plot_measurements.py'), '--jet_wp', jet_wp, '--ele_wp', ele_wp, '--year', era],
+            [script('plot_measurements.py'), '--jet_wp', jet_wp, '--ele_wp', ele_wp, '--year', era] + label,
             ["Measurements/VSjet%s_VSele%s/tes_measurements.png" % (jet_wp, ele_wp)])
         for form in ('root', 'json'):
             add('corrections', form,
@@ -408,3 +409,12 @@ def _default_basedir():
 def _read_yaml(path):
     from TauFW.Utilities.FIO import FileIO
     return FileIO().read_yaml(path)
+
+
+def _label_args(request, era):
+    """--lumi/--cme for the scripts that draw the CMS label: the normalisation of the era's shapes (FitRequest.labels,
+    from the shapes artifacts; CL §27). Empty without one: the scripts then use CMSStyle's tables, as before."""
+    for label_era, lumi, cme in request.labels:
+        if label_era == era:
+            return (['--lumi', repr(lumi)] if lumi is not None else []) + (['--cme', repr(cme)] if cme is not None else [])
+    return []

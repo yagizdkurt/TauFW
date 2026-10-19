@@ -16,11 +16,13 @@ contract docs/contracts/control-histograms.md ("taufw.control_histograms", versi
 
 Nothing here changes how histograms are filled; fillhists.py writes the file only with --hists.
 
-Public API: stack_entry, write_control_hists, drawing_attributes, CONTRACT, VERSION, DRAWING_ATTRIBUTES
+Public API: stack_entry, write_control_hists, drawing_attributes, normalisation_lumi, CONTRACT, VERSION,
+            DRAWING_ATTRIBUTES
 """
 from TauFW.Utilities.HistFile import HistFileEntry, write_histfile
 
-__all__ = ['stack_entry', 'write_control_hists', 'drawing_attributes', 'CONTRACT', 'VERSION', 'DRAWING_ATTRIBUTES']
+__all__ = ['stack_entry', 'write_control_hists', 'drawing_attributes', 'normalisation_lumi', 'CONTRACT', 'VERSION',
+           'DRAWING_ATTRIBUTES']
 
 CONTRACT = "taufw.control_histograms"  # what the file is (docs/contracts/control-histograms.md)
 VERSION  = 2                           # raised when the meaning of the file's content changes (2: lumi, cme)
@@ -45,6 +47,25 @@ def stack_entry(stack, variable, selection):
     meta = {"selection": {"name": selection.filename, "title": selection.title, "cut": selection.selection},
             "variable": drawing_attributes(variable)}
     return HistFileEntry("%s/%s" % (selection.filename, variable.filename), groups, meta)
+
+
+def normalisation_lumi(samples):
+    """The integrated luminosity the MC samples were normalised with: the lumi of every sample (merged samples are
+    looked into), None if there is none; ValueError if they differ (CL §27). samples: SampleSet.mcsamples."""
+    found = set()
+
+    def walk(sample):
+        children = getattr(sample, 'samples', [sample])
+        if not children or children == [sample]:
+            found.add(sample.lumi)
+        else:
+            for child in children:
+                walk(child)
+    for sample in samples:
+        walk(sample)
+    if len(found) > 1:
+        raise ValueError("the MC samples were normalised with different luminosities: %s" % (sorted(found),))
+    return next(iter(found)) if found else None
 
 
 def write_control_hists(path, entries, channel, era, lumi, cme, tag=""):

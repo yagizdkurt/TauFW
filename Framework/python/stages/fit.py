@@ -70,7 +70,8 @@ class FitStage(LocalStage):
         return self.api.fit_request(points=points, config=spec.config, config_mumu=spec.config_mumu,
                                     steps=spec.steps, impacts=spec.impacts, timeout=spec.timeout,
                                     pico_config=context.pico_config, outdir=self.output_dir(context),
-                                    shapes_dirs=self.shapes_dirs(points, context))
+                                    shapes_dirs=self.shapes_dirs(points, context),
+                                    labels=self.labels(points, context))
 
     def plan_commands(self, request):
         return self.api.plan_fit(request)
@@ -112,6 +113,21 @@ class FitStage(LocalStage):
                 raise ValueError("the shapes of %s %s/%s are in more than one directory: %s"
                                  % (point + (', '.join(sorted(found[point])),)))
         return tuple(point + (next(iter(found[point])),) for point in points)
+
+    def labels(self, points, context):
+        """(era, lumi, cme) of the normalisation of the input shapes, for the CMS label of the fit plots (CL §27): from
+        the shapes artifacts that carry a lumi (a shapes stage with sample files); none for the others. Raises
+        ValueError if the shapes of one era were normalised with different values."""
+        found = {}
+        for shape in context.input_artifacts('shapes', kind='shapes'):
+            if shape.get('lumi') is not None:
+                found.setdefault(shape['era'], set()).add((shape['lumi'], shape.get('cme')))
+        for era, values in found.items():
+            if len(values) > 1:
+                raise ValueError("the shapes of era %s in %s were normalised with different luminosities: %s"
+                                 % (era, context.input_name('shapes'), sorted(values)))
+        eras = dict.fromkeys(point[0] for point in points)
+        return tuple((era,) + next(iter(found[era])) for era in eras if era in found)
 
     def points(self, spec, context):
         """The (era, jet WP, electron WP) points: from the recipe, or from the shapes of the input stage."""

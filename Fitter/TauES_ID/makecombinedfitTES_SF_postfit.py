@@ -393,6 +393,7 @@ def plotScan(setup, setup_mumu, option, **kwargs):
     tid_SF_range = kwargs.get('tid_SF_range', "0.5,1.2")
     extratag     = kwargs.get('extratag',     "_DeepTau")
     era          = kwargs.get('era',          ""        )
+    labelopt     = kwargs.get('labelopt',     ""        ) # --lumi/--cme for the plot scripts (CL §27)
     config       = kwargs.get('config',       ""        )
     indir        = kwargs.get('indir',        None      )
     if indir and not indir.rstrip('/').endswith(str(era)):
@@ -402,13 +403,13 @@ def plotScan(setup, setup_mumu, option, **kwargs):
 
     if option == '2' or option == '4'  :
         print(">>> Plot parabola")
-        os.system(f"python3 TauES_ID/plotParabola_POI_region.py -p tid_SF -y {era} -e {extratag}  -s -a -c {config} {indir_arg}") # -y %s -e %s  -s -a -c %s"% (era, extratag, config))
-        os.system(f"python3 TauES_ID/plotPostFitScan_POI.py --poi tid_SF -y {era} -e {extratag} -r {min(tid_SF_range)},{max(tid_SF_range)} -c {config} {indir_arg}") # -y %s -e %s -r %s,%s -c %s" %(era,extratag,min(tid_SF_range),max(tid_SF_range), config))
+        os.system(f"python3 TauES_ID/plotParabola_POI_region.py -p tid_SF -y {era} -e {extratag}  -s -a -c {config} {indir_arg}{labelopt}") # -y %s -e %s  -s -a -c %s"% (era, extratag, config))
+        os.system(f"python3 TauES_ID/plotPostFitScan_POI.py --poi tid_SF -y {era} -e {extratag} -r {min(tid_SF_range)},{max(tid_SF_range)} -c {config} {indir_arg}{labelopt}") # -y %s -e %s -r %s,%s -c %s" %(era,extratag,min(tid_SF_range),max(tid_SF_range), config))
 
     elif option == '1' or option == '5' :
         print(">>> Plot parabola")
-        os.system(f"python3 TauES_ID/plotParabola_POI_region.py -p tes -y {era} -e {extratag} -r {min(setup['TESvariations']['values'])},{max(setup['TESvariations']['values'])} -s -a -c {config} {indir_arg}") # -y %s -e %s -r %s,%s -s -a -c %s " % (era, extratag, min(setup["TESvariations"]["values"]), max(setup["TESvariations"]["values"]), config)) # -b
-        os.system(f"python3 TauES_ID/plotPostFitScan_POI.py --poi tes -y {era} -e {extratag} -r {min(setup['TESvariations']['values'])},{max(setup['TESvariations']['values'])} -c {config} {indir_arg}") # -y %s -e %s -r %s,%s -c %s" %(era,extratag,min(setup["TESvariations"]["values"]),max(setup["TESvariations"]["values"]), config))
+        os.system(f"python3 TauES_ID/plotParabola_POI_region.py -p tes -y {era} -e {extratag} -r {min(setup['TESvariations']['values'])},{max(setup['TESvariations']['values'])} -s -a -c {config} {indir_arg}{labelopt}") # -y %s -e %s -r %s,%s -s -a -c %s " % (era, extratag, min(setup["TESvariations"]["values"]), max(setup["TESvariations"]["values"]), config)) # -b
+        os.system(f"python3 TauES_ID/plotPostFitScan_POI.py --poi tes -y {era} -e {extratag} -r {min(setup['TESvariations']['values'])},{max(setup['TESvariations']['values'])} -c {config} {indir_arg}{labelopt}") # -y %s -e %s -r %s,%s -c %s" %(era,extratag,min(setup["TESvariations"]["values"]),max(setup["TESvariations"]["values"]), config))
         # EXTRATAG NOT WORKING
     elif option == '3':
         print(">>> Plot 2D scans and uncertainty summaries....")
@@ -462,7 +463,8 @@ def main(args):
     run_combined_fit(setup,setup_mumu, era=era, config=config, config_mumu=config_mumu, option=option, mumu_input_file=args.mumu_input_file)
 
     # # Plots 
-    plotScan(setup,setup_mumu, era=era, config=config, config_mumu=config_mumu, option=option, indir=args.indir)
+    labelopt = "".join(" --%s %r" % (key, value) for key, value in (('lumi', args.lumi), ('cme', args.cme)) if value is not None)
+    plotScan(setup,setup_mumu, era=era, config=config, config_mumu=config_mumu, option=option, indir=args.indir, labelopt=labelopt)
 
 
 ###
@@ -483,6 +485,8 @@ if __name__ == '__main__':
     parser.add_argument('--ele_wp', dest='ele_wp', type=str, required=True, help="electron working point")
     parser.add_argument('--impacts', dest='impacts', action='store_true', default=False, help="also run combineTool -M Impacts per region after FitDiagnostics (slow)")
     parser.add_argument('--impacts-parallel', dest='impacts_parallel', type=int, default=8, help="--parallel value for combineTool Impacts --doFits")
+    parser.add_argument('--lumi', dest='lumi', type=float, default=None, help="integrated luminosity [/fb] of the CMS label (default: CMSStyle.lumi_dict of the era; the TauFW Framework gives the one of the shapes' normalisation, CL §27)")
+    parser.add_argument('--cme', dest='cme', type=float, default=None, help="centre-of-mass energy [TeV] of the CMS label (default: CMSStyle.cme_dict of the era)")
     args = parser.parse_args()
 
     main(args)

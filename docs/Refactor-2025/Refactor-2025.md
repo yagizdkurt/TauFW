@@ -34,6 +34,8 @@ What is still open is listed in [TODO.md](TODO.md). Other documents cite its sec
 | 23 | [Variation tuples in the shapes preflight](#23-variation-tuples-in-the-shapes-preflight) |
 | 24 | [Review of the tes_id_2025 bundle: fit-result comparison, result files in the summary](#24-review-of-the-tes_id_2025-bundle-fit-result-comparison-result-files-in-the-summary) |
 | 25 | [Postfit scripts set the era through CMSStyle (no Plotter import)](#25-postfit-scripts-set-the-era-through-cmsstyle-no-plotter-import) |
+| 26 | [The luminosity of the normalisation in the sample model and the control-histogram file](#26-the-luminosity-of-the-normalisation-in-the-sample-model-and-the-control-histogram-file) |
+| 27 | [The fit plots show the luminosity of the normalisation; explicit lumi on the samples](#27-the-fit-plots-show-the-luminosity-of-the-normalisation-explicit-lumi-on-the-samples) |
 
 The reference environment for all of this is `CMSSW_14_1_0_pre4` (Python 3.9, ROOT 6.30).
 
@@ -955,3 +957,36 @@ versioned configs, and no output recorded which value was used. The Plotter reco
   re-lock of that case only, approved by the user (K2); `plotter.stack` and `histogrammer.tes_inputs` must pass
   without re-lock. The case `plotter.stack` passes `lumi`/`cme` to the writer (its locked canvases do not include the
   file metadata).
+
+## 27. The fit plots show the luminosity of the normalisation; explicit lumi on the samples
+
+**Date:** 2026-10-19
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#27-the-fit-plots-show-the-luminosity-of-the-normalisation-explicit-lumi-on-the-samples)
+
+**Details:** `LocalR/architecture/22-data-contracts-plan.md` (C1, after CL §26),
+[command changes](scripts_arg_changes.md#cms-label-of-the-fit-plots-changelog-27)
+
+After CL §26 the control plots showed the luminosity the histograms were normalised with, but the fit plots (postfit,
+NLL parabolas, scans, measurements) still read `CMSStyle.lumi_dict`: with a bundle lumi other than the table's, the
+fit would use one value and its plots show another. Two smaller points from the same review: two scripts wrote a
+fixed "109 fb^-1" for an era missing from the table, and the samples took their lumi from a module global that
+`setera` must have set before they were built.
+
+- **Shapes artifacts** (`TESShapes`): `lumi`, `cme` of the era's sample model (`None` without sample files). The
+  `fit` stage turns them into `FitRequest.labels` `(era, lumi, cme)` (`FitStage.labels`; different values for one era
+  are an error); shapes without them (no sample model, old runs) give none.
+- **Fitter API**: with a label for the era, `makecombinedfitTES_SF.py`, `makecombinedfitTES_SF_postfit.py`,
+  `runpostfit.py` and `plot_measurements.py` get `--lumi <value> --cme <value>`.
+- **Scripts** (opt-in options; without them nothing changes): `--lumi`/`--cme` in `plotParabola_POI_region.py`,
+  `plotPostFitScan_POI.py` (`setCMSEra(year, lumi=, cme=)`), `plot2DScan_MultiDimFit.py`, `plot_measurements.py`
+  (their own text), `runpostfit.py` -> `postfit_TES.drawpostfit(..., lumi=, cme=)`; the two `makecombinedfit` scripts
+  pass them on to the plot scripts they start.
+- **Fixed 109**: `plot_measurements.py` `lumi_label` and `plot2DScan_MultiDimFit.py` `lumi_text` show no luminosity
+  for an era that has none (only the energy), as `CMSStyle.getCMSLumiText` does; for the eras of the table the text is
+  unchanged.
+- **Explicit lumi on the samples** (`model.getsampleset`): `lumi=model.lumi` goes to the core `getsampleset`, so every
+  sample gets it as an argument instead of copying the module global (`Sample.py:65`); the global is still set (for
+  the label of in-process plots and the old path). `fillhists.py` writes to the control-histogram file the lumi the
+  samples carry (`controlhists.normalisation_lumi`, an error if they differ), no longer the global.
+- **BBB**: `plotter.sample_model` gains `lumi` also in the core `getsampleset` call (the same value); still covered by
+  the approval of plan 22 K2 (only `lumi` differs). The fit scripts have no BBB case (they need combine).

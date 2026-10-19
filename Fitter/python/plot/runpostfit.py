@@ -34,6 +34,7 @@ def main(args):
 
         print(">>>   Region: %s"%(region))
         era = "%s" % args.year
+        label = {key: value for key, value in (('lumi', args.lumi), ('cme', args.cme)) if value is not None}  # --lumi/--cme (CL §27)
 
         # Map region -> PostFitShape file: corr/fullcorr variants use per-DM file.
         if args.variant in ('corr', 'fullcorr'):
@@ -50,7 +51,7 @@ def main(args):
 
         drawpostfit(fname, region, procs,
                      outdir='%s/jet_%s_ele_%s/' % (outroot, againstjet, againstelectron),
-                     pname='$FIT.png', ratio=True, era=era, text=text)
+                     pname='$FIT.png', ratio=True, era=era, text=text, **label)
         if args.include_cr:
             cr_procs = ['ZL', 'ZTT', 'ZJ', 'W','VV','ST', 'TT','QCD','data_obs']
             import ROOT
@@ -62,14 +63,14 @@ def main(args):
                     pname_cr = f"{region}_{cr_region}_$FIT_CR.png"
                     drawpostfit(fname, cr_region, cr_procs,
                                  outdir='%s/jet_%s_ele_%s/' % (outroot, againstjet, againstelectron),
-                                 pname=pname_cr, ratio=True, era=era, text="Z#rightarrow#mu#mu CR")
+                                 pname=pname_cr, ratio=True, era=era, text="Z#rightarrow#mu#mu CR", **label)
                     found = True
                     break
             if not found:
                 drawpostfit(fname, args.cr_name, cr_procs,
                              outdir='%s/jet_%s_ele_%s/' % (outroot, againstjet, againstelectron),
                              pname=f"{region}_{args.cr_name}_$FIT_CR.png", ratio=True, era=era,
-                             text="Z#rightarrow#mu#mu CR")
+                             text="Z#rightarrow#mu#mu CR", **label)
             if froot:
                 froot.Close()
 if __name__ == "__main__":
@@ -92,6 +93,8 @@ if __name__ == "__main__":
                                          help="fit variant: uncorr (per-region), corr (per-DM TES), fullcorr (per-DM TES+TauID)")
     parser.add_argument('--tagger', dest='tagger', type=str, default='',
                                          help="tree tagger suffix (e.g. pnet, upart); '' = DeepTau default")
+    parser.add_argument('--lumi', dest='lumi', type=float, default=None, help="integrated luminosity [/fb] of the CMS label (default: CMSStyle.lumi_dict of the era; the TauFW Framework gives the one of the shapes' normalisation, CL §27)")
+    parser.add_argument('--cme', dest='cme', type=float, default=None, help="centre-of-mass energy [TeV] of the CMS label (default: CMSStyle.cme_dict of the era)")
 
     args = parser.parse_args()
   

@@ -370,3 +370,21 @@ tuples, configs and samples. `Tests/tools/compare_shapefiles.py` compares file n
 - `Tests/Framework/test_samples.py`: the broken-copy case uses another unknown key (`lumi` is known now).
 - `export.py` into a scratch directory: the eight templates the same apart from the header version.
 - `python Tests/run.py checks`: 13/15 (`check_import_boundaries` known debt, `check_root` needs ROOT).
+
+## 27. The fit plots show the luminosity of the normalisation; explicit lumi on the samples
+
+**Change:** [CL §27](Refactor-2025.md#27-the-fit-plots-show-the-luminosity-of-the-normalisation-explicit-lumi-on-the-samples)
+
+**Status:** Windows checks done; lxplus checks in TODO §1.
+
+- `Tests/Histogrammer/api/test_tes_shapes.py` `test_artifacts_carry_the_normalisation`: lumi/cme of the sample file,
+  `None` without one or with an unreadable one.
+- `Tests/Framework/test_stages.py` `FitLabelTests`: labels from the artifacts, none for artifacts without lumi,
+  another era ignored, different values an error.
+- `Tests/Fitter/api/test_tes_id.py` `LabelTests`: `--lumi 110.18 --cme 13.6` on exactly the four scripts, nothing
+  without a label or for another era, no `--cme` when it is unknown.
+- `Tests/Histogrammer/controlhists` `test_normalisation_lumi`; the sample-model equality grid checks and removes the
+  `lumi` of the core call too.
+- The command strings the `makecombinedfit` scripts build were checked by hand (`... -i out/ --lumi 110.18 --cme
+  13.6`); the scripts themselves need ROOT/combine: lxplus.
+- `python Tests/run.py checks`: 13/15 (known import debt 21 / 19 / 17, `check_root`).

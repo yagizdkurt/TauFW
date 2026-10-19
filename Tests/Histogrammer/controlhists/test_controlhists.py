@@ -100,6 +100,18 @@ class WriteTests(unittest.TestCase):
         self.assertIn("'mvis' in the selection 'baseline'", str(context.exception))
         write.assert_not_called()
 
+    def test_normalisation_lumi(self):  # CL §27: the lumi the samples carry, merged samples looked into
+        from TauFW.Histogrammer.controlhists import normalisation_lumi
+
+        def sample(lumi, *children):
+            node = types.SimpleNamespace(lumi=lumi)
+            node.samples = list(children) or [node]
+            return node
+        self.assertEqual(normalisation_lumi([sample(110.18), sample(-1, sample(110.18), sample(110.18))]), 110.18)
+        self.assertIsNone(normalisation_lumi([]))
+        with self.assertRaisesRegex(ValueError, "different luminosities"):
+            normalisation_lumi([sample(110.18), sample(-1, sample(59.8))])
+
     def test_same_contract_as_the_plotter(self):
         """The Plotter reads what the Histogrammer writes: the two copies of the contract constants agree."""
         import ast

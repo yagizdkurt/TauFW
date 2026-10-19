@@ -14,14 +14,16 @@ TREE_TAG = ""  # tagger suffix for the output/postfit trees (e.g. "_pnet"); set 
 
 import TauFW.Utilities.Drawing.CMSStyle as CMSStyle
 
+LABEL = {}  # --lumi/--cme of the command line (CL §27); empty: CMSStyle's tables
+
+
 def lumi_label(year):
-    """Lumi + CoM label for the measurement plots, derived from CMSStyle
-    (e.g. year='2526' -> '135 fb^{-1} (13.6 TeV)', '2526' lumi=135.48). Falls back to
-    the historical 2024 label for eras missing from CMSStyle so a plot never crashes."""
-    try:
-        return "%.0f fb^{-1} (%.1f TeV)" % (CMSStyle.lumi_dict[year], CMSStyle.cme_dict.get(year, 13.6))
-    except (KeyError, TypeError):
-        return "109 fb^{-1} (13.6 TeV)"
+    """Lumi + CoM label for the measurement plots: --lumi/--cme if given, else CMSStyle's tables
+    (e.g. year='2526' -> '135 fb^{-1} (13.6 TeV)', '2526' lumi=135.48). An era without a luminosity gets only the
+    energy (it was a fixed '109 fb^{-1}', CL §27)."""
+    lumi = LABEL.get('lumi', CMSStyle.lumi_dict.get(year))
+    cme = LABEL.get('cme', CMSStyle.cme_dict.get(year, 13.6))
+    return "%s(%.1f TeV)" % ("%.0f fb^{-1} " % (lumi) if lumi else "", cme)
 
 def load_measurements_corr(ele_wp, jet_wp, year):
     """corrTES loader: one param/fitdiag file per DM contains 4 POIs (1 TES + 3 TauID);
@@ -698,8 +700,11 @@ def main():
                         help="uncorr: per-region; corr: per-DM TES; fullcorr: per-DM TES+TauID with per-pT pulls")
     parser.add_argument('--tagger', type=str, default='',
                         help="tree tagger suffix (e.g. pnet, upart); '' = DeepTau default")
+    parser.add_argument('--lumi', dest='lumi', type=float, default=None, help="integrated luminosity [/fb] of the CMS label (default: CMSStyle.lumi_dict of the era; the TauFW Framework gives the one of the shapes' normalisation, CL §27)")
+    parser.add_argument('--cme', dest='cme', type=float, default=None, help="centre-of-mass energy [TeV] of the CMS label (default: CMSStyle.cme_dict of the era)")
 
     args = parser.parse_args()
+    LABEL.update({key: value for key, value in (('lumi', args.lumi), ('cme', args.cme)) if value is not None})
     global TREE_TAG
     if args.tagger:
         TREE_TAG = "_" + args.tagger

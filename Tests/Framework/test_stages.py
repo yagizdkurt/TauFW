@@ -640,3 +640,21 @@ class CommandLineTests(LocalStageTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FitLabelTests(unittest.TestCase):  # CL §27: the normalisation of the input shapes, for the fit's CMS label
+    def labels(self, artifacts, points=(("2025", "VTight", "Tight"),)):
+        from types import SimpleNamespace
+        from TauFW.Framework.stages.fit import FitStage
+        context = SimpleNamespace(input_artifacts=lambda name, kind=None: list(artifacts),
+                                  input_name=lambda name: "stage shapes")
+        return FitStage.labels(FitStage.__new__(FitStage), points, context)
+
+    def test_labels(self):
+        shape = {"kind": "shapes", "era": "2025", "lumi": 110.18, "cme": 13.6}
+        self.assertEqual(self.labels([shape, dict(shape, config="mumu")]), (("2025", 110.18, 13.6),))
+        self.assertEqual(self.labels([dict(shape, lumi=None)]), ())  # shapes without a sample model
+        self.assertEqual(self.labels([{"kind": "shapes", "era": "2025"}]), ())  # old artifacts
+        self.assertEqual(self.labels([dict(shape, era="2024")]), ())
+        with self.assertRaisesRegex(ValueError, "different luminosities"):
+            self.labels([shape, dict(shape, lumi=100.0)])

@@ -526,6 +526,7 @@ def plotScan(setup, setup_mumu, option, **kwargs):
     tid_SF_range = kwargs.get('tid_SF_range', "0.8,1.2")
     extratag     = kwargs.get('extratag',     "_DeepTau")
     era          = kwargs.get('era',          ""        )
+    labelopt     = kwargs.get('labelopt',     ""        ) # --lumi/--cme for the plot scripts (CL §27)
     config       = kwargs.get('config',       ""        )
     indir        = kwargs.get('indir', "")
     plot_dir     = kwargs.get('plot_dir', None) # None: plot2DScan_MultiDimFit.py derives it from indir
@@ -533,14 +534,14 @@ def plotScan(setup, setup_mumu, option, **kwargs):
 
     if option == '2' or option == '4'  :
         print(">>> Plot parabola")
-        os.system(" python3 TauES_ID/plotParabola_POI_region.py -p tid_SF -y %s -e %s  -s -a -c %s -i %s"% (era, extratag, config, indir))
-        os.system(" python3 TauES_ID/plotPostFitScan_POI.py --poi tid_SF -y %s -e %s -r %s,%s -c %s -i %s" %(era,extratag,min(tid_SF_range),max(tid_SF_range), config, indir))
+        os.system((" python3 TauES_ID/plotParabola_POI_region.py -p tid_SF -y %s -e %s  -s -a -c %s -i %s"% (era, extratag, config, indir))+labelopt)
+        os.system((" python3 TauES_ID/plotPostFitScan_POI.py --poi tid_SF -y %s -e %s -r %s,%s -c %s -i %s" %(era,extratag,min(tid_SF_range),max(tid_SF_range), config, indir))+labelopt)
 
     elif option == '1' or option == '5' :
         print('indir: ', indir)
         print(">>> Plot parabola")
-        os.system(" python3 TauES_ID/plotParabola_POI_region.py -p tes -y %s -e %s -r %s,%s -s -a -c %s -i %s" % (era, extratag, min(setup["TESvariations"]["values"]), max(setup["TESvariations"]["values"]), config, indir))
-        os.system(" python3 TauES_ID/plotPostFitScan_POI.py --poi tes -y %s -e %s -r %s,%s -c %s -i %s" %(era,extratag,min(setup["TESvariations"]["values"]),max(setup["TESvariations"]["values"]), config, indir))
+        os.system((" python3 TauES_ID/plotParabola_POI_region.py -p tes -y %s -e %s -r %s,%s -s -a -c %s -i %s" % (era, extratag, min(setup["TESvariations"]["values"]), max(setup["TESvariations"]["values"]), config, indir))+labelopt)
+        os.system((" python3 TauES_ID/plotPostFitScan_POI.py --poi tes -y %s -e %s -r %s,%s -c %s -i %s" %(era,extratag,min(setup["TESvariations"]["values"]),max(setup["TESvariations"]["values"]), config, indir))+labelopt)
 
     elif option == '3':
         print(">>> Plot 1D scans for each POI in each region (from 2D fit output)")
@@ -549,7 +550,7 @@ def plotScan(setup, setup_mumu, option, **kwargs):
         outopt = f" --outdir {plot_dir}" if plot_dir else ""
         for r in setup["observables"]["m_vis"]["scanRegions"]:
             print(f"python3 {script} --poi1 tes_{r} --poi2 tid_SF_{r} -y {era} -c {config} -i {indir} -t multidimfit{outopt}")
-            os.system(f"python3 {script} --poi1 tes_{r} --poi2 tid_SF_{r} -y {era} -c {config} -i {indir} -t multidimfit{outopt}")
+            os.system(f"python3 {script} --poi1 tes_{r} --poi2 tid_SF_{r} -y {era} -c {config} -i {indir} -t multidimfit{outopt}{labelopt}")
         # for r in setup["observables"]["m_vis"]["scanRegions"]:
         #     # Plot TES
         #     os.system(f"python3 TauES_ID/plotParabola_POI_region.py -p tes -y {era} -e {extratag} -r {min(setup['TESvariations']['values'])},{max(setup['TESvariations']['values'])} -s -a -c {config} -i {indir}")
@@ -622,7 +623,8 @@ def main(args):
 
     # Plots
     plot_dir = os.path.abspath(args.plot_dir) if args.plot_dir else None
-    plotScan(setup, setup_mumu, era=era, config=config, config_mumu=config_mumu, option=option, indir=output_dir, extratag=extratag, plot_dir=plot_dir)
+    labelopt = "".join(" --%s %r" % (key, value) for key, value in (('lumi', args.lumi), ('cme', args.cme)) if value is not None)
+    plotScan(setup, setup_mumu, era=era, config=config, config_mumu=config_mumu, option=option, indir=output_dir, extratag=extratag, plot_dir=plot_dir, labelopt=labelopt)
 
 
 ###
@@ -643,6 +645,8 @@ if __name__ == '__main__':
     parser.add_argument('--output_dir', dest='output_dir', type=str, default=None, help="directory of the cards and fit results (default: input_dir with 'input' -> 'output', plus the era)")
     parser.add_argument('--plot_dir', dest='plot_dir', type=str, default=None, help="directory of the 2D scan plots (default: output_dir with 'output' -> 'plots')")
     # BUGS F04: --input_file (required, but never used) was removed
+    parser.add_argument('--lumi', dest='lumi', type=float, default=None, help="integrated luminosity [/fb] of the CMS label (default: CMSStyle.lumi_dict of the era; the TauFW Framework gives the one of the shapes' normalisation, CL §27)")
+    parser.add_argument('--cme', dest='cme', type=float, default=None, help="centre-of-mass energy [TeV] of the CMS label (default: CMSStyle.cme_dict of the era)")
     args = parser.parse_args()
 
     main(args)

@@ -1103,7 +1103,7 @@ def main(args):
     customSummary = args.customSummary
     ensureDirectory(outdir)
 
-    CMSStyle.setCMSEra(year)
+    CMSStyle.setCMSEra(year, **{key: value for key, value in (('lumi', args.lumi), ('cme', args.cme)) if value is not None}) # --lumi/--cme (CL §27)
     
     fittag  = "_fit_asymm" if asymmetric else "_fit"
     tag += args.extratag
@@ -1218,6 +1218,8 @@ if __name__ == '__main__':
     parser.add_argument('-v', '--verbose',     dest='verbose',  default=False, action='store_true', help="set verbose")
     parser.add_argument('-p', '--poi',         dest='poi', default='poi', type=str, action='store', help='use this parameter of interest')
     parser.add_argument('-i', '--indir',         dest='indir', type=str, help='indir')
+    parser.add_argument('--lumi', dest='lumi', type=float, default=None, help="integrated luminosity [/fb] of the CMS label (default: CMSStyle.lumi_dict of the era; the TauFW Framework gives the one of the shapes' normalisation, CL §27)")
+    parser.add_argument('--cme', dest='cme', type=float, default=None, help="centre-of-mass energy [TeV] of the CMS label (default: CMSStyle.cme_dict of the era)")
 
     args = parser.parse_args()
     

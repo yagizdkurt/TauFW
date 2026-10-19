@@ -265,6 +265,23 @@ class FitTests(TauESIDTestCase):
         self.fit_request(points=points, shapes_dirs=complete[:1])  # no outdir (standalone): unchanged
 
 
+class LabelTests(TauESIDTestCase):  # CL §27: the normalisation of the shapes reaches the CMS label
+    def test_label_arguments(self):
+        commands = self.fitter.plan_fit(self.fit_request(labels=[("2025", 110.18, 13.6)])).commands
+        labelled = [c.argv[1].split('/')[-1] for c in commands if '--lumi' in c.argv]
+        self.assertEqual(labelled, ['makecombinedfitTES_SF.py', 'makecombinedfitTES_SF_postfit.py', 'runpostfit.py',
+                                    'plot_measurements.py'])
+        for command in commands:
+            if '--lumi' in command.argv:
+                index = command.argv.index('--lumi')
+                self.assertEqual(command.argv[index:index + 4], ('--lumi', '110.18', '--cme', '13.6'))
+        self.assertFalse(any('--lumi' in c.argv for c in self.fitter.plan_fit(self.fit_request()).commands))
+        other = self.fitter.plan_fit(self.fit_request(labels=[("2024", 109.08, 13.6)])).commands
+        self.assertFalse(any('--lumi' in c.argv for c in other))  # another era's label is not used
+        no_cme = self.fitter.plan_fit(self.fit_request(labels=[("2025", 110.18, None)])).commands
+        self.assertFalse(any('--cme' in c.argv for c in no_cme))
+
+
 class ResultsTests(unittest.TestCase):
     def test_read_fit_values(self):
         self.assertEqual(read_fit_values(VALUES, "DM0_pt1"), [
