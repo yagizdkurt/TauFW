@@ -13,10 +13,7 @@ Items marked **(verify)** may already be done; check before working on them.
 ## 0. Custom (Special)
 - Stagese delete folder tarzı bir şey eklensin de analiz yapılırken silinmesi gereken dosyalar pipeline içinde stage olrak silinebilsin veya movelanabilsin.
 - **Left out of step 2 (plan 16 D7, user 2026-10-18: look at them when the refactor work is done):**
-  (1) `setera` in the four postfit scripts (`Fitter/python/plot/postfit.py`, `postfit_TES.py`,
-  `Fitter/tutorial/plotpostfit.py`, `Fitter/ETauFR/Plotter/plotpostfit.py`): drawing, not filling; they import
-  `TauFW.Plotter.sample.utils` (alias) only to set the CMS era/lumi; needs an era setter in `TauFW.Utilities.Drawing`
-  (and the `drawing.canvas` BBB case). (2) `Fitter/Zpt` (`compareZpt.py`, `Zpt/config/samples.py`, Python 2 parts): a
+  (1) done in CL §25 (2026-10-19): the four postfit scripts call `CMSStyle.setCMSEra` (lxplus check in §1). (2) `Fitter/Zpt` (`compareZpt.py`, `Zpt/config/samples.py`, Python 2 parts): a
   Histogrammer-like measurement inside the Fitter. (3) A shape-contract module both sides read (step 3 of
   `LocalR/architecture/13`; today the contract is a doc, `docs/contracts/tes-shapes.md`). (4) `FitRequest.pico_config`:
   the fit should not need a PicoProducer config once the shapes are made elsewhere. (5) `Fitter/MuTauFR/createinputs.py`
@@ -59,6 +56,22 @@ Items marked **(verify)** may already be done; check before working on them.
       second CMSSW area) and twice with HEAD: old against new 43 files, every key the same, 775 histograms SAME within
       1e-12 (largest 5e-13; LTF 96 histograms with content); new against new (the noise) largest 1.07e-12. `check`/
       `plan` of `tes_id_2025` and `example_mutau_long`: no problems.
+- [ ] **The lumi of the normalisation in the sample model (CL §26).** After `git pull` and `scram b`, with
+      `cmsenv`: (1) `python3 Tests/run.py bbb check`: every case passes except `plotter.sample_model`, whose only
+      difference is `"lumi": <value>` in the `setera` calls (`python3 Tests/run.py bbb diff --case
+      plotter.sample_model` after the lock, or the failure detail); `plotter.stack` and `histogrammer.tes_inputs` pass
+      unchanged; (2) only then, approved (plan 22 K2): `python3 Tests/run.py bbb lock --replace --case
+      plotter.sample_model`, `git diff Tests/BBB/baselines/` shows only `lumi` added, `bbb check` all pass; (3)
+      `python3 taufw.py configs` (the samples templates at version 2, lock ok) and `check`/`plan` of `tes_id_2025`
+      and `example_mutau_long` (no copy warning); (4) real data: BEFORE pulling CL §26, a `hists` + `plots` copy of
+      `tes_id_2025` started with `--run-root ~/c1/old`; after the pull the same with `~/c1/new`; every PNG of
+      `stages/plots/` equal (`cmp`), the new file's metadata `"lumi": 110.18, "cme": 13.6`; (5) `python3 Tests/run.py
+      checks`.
+- [ ] **Postfit era text without the Plotter import (CL §25).** After `git pull`, in `TauFW/` with `cmsenv`:
+      (1) `python3 Tests/tools/check_setera.py`: SAME for every case; (2) `python3 Tests/run.py checks`: 14/15,
+      `check_import_boundaries` 21 / 19 / 17, 0 new pairs, no stale entry; (3) `python3 -c "import
+      TauFW.Fitter.plot.postfit, TauFW.Fitter.plot.postfit_TES"` imports; (4) `cd Fitter && python3
+      python/plot/runpostfit.py -h` and `python3 tutorial/plotpostfit.py -h` start (the scripts import).
 - [x] **Variation tuples in the shapes preflight (CL §23).** Done 2026-10-19 on lxplus: `check_variation_files.py`
       SAME 144 (mutau) and SAME 0 (mumu) against the real `SampleSet`; `check`/`plan` of `tes_id_2025` no variation
       problem; a shapes-only copy on a symlink mirror without `TT/TTtoLNu2Q_mutau_LTF1p030.root`: `plan` warns "1 of

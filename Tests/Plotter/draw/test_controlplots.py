@@ -36,8 +36,8 @@ class PresentationTests(unittest.TestCase):
 
 class FileTests(unittest.TestCase):
     def content(self, **meta):
-        file_meta = dict({"contract": "taufw.control_histograms", "version": 1, "channel": "mutau", "era": "2025",
-                          "tag": "_v1"}, **meta)
+        file_meta = dict({"contract": "taufw.control_histograms", "version": 2, "channel": "mutau", "era": "2025",
+                          "lumi": 110.18, "cme": 13.6, "tag": "_v1"}, **meta)
         entry = HistFileEntry("baseline/mvis", {"data": ["d"], "exp": ["ztt", "tt"], "sig": []},
                               {"selection": {"name": "baseline", "title": "Baseline", "cut": "q_1*q_2<0"},
                                "variable": ATTRIBUTES})
@@ -49,7 +49,9 @@ class FileTests(unittest.TestCase):
 
     def test_read(self):
         hists = self.read(self.content())
-        self.assertEqual((hists.channel, hists.era, hists.tag), ("mutau", "2025", "_v1"))
+        self.assertEqual((hists.channel, hists.era, hists.tag, hists.lumi, hists.cme),
+                         ("mutau", "2025", "_v1", 110.18, 13.6))
+        self.assertIsNone(self.read(self.content(lumi=None)).lumi)  # an era without a luminosity: none in the label
         entry, = hists.entries
         self.assertEqual((entry.selection_name, entry.selection_title, entry.selection_cut),
                          ("baseline", "Baseline", "q_1*q_2<0"))
@@ -57,16 +59,21 @@ class FileTests(unittest.TestCase):
         self.assertEqual({name: getattr(entry.variable, name) for name in DRAWING_ATTRIBUTES}, ATTRIBUTES)
 
     def test_other_contract_or_version_is_refused(self):
-        for meta in ({"contract": "something.else"}, {"version": 2}):
+        for meta in ({"contract": "something.else"}, {"version": 3}):
             with self.assertRaises(ControlHistsError):
                 self.read(self.content(**meta))
+        with self.assertRaises(ControlHistsError) as context:  # CL §26: version 1 had no lumi
+            self.read(self.content(version=1))
+        self.assertIn("version 1 had no lumi: run fillhists.py --hists, or the controlhists stage, again",
+                      str(context.exception))
 
     def test_missing_metadata_is_refused(self):
-        content = self.content()
-        del content.meta["tag"]
-        with self.assertRaises(ControlHistsError) as context:
-            self.read(content)
-        self.assertIn("no tag", str(context.exception))
+        for key in ("tag", "lumi", "cme"):
+            content = self.content()
+            del content.meta[key]
+            with self.assertRaises(ControlHistsError) as context:
+                self.read(content)
+            self.assertIn("no %s" % (key), str(context.exception))
         for drop in ("selection", "variable"):
             content = self.content()
             del content.entries[0].meta[drop]

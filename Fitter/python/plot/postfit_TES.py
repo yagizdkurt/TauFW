@@ -9,7 +9,6 @@ from TauFW.Utilities.Drawing import LOG
 from TauFW.Utilities.Drawing.hist_tools import grouphists
 from TauFW.Utilities.Drawing.Stack import Stack # Var
 import TauFW.Utilities.Drawing.CMSStyle as CMSStyle
-from TauFW.Plotter.sample.utils import setera
 import TauFW.Utilities.Drawing.SampleStyle as STYLE
 from ROOT import kBlack,TCanvas
 
@@ -49,9 +48,6 @@ def drawpostfit(fname,region,procs,**kwargs):
   file      = ensureTFile(fname,'READ')
   if outdir:
     ensuredir(outdir)
-  if era:
-    setera(era)
-
   if text != "":
       print(text)
       text = "#mu#tau_{h}: " + text

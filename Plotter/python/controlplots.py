@@ -14,7 +14,8 @@ What the plots look like is decided here, from the facts in the file: the file n
 `<variable>_<channel short>-<selection>-<era><tag>.png` (plot_name) and the text `<channel>: <selection title>`
 (plot_text) are the rules of plot.py, kept character for character.
 
-Inputs:  a control-histogram file (contract taufw.control_histograms, version 1).
+Inputs:  a control-histogram file (contract taufw.control_histograms, version 2: with the lumi and cme of the
+         normalisation, which the CMS label shows).
 Outputs: <outdir>/<variable>_<channel short>-<selection>-<era><tag>.png (and .pdf on request).
 
 This module imports no other TauFW stage, only TauFW.Utilities; ROOT is imported when a file is read or drawn.
@@ -25,7 +26,7 @@ Public API:
 """
 import os
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from TauFW.Utilities.HistFile import read_histfile
 
@@ -39,7 +40,7 @@ __all__ = ['read_control_hists', 'draw_control_plots', 'make_stack', 'draw_stack
 
 
 CONTRACT = "taufw.control_histograms"  # the file this module reads (docs/contracts/control-histograms.md)
-VERSION  = 1                           # the version of the contract it understands
+VERSION  = 2                           # the version of the contract it understands (2: lumi, cme; CL §26)
 
 # The attributes of a variable that the drawing code reads (TauFW.Utilities.Drawing Plot.__init__); the file
 # carries exactly these, in the context of the entry's selection.
@@ -95,6 +96,8 @@ class ControlHists:
     era: str
     tag: str
     entries: Tuple[ControlEntry, ...]
+    lumi: Optional[float] = None   # [/fb] of the normalisation; None: the era has none (no lumi in the label)
+    cme: Optional[float] = None    # [TeV]
 
 
 # =============================================================================
@@ -106,9 +109,11 @@ def read_control_hists(path):
     content = read_histfile(path)
     meta = content.meta
     if meta.get("contract") != CONTRACT or meta.get("version") != VERSION:
-        raise ControlHistsError("%s is %r version %r; this Plotter draws %s version %d"
-                                % (path, meta.get("contract"), meta.get("version"), CONTRACT, VERSION))
-    _require(meta, ("channel", "era", "tag"), path)
+        again = (" (version 1 had no lumi: run fillhists.py --hists, or the controlhists stage, again)"
+                 if meta.get("contract") == CONTRACT and meta.get("version") == 1 else "")
+        raise ControlHistsError("%s is %r version %r; this Plotter draws %s version %d%s"
+                                % (path, meta.get("contract"), meta.get("version"), CONTRACT, VERSION, again))
+    _require(meta, ("channel", "era", "lumi", "cme", "tag"), path)
     entries = []
     for entry in content.entries:
         data = entry.groups.get("data", [])
@@ -120,7 +125,7 @@ def read_control_hists(path):
         entries.append(ControlEntry(selection["name"], selection["title"], selection["cut"],
                                     DrawingVariable(entry.meta["variable"]), data[0] if data else None,
                                     list(entry.groups.get("exp", [])), list(entry.groups.get("sig", []))))
-    return ControlHists(meta["channel"], meta["era"], meta["tag"], tuple(entries))
+    return ControlHists(meta["channel"], meta["era"], meta["tag"], tuple(entries), meta["lumi"], meta["cme"])
 
 
 def _require(meta, keys, where):
@@ -168,13 +173,14 @@ def draw_stack(stack, hists, entry, outdir, fraction=False, exts=('png',), extra
 
 def draw_control_plots(path, outdir="plots/$ERA", fraction=False, pdf=False, extratext=""):
     """Draw every stack of a control-histogram file into `outdir` ($ERA and $CHANNEL replaced; made if needed).
-    Sets the CMS label of the file's era first (TauFW.Utilities.Drawing.CMSStyle), as setera() did for plot.py.
+    Sets the CMS label of the file's era, lumi and cme first (TauFW.Utilities.Drawing.CMSStyle), as setera() did for
+    plot.py with the same values.
     Returns the ControlHists that were drawn."""
     import TauFW.Utilities.Drawing.CMSStyle as CMSStyle
     hists = read_control_hists(path)
     outdir = outdir.replace('$CHANNEL', hists.channel).replace('$ERA', hists.era)
     os.makedirs(outdir, exist_ok=True)
-    CMSStyle.setCMSEra(hists.era)
+    CMSStyle.setCMSEra(hists.era, lumi=hists.lumi, cme=hists.cme)
     exts = ['png', 'pdf'] if pdf else ['png']
     for entry in hists.entries:
         stack = make_stack(entry)

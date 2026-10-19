@@ -8,7 +8,7 @@ from TauFW.common.tools.utils import repkey
 from TauFW.Utilities.Drawing import LOG
 from TauFW.Utilities.Drawing.hist_tools import grouphists
 from TauFW.Utilities.Drawing.Stack import Stack # Var
-from TauFW.Plotter.sample.utils import setera
+import TauFW.Utilities.Drawing.CMSStyle as CMSStyle  # setCMSEra: the era/lumi text (was the Plotter's setera)
 import TauFW.Utilities.Drawing.SampleStyle as STYLE
 
 
@@ -38,7 +38,7 @@ def drawpostfit(fname,bin,procs,**kwargs):
   if outdir:
     ensuredir(outdir)
   if era:
-    setera(era)
+    CMSStyle.setCMSEra(era)
   
   # DRAW PRE-/POST-FIT
   for fit in fits:

@@ -2,14 +2,14 @@
 """Control histograms: the filled histograms of fillhists.py, written to a file that the Plotter draws (CL §21, S3).
 
     entry = stack_entry(stack, variable, selection)      after SampleSet.getstack, BEFORE the stack is drawn
-    write_control_hists(path, entries, channel, era, tag)
+    write_control_hists(path, entries, channel, era, lumi, cme, tag)
 
 stack_entry() copies the histograms of a Stack as they were filled (Stack.draw changes them: the data histogram
 becomes a graph, variable bins are divided by their width) and takes the drawing attributes of the variable in the
 context of the selection. write_control_hists() writes them with TauFW.Utilities.HistFile. The file is the
-contract docs/contracts/control-histograms.md ("taufw.control_histograms", version 1):
+contract docs/contracts/control-histograms.md ("taufw.control_histograms", version 2):
 
-    file meta:   {contract, version, channel, era, tag}
+    file meta:   {contract, version, channel, era, lumi, cme, tag}   lumi, cme: of the normalisation (version 2, CL §26)
     entry:       path '<selection filename>/<variable filename>', in the order the stacks were made
       groups:    data (0 or 1 histogram), exp (stack order), sig
       meta:      {selection: {name, title, cut}, variable: {the DRAWING_ATTRIBUTES}}
@@ -23,7 +23,7 @@ from TauFW.Utilities.HistFile import HistFileEntry, write_histfile
 __all__ = ['stack_entry', 'write_control_hists', 'drawing_attributes', 'CONTRACT', 'VERSION', 'DRAWING_ATTRIBUTES']
 
 CONTRACT = "taufw.control_histograms"  # what the file is (docs/contracts/control-histograms.md)
-VERSION  = 1                           # raised when the meaning of the file's content changes
+VERSION  = 2                           # raised when the meaning of the file's content changes (2: lumi, cme)
 
 # What the drawing code reads from a variable (TauFW.Utilities.Drawing Plot.__init__, Plot.py:89-106).
 DRAWING_ATTRIBUTES = ("filename", "title", "xmin", "xmax", "ymin", "ymax", "rmin", "rmax", "ratiorange",
@@ -47,8 +47,10 @@ def stack_entry(stack, variable, selection):
     return HistFileEntry("%s/%s" % (selection.filename, variable.filename), groups, meta)
 
 
-def write_control_hists(path, entries, channel, era, tag=""):
+def write_control_hists(path, entries, channel, era, lumi, cme, tag=""):
     """Write the control histograms of one channel setup and era to `path` (replaced if it exists); returns path.
+    lumi [/fb] and cme [TeV] are the ones the samples were normalised with (the Histogrammer's after setera; lumi None
+    if the era has none): the Plotter labels the plots with them.
     Two stacks with the same entry path (two variables with the same file name in one selection) are refused: the
     second would replace the first, as its plot would replace the first PNG."""
     paths = [entry.path for entry in entries if isinstance(entry, HistFileEntry)]
@@ -57,7 +59,8 @@ def write_control_hists(path, entries, channel, era, tag=""):
             selection, variable = entry_path.rsplit("/", 1)
             raise ValueError("%s: two variables with the file name %r in the selection %r; give them different"
                              " fname= values" % (path, variable, selection))
-    meta = {"contract": CONTRACT, "version": VERSION, "channel": channel, "era": str(era), "tag": tag}
+    meta = {"contract": CONTRACT, "version": VERSION, "channel": channel, "era": str(era), "lumi": lumi, "cme": cme,
+            "tag": tag}
     return write_histfile(path, entries, meta)
 
 

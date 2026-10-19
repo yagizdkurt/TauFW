@@ -14,6 +14,21 @@ import recorder
 from TauFW.Histogrammer.sample import model
 
 TEMPLATES = sorted(glob.glob(str(checkout.REPO / "Configs" / "Histogrammer" / "samples" / "v15_*.yml")))
+table_lumi = recorder.table_lumi
+
+
+def without_model_lumi(calls):
+    """The calls with the model's setera(..., lumi=) argument removed, after checking that it is the value setera
+    looked up itself before (so the samples are normalised as before); a different value stays a difference."""
+    result = []
+    for call in calls:
+        if call[0] == 'setera' and 'lumi' in call[2]:
+            era = call[1][0]
+            if call[2]['lumi'] != table_lumi(era):
+                return calls
+            call = [call[0], call[1], {key: value for key, value in call[2].items() if key != 'lumi'}]
+        result.append(call)
+    return result
 
 
 def compare(old, new):
@@ -46,9 +61,20 @@ class EqualityTests(unittest.TestCase):
         raised = 0
         for key in sorted(old_grid):
             with self.subTest(case=key):
-                self.assertIsNone(compare(old_grid[key], new_grid[key]))
+                self.assertIsNone(compare(old_grid[key], without_model_lumi(new_grid[key])))
             raised += old_grid[key][-1][0] == 'raised'
         self.assertLess(raised, len(old_grid) // 4, "most cases must build a sample set, not raise")
+
+    def test_template_lumi_is_the_table_value(self):  # CL §26: the model's lumi replaces the lookup in setera
+        for path in TEMPLATES:
+            sample_model = model.load_sample_model(path)
+            with self.subTest(era=sample_model.era):
+                self.assertEqual(sample_model.lumi, table_lumi(sample_model.era))
+                with recorder.stub_utils() as utils:
+                    calls = recorder.record(lambda c, e, **k: model.getsampleset(c, e, sample_model, **k),
+                                            recorder.model_targets(utils), 'mutau', sample_model.era)
+                self.assertEqual(calls[0], ['setera', [sample_model.era], {'lumi': sample_model.lumi,
+                                                                           'cme': sample_model.cme}])
 
     def test_samples_keyword_of_samples_v15(self):
         """samples_v15.getsampleset(..., samples=[templates]) hands over to the model (what plot.py --samples and
@@ -61,7 +87,7 @@ class EqualityTests(unittest.TestCase):
             handed = recorder.record_grid(lambda c, e, **k: old.getsampleset(c, e, samples=files[e], **k), targets)
         for key in sorted(own):
             with self.subTest(case=key):
-                self.assertIsNone(compare(own[key], handed[key]))
+                self.assertIsNone(compare(own[key], without_model_lumi(handed[key])))
 
     def test_the_caller_join_list_is_changed_as_before(self):
         with recorder.stub_utils() as utils:
@@ -104,12 +130,15 @@ class ReaderTests(unittest.TestCase):
 
     def test_format_problems(self):
         cases = [("era: \"2025\"", "era: 2025", "era must be a text"),
-                 ("cme: 13.6", "cme: high", "cme must be a number"),
+                 ("cme: 13.6", "cme: high", "cme must be a positive number"),
+                 ("lumi: 110.18", "lumi: 0", "lumi must be a positive number"),
+                 ("\nlumi: 110.18", "\nlumen: 110.18", "missing key(s) lumi"),
+                 ("schema: 2", "schema: 1", "schema 1 had no lumi"),
                  ("xsec: 6744.0, extraweight: dyweight", "xsec: 6744.0, extraweight: zweight",
                   "extraweight 'zweight' is not a key"),
                  ("  muon:", "  muons:", "data must map channel kinds"),
-                 ("schema: 1", "schema: 2", "schema is 2"),
-                 ("stitch: []", "stitch: []\nlumi: 1", "unknown key(s) lumi")]
+                 ("schema: 2", "schema: 3", "schema is 3"),
+                 ("stitch: []", "stitch: []\nlumen: 1", "unknown key(s) lumen")]
         for old, new, message in cases:
             with self.subTest(message=message):
                 self.assertIn(old, self.text)

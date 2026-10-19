@@ -6,7 +6,7 @@ from TauFW.common.tools.file import ensuredir
 from TauFW.common.tools.utils import repkey
 from TauFW.Utilities.Drawing import LOG
 from TauFW.Utilities.Drawing.Stack import Stack # Var
-from TauFW.Plotter.sample.utils import setera
+import TauFW.Utilities.Drawing.CMSStyle as CMSStyle  # setCMSEra: the era/lumi text (was the Plotter's setera)
 from TauFW.Fitter.plot.postfit import drawpostfit
 import TauFW.Utilities.Drawing.Plot as PLOT
 import TauFW.Utilities.Drawing.SampleStyle as STYLE
@@ -72,7 +72,7 @@ def main(args):
     
     # PLOT
     for era in eras:
-      setera(era,extra="")
+      CMSStyle.setCMSEra(era,extra="")
       for channel in channels:
         for obs in obsset:
             ZL = "Z -> ee"

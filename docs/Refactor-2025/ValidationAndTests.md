@@ -344,3 +344,29 @@ tuples, configs and samples. `Tests/tools/compare_shapefiles.py` compares file n
   files with a missing one marked.
 - `python Tests/run.py checks`: 13/15 (`check_import_boundaries` known debt 25 / 23 / 21, `check_root` needs ROOT).
 
+## 25. Postfit scripts set the era through CMSStyle (no Plotter import)
+
+**Change:** [CL §25](Refactor-2025.md#25-postfit-scripts-set-the-era-through-cmsstyle-no-plotter-import)
+
+**Status:** Windows checks done; lxplus checks in TODO §1.
+
+- `python Tests/check_import_boundaries.py -q`: 21 / 19 / 17, 0 new pairs, no stale allowlist entry (Fitter ->
+  Plotter 5 / 4 / 3).
+- BBB `drawing.canvas` (locked 2026-10-14) covers `setCMSEra` and its texts; the old `setera` path is compared by
+  `Tests/tools/check_setera.py` on lxplus. The postfit scripts themselves have no BBB case (they need combine output).
+
+## 26. The luminosity of the normalisation in the sample model and the control-histogram file
+
+**Change:** [CL §26](Refactor-2025.md#26-the-luminosity-of-the-normalisation-in-the-sample-model-and-the-control-histogram-file)
+
+**Status:** Windows checks done; lxplus checks in TODO §1.
+
+- `Tests/Histogrammer/sample_model/test_sample_model.py`: the call-equality grid (old `samples_v15.py` against the
+  model) passes once the model's `lumi=` is checked to equal the table lookup and removed
+  (`without_model_lumi`); `test_template_lumi_is_the_table_value` (every template, and the recorded `setera` call);
+  format problems: `lumi` missing, not positive, `schema: 1` (message), `schema: 3`.
+- `Tests/Histogrammer/controlhists`, `Tests/Plotter/draw`: version 2 metadata written and read, `lumi: null`,
+  version 1 refused with the message, `lumi`/`cme` missing refused; the constants of both sides agree.
+- `Tests/Framework/test_samples.py`: the broken-copy case uses another unknown key (`lumi` is known now).
+- `export.py` into a scratch directory: the eight templates the same apart from the header version.
+- `python Tests/run.py checks`: 13/15 (`check_import_boundaries` known debt, `check_root` needs ROOT).

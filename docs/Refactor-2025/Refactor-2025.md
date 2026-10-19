@@ -33,6 +33,7 @@ What is still open is listed in [TODO.md](TODO.md). Other documents cite its sec
 | 22 | [TES shapes leave the Fitter for the Histogrammer](#22-tes-shapes-leave-the-fitter-for-the-histogrammer) |
 | 23 | [Variation tuples in the shapes preflight](#23-variation-tuples-in-the-shapes-preflight) |
 | 24 | [Review of the tes_id_2025 bundle: fit-result comparison, result files in the summary](#24-review-of-the-tes_id_2025-bundle-fit-result-comparison-result-files-in-the-summary) |
+| 25 | [Postfit scripts set the era through CMSStyle (no Plotter import)](#25-postfit-scripts-set-the-era-through-cmsstyle-no-plotter-import) |
 
 The reference environment for all of this is `CMSSW_14_1_0_pre4` (Python 3.9, ROOT 6.30).
 
@@ -899,3 +900,58 @@ against the shell drivers, and a pointer to the results. Physics and the stages 
   stages through `{path: ...}`).
 - `Analyses/README.md`: a section reference left from before the renumbering (§25 H3 -> §22 H3).
 
+## 25. Postfit scripts set the era through CMSStyle (no Plotter import)
+
+**Date:** 2026-10-19
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#25-postfit-scripts-set-the-era-through-cmsstyle-no-plotter-import)
+
+**Details:** `LocalR/architecture/ModuleIsolationFinalizations.md` §3 B1 (plan 16 D7, TODO §0 (1))
+
+The four postfit scripts imported `TauFW.Plotter.sample.utils` (the alias of `TauFW.Histogrammer.sample.utils`) only
+for `setera(era)`. Of what `setera` does, only `CMSStyle.setCMSEra(str(era), **kwargs)` reaches the drawing (the
+era/lumi text); the Histogrammer's own `era`/`lumi`/`cme` are read by the samples, which these scripts do not use.
+
+- `Fitter/python/plot/postfit.py`: `CMSStyle.setCMSEra(era)`; `Fitter/tutorial/plotpostfit.py`,
+  `Fitter/ETauFR/Plotter/plotpostfit.py`: `CMSStyle.setCMSEra(era,extra="")` (the same keyword `setera` passed on).
+- `Fitter/python/plot/postfit_TES.py`: the `setera(era)` block is deleted, not replaced: the function calls
+  `CMSStyle.setCMSEra(era, cms="CMS", extra="Preliminary")` a few lines later, which sets all three texts again.
+- Lost: `setera`'s warning for an era without a luminosity (log only; the text then has no lumi either way). The
+  `gROOT.SetBatch(True)` of the old import still happens: the scripts import `Stack`/`Plot`/`hist_tools`.
+- User decisions (2026-10-19): `CMSStyle.setCMSEra` directly, no new era setter in `Utilities.Drawing`; proof by a
+  text comparison on lxplus, no postfit PNG comparison.
+- `Tests/import_boundary_allowlist.json`: the four entries removed. Coupling 25 / 23 / 21 -> 21 / 19 / 17, Fitter ->
+  Plotter 9 / 8 / 7 -> 5 / 4 / 3 (left: `Zpt`, `MuTauFR`, B2/B3).
+- `Tests/tools/check_setera.py` (lxplus, ROOT): for every era of `CMSStyle.lumi_dict`, a number, an unknown era and
+  the `extra=""` call, the same starting style, then `setera` and `setCMSEra`: `cmsText`, `extraText`, `lumiText`
+  compared.
+
+## 26. The luminosity of the normalisation in the sample model and the control-histogram file
+
+**Date:** 2026-10-19
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#26-the-luminosity-of-the-normalisation-in-the-sample-model-and-the-control-histogram-file)
+
+**Details:** `LocalR/architecture/22-data-contracts-plan.md` (C1, decisions K1-K3, K5),
+[control-histograms contract](../contracts/control-histograms.md), `Histogrammer/python/sample/model.py`
+
+The MC is normalised with `lumi x xsec / sumw`. Until now `setera(era)` took `lumi` from `CMSStyle.lumi_dict`, a table
+in the drawing library that also makes the CMS label; changing a luminosity meant editing drawing code, outside the
+versioned configs, and no output recorded which value was used. The Plotter recomputed the label from the same table.
+
+- **Sample model schema 2** (`model.py`): `lumi` [/fb] is required (a positive number, as `cme` now); `getsampleset`
+  calls `setera(era, lumi=model.lumi, cme=model.cme)`. A schema-1 file is refused: "schema 1 had no lumi: copy the
+  template ... again, or add lumi: ... and set schema: 2".
+- **Templates** `Configs/Histogrammer/samples/v15_*.yml` (8) and the bundle copies (`tes_id_2025/v15_2025.yml`,
+  `example_mutau_long/v15_2022_postEE.yml`): `lumi:` with the value `setera` looked up before (`lumi_dict[era]`, else
+  of the year), `schema: 2`, version 1 -> 2 (`configs.update`, lock). `export.py` writes the line (from the table) and
+  reproduces the eight templates (only the header version differs).
+- **Control histograms version 2**: the file metadata has `lumi` and `cme`, the values the samples were normalised
+  with (`fillhists.py` passes the Histogrammer's `GLOB.lumi`, `GLOB.cme` after `setera`); `draw.py` labels with
+  `setCMSEra(era, lumi=, cme=)`. Version 1 is refused with a message (decision K3: no compatibility; run
+  controlhists again).
+- Without a sample model (`samples_v15.py`, commands without `--samples`) nothing changes: `setera(era, cme=13.6)`
+  looks the luminosity up in the table, and that value goes to the file.
+- **Physics:** the same numbers (every template value equals the table lookup, checked by a test), so the same
+  normalisation and the same labels. BBB `plotter.sample_model` records the arguments of `setera` and gains `lumi=`:
+  re-lock of that case only, approved by the user (K2); `plotter.stack` and `histogrammer.tes_inputs` must pass
+  without re-lock. The case `plotter.stack` passes `lumi`/`cme` to the writer (its locked canvases do not include the
+  file metadata).

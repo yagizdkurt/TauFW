@@ -1,12 +1,6 @@
 {
   "imports": [
     {
-      "file": "Fitter/ETauFR/Plotter/plotpostfit.py",
-      "module": "TauFW.Plotter.sample.utils",
-      "reason": "Fitter script still imports Plotter sample/selection helpers; isolate histogram filling and shared helpers.",
-      "roadmap_step": "4"
-    },
-    {
       "file": "Fitter/MuTauFR/createinputs.py",
       "module": "TauFW.Plotter.plot.datacard",
       "reason": "Known broken Plotter datacard import; recorded in TODO section 8.",
@@ -32,24 +26,6 @@
     },
     {
       "file": "Fitter/Zpt/config/samples.py",
-      "module": "TauFW.Plotter.sample.utils",
-      "reason": "Fitter script still imports Plotter sample/selection helpers; isolate histogram filling and shared helpers.",
-      "roadmap_step": "4"
-    },
-    {
-      "file": "Fitter/python/plot/postfit.py",
-      "module": "TauFW.Plotter.sample.utils",
-      "reason": "Fitter script still imports Plotter sample/selection helpers; isolate histogram filling and shared helpers.",
-      "roadmap_step": "4"
-    },
-    {
-      "file": "Fitter/python/plot/postfit_TES.py",
-      "module": "TauFW.Plotter.sample.utils",
-      "reason": "Fitter script still imports Plotter sample/selection helpers; isolate histogram filling and shared helpers.",
-      "roadmap_step": "4"
-    },
-    {
-      "file": "Fitter/tutorial/plotpostfit.py",
       "module": "TauFW.Plotter.sample.utils",
       "reason": "Fitter script still imports Plotter sample/selection helpers; isolate histogram filling and shared helpers.",
       "roadmap_step": "4"

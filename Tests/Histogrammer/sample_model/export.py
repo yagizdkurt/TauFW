@@ -65,7 +65,7 @@ def export(era, function, targets):
         found = _core(function, targets, channel, era)
         if found:
             weights[kind] = found[2]['weight']
-    return {'era': era, 'cme': cme, 'extraweights': defaults, 'mc': rows, 'data': data, 'weights': weights,
+    return {'era': era, 'cme': cme, 'lumi': recorder.table_lumi(era), 'extraweights': defaults, 'mc': rows, 'data': data, 'weights': weights,
             'stitch': stitch, 'join': join}
 
 
@@ -106,7 +106,7 @@ def write(model, outdir):
         "taufw_config:                     # set by the maintainers: analysts edit the values below, never these lines",
         "  id: histogrammer.samples_v15_%s" % (era.lower()),
         "  version: 1",
-        "  schema: 1",
+        "  schema: 2",
         "  description: samples of the v15 pico tuples for %s (MC table, data, MC weights, stitching)" % (era),
         "# The samples Histogrammer/config/samples_v15.py getsampleset() uses for era %s, exported by" % (era),
         "# Tests/Histogrammer/sample_model/export.py. Format: Histogrammer/python/sample/model.py. "
@@ -114,6 +114,7 @@ def write(model, outdir):
         "# values samples_v15.py computed (cross section times k-factor).",
         "era: %s" % (_text(era)),
         "cme: %r" % (model['cme']),
+        "lumi: %-30r %s" % (model['lumi'], "# integrated luminosity [/fb] of the MC normalisation (CMSStyle.lumi_dict until CL §26)"),
         "extraweights: {%s}   # defaults; plot/shape scripts may override them by name" % (
             ", ".join("%s: %s" % (key, _text(value)) for key, value in sorted(model['extraweights'].items()))),
         "mc:",

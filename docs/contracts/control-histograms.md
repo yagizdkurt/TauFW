@@ -1,4 +1,4 @@
-# Contract: control histograms (`taufw.control_histograms`, version 1)
+# Contract: control histograms (`taufw.control_histograms`, version 2)
 
 Written by the **Histogrammer** (`Histogrammer/fillhists.py --hists`, `TauFW.Histogrammer.controlhists`), read by
 the **Plotter** (`Plotter/draw.py`, `TauFW.Plotter.controlplots`). The two modules never import each other; this file
@@ -17,9 +17,11 @@ File metadata (JSON):
 | Key | Meaning |
 |---|---|
 | `contract` | `"taufw.control_histograms"` |
-| `version` | `1`; raised when the meaning of anything below changes (the reader refuses other versions) |
+| `version` | `2`; raised when the meaning of anything below changes (the reader refuses other versions) |
 | `channel` | the setup's channel, e.g. `"mutau"` |
 | `era` | the era as given to `fillhists.py -y`, e.g. `"2025"` (text) |
+| `lumi` | the integrated luminosity [/fb] the MC was normalised with (the Histogrammer's after `setera`: the sample model's `lumi`, or `CMSStyle.lumi_dict` without a sample model), e.g. `110.18`; `null` if the era has none |
+| `cme` | the centre-of-mass energy [TeV] of the normalisation (the sample model's `cme`), e.g. `13.6` |
 | `tag` | the setup's `tag` plus `fillhists.py -t`: the tag of the plot file names |
 
 ## Entries
@@ -53,7 +55,15 @@ Entry metadata (JSON):
 
 The Plotter derives from these facts, by the rules `plot.py` had: the plot file name
 `<variable filename>_<channel short>-<selection name>-<era><tag>.png` (`mu` -> `m`, `tau` -> `t`) and the text
-`<channel in LaTeX>: <selection title>[, <extra text>]`; the CMS label from the era (`CMSStyle.setCMSEra`).
+`<channel in LaTeX>: <selection title>[, <extra text>]`; the CMS label from the era, `lumi` and `cme`
+(`CMSStyle.setCMSEra(era, lumi=, cme=)`), so the label shows the luminosity the histograms were normalised with.
+
+## Versions
+
+- 1 (CL §21 S3): `contract`, `version`, `channel`, `era`, `tag`; the Plotter took the label's luminosity from
+  `CMSStyle.lumi_dict`.
+- 2 (CL §26, 2026-10-19): `lumi`, `cme` added and required. The Plotter reads only version 2; a version 1 file is
+  refused with "run fillhists.py --hists, or the controlhists stage, again".
 
 ## Checked by
 

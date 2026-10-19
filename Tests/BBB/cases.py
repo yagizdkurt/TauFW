@@ -187,8 +187,9 @@ def plotter_stack(workspace):
         # getstack returns {Stack: (Variable, Selection)}; sorted by variable for a fixed order
         for stack, (variable, _) in sorted(stacks.items(), key=lambda item: item[1][0].filename):
             entries.append(m.stack_entry(stack, variable, selection))  # the histograms as filled, before drawing
+    import TauFW.Histogrammer.sample.utils as GLOB  # the lumi and cme setera set, as fillhists.py writes them (CL §26)
     histfile = m.write_control_hists(str(Path(workspace) / "hists" / "mutau.root"), entries,
-                                     channel="mutau", era="2018", tag="_stack")
+                                     channel="mutau", era="2018", lumi=GLOB.lumi, cme=GLOB.cme, tag="_stack")
     hists = m.read_control_hists(histfile)
     for entry in hists.entries:  # drawn as Plotter/draw.py draws them
         histograms = [histogram_snapshot(hist) for hist in entry.hists]

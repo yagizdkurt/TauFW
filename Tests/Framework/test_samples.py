@@ -68,9 +68,9 @@ class ValidationTests(SamplesTestCase):
 
     def test_a_broken_copy(self):
         with open(os.path.join(self.bundle, "samples_2025.yml"), "a") as stream:
-            stream.write("lumi: 1\n")
+            stream.write("lumen: 1\n")
         check = check_recipe(self.write_recipe(PRODUCTION, HISTS))
-        self.assertIn("unknown key(s) lumi", " ".join(str(issue) for issue in check.issues))
+        self.assertIn("unknown key(s) lumen", " ".join(str(issue) for issue in check.issues))
 
 
 class ComparisonTests(SamplesTestCase):

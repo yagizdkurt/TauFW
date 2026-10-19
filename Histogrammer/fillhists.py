@@ -17,6 +17,7 @@ from config.samples_v15 import *
 from TauFW.Histogrammer.spec.string import filtervars
 from TauFW.Utilities.Drawing import LOG as PLOG
 from TauFW.Histogrammer.controlhists import stack_entry, write_control_hists # --hists (CL §21, S3)
+import TauFW.Histogrammer.sample.utils as GLOB # the lumi and cme of the normalisation (setera), for --hists (CL §26)
 import yaml
 SETUPS = os.path.join(os.path.dirname(os.path.abspath(__file__)),"..","Configs","Histogrammer","setups") # channel setups (CL §20)
 
@@ -127,7 +128,8 @@ def plot(sampleset,setup,parallel=True,tag="",extratext="",outdir="plots",era=""
       stack.saveas(fname,ext=exts,tag=tag)
       stack.close(keep=True)
   if histfile:
-    histfile = write_control_hists(repkey(histfile,CHANNEL=channel,ERA=era),entries,channel=channel,era=era,tag=tag)
+    histfile = write_control_hists(repkey(histfile,CHANNEL=channel,ERA=era),entries,channel=channel,era=era,
+                                   lumi=GLOB.lumi,cme=GLOB.cme,tag=tag)
     print(">>> Wrote the histograms of %d stacks to %s (draw them with Plotter/draw.py)"%(len(entries),histfile))
 
 

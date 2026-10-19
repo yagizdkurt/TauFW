@@ -1,13 +1,14 @@
 taufw_config:                     # set by the maintainers: analysts edit the values below, never these lines
   id: histogrammer.samples_v15_2024
-  version: 1
-  schema: 1
+  version: 2
+  schema: 2
   description: samples of the v15 pico tuples for 2024 (MC table, data, MC weights, stitching)
 # The samples Histogrammer/config/samples_v15.py getsampleset() uses for era 2024, exported by
 # Tests/Histogrammer/sample_model/export.py. Format: Histogrammer/python/sample/model.py. The cross sections are the
 # values samples_v15.py computed (cross section times k-factor).
 era: "2024"
 cme: 13.6
+lumi: 109.08                         # integrated luminosity [/fb] of the MC normalisation (CMSStyle.lumi_dict until CL §26)
 extraweights: {dyweight: "zptweight_nnlo", ttweight: "ttptweight"}   # defaults; plot/shape scripts may override them by name
 mc:
   - {group: "DY", name: "DYto2Mu_Bin-MLL-10to50", title: "Drell-Yan 10-50", xsec: 6744.0, extraweight: dyweight}

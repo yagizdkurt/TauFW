@@ -83,9 +83,10 @@ class StackEntryTests(unittest.TestCase):
 class WriteTests(unittest.TestCase):
     def test_file_metadata(self):
         with mock.patch.object(controlhists, "write_histfile", side_effect=lambda path, entries, meta: meta) as write:
-            meta = write_control_hists("hists/2025/mutau_v1.root", ["entry"], channel="mutau", era=2025, tag="_v1")
-        self.assertEqual(meta, {"contract": "taufw.control_histograms", "version": 1, "channel": "mutau",
-                                "era": "2025", "tag": "_v1"})
+            meta = write_control_hists("hists/2025/mutau_v1.root", ["entry"], channel="mutau", era=2025,
+                                       lumi=110.18, cme=13.6, tag="_v1")
+        self.assertEqual(meta, {"contract": "taufw.control_histograms", "version": 2, "channel": "mutau",
+                                "era": "2025", "lumi": 110.18, "cme": 13.6, "tag": "_v1"})
         self.assertEqual(write.call_args[0][:2], ("hists/2025/mutau_v1.root", ["entry"]))
 
     def test_two_variables_with_one_file_name(self):
@@ -94,7 +95,8 @@ class WriteTests(unittest.TestCase):
                    HistFileEntry("baseline/mvis", {})]
         with mock.patch.object(controlhists, "write_histfile") as write:
             with self.assertRaises(ValueError) as context:
-                write_control_hists("hists/2025/mutau.root", entries, channel="mutau", era=2025)
+                write_control_hists("hists/2025/mutau.root", entries, channel="mutau", era=2025, lumi=110.18,
+                                    cme=13.6)
         self.assertIn("'mvis' in the selection 'baseline'", str(context.exception))
         write.assert_not_called()
 

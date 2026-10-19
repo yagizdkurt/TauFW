@@ -17,6 +17,8 @@ The file (schema 1; the taufw_config header: Configs/README.md):
 
     era: '2025'                  the era of the file (exact)
     cme: 13.6                    centre-of-mass energy [TeV], for setera and the stitching
+    lumi: 110.18                 integrated luminosity [/fb] of the MC normalisation (setera; schema 2, CL §26:
+                                 before, setera took it from CMSStyle.lumi_dict, which the templates copied)
     extraweights: {dyweight: zptweight_nnlo, ttweight: ttptweight}   defaults; a caller may override them by name
     mc: [{group, name, title, xsec, extraweight (optional: a key of extraweights)}, ...]   in this order
     data: {tautau|muon|electron|emu: dataset pattern}   by channel kind (CHANNEL KINDS below)
@@ -44,9 +46,9 @@ __all__ = ['load_sample_model', 'pick', 'sample_names', 'getsampleset', 'SampleM
 # ================================= CONSTANTS =================================
 
 
-SCHEMA       = 1                                    # the format this module reads (taufw_config.schema)
+SCHEMA       = 2                                    # the format this module reads (taufw_config.schema; 2: lumi)
 HEADER_KEY   = 'taufw_config'                       # the template header (Framework/python/configs.py)
-KEYS         = ('era', 'cme', 'extraweights', 'mc', 'data', 'weights', 'stitch', 'join')
+KEYS         = ('era', 'cme', 'lumi', 'extraweights', 'mc', 'data', 'weights', 'stitch', 'join')
 MC_KEYS      = ('group', 'name', 'title', 'xsec', 'extraweight')
 DATA_KINDS   = ('tautau', 'muon', 'electron', 'emu')
 WEIGHT_KINDS = ('semileptonic', 'ditau', 'other')
@@ -73,7 +75,7 @@ def getsampleset(channel, era, model, **kwargs):
   filter   = kwargs.get('filter',   None         ) # only include these MC samples
   vetoes   = kwargs.get('vetoes',   None         ) # veto these MC samples
   table    = kwargs.get('table',    True         ) # print sample set table
-  setera(era,cme=model.cme) # set era for plot style and lumi-xsec normalization
+  setera(era,lumi=model.lumi,cme=model.cme) # set era for plot style and lumi-xsec normalization (the model's lumi)
   if 'TT' in split and 'Top' in join: # don't join TT & ST
     join.remove('Top')
     join += ['TT','ST']
@@ -175,7 +177,7 @@ def load_sample_model(path):
   problems = _problems(data)
   if problems:
     raise SampleModelError(path, problems)
-  return SampleModel(path=os.path.abspath(path), era=data['era'], cme=data['cme'],
+  return SampleModel(path=os.path.abspath(path), era=data['era'], cme=data['cme'], lumi=data['lumi'],
                      extraweights=dict(data['extraweights']), mc=tuple(dict(row) for row in data['mc']),
                      data=dict(data['data']), weights=dict(data['weights']),
                      stitch=tuple(dict(entry) for entry in data['stitch']),
@@ -209,6 +211,7 @@ class SampleModel:
   path:         str
   era:          str
   cme:          float
+  lumi:         float
   extraweights: dict
   mc:           Tuple[dict, ...]
   data:         dict
@@ -263,7 +266,10 @@ def _problems(data):
   problems = []
   header = data.get(HEADER_KEY)
   if isinstance(header, dict) and header.get('schema') != SCHEMA:
-    problems.append("%s.schema is %r: this reader understands schema %d" % (HEADER_KEY, header.get('schema'), SCHEMA))
+    problems.append("%s.schema is %r: this reader understands schema %d%s" % (
+      HEADER_KEY, header.get('schema'), SCHEMA, " (schema 1 had no lumi: copy the template of Configs/Histogrammer/"
+      "samples/ again, or add lumi: <the era's integrated luminosity in /fb> and set schema: 2)"
+      if header.get('schema') == 1 else ""))
   unknown = sorted(set(data) - set(KEYS) - {HEADER_KEY})
   if unknown:
     problems.append("unknown key(s) %s (known: %s)" % (", ".join(map(str, unknown)), ", ".join(KEYS)))
@@ -272,8 +278,9 @@ def _problems(data):
     return problems + ["missing key(s) %s" % (", ".join(missing))]
   if not isinstance(data['era'], str) or not data['era']:
     problems.append("era must be a text, e.g. '2025' (quoted)")
-  if not isinstance(data['cme'], (int, float)) or isinstance(data['cme'], bool):
-    problems.append("cme must be a number")
+  for key in ('cme', 'lumi'):
+    if not isinstance(data[key], (int, float)) or isinstance(data[key], bool) or data[key] <= 0:
+      problems.append("%s must be a positive number" % (key))
   extraweights = data['extraweights']
   if not isinstance(extraweights, dict) or not all(isinstance(v, str) for v in extraweights.values()):
     problems.append("extraweights must map names to weights")

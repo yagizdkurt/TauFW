@@ -13,6 +13,7 @@ Two environments:
 
 Used by test_sample_model.py, export.py and the BBB case plotter.sample_model.
 """
+import ast
 import contextlib
 import copy
 import importlib.util
@@ -23,6 +24,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[3]
 SAMPLES_V15 = REPO / "Histogrammer" / "config" / "samples_v15.py"
+CMSSTYLE = REPO / "Utilities" / "python" / "Drawing" / "CMSStyle.py"
 UTILS = "TauFW.Histogrammer.sample.utils"
 
 # The eras samples_v15.py knows (the era choices of plot.py it accepts) and one channel of every channel kind.
@@ -43,6 +45,16 @@ OPTIONS = {
                      'dyweight': "zptweight", 'ttweight': "", 'verbosity': 2},
     'split_dm':     {'split': ['DM']},
 }
+
+
+def table_lumi(era):
+    """The luminosity setera() looked up before the sample model had one (schema 2, CL §26): CMSStyle.lumi_dict[era],
+    else of the era's year. The table is read from the source (CMSStyle imports ROOT)."""
+    from TauFW.common.tools.utils import getyear
+    tree = ast.parse(CMSSTYLE.read_text(encoding="utf-8"))
+    table = next(ast.literal_eval(node.value) for node in tree.body if isinstance(node, ast.Assign)
+                 and getattr(node.targets[0], "id", None) == "lumi_dict")
+    return table.get(era, table.get(str(getyear(era))))
 
 
 # =============================================================================
