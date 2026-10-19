@@ -956,7 +956,7 @@ versioned configs, and no output recorded which value was used. The Plotter reco
   normalisation and the same labels. BBB `plotter.sample_model` records the arguments of `setera` and gains `lumi=`:
   re-lock of that case only, approved by the user (K2); `plotter.stack` and `histogrammer.tes_inputs` must pass
   without re-lock. The case `plotter.stack` passes `lumi`/`cme` to the writer (its locked canvases do not include the
-  file metadata).
+  file metadata). The case `histogrammer.tes_inputs` writes its own mini sample model: it got `lumi: 110.18` (the table value of 2025, so the same normalisation); missed at first, found by `bbb check` on lxplus (2026-10-19), fixed before any re-lock.
 
 ## 27. The fit plots show the luminosity of the normalisation; explicit lumi on the samples
 

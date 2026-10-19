@@ -584,6 +584,7 @@ systematics:
 _TES_SAMPLES = """\
 era: "2025"
 cme: 13.6
+lumi: 110.18                      # the value setera took from CMSStyle.lumi_dict for 2025 before CL §26
 extraweights: {}
 mc:
   - {group: "DY", name: "DYto2Tau_Bin-MLL-50to120", title: "Drell-Yan tautau", xsec: 0.0012}
