@@ -142,6 +142,29 @@ class OperationScreenTests(unittest.TestCase):
                 self.assertIn((row, column, "RUNNING | 01:01 | 2 stage(s)"), calls)
                 self.assertFalse(any(args[2].startswith("TauFW V") for args in calls))  # the plain header is gone
 
+    def test_a_command_screen_shows_its_output_and_leaving_stops_it(self):
+        from TauFW.Utilities.Menu._command_screen import follow_command
+        with open(self.output, "w") as stream:
+            stream.write("=== Run tes_2025: WAITING ===\n")
+        for keys, states, answer, stops in (([-1, 27], ["RUNNING"], "back", 1),              # Esc: stop, leave
+                                            ([ord("r"), ord("s"), 27], ["RUNNING"], "back", 2),  # S: no question
+                                            ([-1, ord("r")], ["DONE"], "refresh", 0),
+                                            ([27], ["DONE"], "back", 0)):
+            with self.subTest(keys=keys, states=states):
+                ui, screen = self.screen(keys)
+                process = Process(self.output, states)
+                process.events = None
+                process.data = dict(command="status")
+                self.assertEqual(follow_command(ui, screen, "Run status: tes_2025", process, refresh=True), answer)
+                self.assertEqual(process.cancel.call_count, stops)
+                drawn = [call.args[2] for call in screen.addnstr.call_args_list]
+                self.assertTrue(any("=== Run tes_2025: WAITING ===" in line for line in drawn))  # only the output
+                self.assertFalse(any("Stop it?" in line for line in drawn))
+                footer = ("Up/Down/PgUp/PgDn Scroll | End Follow | S Stop | Esc Stop and back" if states == ["RUNNING"]
+                          else "Up/Down/PgUp/PgDn Scroll | End Follow | R Refresh | Esc Back")
+                self.assertIn(footer, drawn)
+                self.assertTrue(any("taufw.py status" in line for line in drawn))  # on the state line
+
     def test_printable(self):
         self.assertEqual(printable("\x1b[1ma\tb\x07"), "a   b")
 

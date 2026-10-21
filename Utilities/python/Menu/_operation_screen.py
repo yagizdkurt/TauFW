@@ -11,7 +11,9 @@ The process is a TauFW.Utilities.Process.Operation (or a stand-in with
 state(), events, output, returncode, elapsed(), cancel(), remote and host).
 The screen draws every FRAME seconds and never waits for the operation.
 Leaving it (Esc) never stops the operation; S or Ctrl-C asks (model.stop_question),
-then stops it. No Framework imports belong here (see _test_run.py).
+then stops it. A model with leave_stops (a read-only command, _command_screen.py)
+is stopped without a question by Esc, S or Ctrl-C: nothing of it stays behind
+the menu. No Framework imports belong here (see _test_run.py).
 
 A model (see ScreenModel) holds the words of its screen and turns events into
 items; the screen keeps only where the user is (_View). Three hooks a model
@@ -19,6 +21,8 @@ may use: current() is the item the focus follows until the user moves it (the
 one at work), card() a result card drawn above the list (once it ended), and
 info() a box of the focused item's facts to the right of the list (on a
 terminal narrower than INFO_MIN_WIDTH, at the top of its Details instead).
+A model without items shows only the Output view. Its actions are keys that
+leave the screen once the operation ended, with an answer (model.answer).
 """
 import re
 import textwrap
@@ -58,6 +62,8 @@ class ScreenModel:
     stopping = "Stopping..."             # footer while it stops
     states = {RUNNING: ("RUNNING", "accent"), STOPPING: ("STOPPING", "warning"), DONE: ("DONE", "good"),
               FAILED: ("FAILED", "error"), STOPPED: ("STOPPED", "warning"), LOST: ("LOST", "warning")}
+    leave_stops = False                  # Esc, S and Ctrl-C stop it without a question (Esc also leaves)
+    actions = ()                         # (letter, footer label, answer): the key leaves once it ended
 
     def feed(self, events):
         """Take the events read since the last call."""
@@ -103,6 +109,7 @@ class ScreenModel:
 
     def __init__(self):
         self.messages = []
+        self.answer = None               # of the action that left the screen
 
 
 # =============================================================================
@@ -238,12 +245,16 @@ def _footer(model, items, view, state):
     if view.confirm:
         return "%s Y Yes | N No" % model.stop_question
     stop = " | S Stop" if state == RUNNING else ""
-    back = " | Esc Back (keeps running)" if state in ACTIVE else " | Esc Back"
+    if state in ACTIVE and not model.leave_stops:
+        back = " | Esc Back (keeps running)"
+    else:
+        back = " | Esc Stop and back" if state == RUNNING else " | Esc Back"
     if state == STOPPING:
         return model.stopping + back
+    actions = "" if state in ACTIVE else "".join(" | %s %s" % (letter, label) for letter, label, _ in model.actions)
     if view.mode != "items" or not items:
-        return "Up/Down/PgUp/PgDn Scroll | End Follow" + stop + back
-    return "Up/Down %s | Enter %s log | L Output" % (model.item, model.item) + stop + back
+        return "Up/Down/PgUp/PgDn Scroll | End Follow" + stop + actions + back
+    return "Up/Down %s | Enter %s log | L Output" % (model.item, model.item) + stop + actions + back
 
 
 def _state(model, process, state):
@@ -270,12 +281,22 @@ def _key(ui, key, process, model, view, state):
             view.confirm = False
         return False
     if key in (3, ord("s"), ord("S")):
-        view.confirm = state == RUNNING
+        if model.leave_stops and state == RUNNING:
+            process.cancel()
+        else:
+            view.confirm = state == RUNNING
     elif key == 27:
         if view.mode != "items" and items:
             view.mode, view.offset = "items", None
         else:
+            if model.leave_stops and state == RUNNING:
+                process.cancel()
             return True
+    elif state not in ACTIVE and any(key in (ord(letter.lower()), ord(letter.upper()))
+                                     for letter, _, _ in model.actions):
+        model.answer = next(answer for letter, _, answer in model.actions
+                            if key in (ord(letter.lower()), ord(letter.upper())))
+        return True
     elif key in (ord("l"), ord("L")):
         view.mode, view.offset = ("items" if view.mode == "output" else "output"), None
     elif view.mode == "items" and items:

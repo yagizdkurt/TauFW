@@ -422,6 +422,53 @@ def _advance(directory, kind="advancing", run_id=None, **options):
     return _MockOperation(directory, "run", "Run %s" % data["run_id"], data, script, **options)
 
 
+def _plan_lines():
+    """The output of `taufw.py plan` for the made-up recipe: long, with tables wider than a small terminal."""
+    lines = ["Bundle: /afs/cern.ch/user/u/username/TauFW/Analyses/tes_2025",
+             "Run root: /eos/user/u/username/taufw_runs (from the recipe)",
+             "PicoProducer config: PicoProducer/config/config.json (default)",
+             "", "=== Stage ntuples (production) ===", "NanoAOD skims on HTCondor", "Inputs: none",
+             "era   channel  sample                                        files  chunks  try  conflict"]
+    lines += ["2025  %-7s  %-44s  %5d  %6d  1" % (channel, name, 20 + 3 * index, 4 + index % 5)
+              for channel in ("mutau", "etau") for index, name in enumerate(
+                  ("DYJetsToLL_M-50", "TTTo2L2Nu", "TTToSemiLeptonic", "WJetsToLNu", "WW", "WZ", "ZZ",
+                   "ST_tW_top", "ST_tW_antitop", "SingleMuon_Run2025C", "SingleMuon_Run2025D"))]
+    lines += ["22 sample(s), 125 job(s)"]
+    for name, kind in RUN_STAGES[1:]:
+        lines += ["", "=== Stage %s (%s) ===" % (name, kind), "Inputs: %s" % RUN_INFO[name][1][1]]
+        lines += ["  %d. %s" % (index, label) for index, (label, _, _) in enumerate(RUN_COMMANDS.get(name, ()), 1)]
+    return lines
+
+
+def _command(directory, kind):
+    """A made-up read-only command behind the menu: plan (a long output at once) or status (HTCondor answers
+    after 4 s, then the table)."""
+    if kind == "plan":
+        script = [(0.1 * index / 10, ("output", line)) for index, line in enumerate(_plan_lines())]
+        data, title = dict(command="plan", target="Analyses/tes_2025"), "plan tes_2025"
+    else:
+        script = [(4.0, ("output", line)) for line in (
+            "=== Run %s: WAITING ===" % RUN_ID,
+            "stage       state    attempt  message",
+            "ntuples     WAITING  1        jobs: 540 done, 300 running, 12 idle",
+            "histograms  NEW      0", "plots       NEW      0", "fit         NEW      0", "results     NEW      0",
+            "", "=== Stage ntuples: jobs ===",
+            "sample               chunks  good  pending  failed  missing  complete",
+            "DYJetsToLL_M-50          24    16        8       0        0",
+            "TTTo2L2Nu                12    12        0       0        0  yes",
+            "WJetsToLNu               18     9        8       1        0")]
+        data, title = dict(command="status", target=RUN_DIR), "status " + RUN_ID
+    return _MockOperation(directory, "command", title, data, script)
+
+
+def _command_output(kind):
+    def show(ui, directory):
+        operation = _command(directory, kind)
+        title = "Plan: tes_2025" if kind == "plan" else "Run status: %s" % RUN_ID
+        return ui.command_output(title, operation, refresh=kind == "status")
+    return show
+
+
 # =============================================================================
 # ============================= MADE-UP SCREENS ===============================
 
@@ -508,7 +555,8 @@ SCENARIOS = [
     Scenario("Continue", "actions", lambda ui, directory: ui.continue_actions("tes_2025")),
     Scenario("Start / Continue", "grid proxy needed", lambda ui, directory: ui.grid_proxy_needed()),
     Scenario("Continue", "run that cannot advance", lambda ui, directory: ui.terminal_run_actions("DONE")),
-    Scenario("Inspect", "status actions", lambda ui, directory: ui.status_actions("tes_2025")),
+    Scenario("Start a run", "detailed plan (taufw.py plan behind the menu)", _command_output("plan")),
+    Scenario("Inspect", "run status, HTCondor answers after 4 s", _command_output("status")),
     Scenario("Tests", "menu, last run failed",
              lambda ui, directory: ui.tests_menu(last=_tests(directory, "failed"))),
     Scenario("Tests", "family", lambda ui, directory: ui.test_family("Normal tests")),

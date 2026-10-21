@@ -3,7 +3,9 @@
 
 The injected operations object supplies launch_dir, recipes(), runs(),
 resolve_path(value), load_run(path), can_advance(record),
-recipe_preview(path), prepare_review(path), and execute(command, **values).
+recipe_preview(path), prepare_review(path), and start_command(command, target), which starts a read-only command
+(`plan` of a recipe, `status` of a run directory) behind the menu and returns its Operation (kind "command"; its
+screen, ConsoleUI.command_output, stops it when it is left).
 Recipe views contain name, path, ordered (stage id, type, description) triples, notes, problems (a recipe with
 problems is shown in red and cannot start) and warnings (yellow; the recipe can still start).
 Records expose run_id, run_dir, and state;
@@ -36,18 +38,19 @@ class MenuNavigation:
     # =========================================================================
     # ============================ OPERATION FEEDBACK =========================
 
-    def _execute(self, command, **values):
+    def _command(self, title, command, target, refresh=False):
+        """Run a read-only command behind the menu and show its output; with refresh, R runs it again."""
         try:
-            result = self.operations.execute(command, **values)
+            while self.ui.command_output(title, self.operations.start_command(command, target),
+                                         refresh=refresh) == "refresh":
+                pass
         except KeyboardInterrupt:
-            self.ui.interrupted_operation()
-            return False
+            pass
         except Exception as error:
+            if isinstance(self.ui, ConsoleUI) and self.ui.is_terminal_error(error):
+                raise
             self.ui.operation_error(error)
-            return False
-        finally:
             self.ui.pause()
-        return result in (None, 0)
 
     # =========================================================================
     # =========================== RECIPE NAVIGATION ===========================
@@ -83,7 +86,7 @@ class MenuNavigation:
                 if action == "back":
                     break
                 if action == "plan":
-                    self._execute("plan", recipe=path)
+                    self._command("Plan: %s" % (review.get("name") or path), "plan", path)
                 elif action == "start":
                     if not self._grid_ready(self.operations.needs_grid_proxy(recipe=path)):
                         continue
@@ -128,10 +131,7 @@ class MenuNavigation:
             self._inspect_record(record)
 
     def _inspect_record(self, record):
-        while True:
-            self._execute("status", run_dir=record.run_dir)
-            if self.ui.status_actions(record.run_id) != "refresh":
-                return
+        self._command("Run status: %s" % record.run_id, "status", record.run_dir, refresh=True)
 
     def continue_run(self):
         """Pick a run and advance it behind the menu: to the end (taufw.py advance --wait) or once. A run that an

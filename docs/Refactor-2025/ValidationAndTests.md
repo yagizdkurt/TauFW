@@ -433,3 +433,23 @@ removed). Open: BBB, two nodes, Ctrl-C (TODO §1 "Run lock and safe stop on lxpl
   `needs_grid_proxy` for recipes and runs.
 - `python Tests/run.py all` on Windows: unit and harness 13/15 (known import debt, `check_root`), Framework 197 and
   Utilities 184 tests OK.
+
+## 30. Plan and status run behind the menu, their output on a screen
+
+**Change:** [CL §30](Refactor-2025.md#30-plan-and-status-run-behind-the-menu-their-output-on-a-screen)
+
+**Status:** unit tests on Windows; lxplus check open (TODO §1 "Plan and status behind the menu on lxplus").
+
+- `Tests/Utilities/test_operation_screen.py` `test_a_command_screen_shows_its_output_and_leaving_stops_it`: only the
+  output is drawn; Esc while it runs stops and leaves, S stops without a question, R only once it ended
+  ("refresh"), the footers, "taufw.py status" on the state line.
+- `Tests/Utilities/test_menu.py` `test_plan_and_status_are_shown_on_the_command_screen`: plan from the review,
+  status from Inspect with two refreshes, no pause; a failing `start_command` is reported.
+- `Tests/Framework/test_interactive.py`: `test_plan_and_status_run_behind_the_menu` (argv, kind, title, cwd, data;
+  only plan/status; `running_operations` leaves commands out); Inspect refresh, the detailed plan before the start
+  and Continue on a finished run start `status`/`plan` behind the menu, never in the menu's process.
+- Windows end-to-end: `start_command("plan", "Analyses/tes_id_2025")` with a real `OperationStore` ran the
+  supervisor and recorded FAILED, exit 1 and the output (no built TauFW package on Windows: `ModuleNotFoundError`
+  in taufw.py, as for Start); the real output needs lxplus.
+- `python Tests/run.py checks` on Windows: 13/15 (the known two: import debt in `check_import_boundaries`,
+  `check_root`).

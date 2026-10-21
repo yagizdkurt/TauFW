@@ -633,6 +633,12 @@ class ConsoleUI:
         from ._run_screen import follow_run  # imported here: see test_run()
         return self.curses.wrapper(lambda screen: follow_run(self, screen, title, process))
 
+    def command_output(self, title, process, refresh=False):
+        """Show the output of a read-only command behind the menu (an Operation, kind "command") until the user
+        leaves; leaving stops it if it still runs. Return "refresh" (R once it ended, with refresh) or "back"."""
+        from ._command_screen import follow_command  # imported here: see test_run()
+        return self.curses.wrapper(lambda screen: follow_command(self, screen, title, process, refresh))
+
     def preview(self):
         """Every screen with made-up data (Tests > UI preview); Left/Right switch screens, Esc leaves."""
         from ._preview import preview  # imported here: see test_run()
@@ -791,9 +797,6 @@ class ConsoleUI:
     def run_path(self, launch_dir):
         return self.prompt("Run directory (relative to %s)" % launch_dir)
 
-    def status_actions(self, run_id):
-        return self._action("Run status: %s" % run_id, ["Refresh", "Back"], ["refresh", "back"])
-
     def terminal_run_actions(self, state):
         return self._action("Run is %s; it cannot advance." % state,
                             ["Inspect status", "Back"], ["inspect", "back"])
@@ -866,10 +869,6 @@ class ConsoleUI:
     def operation_error(self, error):
         """Report without pausing; command dispatch owns its finally-pause."""
         print("%s: %s" % (type(error).__name__, error))
-
-    def interrupted_operation(self):
-        print("\nForeground operation interrupted. Submitted batch jobs are not cancelled. "
-              "Use the saved run record to continue.")
 
     def unreadable_run(self, error):
         print("Cannot read run: %s" % error)

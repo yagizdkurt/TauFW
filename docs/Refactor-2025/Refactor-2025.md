@@ -1078,3 +1078,35 @@ behind the menu (CL §18), like the tests, and the run screen follows them.
 - Removed: `poll_interval`, `invalid_poll_interval` (UI), `validate_poll` (adapter), the "polling interval" preview
   screen; added the "grid proxy needed" preview screen. Plan and status still run in the menu's process (TODO §6
   step 3). The info box next to the stage list stays empty until its fields are chosen (part 4d).
+
+## 30. Plan and status run behind the menu, their output on a screen
+
+**Date:** 2026-10-21
+**Status:** done on Windows (unit tests); lxplus check in TODO §1 "Plan and status behind the menu on lxplus"
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#30-plan-and-status-run-behind-the-menu-their-output-on-a-screen)
+
+TODO §6 "Menu as a program", step (3); decisions of the user, 2026-10-21: the plain output in a scrollable screen
+(option a, not a designed status screen), Esc stops a running command without a question, no `check` in the menu
+(the recipe and run lists already show the problems). Before: "View detailed plan" and "Inspect run status" ran
+`cmd_plan`/`cmd_status` in the menu's own process (`_execute`): plain terminal text over the curses screen, then
+"Press Enter"; a status with production asks HTCondor, so the menu froze for seconds. After: they run as
+operations behind the menu, like the tests and runs (CL §18), and a screen shows their output.
+
+- **Adapter** (`_Operations.start_command(command, target)`): `taufw.py plan RECIPE` or `taufw.py status RUN_DIR`
+  as an operation of `kind="command"` (data: command, target; the default stop: SIGINT to the group, then
+  escalation; both only read), the last five records kept. `running_operations()` leaves them out: the screen
+  stops them, so they never count as running behind the menu (no main-menu line, no quit warning).
+- **Screen** (`Menu/_command_screen.py`, `ConsoleUI.command_output(title, process, refresh)`): the operation screen
+  with the model `CommandOutput`, which has no items, so only the Output view (Up/Down/PgUp/PgDn, End follows the
+  end; colour codes removed; long lines wrap). State line: "RUNNING | 00:04 | taufw.py status", "(exit 1)" after a
+  failure. Esc stops a command that still runs and leaves; S stops it and stays (no question); with `refresh`
+  (status) R runs it again once it ended. `ScreenModel` got `leave_stops` and `actions` (keys that leave once the
+  operation ended, with `model.answer`); the test and run screens are unchanged.
+- **Navigation:** the review's "View detailed plan" opens "Plan: <recipe>", Inspect opens "Run status: <run id>"
+  with R Refresh, also from Continue on a run that cannot advance. An error before the screen opens (e.g. the
+  operations directory is not writable) is printed with "Press Enter" as before (step 4).
+- Removed: `_Operations.execute` and the `commands` argument of `Menu`/`run_menu` (`taufw.py` calls
+  `run_menu(build_parser())`): nothing runs in the menu's process any more. `MenuNavigation._execute`,
+  `ConsoleUI.status_actions` (the Refresh/Back screen) and `ConsoleUI.interrupted_operation`. The CLI is unchanged.
+- **UI preview:** "detailed plan (taufw.py plan behind the menu)" and "run status, HTCondor answers after 4 s"
+  replace "status actions". In the preview R shows the screen again, so Refresh is tried in the real menu.

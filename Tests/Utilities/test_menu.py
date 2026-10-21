@@ -408,12 +408,33 @@ class ScreenTests(unittest.TestCase):
         self.assertEqual(ui.run_progress.call_args_list, [mock.call("Run example", started),
                                                           mock.call("Run example", advanced)])
         operations.mark_seen.assert_called_once_with(advanced)  # it ended; the started one still runs
-        operations.execute.assert_not_called()  # start and advance never run in the menu's own process
+        operations.start_command.assert_not_called()  # no plan or status was asked for
         self.assertEqual(ui.select_run.call_args.kwargs["advances"], [None])
         operations.load_run.assert_called_once_with("runs/example")
         operations.can_advance.assert_called_once_with(record)
         operations.prepare_review.assert_called_once_with(str(Path("recipes/example.yml")))
         ui.pause.assert_not_called()
+
+    def test_plan_and_status_are_shown_on_the_command_screen(self):
+        ui, operations, record = self.runs_menu()
+        operations.recipes.return_value = [Path("recipes/example.yml")]
+        operations.prepare_review.return_value = dict(name="example")
+        ui.main_menu.side_effect = ["start", "inspect", "exit"]
+        ui.select_recipe.side_effect = [("select", 0), ("back", None)]
+        ui.confirm_recipe.side_effect = ["plan", "back"]
+        ui.command_output.side_effect = ["back", "refresh", "refresh", "back"]
+        self.assertEqual(MenuNavigation(ui, operations).run(), 0)
+        path = str(Path("recipes/example.yml"))
+        self.assertEqual(operations.start_command.call_args_list,
+                         [mock.call("plan", path)] + [mock.call("status", "runs/example")] * 3)
+        titles = [(call.args[0], call.kwargs) for call in ui.command_output.call_args_list]
+        self.assertEqual(titles, [("Plan: example", dict(refresh=False))] +
+                         [("Run status: example", dict(refresh=True))] * 3)  # R twice
+        ui.pause.assert_not_called()
+        operations.start_command.side_effect = OSError("AFS is not writable")  # the screen never opens
+        MenuNavigation(ui, operations).inspect(record)
+        ui.operation_error.assert_called_once()
+        ui.pause.assert_called_once()
 
     def test_continue_on_an_advancing_run_opens_its_screen(self):
         ui, operations, record = self.runs_menu()
@@ -477,7 +498,6 @@ class ScreenTests(unittest.TestCase):
             (ui.tests_menu, (), ["all", "checks", "normal", "bbb", "environment", "preview", "back"]),
             (ui.test_family, ("Normal",), ["all", "choose", "back"]),
             (ui.confirm_recipe, ("example.yml",), ["start", "plan", "back"]),
-            (ui.status_actions, ("run",), ["refresh", "back"]),
             (ui.terminal_run_actions, ("DONE",), ["inspect", "back"]),
             (ui.continue_actions, ("run",), ["wait", "advance", "back"]),
             (ui.grid_proxy_needed, (), ["renew", "back"]),
@@ -683,7 +703,7 @@ ConsoleUI(None)
         MenuNavigation(ui, operations).start()
         self.assertEqual(operations.recipe_preview.call_count, 3)
         operations.prepare_review.assert_not_called()
-        operations.execute.assert_not_called()
+        operations.start_command.assert_not_called()
 
     def test_problems_and_descriptions_in_the_pipeline(self):
         ui = ConsoleUI(mock.Mock())

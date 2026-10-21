@@ -2,18 +2,20 @@
 """Framework adapters for the Utilities menu navigation.
 
 Discovery, path resolution, record access, validation, and CLI dispatch belong
-here. Presentation and screen transitions live in TauFW.Utilities.Menu.
+here. Presentation and screen transitions live in TauFW.Utilities.Menu. Every
+command runs behind the menu as taufw.py (OperationStore): start/advance
+(kind "run"), plan/status (kind "command", read only) and the tests; the
+menu's own process only reads (recipes, run.json, check_recipe, a dry plan).
 """
 import json
 import os
 import socket
 import subprocess
 import sys
-from argparse import Namespace
 from pathlib import Path
 
-from TauFW.Framework.defaults import (ANALYSES_DIR, DEFAULT_POLL_SECONDS, DEFAULT_RUN_ROOT, RECIPE_NAME,
-                                      RUN_RECORD_NAME, STAGES_DIR_NAME)
+from TauFW.Framework.defaults import (ANALYSES_DIR, DEFAULT_RUN_ROOT, RECIPE_NAME, RUN_RECORD_NAME,
+                                      STAGES_DIR_NAME)
 from TauFW.Framework.run_record import RunRecord, RunState
 from TauFW.Framework.recipe import Recipe, read_recipe, run_root_dir
 from TauFW.Framework.validation import check_recipe
@@ -21,7 +23,7 @@ from TauFW.Framework.framework import Framework
 from TauFW.Framework.reporting import SilentReporter
 from TauFW.Framework.run_lock import read_lock
 from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation
-from TauFW.Utilities.Process import LOST, EventReader, EventWriter, OperationStore
+from TauFW.Utilities.Process import LOST, EventReader, OperationStore
 
 CHECKOUT = Path(__file__).resolve().parents[2]
 OPERATIONS_DIR = CHECKOUT / ".artifacts" / "menu" / "operations"  # what runs behind the menu (git-ignored)
@@ -34,8 +36,7 @@ class _Operations:
     # =========================================================================
     # ================================= SETUP =================================
 
-    def __init__(self, commands, launch_dir=None, recipes_dir=None, operations_dir=None):
-        self.commands = commands
+    def __init__(self, launch_dir=None, recipes_dir=None, operations_dir=None):
         self.launch_dir = Path(launch_dir or os.getcwd()).resolve()
         self.recipes_dir = Path(recipes_dir or ANALYSES_DIR)
         self.store = OperationStore(operations_dir or OPERATIONS_DIR)
@@ -320,9 +321,10 @@ class _Operations:
         return [operation for operation in operations if _run_dir_of(operation) == run_dir]
 
     def running_operations(self):
-        """Everything that runs behind the menu now (Operations)."""
+        """Everything that runs behind the menu now (Operations); a read-only command is stopped by its screen
+        and is not counted."""
         try:
-            return self.store.running()
+            return [operation for operation in self.store.running() if operation.kind != "command"]
         except OSError:
             return []
 
@@ -330,12 +332,19 @@ class _Operations:
     def stop_operation(operation):
         operation.cancel()
 
-    def execute(self, command, **values):
-        args = dict(verbose=0, wait=False, poll=DEFAULT_POLL_SECONDS, run_root=None, local=False, maxevts=100,
-                    take_lock=False,
-                    events=EventWriter(None))  # in the menu's own process: no events (taufw.py main sets them)
-        args.update(values)
-        return self.commands[command](Namespace(**args))
+    # =========================================================================
+    # ======================= READ-ONLY COMMANDS ON SCREEN ====================
+
+    def start_command(self, command, target):
+        """`taufw.py plan RECIPE` or `taufw.py status RUN_DIR` behind the menu; return its Operation (kind
+        "command", data: command, target). Its screen shows the plain output and stops it when it is left (a
+        status with production asks HTCondor, which may take seconds; the menu keeps drawing)."""
+        if command not in ("plan", "status"):
+            raise ValueError("Not a read-only command: %s" % command)
+        self.store.prune("command", keep=4)  # with the new one: the last five
+        return self.store.start("command", "%s %s" % (command, Path(target).name),
+                                [sys.executable, "-B", str(TAUFW_SCRIPT), command, str(target)],
+                                str(self.launch_dir), data=dict(command=command, target=str(target)))
 
 
 def _stage_info(stage):
@@ -379,19 +388,19 @@ def _run_dir_of(operation):
 # ================================== LAUNCH ===================================
 
 
-def Menu(commands, ui, launch_dir=None, recipes_dir=None, operations_dir=None):
-    """Build navigation with Framework callbacks, preserving the constructor API. operations_dir: where the
-    operations behind the menu are kept (default: OPERATIONS_DIR)."""
-    return MenuNavigation(ui, _Operations(commands, launch_dir, recipes_dir, operations_dir))
+def Menu(ui, launch_dir=None, recipes_dir=None, operations_dir=None):
+    """Build navigation with Framework callbacks. operations_dir: where the operations behind the menu are kept
+    (default: OPERATIONS_DIR)."""
+    return MenuNavigation(ui, _Operations(launch_dir, recipes_dir, operations_dir))
 
 
-def run_menu(commands, parser):
-    """Connect the terminal UI to existing CLI handlers; return a CLI exit code."""
+def run_menu(parser):
+    """Open the terminal UI (every command runs behind it as taufw.py); return a CLI exit code."""
     ui = ConsoleUI.open(parser)
     if ui is None:
         return 1
     try:
-        return Menu(commands, ui).run()
+        return Menu(ui).run()
     except Exception as error:
         if not ui.is_terminal_error(error):
             raise

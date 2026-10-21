@@ -363,7 +363,7 @@ def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
     if not argv:
         from TauFW.Framework.interactive import run_menu
-        return run_menu(COMMANDS, build_parser())
+        return run_menu(build_parser())
     args = build_parser().parse_args(argv)
     args.events = EventWriter(os.environ.pop(EVENTS_ENV, None))  # read once; the stages' commands never see it
     try:
