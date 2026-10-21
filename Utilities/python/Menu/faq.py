@@ -71,8 +71,10 @@ FAQ = (
      "The main menu checks your existing grid proxy without asking for a password. "
      "A tick means it is valid; Warning: Proxy Failed! means it is missing, expired, "
      "or VOMS tools are unavailable. Select Grid Certificate to create or renew your "
-     "CMS proxy with voms-proxy-init -voms cms. Enter your grid certificate password "
-     "when prompted, then press Enter to return and refresh the status."),
+     "CMS proxy with voms-proxy-init -voms cms: type your grid certificate password "
+     "in the panel (shown as *; it goes to voms-proxy-init only and is kept nowhere) "
+     "and press Enter. The result is shown in the panel. The tick follows the proxy: "
+     "renewed or destroyed in another terminal, the next draw shows it."),
 
     ("Tests",
      "Open Tests from the main menu to run all automated tests, unit/harness "
@@ -85,9 +87,11 @@ FAQ = (
      "and requires Linux Python 3.9 with the matching ROOT environment and a "
      "baseline lock. Full testing needs the documented CMSSW/ROOT stack. "
      "Check environment only warns about Python package origins; it does not "
-     "repair the environment. Ctrl+C cancels the test run and its workers. "
+     "repair the environment. S or Ctrl+C asks, then stops the test run; while it "
+     "stops, K kills it at once. "
      "Integration tests and baseline creation/replacement remain explicit CLI "
      "operations. The menu itself requires an interactive Linux terminal and "
-     "working Framework imports. Press Enter after output to return."),
+     "working Framework imports. A test run goes on behind the menu: Esc leaves "
+     "its screen, the main menu shows its state and Tests opens it again."),
      
 )

@@ -30,6 +30,7 @@ CHECKOUT = Path(__file__).resolve().parents[2]
 OPERATIONS_DIR = CHECKOUT / ".artifacts" / "menu" / "operations"  # what runs behind the menu (git-ignored)
 TAUFW_SCRIPT = CHECKOUT / "Framework" / "scripts" / "taufw.py"
 PROXY_MARGIN = 60  # seconds a proxy must still be valid for (voms-proxy-info --valid 0:01 before)
+PROXY_INIT_TIMEOUT = 120  # seconds voms-proxy-init may take (it asks the VOMS server)
 
 
 class _Operations:
@@ -155,8 +156,26 @@ class _Operations:
         self._proxy = (valid, now + left - PROXY_MARGIN, proxy_file)
         return valid
 
-    def renew_grid_proxy(self):
-        """Let VOMS read the certificate password directly from the terminal."""
+    def renew_grid_proxy(self, password):
+        """`voms-proxy-init -voms cms -pwstdin`, the certificate password on its stdin (never in its argv, a file
+        or a log). Return (valid, output): valid is None when this voms-proxy-init cannot read the password from
+        stdin (its output names -pwstdin): then renew_grid_proxy_in_terminal()."""
+        try:
+            result = subprocess.run(["voms-proxy-init", "-voms", "cms", "-pwstdin"], input=password + "\n",
+                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                    timeout=PROXY_INIT_TIMEOUT)
+        except OSError as error:
+            raise RuntimeError("Cannot initialize the grid proxy; check that VOMS tools are available: %s"
+                               % error) from error
+        except subprocess.TimeoutExpired:
+            return False, "voms-proxy-init did not answer within %d s." % PROXY_INIT_TIMEOUT
+        output = result.stdout.strip()
+        if result.returncode and "pwstdin" in output.lower():
+            return None, output
+        return result.returncode == 0 and self.grid_proxy_valid(fresh=True), output
+
+    def renew_grid_proxy_in_terminal(self):
+        """Let VOMS read the certificate password directly from the terminal (ConsoleUI.in_terminal)."""
         print("Enter your grid certificate password when prompted.")
         try:
             result = subprocess.run(["voms-proxy-init", "-voms", "cms"])
@@ -423,7 +442,7 @@ def run_menu(parser):
     if ui is None:
         return 1
     try:
-        return Menu(ui).run()
+        return ui.session(Menu(ui).run)  # one curses session: nothing is printed between two screens
     except Exception as error:
         if not ui.is_terminal_error(error):
             raise

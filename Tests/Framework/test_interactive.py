@@ -23,10 +23,11 @@ from TauFW.Utilities.Menu import ConsoleUI
 class FakeUI(ConsoleUI):
     """Use production screen adapters with scripted terminal input."""
     def __init__(self, choices=(), prompts=()):
+        super().__init__(None)
         self.choices = iter(choices)
         self.prompts = iter(prompts)
         self.screens = []
-        self.pauses = 0
+        self.messages = []  # (title, text) of each panel over the screen (errors)
         self.outputs = []  # (title, argv after taufw.py, refresh) of each command shown
         self.output_answers = iter(())  # what command_output answers ("back" once these are used)
 
@@ -37,8 +38,9 @@ class FakeUI(ConsoleUI):
     def prompt(self, title, default=""):
         return next(self.prompts)
 
-    def pause(self):
-        self.pauses += 1
+    def message(self, title, lines, role=None):
+        lines = [(lines, role)] if isinstance(lines, str) else lines
+        self.messages.append((title, " ".join(text for text, _ in lines)))
 
     def help(self):
         pass
@@ -105,20 +107,45 @@ class MenuTests(unittest.TestCase):
             check.assert_called_once_with(["voms-proxy-info", "--timeleft"], stdout=subprocess.PIPE,
                                           stderr=subprocess.DEVNULL, text=True, timeout=5)
 
-    def test_grid_proxy_renewal_uses_terminal_and_checks_result(self):
+    def test_grid_proxy_renewal_gets_the_password_on_stdin(self):
+        operations = self.menu(FakeUI()).operations
+        for status, output, valid, expected in ((0, "Creating proxy .... Done\n", True, True),
+                                                (0, "Done\n", False, False),  # voms says done, the proxy is not
+                                                (1, "Error: wrong pass phrase\n", True, False),
+                                                (1, "Unknown option: -pwstdin\n", True, None)):
+            with mock.patch.object(interactive.subprocess, "run",
+                                   return_value=SimpleNamespace(returncode=status, stdout=output)) as renew, \
+                    mock.patch.object(operations, "grid_proxy_valid", return_value=valid) as check, \
+                    contextlib.redirect_stdout(io.StringIO()) as printed:
+                self.assertEqual(operations.renew_grid_proxy("secret"), (expected, output.strip()))
+            renew.assert_called_once_with(["voms-proxy-init", "-voms", "cms", "-pwstdin"], input="secret\n",
+                                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                          timeout=interactive.PROXY_INIT_TIMEOUT)
+            self.assertEqual(printed.getvalue(), "")  # nothing over the screen
+            if status == 0:
+                check.assert_called_once_with(fresh=True)
+        with mock.patch.object(interactive.subprocess, "run",
+                               side_effect=subprocess.TimeoutExpired("voms-proxy-init", 120)):
+            self.assertEqual(operations.renew_grid_proxy("secret"),
+                             (False, "voms-proxy-init did not answer within 120 s."))
+        with mock.patch.object(interactive.subprocess, "run", side_effect=FileNotFoundError()):
+            with self.assertRaisesRegex(RuntimeError, "VOMS tools"):
+                operations.renew_grid_proxy("secret")
+
+    def test_grid_proxy_renewal_in_the_terminal_checks_result(self):
         operations = self.menu(FakeUI()).operations
         for status, valid in ((0, True), (0, False), (1, False)):
             with mock.patch.object(interactive.subprocess, "run",
                                    return_value=SimpleNamespace(returncode=status)) as renew, \
                     mock.patch.object(operations, "grid_proxy_valid", return_value=valid), \
                     contextlib.redirect_stdout(io.StringIO()) as output:
-                self.assertEqual(operations.renew_grid_proxy(), 0 if valid else 1)
+                self.assertEqual(operations.renew_grid_proxy_in_terminal(), 0 if valid else 1)
                 renew.assert_called_once_with(["voms-proxy-init", "-voms", "cms"])
             self.assertIn("Grid proxy active." if valid else "Proxy Failed!", output.getvalue())
         with mock.patch.object(interactive.subprocess, "run", side_effect=FileNotFoundError()), \
                 contextlib.redirect_stdout(io.StringIO()):
             with self.assertRaisesRegex(RuntimeError, "VOMS tools"):
-                operations.renew_grid_proxy()
+                operations.renew_grid_proxy_in_terminal()
 
     def test_test_adapter_uses_checkout_current_python_and_quiet_arguments(self):
         operations = self.menu(FakeUI()).operations
@@ -311,7 +338,7 @@ class MenuTests(unittest.TestCase):
         self.assertEqual(self.started, [])  # start_run is mocked; no plan ran
         menu.operations.start_run.assert_called_once_with(str(self.root / "custom.yml"))
         self.assertEqual(ui.screens[-1][0], "Run test")
-        self.assertEqual(ui.pauses, 0)
+        self.assertEqual(ui.messages, [])
 
     def test_recipe_error_allows_another_selection(self):
         self.recipe_file(self.root / "bad.yml")
@@ -320,7 +347,8 @@ class MenuTests(unittest.TestCase):
         ui = FakeUI([0, 0, 2, 1], ["bad.yml", "good.yml"])
         with contextlib.redirect_stdout(io.StringIO()) as output:
             self.menu(ui).start()
-        self.assertIn("invalid recipe", output.getvalue())
+        self.assertEqual(output.getvalue(), "")  # nothing printed over the screen
+        self.assertEqual(ui.messages, [("Error", "ValueError: invalid recipe")])
         self.assertEqual(self.framework.call_count, 2)
         self.assertEqual(self.started, [])  # no plan, no start
 
@@ -362,7 +390,7 @@ class MenuTests(unittest.TestCase):
         self.menu(ui).inspect()
         self.assertEqual([argv for argv, _ in self.started], [["status", record.run_dir]] * 2)  # R ran it again
         self.assertEqual(Path(record.path).read_bytes(), before)
-        self.assertEqual(ui.pauses, 0)
+        self.assertEqual(ui.messages, [])
 
     def test_plan_and_status_run_behind_the_menu(self):
         operations = self.menu(FakeUI()).operations
@@ -385,7 +413,8 @@ class MenuTests(unittest.TestCase):
         ui = FakeUI([0, 1], ["missing"])
         with contextlib.redirect_stdout(io.StringIO()) as output:
             self.assertIsNone(self.menu(ui)._pick_run())
-        self.assertIn("Cannot read run", output.getvalue())
+        self.assertEqual(output.getvalue(), "")
+        self.assertEqual(ui.messages[0][0], "Cannot read run")
         self.assertEqual(ui.screens[0][1], ["Enter another run directory", "Back"])
 
     def test_interrupted_operation_returns_to_main_menu(self):
@@ -556,21 +585,23 @@ class MenuTests(unittest.TestCase):
         self.assertEqual([argv for argv, _ in self.started], [["plan", str(path)], ["start", str(path), "--wait"]])
         self.assertEqual(ui.command_output.call_args.args[0], "Plan: test")
         self.assertEqual(ui.command_output.call_args.kwargs, dict(refresh=False))
-        ui.pause.assert_not_called()
+        ui.operation_error.assert_not_called()
 
     def test_invalid_selected_recipe_never_plans_or_starts(self):
         (self.recipes / "broken.json").write_text("{}")
         ui = FakeUI([0, 2])
         with contextlib.redirect_stdout(io.StringIO()) as output:
             self.menu(ui).start()
-        self.assertIn("RecipeError", output.getvalue())
+        self.assertEqual(output.getvalue(), "")
+        self.assertEqual(len(ui.messages), 1)
+        self.assertIn("RecipeError", ui.messages[0][1])
         self.framework.assert_not_called()
         self.assertEqual(self.started, [])
-        self.assertEqual(ui.pauses, 1)
 
     def test_terminal_failure_returns_cli_fallback(self):
         curses = mock.Mock()
         curses.error = RuntimeError
+        curses.wrapper.side_effect = lambda action: action(mock.Mock())  # the menu's one session
         ui = ConsoleUI(curses)
         parser = mock.Mock()
         with mock.patch.object(ConsoleUI, "open", return_value=ui), \

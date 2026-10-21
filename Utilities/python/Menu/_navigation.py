@@ -11,7 +11,9 @@ problems is shown in red and cannot start) and warnings (yellow; the recipe can 
 Records expose run_id, run_dir, and state;
 run rows are (created, path, (run_id, state, updated)). Only operations reads
 files, validates values, or invokes commands. Grid callbacks are grid_proxy_valid(fresh=False)
-(the main menu may get a kept answer; fresh before a run) and renew_grid_proxy(). Test callbacks are test_catalog(), start_tests(family, cases, title, expected), which
+(the main menu may get a kept answer; fresh before a run), renew_grid_proxy(password) -> (valid, output), valid
+None when voms-proxy-init cannot read the password from stdin, and renew_grid_proxy_in_terminal() (it asks on the
+plain terminal, ConsoleUI.in_terminal). Test callbacks are test_catalog(), start_tests(family, cases, title, expected), which
 returns the TauFW.Utilities.Process.Operation that the test screen follows, and tests_operation(), the last test
 run (or None). Run callbacks: start_run(recipe) and advance_run(record, wait, take_lock) start taufw.py behind the
 menu and return its Operation (kind "run"); run_operations() (the advances for the main menu), run_operation(run_dir)
@@ -20,7 +22,8 @@ or None), mark_seen(operation), needs_grid_proxy(recipe=, record=). running_oper
 menu, stop_operation(operation) stops one.
 The Tests menu also opens the UI preview (ConsoleUI.preview(), made-up screens; no operations are used).
 Operations run behind the menu: leaving a screen or quitting never stops them (quitting warns first).
-This class owns screen transitions.
+While one runs, the main menu draws itself again every 2 s (ConsoleUI.main_menu(live=True)). An error is shown
+in a panel over the current screen (ui.operation_error). This class owns screen transitions.
 """
 from ._menu import ConsoleUI
 
@@ -50,7 +53,6 @@ class MenuNavigation:
             if isinstance(self.ui, ConsoleUI) and self.ui.is_terminal_error(error):
                 raise
             self.ui.operation_error(error)
-            self.ui.pause()
 
     # =========================================================================
     # =========================== RECIPE NAVIGATION ===========================
@@ -78,7 +80,6 @@ class MenuNavigation:
                 return
             except Exception as error:
                 self.ui.operation_error(error)
-                self.ui.pause()
                 continue
             position = {}
             while True:
@@ -251,7 +252,6 @@ class MenuNavigation:
                 if isinstance(self.ui, ConsoleUI) and self.ui.is_terminal_error(error):
                     raise
                 self.ui.operation_error(error)
-                self.ui.pause()
 
     def _follow_tests(self, operation):
         """Show a test run; True if it still runs when the screen is left (back to the main menu)."""
@@ -274,14 +274,26 @@ class MenuNavigation:
         return choice in ("stop", "quit")
 
     def grid_certificate(self):
+        """Renew the grid proxy: the password typed in the menu goes to voms-proxy-init on its stdin; a
+        voms-proxy-init that cannot read it there asks on the plain terminal instead."""
+        password = self.ui.grid_password()
+        if password is None:
+            return
         try:
-            self.operations.renew_grid_proxy()
+            self.ui.notice("Grid Certificate", "Renewing the grid proxy (voms-proxy-init -voms cms)...")
+            valid, output = self.operations.renew_grid_proxy(password)
+            password = None
+            if valid is None:
+                valid = self.ui.in_terminal(self.operations.renew_grid_proxy_in_terminal) == 0
+                output = ""
         except KeyboardInterrupt:
-            pass  # The next main-menu check refreshes the status after cancellation.
+            return  # The next main-menu check refreshes the status after cancellation.
         except Exception as error:
+            if isinstance(self.ui, ConsoleUI) and self.ui.is_terminal_error(error):
+                raise
             self.ui.operation_error(error)
-        finally:
-            self.ui.pause()
+            return
+        self.ui.grid_result(valid, output)
 
     def run(self):
         actions = {"start": self.start, "continue": self.continue_run, "run": self.follow_runs,
@@ -289,9 +301,12 @@ class MenuNavigation:
                    "grid_certificate": self.grid_certificate, "help": self.ui.help}
         while True:
             try:
-                action = self.ui.main_menu(proxy_valid=self.operations.grid_proxy_valid(),
-                                           tests=self.operations.tests_operation(),
-                                           runs=self.operations.run_operations())
+                tests, runs = self.operations.tests_operation(), self.operations.run_operations()
+                live = (tests is not None and tests.running) or any(operation.running for operation in runs)
+                action = self.ui.main_menu(proxy_valid=self.operations.grid_proxy_valid(), tests=tests, runs=runs,
+                                           live=live)
+                if action == "refresh":
+                    continue  # live: the new states
                 if action == "exit":
                     if self._may_quit():
                         return 0
@@ -303,5 +318,4 @@ class MenuNavigation:
                 if isinstance(self.ui, ConsoleUI) and self.ui.is_terminal_error(error):
                     raise  # Terminal failures cannot be recovered by drawing another menu.
                 self.ui.operation_error(error)
-                self.ui.pause()
 

@@ -8,12 +8,13 @@ screen (_test_run.py) and, next, the run screen. What it shows comes from a mode
     process.state() ───────────────▶ the state line (model.states, + "on <host>"), then model.summary()
 
 The process is a TauFW.Utilities.Process.Operation (or a stand-in with
-state(), events, output, returncode, elapsed(), cancel(), remote and host).
-The screen draws every FRAME seconds and never waits for the operation.
-Leaving it (Esc) never stops the operation; S or Ctrl-C asks (model.stop_question),
-then stops it. A model with leave_stops (a read-only command, _command_screen.py)
-is stopped without a question by Esc, S or Ctrl-C: nothing of it stays behind
-the menu. No Framework imports belong here (see _test_run.py).
+state(), events, output, returncode, elapsed(), cancel(), kill(), remote and
+host). The screen draws every FRAME seconds and never waits for the operation.
+Leaving it (Esc) never stops the operation; S or Ctrl-C asks (model.stop_question,
+in a panel over the screen), then stops it; while it stops, K kills it at once
+after a question (model.kill_warning). A model with leave_stops (a read-only
+command, _command_screen.py) is stopped without a question by Esc, S or Ctrl-C:
+nothing of it stays behind the menu. No Framework imports belong here (see _test_run.py).
 
 A model (see ScreenModel) holds the words of its screen and turns events into
 items; the screen keeps only where the user is (_View). Three hooks a model
@@ -60,6 +61,7 @@ class ScreenModel:
     output_title = "Output"              # the L view
     stop_question = "Stop it?"           # asked before a stop
     stopping = "Stopping..."             # footer while it stops
+    kill_warning = "It ends at once, without finishing what it does."  # asked before K Kill now (while it stops)
     states = {RUNNING: ("RUNNING", "accent"), STOPPING: ("STOPPING", "warning"), DONE: ("DONE", "good"),
               FAILED: ("FAILED", "error"), STOPPED: ("STOPPED", "warning"), LOST: ("LOST", "warning")}
     leave_stops = False                  # Esc, S and Ctrl-C stop it without a question (Esc also leaves)
@@ -176,7 +178,7 @@ class _View:
         self.offset = None      # first line of a log view; None: follow the end
         self.end = 0            # the first line of the last page of the log view
         self.page = 1           # lines of the log view
-        self.confirm = False    # the stop question is asked
+        self.confirm = None     # the question asked in a panel over the screen: "stop" or "kill"
         self.finished = False
         self.tails = {}         # item log path -> LogTail
 
@@ -206,6 +208,10 @@ def _draw(ui, screen, title, process, model, view, state):
     else:
         _items(ui, screen, model, items, view, height, width)
     ui._footer(screen, _footer(model, items, view, state))
+    if view.confirm == "stop":
+        ui._overlay(screen, "Stop", [(model.stop_question, "warning")], "Y Yes | N No")
+    elif view.confirm == "kill":
+        ui._overlay(screen, "Kill now?", [(model.kill_warning, "error")], "Y Kill now | N No")
     screen.refresh()
 
 
@@ -261,15 +267,13 @@ def _log(ui, screen, view, title, lines, height, width):
 
 
 def _footer(model, items, view, state):
-    if view.confirm:
-        return "%s Y Yes | N No" % model.stop_question
     stop = " | S Stop" if state == RUNNING else ""
     if state in ACTIVE and not model.leave_stops:
         back = " | Esc Back (keeps running)"
     else:
         back = " | Esc Stop and back" if state == RUNNING else " | Esc Back"
     if state == STOPPING:
-        return model.stopping + back
+        return model.stopping + ("" if model.leave_stops else " | K Kill now") + back
     actions = "" if state in ACTIVE else "".join(" | %s %s" % (letter, label) for letter, label, _ in model.actions)
     if view.mode != "items" or not items:
         return "Up/Down/PgUp/PgDn Scroll | End Follow" + stop + actions + back
@@ -293,17 +297,24 @@ def _key(ui, key, process, model, view, state):
     curses = ui.curses
     items = model.items()
     if view.confirm:
-        if key in (ord("y"), ord("Y")):
-            view.confirm = False
-            process.cancel()
-        elif key in (ord("n"), ord("N"), 27):
-            view.confirm = False
+        if view.confirm == "kill" and state not in ACTIVE:
+            view.confirm = None  # it ended meanwhile: nothing to kill
+        elif key in (ord("y"), ord("Y")):
+            if view.confirm == "kill":
+                process.kill()
+            else:
+                process.cancel()
+            view.confirm = None
+        elif key in (ord("n"), ord("N"), 27, 3):
+            view.confirm = None
         return False
     if key in (3, ord("s"), ord("S")):
         if model.leave_stops and state == RUNNING:
             process.cancel()
         else:
-            view.confirm = state == RUNNING
+            view.confirm = "stop" if state == RUNNING else None
+    elif key in (ord("k"), ord("K")) and state == STOPPING and not model.leave_stops:
+        view.confirm = "kill"
     elif key == 27:
         if view.mode != "items" and items:
             view.mode, view.offset = "items", None

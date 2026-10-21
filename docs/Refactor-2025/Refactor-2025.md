@@ -1142,3 +1142,49 @@ lines).
   Without `kept` the summaries read from the top as before.
 - Not changed: the run list of Continue/Inspect (`runs()` reads every `run.json`), the `run.json` of a lost
   advance in the main menu (`_finished`, rare). Step (4), one curses session, comes next.
+
+## 32. One curses session for the menu, panels over the screen, the grid password in the menu
+
+**Date:** 2026-10-21
+**Status:** done on Windows (unit tests); lxplus check in TODO §1 "One curses session on lxplus"
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#32-one-curses-session-for-the-menu-panels-over-the-screen-the-grid-password-in-the-menu)
+
+TODO §6 "Menu as a program", step (4); decisions of the user, 2026-10-21: the grid certificate password in a field
+of the menu (option b; the plain terminal only as a fallback), a "Kill now" key while an operation stops, and a
+live main menu every 2 s while something runs behind it. Before: every screen opened its own `curses.wrapper`, so
+the shell showed between two screens; errors were printed (`operation_error`) and waited for "Press Enter"
+(`pause`, `unreadable_run`); the quit warning was a screen of its own; the stop question was the footer;
+`voms-proxy-init` asked for the password on the terminal; the main menu showed the states as they were when it was
+drawn.
+
+- **One session** (`ConsoleUI.session(function)`, `ConsoleUI._run(draw)`): `run_menu` runs the menu in one
+  `curses.wrapper`; every screen draws on its screen (`self.screen`). Outside a session (FastSetup's checklist, the
+  unit tests) a screen opens its own as before. `_setup` sets `timeout(-1)`: a screen after a live one waits for a
+  key. `in_terminal(function)` leaves the screen for a program that asks on the terminal (`def_prog_mode`,
+  `endwin`, then "Press Enter" and `reset_prog_mode`).
+- **Panels** (`_modal(title, lines, footer, answer)` waits for a key, `_overlay` only draws): a frame in the middle
+  of the current screen (at most `MODAL_WIDTH` 76 columns), the rows it covers cleared, a long text scrolls
+  (Up/Down/PgUp/PgDn, "Lines a-b/n"). `message(title, lines)` (Enter OK), `operation_error(error)` ("Error",
+  "RuntimeError: Tests are already running ..."), `unreadable_run`, `notice` (draws, waits for nothing). The quit
+  warning ("Still running: quit TauFW?", C/S/Q) is a panel over the main menu. `pause()` is removed; the
+  navigation no longer calls it after an error.
+- **Operation screen:** the stop question ("Stop the tests?", Y/N) is a panel over the live screen (it keeps
+  drawing). While an operation stops (STOPPING, not a read-only command) the footer offers "K Kill now"; K asks in a
+  panel (`ScreenModel.kill_warning`; the run: "taufw.py ends at once: a job submission in progress may be left half
+  done. Check condor_q, then Continue the run."; the tests: "Tests/run.py and the case it runs end at once."), Y
+  calls `Operation.kill()` (the `kill` file: the supervisor kills the group). A question that ended meanwhile goes
+  away.
+- **Grid certificate** (`MenuNavigation.grid_certificate`): `ui.grid_password()` (a panel, the password shown as
+  `*`, Esc or an empty Enter cancels), `ui.notice("Renewing the grid proxy ...")`,
+  `_Operations.renew_grid_proxy(password)` runs `voms-proxy-init -voms cms -pwstdin` with the password on its stdin
+  (never in argv, a file or a log; `PROXY_INIT_TIMEOUT` 120 s) and returns (valid, output); valid is None when its
+  output names `-pwstdin` after a failure: then `ui.in_terminal(renew_grid_proxy_in_terminal)` (the old
+  terminal prompt). `ui.grid_result(valid, output)`: "Grid proxy active." or "Proxy Failed! ..." with the last
+  lines of the output.
+- **Live main menu:** `MenuNavigation.run` passes `live` (the last test run or an advance runs);
+  `main_menu(live=True)` waits `LIVE_EVERY` (2 s) for a key, then answers "refresh" and is drawn again with the new
+  states (CL §31 keeps a draw cheap); the selected line stays (by its action). `choose` got `position` and `live`.
+- **Help:** the "Tests" topic no longer says "Press Enter after output to return" (a test run goes on behind the
+  menu; S/Ctrl+C asks, K kills while it stops); "Grid Certificate" describes the password panel.
+- **UI preview:** "Panel: an error over the screen", "Grid Certificate: password (typed as *)", "Grid Certificate:
+  renewal failed"; the quit scenarios show the new panel.

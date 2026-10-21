@@ -65,27 +65,120 @@ class ScreenTests(unittest.TestCase):
                 self.assertEqual(choose.call_args.args[1][4], label)
                 self.assertEqual(choose.call_args.kwargs["row_colors"][4], role)
 
-    def test_grid_certificate_checks_on_startup_and_refreshes_after_renewal(self):
-        for outcome in (0, 1, KeyboardInterrupt(), RuntimeError("VOMS unavailable")):
+    def test_grid_certificate_asks_the_password_in_a_panel_and_refreshes_after_renewal(self):
+        """The password from the panel goes to renew_grid_proxy; a voms-proxy-init without -pwstdin (None) asks
+        on the plain terminal; the result is a panel, an error too; the next main menu asks again."""
+        for outcome in ((True, "Done"), (False, "wrong pass phrase"), (None, "Unknown option -pwstdin"),
+                        KeyboardInterrupt(), RuntimeError("VOMS unavailable")):
             with self.subTest(outcome=outcome):
                 ui, operations = mock.Mock(), idle_operations()
                 ui.main_menu.side_effect = ["grid_certificate", "exit"]
-                operations.grid_proxy_valid.side_effect = [False, outcome == 0]
+                ui.grid_password.return_value = "secret"
+                ui.in_terminal.return_value = 0
+                valid = outcome[0] is not False if isinstance(outcome, tuple) else False
+                operations.grid_proxy_valid.side_effect = [False, valid]
                 if isinstance(outcome, BaseException):
                     operations.renew_grid_proxy.side_effect = outcome
                 else:
                     operations.renew_grid_proxy.return_value = outcome
                 self.assertEqual(MenuNavigation(ui, operations).run(), 0)
                 self.assertEqual(ui.main_menu.call_args_list,
-                                 [mock.call(proxy_valid=False, tests=None, runs=[]),
-                                  mock.call(proxy_valid=outcome == 0, tests=None, runs=[])])
-                operations.renew_grid_proxy.assert_called_once_with()
-                ui.pause.assert_called_once_with()
+                                 [mock.call(proxy_valid=False, tests=None, runs=[], live=False),
+                                  mock.call(proxy_valid=valid, tests=None, runs=[], live=False)])
+                operations.renew_grid_proxy.assert_called_once_with("secret")
+                ui.notice.assert_called_once()  # "Renewing..." while voms-proxy-init works
+                if isinstance(outcome, tuple) and outcome[0] is None:
+                    ui.in_terminal.assert_called_once_with(operations.renew_grid_proxy_in_terminal)
+                    ui.grid_result.assert_called_once_with(True, "")
+                elif isinstance(outcome, tuple):
+                    ui.in_terminal.assert_not_called()
+                    ui.grid_result.assert_called_once_with(*outcome)
+                else:
+                    ui.grid_result.assert_not_called()
+                self.assertEqual(ui.operation_error.called, isinstance(outcome, RuntimeError))
+        ui, operations = mock.Mock(), idle_operations()
+        ui.main_menu.side_effect = ["grid_certificate", "exit"]
+        ui.grid_password.return_value = None  # Esc in the panel
+        self.assertEqual(MenuNavigation(ui, operations).run(), 0)
+        operations.renew_grid_proxy.assert_not_called()
+        ui.grid_result.assert_not_called()
         ui, operations = mock.Mock(), idle_operations()
         ui.main_menu.return_value = "exit"
         self.assertEqual(MenuNavigation(ui, operations).run(), 0)
         operations.grid_proxy_valid.assert_called_once_with()
         operations.renew_grid_proxy.assert_not_called()
+
+    def test_the_main_menu_is_live_while_something_runs_behind_it(self):
+        ui, operations = mock.Mock(), idle_operations()
+        running, ended = mock.Mock(running=True), mock.Mock(running=False)
+        operations.tests_operation.side_effect = [running, running, ended]
+        ui.main_menu.side_effect = ["refresh", "refresh", "exit"]
+        self.assertEqual(MenuNavigation(ui, operations).run(), 0)
+        self.assertEqual([call.kwargs["live"] for call in ui.main_menu.call_args_list], [True, True, False])
+        self.assertEqual(operations.tests_operation.call_count, 3)  # each draw asks again
+        curses, screen = self.curses([1002, -1, 1002, -1, 10])
+        ui = ConsoleUI(curses)
+        tests = mock.Mock(kind="command", state=mock.Mock(return_value="RUNNING"))
+        self.assertEqual(ui.main_menu(live=True), "refresh")  # no key in LIVE_EVERY s: draw it again
+        screen.timeout.assert_called_with(2000)
+        self.assertEqual(ui.main_menu(live=True, tests=tests), "refresh")
+        self.assertEqual(ui.main_menu(), "inspect")  # the selected line stayed through the redraws
+        curses, screen = self.curses([-1, 10])
+        self.assertEqual(ConsoleUI(curses).main_menu(), "start")  # not live: no key is no answer
+
+    def test_one_session_for_every_screen_and_errors_in_a_panel(self):
+        curses, screen = self.curses([10, 27, 10])
+        ui = ConsoleUI(curses)
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            result = ui.session(lambda: (ui.choose("A", ["x", "y"]), ui.choose("B", ["x"]),
+                                         ui.operation_error(RuntimeError("Tests are already running"))))
+        self.assertEqual(result, (0, None, None))
+        curses.wrapper.assert_called_once()  # one curses session for all screens
+        self.assertIsNone(ui.screen)
+        self.assertEqual(output.getvalue(), "")  # nothing printed over the screen
+        drawn = [call.args[2] for call in screen.addnstr.call_args_list]
+        self.assertIn(" Error ", drawn)
+        self.assertIn("RuntimeError: Tests are already running", drawn)
+        self.assertIn("Enter OK", drawn)
+        curses, screen = self.curses([ord("x"), 1002, 27])
+        ConsoleUI(curses).unreadable_run(OSError("no run.json"))  # outside a session: its own
+        drawn = [call.args[2] for call in screen.addnstr.call_args_list]
+        self.assertIn(" Cannot read run ", drawn)
+        self.assertEqual(screen.getch.call_count, 3)  # x and Down do not close it
+
+    def test_the_grid_password_panel_shows_stars_and_the_result(self):
+        curses, screen = self.curses([])
+        screen.get_wch.side_effect = list("pw") + ["\x7f", "x", "\n"]
+        ui = ConsoleUI(curses)
+        self.assertEqual(ui.grid_password(), "px")
+        drawn = [call.args[2] for call in screen.addnstr.call_args_list]
+        self.assertIn("Certificate password: **", drawn)
+        self.assertFalse(any("pw" in line or "px" in line for line in drawn))  # never shown
+        for keys in (["\x1b"], ["\n"], [KeyboardInterrupt()]):  # Esc, Enter on nothing, Ctrl-C
+            screen.get_wch.side_effect = keys
+            self.assertIsNone(ui.grid_password())
+        curses, screen = self.curses([10, 10])
+        screen.getmaxyx.return_value = (30, 100)  # the whole result (a small terminal scrolls it)
+        ui = ConsoleUI(curses)
+        ui.grid_result(True)
+        ui.grid_result(False, "line 1\nError: wrong pass phrase\n")
+        drawn = [call.args[2] for call in screen.addnstr.call_args_list]
+        self.assertIn("Grid proxy active.", drawn)
+        self.assertTrue(any(line.startswith("Proxy Failed!") for line in drawn))
+        self.assertIn("Error: wrong pass phrase", drawn)
+
+    def test_in_terminal_leaves_the_screen_and_comes_back(self):
+        curses, screen = self.curses([])
+        ui = ConsoleUI(curses)
+        self.assertEqual(ui.in_terminal(lambda: 3), 3)  # outside a session: just runs
+        curses.endwin.assert_not_called()
+        with mock.patch("builtins.input", return_value="") as enter:
+            self.assertEqual(ui.session(lambda: ui.in_terminal(lambda: 7)), 7)
+        enter.assert_called_once()
+        curses.def_prog_mode.assert_called_once_with()
+        curses.endwin.assert_called_once_with()
+        curses.reset_prog_mode.assert_called_once_with()
+        screen.refresh.assert_called()
 
     def curses(self, keys):
         screen = mock.Mock()
@@ -139,7 +232,7 @@ class ScreenTests(unittest.TestCase):
                 process.cancel.assert_not_called()  # the screen never stops a run
                 self.assertEqual(ui.test_selection.call_args_list[-1],
                                  mock.call("Review / Normal tests", [item], review=True))
-                self.assertEqual(ui.pause.call_count, 1 if isinstance(outcome, RuntimeError) else 0)
+                self.assertEqual(ui.operation_error.call_count, 1 if isinstance(outcome, RuntimeError) else 0)
         ui, operations = mock.Mock(), idle_operations()
         ui.tests_menu.side_effect = ["normal", "back"]
         ui.test_family.return_value = "all"
@@ -149,7 +242,6 @@ class ScreenTests(unittest.TestCase):
         MenuNavigation(ui, operations).tests()
         ui.test_run.assert_not_called()
         ui.operation_error.assert_called_once()
-        ui.pause.assert_called_once()
 
     def test_testing_back_empty_selection_and_catalog_failure_do_not_execute(self):
         item = dict(id="example", description="Local example", dependencies=[])
@@ -167,7 +259,6 @@ class ScreenTests(unittest.TestCase):
         MenuNavigation(ui, operations).tests()
         operations.start_tests.assert_not_called()
         ui.operation_error.assert_called_once()
-        ui.pause.assert_called_once()
 
     def test_a_running_test_run_opens_its_screen_and_stays_behind_the_menu(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -241,8 +332,10 @@ class ScreenTests(unittest.TestCase):
             for keys, choice in (([ord("x"), ord("q")], "quit"), ([ord("S")], "stop"), ([27], "cancel"),
                                  ([10], "cancel"), ([KeyboardInterrupt()], "cancel")):
                 curses, screen = self.curses(keys)
+                screen.getmaxyx.return_value = (30, 100)  # the whole warning in the panel
                 self.assertEqual(ConsoleUI(curses).quit_running([remote]), choice)
             drawn = [call.args[2] for call in screen.addnstr.call_args_list]
+            self.assertIn(" Still running: quit TauFW? ", drawn)  # a panel over the main menu
             self.assertIn("Normal tests: Running 2/2  01:15 on lxplus812.cern.ch", drawn)
             self.assertIn("C Cancel (stay) | S Stop all and quit | Q Quit anyway", drawn)
             self.assertTrue(any("closing the SSH" in line for line in drawn))
@@ -287,7 +380,7 @@ class ScreenTests(unittest.TestCase):
                                  ["checks", "normal", "bbb"])
             else:
                 operations.test_catalog.assert_not_called()
-            ui.pause.assert_not_called()
+            ui.operation_error.assert_not_called()
 
     def test_entry_banners_welcome_text_and_compact_layout(self):
         from TauFW.Utilities.Menu.banner import FULL
@@ -438,7 +531,7 @@ class ScreenTests(unittest.TestCase):
         operations.load_run.assert_called_once_with("runs/example")
         operations.can_advance.assert_called_once_with(record)
         operations.prepare_review.assert_called_once_with(str(Path("recipes/example.yml")))
-        ui.pause.assert_not_called()
+        ui.operation_error.assert_not_called()
 
     def test_plan_and_status_are_shown_on_the_command_screen(self):
         ui, operations, record = self.runs_menu()
@@ -455,11 +548,10 @@ class ScreenTests(unittest.TestCase):
         titles = [(call.args[0], call.kwargs) for call in ui.command_output.call_args_list]
         self.assertEqual(titles, [("Plan: example", dict(refresh=False))] +
                          [("Run status: example", dict(refresh=True))] * 3)  # R twice
-        ui.pause.assert_not_called()
+        ui.operation_error.assert_not_called()
         operations.start_command.side_effect = OSError("AFS is not writable")  # the screen never opens
         MenuNavigation(ui, operations).inspect(record)
         ui.operation_error.assert_called_once()
-        ui.pause.assert_called_once()
 
     def test_continue_on_an_advancing_run_opens_its_screen(self):
         ui, operations, record = self.runs_menu()

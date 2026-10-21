@@ -142,6 +142,15 @@ Items marked **(verify)** may already be done; check before working on them.
       shows "Proxy Failed!"; `voms-proxy-init -voms cms` there: ✓ again; Start a production recipe without a proxy:
       the "Grid proxy needed" screen (a fresh check). A test run that ends while the main menu is shown: the next
       draw shows "Tests (Done)".
+- [ ] **One curses session on lxplus (CL §32):** `python3 taufw.py`: going from screen to screen (Start, a
+      recipe, Back, Tests, Help, Esc) never shows the shell. An error in a panel: Tests > Normal tests twice from two
+      terminals ("Tests are already running"), Continue > Enter another run directory > a wrong path ("Cannot read
+      run"). Grid Certificate: the password panel (only `*`), a wrong password ("Proxy Failed!" and the voms
+      lines), the right one ("Grid proxy active.", the ✓ on the main menu); check `voms-proxy-init -voms cms
+      -pwstdin` works on lxplus (else the menu leaves the screen and voms asks: check that path too). Tests running:
+      the main menu label moves every 2 s without a key, Up/Down keeps working; after the end it stops moving. S on a
+      test run: the panel, N, S, Y; while it stops K: the Kill now panel, Y ends it (STOPPED). Quit while tests run:
+      the panel over the main menu. A small terminal (80 x 24 and smaller): the panels fit, a long text scrolls.
 - [ ] **Tests behind the menu on lxplus (CL §18):** `python3 Tests/Utilities/test_operations.py` (the two real
       stop tests run there). In the menu: Tests > Normal tests > Run entire family, Esc at once: the main menu shows
       "Tests (Running n/N)"; Tests opens the live screen again; after the end "Tests (Done)" or "(Failed: n)" and
@@ -346,7 +355,9 @@ Parts 1–5 are done (CL §5–§8; the Part 2 changelog section was removed).
       recipe options (first version, CL §29). Done 2026-10-21: step (3) for plan and status (CL §30; the plain
       output, Esc stops; no `check`: the lists show the problems). Done 2026-10-21: menu speed (CL §31: the proxy
       answer kept until it expires or its file changes, fresh before a run; ended operations and their events read
-      once). Left: a choice of fields per stage type if the options are too much; then step (4).
+      once). Done 2026-10-21: step (4) (CL §32: one curses session, panels for errors, the quit warning and the
+      stop question, K Kill now while it stops, the grid password in the menu with `-pwstdin`, the main menu live
+      every 2 s). Left: a choice of fields per stage type if the options are too much.
 
 Next-work proposals (not designed in detail yet):
 

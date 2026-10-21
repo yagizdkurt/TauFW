@@ -69,6 +69,8 @@ class RunProgress(ScreenModel):
     output_title = "Output of taufw.py"
     stop_question = "Stop the advance? A job submission in progress is finished first."
     stopping = "Stopping the advance (a job submission in progress is finished first)..."
+    kill_warning = ("taufw.py ends at once: a job submission in progress may be left half done. Check condor_q, "
+                    "then Continue the run.")
 
     def feed(self, events):
         for event in events:

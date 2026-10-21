@@ -83,6 +83,7 @@ class TestRun(ScreenModel):
     output_title = "Output of Tests/run.py"
     stop_question = "Stop the tests?"
     stopping = "Stopping the tests..."
+    kill_warning = "Tests/run.py and the case it runs end at once."
     states = STATES
 
     def items(self):

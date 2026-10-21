@@ -56,6 +56,11 @@ class FakeRun:
             self.cancelled = True
             self.codes = [130]
 
+    def kill(self):
+        if self.returncode is None:
+            self.killed = True
+            self.codes = [137]
+
     def elapsed(self):
         return 75.0
 
@@ -148,7 +153,7 @@ class TestScreenTests(unittest.TestCase):
         self.assertIn(" Log: b ", drawn)
         self.assertIn("runner output", drawn)
         self.assertFalse(run.cancelled)
-        screen.timeout.assert_called_once_with(100)
+        screen.timeout.assert_called_with(100)  # a frame; -1 before it (_setup: a key is awaited)
 
     def test_leaving_a_running_run_leaves_it_running(self):
         run = FakeRun(self.output, codes=(None,), batches=[[start("a")]])
@@ -167,14 +172,33 @@ class TestScreenTests(unittest.TestCase):
                 self.assertEqual(ConsoleUI(curses).test_run("Tests", run, ["a"]), 130)
                 self.assertTrue(run.cancelled)
                 drawn = self.drawn(screen)
-                self.assertIn("Stop the tests? Y Yes | N No", drawn)
+                self.assertIn("Stop the tests?", drawn)
+                self.assertIn("Y Yes | N No", drawn)
                 self.assertTrue(any(line.startswith("STOPPED") for line in drawn))
                 self.assertTrue(any(line.startswith("[    ] a") for line in drawn))  # "a" never started
                 self.assertEqual(screen.getch.call_count, 6)  # stayed until Esc
         run = FakeRun(self.output, codes=(0,))
         curses, screen = self.curses([ord("s"), 27])
         ConsoleUI(curses).test_run("Tests", run, ["a"])
-        self.assertNotIn("Stop the tests? Y Yes | N No", self.drawn(screen))  # an ended run is not stopped
+        self.assertNotIn("Stop the tests?", self.drawn(screen))  # an ended run is not stopped
+
+    def test_kill_now_while_it_stops_asks_first(self):
+        run = FakeRun(self.output, codes=(None,))
+        run.cancelled = True  # asked to stop; it does not end by itself
+        curses, screen = self.curses([ord("k"), ord("n"), ord("K"), ord("y"), -1, 27])
+        self.assertEqual(ConsoleUI(curses).test_run("Tests", run, ["a"]), 137)
+        self.assertTrue(run.killed)
+        drawn = self.drawn(screen)
+        self.assertIn("Stopping the tests... | K Kill now | Esc Back (keeps running)", drawn)
+        self.assertIn(" Kill now? ", drawn)
+        self.assertIn("Tests/run.py and the case it runs end at once.", drawn)
+        self.assertIn("Y Kill now | N No", drawn)
+        self.assertTrue(any(line.startswith("STOPPED") for line in drawn))
+        run = FakeRun(self.output, codes=(None,))
+        curses, screen = self.curses([ord("k"), 27])
+        ConsoleUI(curses).test_run("Tests", run, ["a"])  # running: K is no key, nothing is killed
+        self.assertFalse(hasattr(run, "killed"))
+        self.assertNotIn(" Kill now? ", self.drawn(screen))
 
     def test_a_lost_run_and_a_run_on_another_machine(self):
         run = FakeRun(self.output, codes=(None,), batches=[[start("a")]], lost=True)

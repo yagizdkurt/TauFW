@@ -474,3 +474,28 @@ removed). Open: BBB, two nodes, Ctrl-C (TODO §1 "Run lock and safe stop on lxpl
   `fresh=True` (`test_a_run_that_may_submit_needs_a_valid_grid_proxy`).
 - `python Tests/run.py checks` on Windows: 13/15 (the known two: import debt in `check_import_boundaries`,
   `check_root`).
+
+## 32. One curses session for the menu, panels over the screen, the grid password in the menu
+
+**Change:** [CL §32](Refactor-2025.md#32-one-curses-session-for-the-menu-panels-over-the-screen-the-grid-password-in-the-menu)
+
+**Status:** unit tests on Windows; lxplus check open (TODO §1 "One curses session on lxplus").
+
+- `Tests/Utilities/test_menu.py`: `test_one_session_for_every_screen_and_errors_in_a_panel` (two screens and an
+  error in one `curses.wrapper`, nothing printed, the "Error" panel; outside a session `unreadable_run` opens its
+  own, other keys do not close it); `test_the_main_menu_is_live_while_something_runs_behind_it` (`live` follows the
+  running tests, "refresh" draws again, `timeout(2000)`, the selected line stays, no refresh when not live);
+  `test_the_grid_password_panel_shows_stars_and_the_result` (only `*` drawn, backspace, Esc/empty/Ctrl-C cancel,
+  the result panels); `test_in_terminal_leaves_the_screen_and_comes_back`;
+  `test_grid_certificate_asks_the_password_in_a_panel_and_refreshes_after_renewal` (the password to
+  `renew_grid_proxy`, the terminal fallback on None, errors in a panel, Esc renews nothing); the quit warning panel.
+  The tests that counted `pause` now check `operation_error`.
+- `Tests/Utilities/test_test_run.py` `test_kill_now_while_it_stops_asks_first` (K only while it stops, N keeps it,
+  Y kills, the panel words); the stop question panel. `Tests/Utilities/test_operation_screen.py`: the panel.
+- `Tests/Framework/test_interactive.py`: `test_grid_proxy_renewal_gets_the_password_on_stdin` (argv with
+  `-pwstdin`, the password as stdin, a proxy that is not valid after "Done", a wrong password, no `-pwstdin` ->
+  None, a timeout, no VOMS tools; nothing printed), `test_grid_proxy_renewal_in_the_terminal_checks_result` (the old
+  terminal path); `FakeUI` records the panels instead of the pauses; errors are panels, nothing is printed.
+- `Tests/Utilities/test_preview.py`: every scenario draws, the three new ones too.
+- `python Tests/run.py checks` on Windows: 13/15 (the known two: import debt in `check_import_boundaries`,
+  `check_root`); FastSetup's `unit.setup` OK (its checklist outside a session).

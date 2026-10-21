@@ -469,6 +469,12 @@ def _command_output(kind):
     return show
 
 
+def _over_blank(ui, show):
+    """A panel of the menu (it is drawn over the current screen): here over a cleared one."""
+    ui._run(lambda screen: screen.erase())
+    return show()
+
+
 # =============================================================================
 # ============================= MADE-UP SCREENS ===============================
 
@@ -582,6 +588,12 @@ SCENARIOS = [
     Scenario("Quit", "while tests and a run run",
              lambda ui, directory: ui.quit_running([_tests(os.path.join(directory, "tests"), ago=12.0)]
                                                    + _runs(directory, ("jobs", None, 8.0)))),
+    Scenario("Panel", "an error over the screen", lambda ui, directory: _over_blank(ui, lambda: ui.operation_error(
+        RuntimeError("Tests are already running (Normal tests, started on %s); open Tests to follow them."
+                     % REMOTE_HOST)))),
+    Scenario("Grid Certificate", "password (typed as *)", lambda ui, directory: _over_blank(ui, ui.grid_password)),
+    Scenario("Grid Certificate", "renewal failed", lambda ui, directory: _over_blank(ui, lambda: ui.grid_result(
+        False, "Enter GRID pass phrase for this identity:\nError: Wrong pass phrase. Try again."))),
     Scenario("Help", "topics", lambda ui, directory: ui.help()),
     Scenario("FastSetup", "installer checklist",
              lambda ui, directory: ui.setup_checklist(COMPONENTS, ["tauidsfs", "combine"])),

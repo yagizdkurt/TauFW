@@ -2,7 +2,11 @@
 """Terminal presentation, screen actions, and menu wording.
 
 No Framework imports or workflow decisions belong here. Curses is loaded only
-when open() is called. Each screen restores the terminal before returning.
+when open() is called. The menu draws every screen in one curses session
+(session()): nothing is printed between two screens, and a message, an error
+or a question is a small panel over the current screen (_modal). Without a
+session (FastSetup's checklist, the unit tests) each screen opens the terminal
+and restores it before returning.
 """
 import os
 import sys
@@ -20,6 +24,11 @@ QUIT_WARNING = ("If you quit, they keep running, but only while this login sessi
                 "to stop: a run finishes a job submission in progress first.")
 
 
+LIVE_EVERY = 2.0      # seconds between two draws of a live main menu (something runs behind it)
+MODAL_WIDTH = 76      # columns of a panel over the screen at most
+REFRESH = "refresh"   # the answer of a live screen that was not answered in time: draw it again
+
+
 def _clock(seconds):
     minutes, seconds = divmod(int(max(0, seconds)), 60)
     hours, minutes = divmod(minutes, 60)
@@ -34,7 +43,43 @@ class ConsoleUI:
 
     def __init__(self, curses):
         self.curses = curses
+        self.screen = None    # the screen of the session (session()), None outside it
         self._summaries = {}  # operation directory -> what its menu line keeps between draws (summary_model)
+        self._main_action = None  # the main menu's line last selected: a live redraw keeps it
+
+    def session(self, function):
+        """Run function() with every screen drawn in one curses session; return its result."""
+        def run(screen):
+            self.screen = screen
+            try:
+                return function()
+            finally:
+                self.screen = None
+        return self.curses.wrapper(run)
+
+    def _run(self, draw):
+        """draw(screen) on the session's screen, or in a curses session of its own outside one."""
+        if self.screen is not None:
+            return draw(self.screen)
+        return self.curses.wrapper(draw)
+
+    def in_terminal(self, function):
+        """Run function() on the plain terminal (a program that asks there), then "Press Enter" and back to the
+        screen; outside a session it just runs."""
+        if self.screen is None:
+            return function()
+        self.curses.def_prog_mode()
+        self.curses.endwin()
+        try:
+            result = function()
+            try:
+                input("\nPress Enter to return to the menu...")
+            except (KeyboardInterrupt, EOFError):
+                pass
+            return result
+        finally:
+            self.curses.reset_prog_mode()
+            self.screen.refresh()
 
     @classmethod
     def open(cls, parser):
@@ -73,6 +118,7 @@ class ConsoleUI:
 
     def _setup(self, screen):
         screen.keypad(True)
+        screen.timeout(-1)  # wait for a key: the screen before may have drawn live
         self.styles = dict(accent=0, good=0, waiting=0, warning=0, error=0, brand=0, version=0)
         try:
             if self.colors_enabled() and self.curses.has_colors():
@@ -282,7 +328,7 @@ class ConsoleUI:
                 elif key in (10, 13, self.curses.KEY_ENTER):
                     position.update(selected=selected, offset=offset)
                     return selected
-        return self.curses.wrapper(draw)
+        return self._run(draw)
 
     def _entry_header(self, screen, welcome, minimum_rows):
         """Reserve room for controls, using compact branding on smaller terminals."""
@@ -328,10 +374,16 @@ class ConsoleUI:
         self._line(screen, len(lines) + 1, 0, welcome)
         return len(lines) + 3
 
-    def choose(self, title, choices, welcome=None, descriptions=None, row_colors=None):
+    def choose(self, title, choices, welcome=None, descriptions=None, row_colors=None, position=None, live=None):
+        """The index of the choice, or None (Esc). position: {"selected": index}, where the focus starts and was
+        left. live: seconds; without a key by then, REFRESH (the caller draws it again with new labels)."""
+        position = position if position is not None else {}
+
         def draw(screen):
             self._setup(screen)
-            selected = 0
+            if live:
+                screen.timeout(int(live * 1000))
+            selected = min(position.get("selected", 0), len(choices) - 1)
             while True:
                 screen.erase()
                 height, width = screen.getmaxyx()
@@ -360,6 +412,9 @@ class ConsoleUI:
                 self._footer(screen, "Up/Down Move | Enter Select | Esc Back")
                 screen.refresh()
                 key = screen.getch()
+                position["selected"] = selected
+                if key == -1 and live:
+                    return REFRESH
                 if key == self.curses.KEY_UP:
                     selected = (selected - 1) % len(choices)
                 elif key == self.curses.KEY_DOWN:
@@ -368,7 +423,7 @@ class ConsoleUI:
                     return selected
                 elif key == 27:
                     return None
-        return self.curses.wrapper(draw)
+        return self._run(draw)
 
     # =========================================================================
     # ================================= INPUT =================================
@@ -394,7 +449,7 @@ class ConsoleUI:
                     value = value[:-1]
                 elif isinstance(key, str) and key.isprintable():
                     value += key
-        return self.curses.wrapper(draw)
+        return self._run(draw)
 
     # =========================================================================
     # ========================== APPLICATION SCREENS ==========================
@@ -460,17 +515,19 @@ class ConsoleUI:
                         enabled.add(component)
                 elif key == 27:
                     return None
-        return draw(screen) if screen is not None else self.curses.wrapper(draw)
+        return draw(screen) if screen is not None else self._run(draw)
 
     def _action(self, title, choices, actions, back="back", welcome=None, **layout):
         selected = self.choose(title, choices, welcome=welcome, **layout)
-        return back if selected is None else actions[selected]
+        return back if selected is None else REFRESH if selected == REFRESH else actions[selected]
 
-    def main_menu(self, proxy_valid=False, tests=None, runs=()):
+    def main_menu(self, proxy_valid=False, tests=None, runs=(), live=False):
         """tests: the last test run (a TauFW.Utilities.Process.Operation) or None; its state is shown next to
-        Tests ("Tests (Running 12/40)"), as it was when the menu was drawn. runs: the advances to show (Operations
-        of kind "run": those behind the menu and those that ended unseen): one is a line of its own, "Run tes_2025
-        (3/5 plots)" (action "run"), more are "Runs (2 active)" (action "runs")."""
+        Tests ("Tests (Running 12/40)"). runs: the advances to show (Operations of kind "run": those behind the
+        menu and those that ended unseen): one is a line of its own, "Run tes_2025 (3/5 plots)" (action "run"),
+        more are "Runs (2 active)" (action "runs"). live: something runs behind the menu; without a key for
+        LIVE_EVERY seconds the answer is REFRESH (the caller draws it again with the new states), the selected
+        line stays."""
         certificate = "Grid Certificate  " + ("\u2713" if proxy_valid else "Warning: Proxy Failed!")
         label, role = "Tests", None
         if tests is not None:
@@ -495,8 +552,11 @@ class ConsoleUI:
             actions.insert(2, action)
             colors.insert(2, role)
             descriptions.insert(2, description)
-        return self._action("TauFW", choices, actions, back="exit", row_colors=colors, welcome="Welcome to TauFW!",
-                            descriptions=descriptions)
+        position = dict(selected=actions.index(self._main_action) if self._main_action in actions else 0)
+        answer = self._action("TauFW", choices, actions, back="exit", row_colors=colors, welcome="Welcome to TauFW!",
+                              descriptions=descriptions, position=position, live=LIVE_EVERY if live else None)
+        self._main_action = actions[position["selected"]]
+        return answer
 
     def _runs_line(self, runs):
         """(label, role, action, description) of the main menu line of the advances behind the menu."""
@@ -618,7 +678,7 @@ class ConsoleUI:
                         if enabled:
                             return [item["id"] for item in items if item["id"] in enabled]
                         self.curses.beep()
-        return self.curses.wrapper(draw)
+        return self._run(draw)
 
     def test_run(self, title, process, expected=()):
         """Follow a test run (a TauFW.Utilities.Process.Operation) until the user leaves; the run goes on behind
@@ -626,24 +686,24 @@ class ConsoleUI:
         start."""
         # Imported here: FastSetup imports Menu on its own before TauFW is built, and never shows this screen.
         from ._test_run import follow_tests
-        return self.curses.wrapper(lambda screen: follow_tests(self, screen, title, process, expected))
+        return self._run(lambda screen: follow_tests(self, screen, title, process, expected))
 
     def run_progress(self, title, process):
         """Follow an advance of a run (an Operation whose data holds run_id, run_dir and stages) until the user
         leaves; it goes on behind the menu. Return its exit code (None while it runs)."""
         from ._run_screen import follow_run  # imported here: see test_run()
-        return self.curses.wrapper(lambda screen: follow_run(self, screen, title, process))
+        return self._run(lambda screen: follow_run(self, screen, title, process))
 
     def command_output(self, title, process, refresh=False):
         """Show the output of a read-only command behind the menu (an Operation, kind "command") until the user
         leaves; leaving stops it if it still runs. Return "refresh" (R once it ended, with refresh) or "back"."""
         from ._command_screen import follow_command  # imported here: see test_run()
-        return self.curses.wrapper(lambda screen: follow_command(self, screen, title, process, refresh))
+        return self._run(lambda screen: follow_command(self, screen, title, process, refresh))
 
     def preview(self):
         """Every screen with made-up data (Tests > UI preview); Left/Right switch screens, Esc leaves."""
         from ._preview import preview  # imported here: see test_run()
-        self.curses.wrapper(lambda screen: preview(self.curses, screen))
+        self._run(lambda screen: preview(self.curses, screen))
 
     def quit_running(self, operations):
         """Ask before the menu closes while operations run behind it. Return "cancel" (stay in the menu), "stop"
@@ -653,31 +713,10 @@ class ConsoleUI:
             text, role = self._operation_summary(operation)
             where = " on %s" % operation.host if operation.remote else ""
             rows.append(("%s: %s  %s%s" % (operation.title, text, _clock(operation.elapsed()), where), role))
-
-        def draw(screen):
-            self._setup(screen)
-            while True:
-                screen.erase()
-                height, width = screen.getmaxyx()
-                self._header(screen, "Quit TauFW")
-                top, left, lines, columns = self._panel(screen, 3, 1, height - 6, width - 2, "Still running")
-                content = [(text, self.styles.get(role, 0)) for text, role in rows] + [("", 0)]
-                content += [(line, self.styles["warning"]) for line in self._wrap(QUIT_WARNING, columns)]
-                for row, (text, color) in enumerate(content[:lines]):
-                    self._line(screen, top + row, left, text[:columns], color=color)
-                self._footer(screen, "C Cancel (stay) | S Stop all and quit | Q Quit anyway")
-                screen.refresh()
-                try:
-                    key = screen.getch()
-                except KeyboardInterrupt:
-                    return "cancel"
-                if key in (ord("q"), ord("Q")):
-                    return "quit"
-                if key in (ord("s"), ord("S")):
-                    return "stop"
-                if key in (ord("c"), ord("C"), 27, 10, 13, self.curses.KEY_ENTER):
-                    return "cancel"
-        return self.curses.wrapper(draw)
+        answers = {ord("q"): "quit", ord("Q"): "quit", ord("s"): "stop", ord("S"): "stop", 3: "cancel"}
+        answers.update((key, "cancel") for key in (ord("c"), ord("C"), 27, 10, 13, self.curses.KEY_ENTER))
+        return self._modal("Still running: quit TauFW?", rows + [("", None), (QUIT_WARNING, "warning")],
+                           "C Cancel (stay) | S Stop all and quit | Q Quit anyway", answers.get)
 
     def _operation_summary(self, operation):
         """(text, style role) of an operation's state for the menus; only the events added since the last draw
@@ -793,7 +832,7 @@ class ConsoleUI:
                     return "take"
                 if key in (27, 10, 13, self.curses.KEY_ENTER):
                     return "back"
-        return self.curses.wrapper(draw)
+        return self._run(draw)
 
     def run_path(self, launch_dir):
         return self.prompt("Run directory (relative to %s)" % launch_dir)
@@ -856,23 +895,106 @@ class ConsoleUI:
                     offset += rows
                 elif key == self.curses.KEY_PPAGE:
                     offset = max(0, offset - rows)
-        self.curses.wrapper(draw)
+        self._run(draw)
 
     # =========================================================================
     # ================================ MESSAGES ===============================
 
-    def pause(self):
-        try:
-            input("\nPress Enter to return to the menu...")
-        except (KeyboardInterrupt, EOFError):
-            pass
+    def message(self, title, lines, role=None):
+        """A panel over the current screen until Enter or Esc; lines: text, or (text, role) pairs."""
+        lines = [(lines, role)] if isinstance(lines, str) else lines
+        return self._modal(title, lines, "Enter OK", lambda key: "ok" if key in (10, 13, 27, 3, self.curses.KEY_ENTER)
+                           else None)
 
     def operation_error(self, error):
-        """Report without pausing; command dispatch owns its finally-pause."""
-        print("%s: %s" % (type(error).__name__, error))
+        """The error in a panel over the current screen until Enter or Esc."""
+        self.message("Error", "%s: %s" % (type(error).__name__, error), "error")
 
     def unreadable_run(self, error):
-        print("Cannot read run: %s" % error)
-        self.pause()
+        self.message("Cannot read run", str(error), "error")
+
+    def notice(self, title, text):
+        """A panel over the current screen that waits for nothing (the menu works on, e.g. "Renewing...")."""
+        def draw(screen):
+            self._setup(screen)
+            self._overlay(screen, title, [(text, None)], "")
+        self._run(draw)
+
+    def grid_password(self):
+        """The grid certificate password typed in a panel (shown as *), or None (Esc). Kept nowhere."""
+        def draw(screen):
+            self._setup(screen)
+            value = ""
+            while True:
+                self._overlay(screen, "Grid Certificate", [
+                    ("Renew your CMS grid proxy (voms-proxy-init -voms cms). The password goes to voms-proxy-init "
+                     "only; it is not shown, kept or written anywhere.", None), ("", None),
+                    ("Certificate password: " + "*" * len(value), "accent")], "Type | Enter Renew | Esc Back",
+                    offset=len(value) + 1000)  # a small terminal: the end, the field, is shown
+                try:
+                    key = screen.get_wch()
+                except KeyboardInterrupt:
+                    return None
+                if key in ("\n", "\r", self.curses.KEY_ENTER):
+                    return value if value else None
+                if key in ("\x1b", "\x03"):
+                    return None
+                if key in ("\b", "\x7f", self.curses.KEY_BACKSPACE):
+                    value = value[:-1]
+                elif isinstance(key, str) and key.isprintable():
+                    value += key
+        return self._run(draw)
+
+    def grid_result(self, valid, output=""):
+        """The end of a renewal: "Grid proxy active.", or why it failed with the end of voms-proxy-init's output."""
+        if valid:
+            return self.message("Grid Certificate", "Grid proxy active.", "good")
+        lines = [("Proxy Failed! Check your grid certificate and password, then retry Grid Certificate.", "error")]
+        tail = [line for line in str(output or "").splitlines() if line.strip()][-6:]
+        return self.message("Grid Certificate", lines + ([("", None)] + [(line, None) for line in tail]
+                                                         if tail else []))
+
+    # =========================================================================
+    # =============================== PANELS ==================================
+
+    def _modal(self, title, lines, footer, answer):
+        """A panel over the current screen until answer(key) is not None (Up/Down/PgUp/PgDn scroll a long text);
+        return that answer. Ctrl-C is the key 3. lines: (text, role) pairs, wrapped to the panel."""
+        def draw(screen):
+            self._setup(screen)
+            offset = 0
+            while True:
+                offset, page = self._overlay(screen, title, lines, footer, offset)
+                try:
+                    key = screen.getch()
+                except KeyboardInterrupt:
+                    key = 3
+                result = answer(key)
+                if result is not None:
+                    return result
+                step = {self.curses.KEY_UP: -1, self.curses.KEY_DOWN: 1, self.curses.KEY_PPAGE: -page,
+                        self.curses.KEY_NPAGE: page}
+                offset = max(0, offset + step.get(key, 0))
+        return self._run(draw)
+
+    def _overlay(self, screen, title, lines, footer, offset=0):
+        """Draw a panel in the middle of the screen over what is there (the rows it covers are cleared); return
+        (offset, rows of text shown): a text longer than the panel scrolls."""
+        height, width = screen.getmaxyx()
+        box = max(10, min(width - 4, MODAL_WIDTH))
+        wrapped = [(part, role) for text, role in lines for part in self._wrap(text, box - 4)]
+        rows = max(1, min(len(wrapped), height - 8))
+        tall = rows + (4 if footer else 2)
+        top, left = max(0, (height - tall) // 2), max(0, (width - box) // 2)
+        for row in range(top, top + tall):
+            self._line(screen, row, left, " " * box)
+        inner = self._panel(screen, top, left, tall, box, title)
+        colors = [role for _, role in wrapped]
+        offset, shown = self._viewport(screen, (inner[0], inner[1], rows, inner[3]), [text for text, _ in wrapped],
+                                       offset, line_colors=colors)
+        if footer:
+            self._line(screen, top + tall - 2, inner[1], footer[:inner[3]], color=self.styles["accent"])
+        screen.refresh()
+        return offset, shown
 
 

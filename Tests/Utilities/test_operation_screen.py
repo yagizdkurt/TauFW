@@ -98,7 +98,9 @@ class OperationScreenTests(unittest.TestCase):
         self.assertTrue(any(" Stages " in line for line in drawn))
         self.assertTrue(any(line.startswith("> ntuples") for line in drawn))
         self.assertIn("Up/Down Stage | Enter Stage log | L Output | S Stop | Esc Back (keeps running)", drawn)
-        self.assertIn("Stop the advance? Y Yes | N No", drawn)
+        self.assertIn(" Stop ", drawn)  # the question in a panel over the screen
+        self.assertIn("Stop the advance?", drawn)
+        self.assertIn("Y Yes | N No", drawn)
         self.assertTrue(any("RUNNING | 01:01 | 2 stage(s)" in line for line in drawn))
         self.assertTrue(any("COMPLETE | 01:01 | 2 stage(s)" in line for line in drawn))
         self.assertTrue(any(" Details: plots " in line for line in drawn))
