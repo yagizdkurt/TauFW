@@ -1,9 +1,9 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """The screen that follows an advance of a run while taufw.py works behind the menu.
 
-Not wired to Start and Continue yet (that needs the run lock, TODO §6 "Menu as
-a program"); the UI preview shows it with made-up runs. The operation runs
-`taufw.py advance --wait` (or `start`); its Framework events
+Start and Continue open it (interactive.py starts the advance behind the
+menu); the UI preview shows it with made-up runs. The operation runs
+`taufw.py advance [--wait]` (or `start --wait`); its Framework events
 (Framework/python/reporting.py) build a RunProgress, the model of the
 operation screen (_operation_screen.py):
 
@@ -177,7 +177,7 @@ class RunProgress(ScreenModel):
                 len(self.stages), _hour(self.started), _hour(self.finished)), "good"), where]
         if self.run_state == "WAITING":
             return "Waiting for jobs", [("Stage %s: %s" % (name, stage["message"] or "jobs are running"), "waiting"),
-                                        ("Nothing more to do now: Continue later, or Keep checking to follow it.",
+                                        ("Nothing more to do now: Continue later, or Advance to the end to follow it.",
                                          None), where]
         if self.run_state == "BLOCKED":
             return "Blocked at %s" % name, [("Stage %s is not implemented yet." % name, "warning"), where]

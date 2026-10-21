@@ -13,10 +13,16 @@ from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation
 
 
 def idle_operations():
-    """Mock operations with nothing behind the menu: no test run, nothing running."""
+    """Mock operations with nothing behind the menu: no test run, no run, nothing running; no lock, no grid
+    proxy needed."""
     operations = mock.Mock()
     operations.tests_operation.return_value = None
     operations.running_operations.return_value = []
+    operations.run_operations.return_value = []
+    operations.run_operation.return_value = None
+    operations.run_advances.side_effect = lambda run_dirs: [None] * len(run_dirs)
+    operations.run_lock.return_value = None
+    operations.needs_grid_proxy.return_value = False
     return operations
 
 
@@ -67,8 +73,8 @@ class ScreenTests(unittest.TestCase):
                     operations.renew_grid_proxy.return_value = outcome
                 self.assertEqual(MenuNavigation(ui, operations).run(), 0)
                 self.assertEqual(ui.main_menu.call_args_list,
-                                 [mock.call(proxy_valid=False, tests=None),
-                                  mock.call(proxy_valid=outcome == 0, tests=None)])
+                                 [mock.call(proxy_valid=False, tests=None, runs=[]),
+                                  mock.call(proxy_valid=outcome == 0, tests=None, runs=[])])
                 operations.renew_grid_proxy.assert_called_once_with()
                 ui.pause.assert_called_once_with()
         ui, operations = mock.Mock(), idle_operations()
@@ -374,33 +380,95 @@ class ScreenTests(unittest.TestCase):
                 self.assertEqual(setup_menu.main(["--output", str(output)]), 130)
                 self.assertFalse(output.exists())
 
-    def test_navigation_uses_injected_operations(self):
-        ui = mock.Mock()
-        operations = idle_operations()
-        operations.execute.return_value = 0
-        operations.recipes.return_value = [Path("recipes/example.yml")]
+    def runs_menu(self, **lock):
+        """Mocks for Continue on one WAITING run; lock: its advance lock (none without)."""
+        ui, operations = mock.Mock(), idle_operations()
         operations.runs.return_value = [("today", "runs/example", ("example", "WAITING", "today"))]
         record = mock.Mock(run_id="example", run_dir="runs/example", state="WAITING")
         operations.load_run.return_value = record
         operations.can_advance.return_value = True
-        operations.validate_poll.side_effect = [ValueError("invalid"), 30]
+        operations.run_lock.return_value = dict(lock) if lock else None
+        operations.advance_run.return_value = mock.Mock(running=False, data=dict(run_id="example"))
+        ui.select_run.side_effect = [("select", 0), ("back", None)]
+        ui.continue_actions.return_value = "wait"
+        return ui, operations, record
+
+    def test_navigation_uses_injected_operations(self):
+        ui, operations, record = self.runs_menu()
+        operations.recipes.return_value = [Path("recipes/example.yml")]
+        started = mock.Mock(running=True, data=dict(run_id="example", run_dir=""))
+        operations.start_run.return_value = started
         ui.main_menu.side_effect = ["start", "continue", "exit"]
         ui.select_recipe.return_value = ("select", 0)
         ui.confirm_recipe.return_value = "start"
-        ui.select_run.return_value = ("select", 0)
-        ui.continue_actions.return_value = "wait"
-        ui.poll_interval.side_effect = ["bad", "30"]
         self.assertEqual(MenuNavigation(ui, operations).run(), 0)
-        self.assertEqual(operations.execute.call_args_list, [
-            mock.call("start", recipe=str(Path("recipes/example.yml"))),
-            mock.call("advance", run_dir="runs/example", wait=True, poll=30),
-        ])
+        operations.start_run.assert_called_once_with(str(Path("recipes/example.yml")))
+        operations.advance_run.assert_called_once_with(record, wait=True, take_lock=False)
+        advanced = operations.advance_run.return_value
+        self.assertEqual(ui.run_progress.call_args_list, [mock.call("Run example", started),
+                                                          mock.call("Run example", advanced)])
+        operations.mark_seen.assert_called_once_with(advanced)  # it ended; the started one still runs
+        operations.execute.assert_not_called()  # start and advance never run in the menu's own process
+        self.assertEqual(ui.select_run.call_args.kwargs["advances"], [None])
         operations.load_run.assert_called_once_with("runs/example")
         operations.can_advance.assert_called_once_with(record)
-        self.assertEqual(operations.validate_poll.call_args_list, [mock.call("bad"), mock.call("30")])
-        ui.invalid_poll_interval.assert_called_once()
         operations.prepare_review.assert_called_once_with(str(Path("recipes/example.yml")))
-        self.assertEqual(ui.pause.call_count, 2)
+        ui.pause.assert_not_called()
+
+    def test_continue_on_an_advancing_run_opens_its_screen(self):
+        ui, operations, record = self.runs_menu()
+        advancing = mock.Mock(running=True, data=dict(run_id="example"))
+        operations.run_operation.return_value = advancing
+        MenuNavigation(ui, operations).continue_run()
+        ui.run_progress.assert_called_once_with("Run example", advancing)
+        operations.advance_run.assert_not_called()
+        ui.continue_actions.assert_not_called()
+        operations.mark_seen.assert_not_called()
+
+    def test_continue_once_and_the_run_lock(self):
+        ui, operations, record = self.runs_menu()
+        ui.continue_actions.return_value = "advance"
+        MenuNavigation(ui, operations).continue_run()
+        operations.advance_run.assert_called_once_with(record, wait=False, take_lock=False)
+        live = dict(host="lxplus999", pid=1, since="14:02", quiet=10, lost=False, local=False)
+        for lock, choice, take in ((live, "back", None), (dict(live, lost=True), "take", True),
+                                   (dict(live, lost=True, local=True), None, False)):
+            with self.subTest(lock=lock):
+                ui, operations, record = self.runs_menu(**lock)
+                ui.run_lock.return_value = choice
+                MenuNavigation(ui, operations).continue_run()
+                if choice is None:  # lost on this machine: the advance takes it over without asking
+                    ui.run_lock.assert_not_called()
+                else:
+                    ui.run_lock.assert_called_once_with("example", lock)
+                if take is None:
+                    operations.advance_run.assert_not_called()
+                else:
+                    operations.advance_run.assert_called_once_with(record, wait=True, take_lock=take)
+
+    def test_a_run_that_may_submit_needs_a_valid_grid_proxy(self):
+        for answers, valid, started in ((["back"], [False], False), (["renew"], [False, True], True),
+                                        (["renew", "back"], [False, False], False)):
+            with self.subTest(answers=answers, valid=valid):
+                ui, operations, record = self.runs_menu()
+                operations.needs_grid_proxy.return_value = True
+                operations.grid_proxy_valid.side_effect = valid
+                ui.grid_proxy_needed.side_effect = answers
+                ui.continue_actions.side_effect = ["wait", "back"]
+                MenuNavigation(ui, operations).continue_run()
+                operations.needs_grid_proxy.assert_called_with(record=record)
+                self.assertEqual(operations.renew_grid_proxy.call_count, answers.count("renew"))
+                self.assertEqual(operations.advance_run.called, started)
+
+    def test_the_main_menu_run_line_follows_the_runs(self):
+        ui, operations = mock.Mock(), idle_operations()
+        one, two = (mock.Mock(running=True, data=dict(run_id=name)) for name in ("tes", "etau"))
+        operations.run_operations.side_effect = [[one], [one], [one, two], [one, two], [one, two], [one, two]]
+        ui.main_menu.side_effect = ["run", "runs", "exit"]
+        ui.active_runs.side_effect = [("select", 1), ("back", None)]
+        self.assertEqual(MenuNavigation(ui, operations).run(), 0)
+        self.assertEqual(ui.main_menu.call_args_list[0].kwargs["runs"], [one])
+        self.assertEqual(ui.run_progress.call_args_list, [mock.call("Run tes", one), mock.call("Run etau", two)])
 
     def test_semantic_screen_actions_and_cancellation(self):
         ui = ConsoleUI(mock.Mock())
@@ -411,7 +479,8 @@ class ScreenTests(unittest.TestCase):
             (ui.confirm_recipe, ("example.yml",), ["start", "plan", "back"]),
             (ui.status_actions, ("run",), ["refresh", "back"]),
             (ui.terminal_run_actions, ("DONE",), ["inspect", "back"]),
-            (ui.continue_actions, ("run",), ["advance", "wait", "back"]),
+            (ui.continue_actions, ("run",), ["wait", "advance", "back"]),
+            (ui.grid_proxy_needed, (), ["renew", "back"]),
             (ui.select_recipe, (["example.yml"],),
              [("select", 0), ("manual", None), ("back", None)]),
             (ui.select_run, ([("run", "WAITING", "today")],),
@@ -432,11 +501,9 @@ class ScreenTests(unittest.TestCase):
         with mock.patch.object(ui, "prompt", return_value=None) as prompt:
             self.assertIsNone(ui.recipe_path("launch"))
             self.assertIsNone(ui.run_path("launch"))
-            self.assertIsNone(ui.poll_interval())
         self.assertEqual(prompt.call_args_list, [
             mock.call("Recipe path (relative to launch)"),
             mock.call("Run directory (relative to launch)"),
-            mock.call("Polling interval in seconds", "600"),
         ])
 
     def test_import_is_silent_without_framework_or_curses(self):

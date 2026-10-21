@@ -12,9 +12,12 @@ from .faq import FAQ
 from .banner import BADGE, BOXED, COMPACT, FULL, INTERACTIONS, VERSION, WIDTH
 
 
-QUIT_WARNING = ("If you quit, they keep running, but only while this login session lasts: closing the SSH "
-                "session may kill them, and the menu then shows them as Lost. A run killed while it submits jobs "
-                "may need a manual check (condor_q). Open the menu again to follow them.")
+QUIT_WARNING = ("If you quit, they keep running, but only while this login session lasts. Logging out (closing "
+                "the SSH session) ends them, and the menu then shows them as Lost. A lost run keeps everything "
+                "that was finished and every submitted job: Continue resumes it, at once from this machine, from "
+                "another lxplus machine after 2 minutes with Take over. A run that ends while it submits jobs may "
+                "need a manual check (condor_q). Open the menu again to follow them. Stop all asks each of them "
+                "to stop: a run finishes a job submission in progress first.")
 
 
 def _clock(seconds):
@@ -478,7 +481,7 @@ class ConsoleUI:
         colors = [None, None, None, role, "good" if proxy_valid else "warning", None, None]
         descriptions = [
             "Choose an analysis recipe and review its pipeline before starting.",
-            "Resume a saved run, once or with repeated checking.",
+            "Resume a saved run behind the menu: to the end, or one step.",
             "Inspect the recorded and live status of an existing run.",
             "Run automated checks or choose individual tests.",
             "Create or renew your CMS grid proxy using your grid certificate password.",
@@ -626,8 +629,7 @@ class ConsoleUI:
 
     def run_progress(self, title, process):
         """Follow an advance of a run (an Operation whose data holds run_id, run_dir and stages) until the user
-        leaves; it goes on behind the menu. Return its exit code (None while it runs). Not wired to Start and
-        Continue yet (TODO.md, "Menu as a program"); the UI preview shows it."""
+        leaves; it goes on behind the menu. Return its exit code (None while it runs)."""
         from ._run_screen import follow_run  # imported here: see test_run()
         return self.curses.wrapper(lambda screen: follow_run(self, screen, title, process))
 
@@ -797,11 +799,22 @@ class ConsoleUI:
                             ["Inspect status", "Back"], ["inspect", "back"])
 
     def continue_actions(self, run_id):
-        return self._action("Continue: %s" % run_id, ["Advance once", "Keep checking", "Back"],
-                            ["advance", "wait", "back"])
+        """"wait" (advance to the end), "advance" (one step) or "back"; both run behind the menu."""
+        return self._action("Continue: %s" % run_id, ["Advance to the end", "Advance once", "Back"],
+                            ["wait", "advance", "back"],
+                            descriptions=["Advance behind the menu until the run is done or failed; jobs are "
+                                          "checked every 10 minutes. You can leave the screen.",
+                                          "One step: check the jobs, resubmit, merge or run the next stages, then "
+                                          "stop.",
+                                          "Choose another run."])
 
-    def poll_interval(self):
-        return self.prompt("Polling interval in seconds", "600")
+    def grid_proxy_needed(self):
+        """The run may submit jobs and the grid proxy is not valid: "renew" or "back"."""
+        return self._action("Grid proxy needed", ["Renew grid proxy", "Back"], ["renew", "back"],
+                            descriptions=["The run may submit or resubmit jobs, which read their input with your "
+                                          "grid proxy. It runs behind the menu and cannot ask for your "
+                                          "certificate password: renew the proxy now.",
+                                          "Do not start the run."])
 
     # =========================================================================
     # ================================== HELP =================================
@@ -862,7 +875,4 @@ class ConsoleUI:
         print("Cannot read run: %s" % error)
         self.pause()
 
-    def invalid_poll_interval(self):
-        print("Enter a positive integer number of seconds.")
-        self.pause()
 

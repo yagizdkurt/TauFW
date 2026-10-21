@@ -100,7 +100,17 @@ Items marked **(verify)** may already be done; check before working on them.
       `kill -9` on its node: `advance` on the same node takes over at once; from another node it is refused until
       120 s passed, then names `--take-lock`, which continues. Ctrl-C while `start` submits: the warning line, the
       run.json says SUBMITTED, a second `advance` does not submit again. Ctrl-C during a local stage: stops at once,
-      no command left in `ps -u $USER`.
+      no command left in `ps -u $USER`. Done 2026-10-21 on lxplus983: `Tests/run.py all` and the lock refusal and
+      takeover with a fake lock file (live: refused also with `--take-lock`; lost elsewhere: hint, then taken;
+      this machine, dead pid: taken at once; the file removed each time) on a DONE run. Left: BBB, two nodes, Ctrl-C.
+- [ ] **Runs behind the menu on lxplus (CL §29):** in the menu, Start a short recipe: the run screen opens, Esc
+      leaves it running, the main menu shows "Run <name> (...)"; it opens the screen again; after the end the card
+      once, then the line is gone. Continue a WAITING run with "Advance to the end": live screen, next check
+      countdown; Continue the same run from a second terminal on another node: it opens the same screen, no second
+      advance. Stop (S) while production submits: the run stops after the submission (run.json SUBMITTED, no
+      duplicate jobs in `condor_q`). Log out while a run advances, log in on another node: the line says Lost;
+      Continue shows the lock screen after 2 min, T takes over. A production recipe without a grid proxy: the
+      "Grid proxy needed" screen. Quit with a run behind the menu: the warning text.
 - [ ] **Tests behind the menu on lxplus (CL §18):** `python3 Tests/Utilities/test_operations.py` (the two real
       stop tests run there). In the menu: Tests > Normal tests > Run entire family, Esc at once: the main menu shows
       "Tests (Running n/N)"; Tests opens the live screen again; after the end "Tests (Done)" or "(Failed: n)" and
@@ -300,11 +310,10 @@ Parts 1–5 are done (CL §5–§8; the Part 2 changelog section was removed).
       model stays in the Menu (K2 revised: events only, Framework supplies the `run.json` stages as data). Done
       2026-10-18: the run screen and its result cards in the preview (`_run_screen.py`, CL §18), and the main
       menu run line, the runs chooser, the run list label and the lock screens (CL §18 "Runs in the menus").
-      Done 2026-10-21: (1) and the log path in `progress` (CL §28). Left: the wiring (CL §18 lists what; start/advance
-      as operations with `signal="command"`, `escalate=False`, the lock from `read_lock`): `interactive.py` starts start/advance as operations
-      (`kind="run"`, data run_id/run_dir/stages from `run.json`), passes the runs to `main_menu`/`select_run`, the
-      `seen` file, Continue on an advancing run opens it, the lock record to `run_lock()`, and each stage's
-      `info` facts for the box next to the Stages list (which fields per stage type: to choose then).
+      Done 2026-10-21: (1) and the log path in `progress` (CL §28); the wiring of Start/Continue, the run lines,
+      the `seen` file, Continue on an advancing run and the lock screen (CL §29). Left: the info box fields per
+      stage type (to choose with the user): each stage's `info` facts in the run operation's data, for the box
+      next to the Stages list; then steps (3) and (4).
 
 Next-work proposals (not designed in detail yet):
 

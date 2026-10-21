@@ -18,6 +18,7 @@ file (`stop`) that the supervisor reads. An operation directory:
   heartbeat.json  host, pid, t: written by the supervisor every `heartbeat` seconds
   exit.json       returncode, stopped, finished: the command ended
   stop, kill      written by a menu: stop the command (SIGINT, then escalates), kill it now
+  seen            written by a menu once its result was shown (a menu lists an ended operation until then)
   supervisor.log  what the supervisor itself printed (empty unless it failed)
 
 The state, from these files:
@@ -54,6 +55,7 @@ __all__ = ["Operation", "OperationStore", "RUNNING", "STOPPING", "DONE", "FAILED
 RUNNING, STOPPING, DONE, FAILED, STOPPED, LOST = "RUNNING", "STOPPING", "DONE", "FAILED", "STOPPED", "LOST"
 ACTIVE = (RUNNING, STOPPING)
 EVENTS_FILE = "events.jsonl"
+SEEN_FILE = "seen"
 SUPERVISOR_LOG = "supervisor.log"
 SUPERVISOR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_supervisor.py")
 HEARTBEAT = 5.0      # seconds between two heartbeats of the supervisor
@@ -108,6 +110,17 @@ class Operation:
     def kill(self) -> None:
         """Ask the supervisor to kill the command at once."""
         self._touch(KILL_FILE)
+
+    @property
+    def seen(self) -> bool:
+        """Its result was shown once (mark_seen)."""
+        return os.path.exists(self._path(SEEN_FILE))
+
+    def mark_seen(self) -> None:
+        """Record that its result was shown; only once it ended (a running operation is never seen)."""
+        if not self.running:
+            with open(self._path(SEEN_FILE), "w"):
+                pass
 
     def elapsed(self) -> float:
         """Seconds since the start, until the end once it ended."""

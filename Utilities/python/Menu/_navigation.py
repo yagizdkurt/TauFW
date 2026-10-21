@@ -2,7 +2,7 @@
 """Menu navigation independent of Framework, files, and batch operations.
 
 The injected operations object supplies launch_dir, recipes(), runs(),
-resolve_path(value), load_run(path), can_advance(record), validate_poll(value),
+resolve_path(value), load_run(path), can_advance(record),
 recipe_preview(path), prepare_review(path), and execute(command, **values).
 Recipe views contain name, path, ordered (stage id, type, description) triples, notes, problems (a recipe with
 problems is shown in red and cannot start) and warnings (yellow; the recipe can still start).
@@ -11,7 +11,11 @@ run rows are (created, path, (run_id, state, updated)). Only operations reads
 files, validates values, or invokes commands. Grid callbacks are grid_proxy_valid()
 and renew_grid_proxy(). Test callbacks are test_catalog(), start_tests(family, cases, title, expected), which
 returns the TauFW.Utilities.Process.Operation that the test screen follows, and tests_operation(), the last test
-run (or None). running_operations() lists what runs behind the menu, stop_operation(operation) stops one.
+run (or None). Run callbacks: start_run(recipe) and advance_run(record, wait, take_lock) start taufw.py behind the
+menu and return its Operation (kind "run"); run_operations() (the advances for the main menu), run_operation(run_dir)
+(the advance of a run that runs now), run_advances(run_dirs) (for the run list), run_lock(run_dir) (its advance lock
+or None), mark_seen(operation), needs_grid_proxy(recipe=, record=). running_operations() lists what runs behind the
+menu, stop_operation(operation) stops one.
 The Tests menu also opens the UI preview (ConsoleUI.preview(), made-up screens; no operations are used).
 Operations run behind the menu: leaving a screen or quitting never stops them (quitting warns first).
 This class owns screen transitions.
@@ -81,9 +85,10 @@ class MenuNavigation:
                 if action == "plan":
                     self._execute("plan", recipe=path)
                 elif action == "start":
-                    if self._execute("start", recipe=path):
-                        return
-                    break
+                    if not self._grid_ready(self.operations.needs_grid_proxy(recipe=path)):
+                        continue
+                    self._follow_run(self.operations.start_run(path))
+                    return
 
     def _preview(self, path):
         try:
@@ -97,7 +102,8 @@ class MenuNavigation:
     def _pick_run(self):
         while True:
             runs = self.operations.runs()
-            action, index = self.ui.select_run([r[2] for r in runs])
+            action, index = self.ui.select_run([r[2] for r in runs],
+                                               advances=self.operations.run_advances([r[1] for r in runs]))
             if action == "back":
                 return None
             if action == "manual":
@@ -128,35 +134,63 @@ class MenuNavigation:
                 return
 
     def continue_run(self):
+        """Pick a run and advance it behind the menu: to the end (taufw.py advance --wait) or once. A run that an
+        advance works on now opens its screen; one whose lock another advance holds shows the lock (a lost one
+        may be taken over)."""
         while True:
             record = self._pick_run()
             if record is None:
                 return
             while True:
+                advancing = self.operations.run_operation(record.run_dir)
+                if advancing is not None:
+                    self._follow_run(advancing)
+                    return
                 if not self.operations.can_advance(record):
                     if self.ui.terminal_run_actions(record.state) == "inspect":
                         self.inspect(record)
                         continue
                     break
+                take_lock = False
+                lock = self.operations.run_lock(record.run_dir)
+                if lock is not None and not (lock.get("lost") and lock.get("local")):
+                    if self.ui.run_lock(record.run_id, lock) != "take":
+                        break
+                    take_lock = True
                 action = self.ui.continue_actions(record.run_id)
                 if action == "back":
                     break
-                poll = self._poll_interval() if action == "wait" else 600
-                if poll is None:
+                if not self._grid_ready(self.operations.needs_grid_proxy(record=record)):
                     continue
-                self._execute("advance", run_dir=record.run_dir, wait=action == "wait", poll=poll)
+                self._follow_run(self.operations.advance_run(record, wait=action == "wait", take_lock=take_lock))
                 return
 
-    def _poll_interval(self):
+    def _follow_run(self, operation):
+        """Show an advance; once it ended, its result was seen (the main menu stops listing it)."""
+        self.ui.run_progress("Run %s" % (operation.data.get("run_id") or operation.title), operation)
+        if not operation.running:
+            self.operations.mark_seen(operation)
+
+    def follow_runs(self):
+        """The main menu's run line: one advance opens at once, more are chosen first."""
         while True:
-            value = self.ui.poll_interval()
-            if value is None:
-                return None
-            try:
-                return self.operations.validate_poll(value)
-            except ValueError:
-                pass
-            self.ui.invalid_poll_interval()
+            runs = self.operations.run_operations()
+            if not runs:
+                return
+            if len(runs) == 1:
+                return self._follow_run(runs[0])
+            action, index = self.ui.active_runs(runs)
+            if action == "back":
+                return
+            self._follow_run(runs[index])
+
+    def _grid_ready(self, needed):
+        """Whether a run may start: no grid proxy is needed, or it is valid (renewed here if the user agrees)."""
+        while needed and not self.operations.grid_proxy_valid():
+            if self.ui.grid_proxy_needed() != "renew":
+                return False
+            self.grid_certificate()
+        return True
 
     def tests(self):
         """Browse caller-supplied metadata and run only automated actions. One test run at a time: while one
@@ -250,13 +284,14 @@ class MenuNavigation:
             self.ui.pause()
 
     def run(self):
-        actions = {"start": self.start, "continue": self.continue_run,
-                   "inspect": self.inspect, "tests": self.tests,
+        actions = {"start": self.start, "continue": self.continue_run, "run": self.follow_runs,
+                   "runs": self.follow_runs, "inspect": self.inspect, "tests": self.tests,
                    "grid_certificate": self.grid_certificate, "help": self.ui.help}
         while True:
             try:
                 action = self.ui.main_menu(proxy_valid=self.operations.grid_proxy_valid(),
-                                           tests=self.operations.tests_operation())
+                                           tests=self.operations.tests_operation(),
+                                           runs=self.operations.run_operations())
                 if action == "exit":
                     if self._may_quit():
                         return 0

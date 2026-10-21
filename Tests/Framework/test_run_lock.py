@@ -87,6 +87,19 @@ class RunLockTests(LockTestCase):
             with RunLock(self.root) as lock:
                 self.assertEqual(lock.taken["pid"], 999999)
 
+    def test_the_takeover_says_why(self):
+        pico = fakes.FakePicoProducer(statuses=[fakes.complete("DY", "TT")])
+        for quiet, why in ((1, "its process is gone"), (LOST_AFTER + 30, "no sign of life for 150 s")):
+            with self.subTest(why=why):
+                record = framework(pico).start(run_root=tempfile.mkdtemp(dir=self.root))
+                foreign(record.run_dir, host=socket.gethostname(), pid=999999, quiet=quiet)
+                fw = framework(pico)
+                with mock.patch.object(run_lock, "_alive", side_effect=lambda pid: pid != 999999):
+                    fw.advance(record)
+                warnings = [text for kind, text in fw.reporter.messages if kind == "warning"]
+                self.assertIn("Took over the advance lock of pid 999999 on %s (since 2026-10-21 14:02:00, %s)"
+                              % (socket.gethostname(), why), warnings)
+
     def test_a_half_written_lock_goes_by_the_file_time(self):
         open(self.path, "w").close()
         old = time.time() - LOST_AFTER - 30

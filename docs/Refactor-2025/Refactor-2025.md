@@ -1027,3 +1027,39 @@ Start/Continue can run behind it. The CLI keeps its commands and its output; two
   as `log`; the run screen shows that log. The printed progress lines are unchanged.
 - **BBB:** `framework.production` is unchanged by design: the lock is outside `run.json` and the compared trees, and is
   gone when `advance` ends; `status` is unchanged.
+
+---
+
+## 29. Start and Continue run behind the menu
+
+**Date:** 2026-10-21
+**Status:** done on Windows (unit tests); lxplus check in TODO §1 "Runs behind the menu on lxplus"
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#29-start-and-continue-run-behind-the-menu)
+
+The wiring of the run screens (TODO §6 "Menu as a program", parts 4a-4c); decisions of the user, 2026-10-21. Before:
+Start and Continue ran `taufw.py start`/`advance` inside the menu's own process: with "Keep checking" the menu was
+blocked for hours, printed plain terminal output and the run ended with the screen. After: they run as operations
+behind the menu (CL §18), like the tests, and the run screen follows them.
+
+- **Start** (`_Operations.start_run`): `taufw.py start RECIPE --wait` (to the end), the screen opens at once. The
+  stages come from the recipe; the run id and directory from the `run` event once the run directory exists.
+- **Continue** (`advance_run`): "Advance to the end" (`advance --wait`, default 600 s between checks; the poll
+  prompt is gone) or "Advance once" (`advance`). The stages and their states come from `run.json`. A run that an
+  advance works on now (any menu, any machine) opens its screen instead of a second advance.
+- **Run operations:** `kind="run"`, `signal="command"` (a stop reaches taufw.py alone, which finishes a job
+  submission first, CL §28), `escalate=False`; the last five records are kept.
+- **Main menu and run list:** a line per advance that runs or ended unseen ("Run tes_2025 (3/5 plots)", "Runs (2
+  active)"); the run list shows each run's newest advance. A finished advance stays listed until its result card was
+  shown once (`seen` file in the operation directory, `Operation.mark_seen`); starting a new advance of a run marks
+  the older ones seen.
+- **Run lock** (`run_lock(run_dir)`, `read_lock` + `local`): a run whose lock another advance holds shows the lock
+  screen; a lost lock of another machine can be taken over there (`advance --take-lock`); a lost lock of this
+  machine is taken over by the advance itself without a screen.
+- **Grid proxy:** a recipe with a production stage, or a run whose production stage is not finished, needs a valid
+  proxy before it starts (the jobs read their input with it, and taufw.py behind the menu cannot ask for the
+  password): the "Grid proxy needed" screen offers the renewal.
+- **Quit warning:** says what happens to runs at logout (Lost; Continue resumes, at once from this machine, after 2
+  minutes with Take over from another), that Stop all lets a job submission finish.
+- Removed: `poll_interval`, `invalid_poll_interval` (UI), `validate_poll` (adapter), the "polling interval" preview
+  screen; added the "grid proxy needed" preview screen. Plan and status still run in the menu's process (TODO §6
+  step 3). The info box next to the stage list stays empty until its fields are chosen (part 4d).

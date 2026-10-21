@@ -402,7 +402,7 @@ def _jobs_script(checks=4, poll=15.0, wait=True, first=0):
 
 
 def _advance(directory, kind="advancing", run_id=None, **options):
-    """A made-up advance of RUN_ID: advancing (live; ends complete), jobs (live, Keep checking), complete,
+    """A made-up advance of RUN_ID: advancing (live; ends complete), jobs (live, Advance to the end), complete,
     waiting (an Advance once that ended), failed, stopped or lost."""
     local = ("plots", "fit", "results")
     data = _run_data(dict(ntuples="DONE", histograms="DONE"))
@@ -506,7 +506,7 @@ SCENARIOS = [
              lambda ui, directory: ui.select_run(RUNS, advances=_runs(directory, ("advancing", None, 14.0))
                                                  + [None] * (len(RUNS) - 1))),
     Scenario("Continue", "actions", lambda ui, directory: ui.continue_actions("tes_2025")),
-    Scenario("Continue", "polling interval", lambda ui, directory: ui.poll_interval()),
+    Scenario("Start / Continue", "grid proxy needed", lambda ui, directory: ui.grid_proxy_needed()),
     Scenario("Continue", "run that cannot advance", lambda ui, directory: ui.terminal_run_actions("DONE")),
     Scenario("Inspect", "status actions", lambda ui, directory: ui.status_actions("tes_2025")),
     Scenario("Tests", "menu, last run failed",
@@ -520,7 +520,7 @@ SCENARIOS = [
     Scenario("Test run", "on another machine", _test_run("remote", ago=4.0)),
     Scenario("Test run", "lost", _test_run("lost")),
     Scenario("Run", "advancing (ends complete)", _run("advancing")),
-    Scenario("Run", "waiting for jobs, Keep checking", _run("jobs")),
+    Scenario("Run", "waiting for jobs, Advance to the end", _run("jobs")),
     Scenario("Run result", "complete", _run("complete")),
     Scenario("Run result", "waiting for jobs (Advance once)", _run("waiting")),
     Scenario("Run result", "failed", _run("failed")),

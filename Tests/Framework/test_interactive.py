@@ -49,6 +49,9 @@ class FakeUI(ConsoleUI):
         self.review = review
         return super().confirm_recipe(path)
 
+    def run_progress(self, title, process):
+        self.screens.append((title, process))
+
 
 FIT = {"stage": "fit", "id": "fit", "inputs": {"shapes": None}}
 
@@ -130,6 +133,53 @@ class MenuTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "complete TauFW checkout"):
                 operations.test_catalog()
 
+    def operation(self, name, run_dir="", seen=False, ended=True, events=()):
+        """An advance record in the operations directory: ended (exit.json) or running (a fresh heartbeat)."""
+        path = self.root / "operations" / name
+        path.mkdir(parents=True)
+        (path / "operation.json").write_text(json.dumps(dict(kind="run", title=name, argv=[], started=1.0,
+                                                             host="here", data=dict(run_id=name, run_dir=run_dir))))
+        (path / "events.jsonl").write_text("".join(json.dumps(event) + "\n" for event in events))
+        if ended:
+            (path / "exit.json").write_text(json.dumps(dict(returncode=0, stopped=False, finished=2.0)))
+        else:
+            (path / "heartbeat.json").write_text(json.dumps(dict(host="elsewhere", pid=1, t=9e9)))
+        if seen:
+            (path / "seen").touch()
+        return path
+
+    def test_runs_behind_the_menu(self):
+        operations = self.menu(FakeUI()).operations
+        record = self.record()
+        self.operation("run-1", run_dir=record.run_dir, seen=True)
+        self.operation("run-2", events=[dict(kind="run", run_id=record.run_id, run_dir=record.run_dir)])
+        self.operation("run-3", run_dir=str(self.root / "other"), ended=False)
+        self.assertEqual(sorted(o.title for o in operations.run_operations()), ["run-2", "run-3"])  # unseen, running
+        self.assertIsNone(operations.run_operation(record.run_dir))  # none of its advances runs now
+        self.assertEqual(operations.run_operation(str(self.root / "other")).title, "run-3")
+        newest = operations.run_advances([record.run_dir, str(self.root / "none")])
+        self.assertEqual([o and o.title for o in newest], ["run-2", None])  # the start: its run_dir from the event
+        operations.advance_run(record)
+        self.assertEqual(sorted(o.title for o in operations.run_operations()), ["run-3"])  # earlier ones now seen
+        self.assertIsNone(operations.run_lock(record.run_dir))
+        (Path(record.run_dir) / "advance.lock").write_text(json.dumps(dict(host="elsewhere", pid=1, since="x",
+                                                                          t=1.0)))
+        lock = operations.run_lock(record.run_dir)
+        self.assertEqual((lock["host"], lock["lost"], lock["local"]), ("elsewhere", True, False))
+
+    def test_grid_proxy_is_needed_while_production_may_submit(self):
+        operations = self.menu(FakeUI()).operations
+        production = {"stage": "production", "id": "ntuples", "inputs": None, "eras": ["2018"],
+                      "channels": ["mutau"], "samples": ["DY"]}
+        self.assertTrue(operations.needs_grid_proxy(recipe=self.recipe_file(self.root / "p.json",
+                                                                            stages=[production])))
+        self.assertFalse(operations.needs_grid_proxy(recipe=self.recipe_file(self.root / "f.json")))
+        recipe = Recipe.from_dict({"name": "p", "stages": [production, dict(FIT, inputs={"shapes": None})]})
+        record = RunRecord.create(recipe, str(self.root / "taufw_runs"), now=datetime(2026, 10, 1))
+        for state, needed in (("NEW", True), ("WAITING", True), ("MERGING", True), ("DONE", False)):
+            record.stage("ntuples").state = state
+            self.assertEqual(operations.needs_grid_proxy(record=record), needed)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -142,6 +192,13 @@ class MenuTests(unittest.TestCase):
         self.framework = patcher.start()
         self.addCleanup(patcher.stop)
         self.framework.return_value.plan.return_value = mock.Mock(stages=())
+        self.started = []  # (argv after taufw.py, keyword arguments) of each run started behind the menu
+        launch = mock.patch.object(interactive.OperationStore, "start", autospec=True,
+                                   side_effect=lambda store, kind, title, argv, cwd, **kw:
+                                   self.started.append((argv[3:], dict(kw, kind=kind, title=title, cwd=cwd)))
+                                   or mock.Mock(running=False, title=title, data=kw.get("data", {})))
+        launch.start()
+        self.addCleanup(launch.stop)
 
     def menu(self, ui):
         return Menu(self.commands, ui, self.root, self.recipes, self.root / "operations")
@@ -172,16 +229,17 @@ class MenuTests(unittest.TestCase):
         order = []
         planned = self.framework.return_value
         self.framework.side_effect = lambda *args, **values: order.append("prepare") or planned
-        self.commands["start"].side_effect = lambda args: order.append("start") or 0
-        self.menu(ui).start()
+        menu = self.menu(ui)
+        menu.operations.start_run = mock.Mock(side_effect=lambda path: order.append("start") or mock.Mock(
+            running=True, title="test", data=dict(run_id="test")))
+        menu.start()
         self.assertEqual(ui.screens[0][1][:3], ["a.json", "b.yml", "c_bundle"])
         self.assertEqual(order, ["prepare", "start"])
         self.commands["plan"].assert_not_called()
-        args = self.commands["start"].call_args.args[0]
-        self.assertEqual(args.recipe, str(self.root / "custom.yml"))
-        self.assertFalse(args.wait)
-        self.assertIsNone(args.run_root)
-        self.assertEqual(ui.pauses, 1)
+        self.commands["start"].assert_not_called()  # behind the menu, not in its process
+        menu.operations.start_run.assert_called_once_with(str(self.root / "custom.yml"))
+        self.assertEqual(ui.screens[-1][0], "Run test")
+        self.assertEqual(ui.pauses, 0)
 
     def test_recipe_error_allows_another_selection(self):
         self.recipe_file(self.root / "bad.yml")
@@ -195,22 +253,25 @@ class MenuTests(unittest.TestCase):
         self.commands["plan"].assert_not_called()
         self.commands["start"].assert_not_called()
 
-    def test_run_order_and_polling_validation(self):
+    def test_run_order_and_advance_to_the_end_behind_the_menu(self):
         self.record("old", day=1)
         newest = self.record("new", day=2)
-        ui = FakeUI([0, 1], ["0", "bad", "30"])
-        with contextlib.redirect_stdout(io.StringIO()):
-            self.menu(ui).continue_run()
+        ui = FakeUI([0, 0])
+        self.menu(ui).continue_run()
         self.assertIn(newest.run_id + " | WAITING", ui.screens[0][1][0])
-        args = self.commands["advance"].call_args.args[0]
-        self.assertEqual((args.run_dir, args.wait, args.poll), (newest.run_dir, True, 30))
+        self.commands["advance"].assert_not_called()
+        (argv, options), = self.started
+        self.assertEqual(argv, ["advance", newest.run_dir, "--wait"])
+        self.assertEqual((options["kind"], options["title"], options["escalate"], options["signal"]),
+                         ("run", newest.run_id, False, "command"))
+        self.assertEqual(options["data"], dict(run_id=newest.run_id, run_dir=newest.run_dir, stages=[
+            dict(id="fit", type="fit", state="WAITING", message="", info=[])]))
+        self.assertEqual(ui.screens[-1][0], "Run " + newest.run_id)
 
-    def test_one_advance_and_poll_default(self):
-        self.record()
-        self.menu(FakeUI([0, 0])).continue_run()
-        self.assertFalse(self.commands["advance"].call_args.args[0].wait)
-        self.menu(FakeUI([0, 1], ["600"])).continue_run()
-        self.assertEqual(self.commands["advance"].call_args.args[0].poll, 600)
+    def test_advance_once(self):
+        record = self.record()
+        self.menu(FakeUI([0, 1])).continue_run()
+        self.assertEqual([argv for argv, _ in self.started], [["advance", record.run_dir]])
 
     def test_terminal_runs_offer_inspection_without_advancing(self):
         for state in ("DONE", "FAILED", "NOT_IMPLEMENTED"):
@@ -238,20 +299,19 @@ class MenuTests(unittest.TestCase):
 
     def test_interrupted_operation_returns_to_main_menu(self):
         self.record()
-        self.commands["advance"].side_effect = KeyboardInterrupt
-        ui = FakeUI([1, 0, 1, 6], ["600"])
-        with contextlib.redirect_stdout(io.StringIO()) as output:
-            self.assertEqual(self.menu(ui).run(), 0)
-        self.assertIn("not cancelled", output.getvalue())
-        self.assertEqual(ui.screens[-1][0], "TauFW")
+        menu = self.menu(FakeUI([1, 0, 1, 6]))
+        menu.operations.advance_run = mock.Mock(side_effect=KeyboardInterrupt)
+        self.assertEqual(menu.run(), 0)
+        menu.operations.advance_run.assert_called_once()
+        self.assertEqual(menu.ui.screens[-1][0], "TauFW")
 
-    def test_escape_from_poll_prompt_goes_back_to_continue_then_picker(self):
+    def test_back_from_continue_goes_back_to_the_picker(self):
         self.record()
-        ui = FakeUI([0, 1, None, None], [None])
+        ui = FakeUI([0, 2, None])
         self.menu(ui).continue_run()
-        self.assertTrue(ui.screens[2][0].startswith("Continue:"))
-        self.assertEqual(ui.screens[3][0], "Select an existing run")
-        self.commands["advance"].assert_not_called()
+        self.assertTrue(ui.screens[1][0].startswith("Continue:"))
+        self.assertEqual(ui.screens[2][0], "Select an existing run")
+        self.assertEqual(self.started, [])
 
     def eos(self):
         """The tuples of tes_id_2025 are on EOS; here (e.g. Windows) /eos/... counts as existing."""
@@ -272,7 +332,7 @@ class MenuTests(unittest.TestCase):
         menu.start()
         self.assertEqual(ui.screens[0][1][:-2], expected)
         self.assertEqual(ui.broken, [name == "example_broken" for name in expected])  # the validation demo
-        self.assertEqual(self.commands["start"].call_args.args[0].recipe, str(recipes_dir / "tes_id_2025"))
+        self.assertEqual([argv for argv, _ in self.started], [["start", str(recipes_dir / "tes_id_2025"), "--wait"]])
 
     def test_dispatch_uses_semantic_actions_without_screen_positions(self):
         ui = mock.Mock()
@@ -282,7 +342,7 @@ class MenuTests(unittest.TestCase):
         ui.confirm_recipe.return_value = "start"
         self.recipe_file(self.root / "custom.yml")
         self.assertEqual(self.menu(ui).run(), 0)
-        self.commands["start"].assert_called_once()
+        self.assertEqual([argv[0] for argv, _ in self.started], ["start"])
         ui.choose.assert_not_called()
         ui.prompt.assert_not_called()
 
@@ -403,8 +463,8 @@ class MenuTests(unittest.TestCase):
         self.assertIs(first.kwargs["review"], second.kwargs["review"])
         self.assertEqual(self.framework.call_count, 1)
         self.assertEqual(self.commands["plan"].call_args.args[0].recipe, str(path))
-        self.assertEqual(self.commands["start"].call_args.args[0].recipe, str(path))
-        self.assertEqual(ui.pause.call_count, 2)
+        self.assertEqual([argv for argv, _ in self.started], [["start", str(path), "--wait"]])
+        self.assertEqual(ui.pause.call_count, 1)  # after the plan
 
     def test_invalid_selected_recipe_never_plans_or_starts(self):
         (self.recipes / "broken.json").write_text("{}")
@@ -413,7 +473,7 @@ class MenuTests(unittest.TestCase):
             self.menu(ui).start()
         self.assertIn("RecipeError", output.getvalue())
         self.framework.assert_not_called()
-        self.commands["start"].assert_not_called()
+        self.assertEqual(self.started, [])
         self.assertEqual(ui.pauses, 1)
 
     def test_terminal_failure_returns_cli_fallback(self):

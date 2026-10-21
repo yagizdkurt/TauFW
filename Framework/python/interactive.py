@@ -6,6 +6,7 @@ here. Presentation and screen transitions live in TauFW.Utilities.Menu.
 """
 import json
 import os
+import socket
 import subprocess
 import sys
 from argparse import Namespace
@@ -18,11 +19,13 @@ from TauFW.Framework.recipe import Recipe, read_recipe, run_root_dir
 from TauFW.Framework.validation import check_recipe
 from TauFW.Framework.framework import Framework
 from TauFW.Framework.reporting import SilentReporter
+from TauFW.Framework.run_lock import read_lock
 from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation
-from TauFW.Utilities.Process import EventWriter, OperationStore
+from TauFW.Utilities.Process import EventReader, EventWriter, OperationStore
 
 CHECKOUT = Path(__file__).resolve().parents[2]
 OPERATIONS_DIR = CHECKOUT / ".artifacts" / "menu" / "operations"  # what runs behind the menu (git-ignored)
+TAUFW_SCRIPT = CHECKOUT / "Framework" / "scripts" / "taufw.py"
 
 
 class _Operations:
@@ -123,13 +126,6 @@ class _Operations:
         return not RunState(record.state).finished
 
     @staticmethod
-    def validate_poll(value):
-        poll = int(value)
-        if poll <= 0:
-            raise ValueError("Polling interval must be positive.")
-        return poll
-
-    @staticmethod
     def grid_proxy_valid():
         """Check the existing proxy quietly; never prompt during menu startup."""
         try:
@@ -211,6 +207,91 @@ class _Operations:
         except OSError:
             return None
 
+    # =========================================================================
+    # ========================= RUNS BEHIND THE MENU ==========================
+
+    def start_run(self, recipe):
+        """`taufw.py start RECIPE --wait` behind the menu (to the end: DONE, FAILED, or until it is stopped);
+        return its Operation (kind "run"). Its data: run_id (the recipe's name until the run directory exists),
+        run_dir (empty until then: the screen takes both from the `run` event) and the recipe's stages."""
+        loaded = Recipe.load(str(recipe))
+        stages = [dict(id=stage.id, type=stage.stage, state="NEW", message="", info=[]) for stage in loaded.stages]
+        return self._start_run(loaded.name, ["start", str(recipe), "--wait"],
+                               dict(run_id=loaded.name, run_dir="", stages=stages))
+
+    def advance_run(self, record, wait=True, take_lock=False):
+        """`taufw.py advance RUN_DIR` behind the menu, with --wait (to the end) or once; take_lock: take over
+        the lock of a lost advance (--take-lock). The earlier advances of the run count as seen."""
+        for operation in self._run_operations_of(record.run_dir):
+            operation.mark_seen()
+        argv = ["advance", record.run_dir] + (["--wait"] if wait else []) + (["--take-lock"] if take_lock else [])
+        stages = [dict(id=stage.get("id"), type=stage.get("stage"), state=record.stage(stage.get("id")).state,
+                       message=record.stage(stage.get("id")).message, info=[])
+                  for stage in record.recipe.get("stages", ())]
+        return self._start_run(record.run_id, argv, dict(run_id=record.run_id, run_dir=record.run_dir,
+                                                          stages=stages))
+
+    def run_operations(self):
+        """The advances to show in the main menu: those running now, and those that ended and were not seen."""
+        try:
+            return [operation for operation in self.store.all("run") if operation.running or not operation.seen]
+        except OSError:
+            return []
+
+    def run_operation(self, run_dir):
+        """The advance of this run that runs behind the menu now (any menu, any machine), or None."""
+        running = [operation for operation in self._run_operations_of(run_dir) if operation.running]
+        return running[0] if running else None
+
+    def run_advances(self, run_dirs):
+        """The newest advance (an Operation) or None per run directory: the run list shows them."""
+        try:
+            operations = self.store.all("run")
+        except OSError:
+            operations = []
+        newest = {}
+        for operation in operations:  # newest first
+            newest.setdefault(_run_dir_of(operation), operation)
+        return [newest.get(str(Path(run_dir).resolve())) for run_dir in run_dirs]
+
+    @staticmethod
+    def run_lock(run_dir):
+        """The advance lock of a run (read_lock: host, pid, since, quiet, lost; local: held on this machine), or
+        None. A lost lock of this machine is taken over by the advance itself, without asking."""
+        lock = read_lock(run_dir)
+        if lock is not None:
+            lock["local"] = lock.get("host") == socket.gethostname()
+        return lock
+
+    @staticmethod
+    def mark_seen(operation):
+        operation.mark_seen()
+
+    def needs_grid_proxy(self, recipe=None, record=None):
+        """Whether starting the recipe, or advancing the run, may submit jobs (a production stage that is not
+        finished): the batch jobs read their input with the grid proxy, and taufw.py behind the menu cannot
+        ask for the certificate password."""
+        if record is not None:
+            return any(stage.get("stage") == "production" and
+                       record.stage(stage.get("id")).state not in ("DONE", "FAILED", "NOT_IMPLEMENTED")
+                       for stage in record.recipe.get("stages", ()))
+        return Recipe.load(str(recipe)).first("production") is not None
+
+    def _start_run(self, title, argv, data):
+        """taufw.py with argv as a run operation: a stop goes to taufw.py alone (it lets a job submission finish)
+        and never escalates."""
+        self.store.prune("run", keep=4)  # with the new one: the last five
+        return self.store.start("run", title, [sys.executable, "-B", str(TAUFW_SCRIPT)] + argv,
+                                str(self.launch_dir), data=data, escalate=False, signal="command")
+
+    def _run_operations_of(self, run_dir):
+        try:
+            operations = self.store.all("run")
+        except OSError:
+            return []
+        run_dir = str(Path(run_dir).resolve())
+        return [operation for operation in operations if _run_dir_of(operation) == run_dir]
+
     def running_operations(self):
         """Everything that runs behind the menu now (Operations)."""
         try:
@@ -228,6 +309,18 @@ class _Operations:
                     events=EventWriter(None))  # in the menu's own process: no events (taufw.py main sets them)
         args.update(values)
         return self.commands[command](Namespace(**args))
+
+
+def _run_dir_of(operation):
+    """The run directory of an advance: from its data, or (a start) from its `run` event."""
+    run_dir = operation.data.get("run_dir")
+    if not run_dir:
+        try:
+            run_dir = next((event.get("run_dir") for event in EventReader(operation.events_path).read()
+                            if event.get("kind") == "run"), "")
+        except OSError:
+            run_dir = ""
+    return str(Path(run_dir).resolve()) if run_dir else ""
 
 
 # =============================================================================

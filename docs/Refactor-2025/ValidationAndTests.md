@@ -401,7 +401,9 @@ re-captures the whole suite: 22 same, 1 changed): 658 `lumi` fields added, each 
 
 **Change:** [CL §28](Refactor-2025.md#28-one-advance-per-run-a-safe-stop-the-command-log-in-the-progress-events)
 
-**Status:** unit tests on Windows; lxplus check open (TODO §1 "Run lock and safe stop on lxplus").
+**Status:** unit tests on Windows; on lxplus983 (2026-10-21) `Tests/run.py all` and the lock checks with a fake
+lock file on a DONE run (refused, hint, `--take-lock`, taken at once for a dead process of this machine, file
+removed). Open: BBB, two nodes, Ctrl-C (TODO §1 "Run lock and safe stop on lxplus").
 
 - `Tests/Framework/test_run_lock.py`: held and removed; a second lock refused; a live lock of another machine never
   taken (also with take); a lost one only with take; a lock of this machine whose process is gone taken at once; a
@@ -414,3 +416,20 @@ re-captures the whole suite: 22 same, 1 changed): 658 `lumi` fields added, each 
   `Tests/Framework/test_stages.py` `test_progress_events`: the log path in the callback and in the events.
 - `python Tests/run.py all` on Windows: unit and harness 13/15 (known import debt, `check_root`), Framework 195 and
   Utilities 180 tests OK; normal and BBB need lxplus.
+
+## 29. Start and Continue run behind the menu
+
+**Change:** [CL §29](Refactor-2025.md#29-start-and-continue-run-behind-the-menu)
+
+**Status:** unit tests on Windows; lxplus check open (TODO §1 "Runs behind the menu on lxplus").
+
+- `Tests/Utilities/test_menu.py`: Start and Continue start runs (never `execute`), an ended advance is marked seen,
+  Continue on an advancing run opens it, Advance once, the lock screen (live: back; lost elsewhere: take over with
+  `take_lock`; lost here: no screen), the grid proxy check (back, renew, renew failed), the main menu run line (one
+  run, the chooser), the `continue_actions` and `grid_proxy_needed` actions.
+- `Tests/Framework/test_interactive.py`: the argv, `kind`, `escalate=False`, `signal="command"` and data of an
+  advance; Advance once; the start of a bundle; `run_operations` (running and unseen only), `run_operation`,
+  `run_advances` (a start's run dir from its `run` event), earlier advances marked seen, `run_lock` with `local`;
+  `needs_grid_proxy` for recipes and runs.
+- `python Tests/run.py all` on Windows: unit and harness 13/15 (known import debt, `check_root`), Framework 197 and
+  Utilities 184 tests OK.
