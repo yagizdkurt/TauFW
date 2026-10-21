@@ -727,7 +727,7 @@ class ConsoleUI:
     def select_run(self, summaries, advances=None):
         """Summaries are (run_id, state, updated); state=None marks unreadable runs. advances: an Operation (kind
         "run") or None per summary: the advance of that run behind the menu, shown after its row
-        ("| advancing: 3/5 plots, 5/7")."""
+        ("| advancing: 3/5 plots, 5/7 commands")."""
         id_width = min(36, max([len(row[0]) for row in summaries] or [0]))
         labels = []
         for run_id, state, updated in summaries:

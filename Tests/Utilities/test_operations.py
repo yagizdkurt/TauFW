@@ -151,7 +151,8 @@ class StateTests(OperationTestCase):
         operation.cancel()
         self.assertEqual((operation.state(), operation.cancelled), (STOPPING, True))
         for end, state in ((dict(returncode=0, stopped=False), DONE), (dict(returncode=2, stopped=False), FAILED),
-                           (dict(returncode=130, stopped=True), STOPPED)):
+                           (dict(returncode=130, stopped=True), STOPPED),
+                           (dict(returncode=0, stopped=True), DONE)):  # the stop came too late
             self.write(path, "exit.json", dict(end, finished=1004.0))
             operation = self.operation(path)
             self.assertEqual((operation.state(), operation.running), (state, False))

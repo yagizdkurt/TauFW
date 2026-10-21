@@ -145,7 +145,7 @@ class RunProgress(ScreenModel):
             command = _running(stage)
             return "stage %d/%d %s%s" % (index, len(self.stages), stage["id"],
                                          " | %d/%d %s" % (command["index"], command["total"], command["label"])
-                                         if command else "")
+                                         if _several(command) else "")
         if self.next_check and self.ended is None:
             return "waiting for jobs | next check in %s" % _clock(self.next_check - time.time())
         return "%d/%d stages done" % (done, len(self.stages))
@@ -161,16 +161,16 @@ class RunProgress(ScreenModel):
         where = ("Run dir: %s" % self.run_dir, None) if self.run_dir else ("Run: %s" % self.run_id, None)
         stage = self._working()
         name = stage["id"] if stage else ""
+        kept = "Finished stages and submitted jobs are kept" if self._jobs() else "Finished stages are kept"
         if self.ended == LOST:
             return "Lost", [(LOST_TEXT, "warning"),
-                            ("Finished stages and submitted jobs are kept; Continue resumes the run (after "
-                             "taking over its run lock).", None), where]
+                            ("%s; Continue resumes the run (after taking over its run lock)." % kept, None), where]
         if self.ended == STOPPED:
             done = [command for command in (stage["commands"].values() if stage else ()) if command["status"] == "ok"]
             during = ("Stopped during %s (%d/%d commands finished)." % (name, len(done), _total(stage))
                       if stage and stage["commands"] else "Stopped during %s." % name if stage else "Stopped.")
             return "Stopped", [(during, "warning"),
-                               ("Submitted jobs and finished stages are kept. Continue resumes from %s." % name
+                               ("%s. Continue resumes from %s." % (kept, name)
                                 if stage else "Continue resumes the run.", None), where]
         if self.run_state == "DONE":
             return "Run complete", [("All %d stages done.   started %s, finished %s" % (
@@ -247,6 +247,10 @@ class RunProgress(ScreenModel):
             self.stages[name]["type"] = kind
         return self.stages[name]
 
+    def _jobs(self):
+        """Whether the run has a stage that submits batch jobs (production)."""
+        return any(stage["type"] == "production" for stage in self.stages.values())
+
     def _working(self):
         """The stage the advance works on, waits for, failed or stopped at: the first that is not DONE."""
         for stage in self.stages.values():
@@ -258,7 +262,7 @@ class RunProgress(ScreenModel):
         if stage["state"] == "RUN":
             command = _running(stage)
             text = "running" + (" %d/%d %s" % (command["index"], command["total"], command["label"])
-                                if command else "")
+                                if _several(command) else "")
             return "%s for %s" % (text, _time(stage, "started", "seconds")) if long else text
         if stage["state"] == "STOP":
             return "stopped with the advance"
@@ -308,7 +312,8 @@ def follow_run(ui, screen, title, process):
 
 
 def run_summary(operation):
-    """(text, role) of an advance for the menus: "3/5 plots, 5/7", "1/5 ntuples, waiting for jobs", "Stopping",
+    """(text, role) of an advance for the menus: "3/5 plots, 5/7 commands" (the commands only when the stage runs
+    several), "1/5 ntuples, waiting for jobs", "Stopping",
     "Done", "Waiting for jobs", "Blocked at fit", "Failed at plots", "Stopped at plots", "Lost - Continue to
     resume"; role: a style name of ConsoleUI."""
     state = operation.state()
@@ -321,8 +326,8 @@ def run_summary(operation):
             return "Running", "waiting"
         position = "%d/%d %s" % (list(run.stages).index(name) + 1, len(run.stages), name)
         command = _running(stage)
-        if command:
-            return "%s, %d/%d" % (position, command["index"], command["total"]), "waiting"
+        if _several(command):
+            return "%s, %d/%d commands" % (position, command["index"], command["total"]), "waiting"
         return position + (", waiting for jobs" if stage["state"] in JOBS else ""), "waiting"
     if state == STOPPING:
         return "Stopping", "warning"
@@ -346,6 +351,11 @@ def run_summary(operation):
 def _running(stage):
     running = [command for command in stage["commands"].values() if command["status"] == "run"]
     return running[-1] if running else None
+
+
+def _several(command):
+    """A running command of a stage that runs more than one: worth counting."""
+    return command is not None and command["total"] > 1
 
 
 def _total(stage):

@@ -103,7 +103,11 @@ Items marked **(verify)** may already be done; check before working on them.
       no command left in `ps -u $USER`. Done 2026-10-21 on lxplus983: `Tests/run.py all` and the lock refusal and
       takeover with a fake lock file (live: refused also with `--take-lock`; lost elsewhere: hint, then taken;
       this machine, dead pid: taken at once; the file removed each time) on a DONE run. Left: BBB, two nodes, Ctrl-C.
-- [ ] **Runs behind the menu on lxplus (CL §29):** in the menu, Start a short recipe: the run screen opens, Esc
+- [ ] **Runs behind the menu on lxplus (CL §29):** done 2026-10-21 with a two-step python recipe on lxplus983 and
+      lxplus939: Start, Esc, the main menu line; the CLI advance and the menu of the other node (same live screen);
+      stop (failed first: the supervisor's SIG_IGN, fixed); Continue resumes; a killed advance taken over at once on
+      its machine. Left after the fixes of that day: the info box, the quit warning, a Run complete card, the "Advance
+      lost" screen from another node, the job tests (grid proxy screen, stop during a submission). Original list: in the menu, Start a short recipe: the run screen opens, Esc
       leaves it running, the main menu shows "Run <name> (...)"; it opens the screen again; after the end the card
       once, then the line is gone. Continue a WAITING run with "Advance to the end": live screen, next check
       countdown; Continue the same run from a second terminal on another node: it opens the same screen, no second
@@ -311,9 +315,9 @@ Parts 1–5 are done (CL §5–§8; the Part 2 changelog section was removed).
       2026-10-18: the run screen and its result cards in the preview (`_run_screen.py`, CL §18), and the main
       menu run line, the runs chooser, the run list label and the lock screens (CL §18 "Runs in the menus").
       Done 2026-10-21: (1) and the log path in `progress` (CL §28); the wiring of Start/Continue, the run lines,
-      the `seen` file, Continue on an advancing run and the lock screen (CL §29). Left: the info box fields per
-      stage type (to choose with the user): each stage's `info` facts in the run operation's data, for the box
-      next to the Stages list; then steps (3) and (4).
+      the `seen` file, Continue on an advancing run and the lock screen (CL §29); the info box with each stage's
+      recipe options (first version, CL §29). Left: a choice of fields per stage type if the options are too
+      much; then steps (3) and (4).
 
 Next-work proposals (not designed in detail yet):
 

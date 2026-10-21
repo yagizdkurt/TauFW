@@ -9,8 +9,9 @@ from ._runner import Command, CommandResult, CommandPlan, RunReport, ProcessRunn
 from ._outdir import output_dir_problems, tuple_pattern_problems
 from ._events import EVENTS_ENV, EventWriter, EventReader, LogTail
 from ._background import BackgroundProcess
-from ._operations import Operation, OperationStore
+from ._operations import Operation, OperationStore, RUNNING, STOPPING, DONE, FAILED, STOPPED, LOST
 
 __all__ = ["Command", "CommandResult", "CommandPlan", "RunReport", "ProcessRunner", "ParallelProcessor",
            "output_dir_problems", "tuple_pattern_problems", "EVENTS_ENV", "EventWriter", "EventReader", "LogTail",
-           "BackgroundProcess", "Operation", "OperationStore"]
+           "BackgroundProcess", "Operation", "OperationStore", "RUNNING", "STOPPING", "DONE", "FAILED", "STOPPED",
+           "LOST"]

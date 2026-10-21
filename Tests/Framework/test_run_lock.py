@@ -89,16 +89,18 @@ class RunLockTests(LockTestCase):
 
     def test_the_takeover_says_why(self):
         pico = fakes.FakePicoProducer(statuses=[fakes.complete("DY", "TT")])
-        for quiet, why in ((1, "its process is gone"), (LOST_AFTER + 30, "no sign of life for 150 s")):
-            with self.subTest(why=why):
+        for host, quiet, why in ((socket.gethostname(), 1, "its process is gone"),
+                                 (socket.gethostname(), LOST_AFTER + 30, "its process is gone"),  # the surer reason
+                                 ("lxplus999.cern.ch", LOST_AFTER + 30, "no sign of life for 150 s")):
+            with self.subTest(why=why, host=host):
                 record = framework(pico).start(run_root=tempfile.mkdtemp(dir=self.root))
-                foreign(record.run_dir, host=socket.gethostname(), pid=999999, quiet=quiet)
+                foreign(record.run_dir, host=host, pid=999999, quiet=quiet)
                 fw = framework(pico)
                 with mock.patch.object(run_lock, "_alive", side_effect=lambda pid: pid != 999999):
-                    fw.advance(record)
+                    fw.advance(record, take_lock=True)
                 warnings = [text for kind, text in fw.reporter.messages if kind == "warning"]
                 self.assertIn("Took over the advance lock of pid 999999 on %s (since 2026-10-21 14:02:00, %s)"
-                              % (socket.gethostname(), why), warnings)
+                              % (host, why), warnings)
 
     def test_a_half_written_lock_goes_by_the_file_time(self):
         open(self.path, "w").close()

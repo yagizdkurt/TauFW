@@ -66,7 +66,7 @@ from TauFW.Framework.manifest import write_manifest, ManifestError
 from TauFW.Framework.recipe import Recipe, RecipeError, Issue
 from TauFW.Framework.samples import sample_issues
 from TauFW.Framework.run_record import RunRecord, RunState
-from TauFW.Framework.run_lock import RunLock, RunLockError, LOST_AFTER
+from TauFW.Framework.run_lock import RunLock, RunLockError
 from TauFW.Framework.interrupts import deferred_interrupt
 from TauFW.Framework.reporting import FrameworkReporter
 from TauFW.Framework.validation import read_source
@@ -179,8 +179,8 @@ class Framework:
         with RunLock(record.run_dir, take=take_lock) as lock:
             if lock.taken is not None:
                 taken = lock.taken
-                why = ("no sign of life for %.0f s" % (taken.get('quiet', 0)) if taken.get('quiet', 0) > LOST_AFTER
-                       else "its process is gone")
+                why = ("its process is gone" if taken.get('gone') else
+                       "no sign of life for %.0f s" % (taken.get('quiet', 0)))
                 self.reporter.warning("Took over the advance lock of pid %s on %s (since %s, %s)"
                                       % (taken.get('pid'), taken.get('host'), taken.get('since'), why))
             return self._advance(record, wait, poll, lock)

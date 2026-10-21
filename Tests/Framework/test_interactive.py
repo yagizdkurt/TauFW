@@ -133,17 +133,18 @@ class MenuTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "complete TauFW checkout"):
                 operations.test_catalog()
 
-    def operation(self, name, run_dir="", seen=False, ended=True, events=()):
-        """An advance record in the operations directory: ended (exit.json) or running (a fresh heartbeat)."""
+    def operation(self, name, run_dir="", seen=False, ended=True, events=(), started=1.0, lost=False):
+        """An advance record in the operations directory: ended (exit.json), running (a fresh heartbeat) or lost
+        (an old heartbeat of another machine)."""
         path = self.root / "operations" / name
         path.mkdir(parents=True)
-        (path / "operation.json").write_text(json.dumps(dict(kind="run", title=name, argv=[], started=1.0,
+        (path / "operation.json").write_text(json.dumps(dict(kind="run", title=name, argv=[], started=started,
                                                              host="here", data=dict(run_id=name, run_dir=run_dir))))
         (path / "events.jsonl").write_text("".join(json.dumps(event) + "\n" for event in events))
         if ended:
             (path / "exit.json").write_text(json.dumps(dict(returncode=0, stopped=False, finished=2.0)))
         else:
-            (path / "heartbeat.json").write_text(json.dumps(dict(host="elsewhere", pid=1, t=9e9)))
+            (path / "heartbeat.json").write_text(json.dumps(dict(host="elsewhere", pid=1, t=1.0 if lost else 9e9)))
         if seen:
             (path / "seen").touch()
         return path
@@ -166,6 +167,43 @@ class MenuTests(unittest.TestCase):
                                                                           t=1.0)))
         lock = operations.run_lock(record.run_dir)
         self.assertEqual((lock["host"], lock["lost"], lock["local"]), ("elsewhere", True, False))
+
+    def test_a_lost_advance_stays_listed_until_its_run_goes_on(self):
+        operations = self.menu(FakeUI()).operations
+        record = self.record()
+        self.operation("run-1", run_dir=record.run_dir, seen=True, ended=False, lost=True)
+        self.assertEqual([o.title for o in operations.run_operations()], ["run-1"])  # its card was seen: listed
+        self.operation("run-2", run_dir=record.run_dir, seen=True, started=2.0)
+        self.assertEqual(operations.run_operations(), [])  # a newer advance of the run (Continue) took over
+        other = self.record("other", day=2)
+        self.operation("run-3", run_dir=other.run_dir, seen=True, ended=False, lost=True, started=3.0)
+        other.stage("fit").state = "DONE"
+        other.save()
+        self.assertEqual(operations.run_operations(), [])  # the run ended meanwhile (e.g. from the CLI)
+
+    def test_continue_lists_the_runs_of_the_advances_behind_the_menu(self):
+        operations = self.menu(FakeUI()).operations
+        inside = self.record()  # in taufw_runs/ of the launch directory
+        recipe = Recipe.from_dict({"name": "elsewhere", "stages": [FIT]})
+        outside = RunRecord.create(recipe, str(self.root / "my_runs"), now=datetime(2026, 10, 3))
+        Path(outside.run_dir).mkdir(parents=True)
+        outside.save()
+        self.assertEqual([row[2][0] for row in operations.runs()], [inside.run_id])
+        self.operation("run-1", run_dir=outside.run_dir)
+        self.operation("run-2", run_dir=inside.run_dir)
+        self.assertEqual([row[2][0] for row in operations.runs()], [outside.run_id, inside.run_id])  # once each
+
+    def test_the_facts_of_a_stage_for_the_info_box(self):
+        stage = {"stage": "production", "id": "ntuples", "description": "tuples", "inputs": None,
+                 "eras": ["2022_postEE", "2023C"], "channels": ["mutau"], "samples": ["DY*", "TT*"], "tag": "",
+                 "max_tries": 3, "merge": {"clean": True}}
+        self.assertEqual(interactive._stage_info(stage), [
+            ["Eras", "2022_postEE 2023C"], ["Channels", "mutau"], ["Samples", "DY* TT*"], ["Max tries", "3"],
+            ["Merge", "clean: True"], ["Output", "stages/ntuples/"]])
+        plots = {"stage": "controlplots", "id": "plots", "inputs": {"histograms": "hists"},
+                 "config": "plots_mutau.yml"}
+        self.assertEqual(interactive._stage_info(plots), [["Config", "plots_mutau.yml"],
+                                                          ["Inputs", "histograms: hists"], ["Output", "stages/plots/"]])
 
     def test_grid_proxy_is_needed_while_production_may_submit(self):
         operations = self.menu(FakeUI()).operations
@@ -265,7 +303,8 @@ class MenuTests(unittest.TestCase):
         self.assertEqual((options["kind"], options["title"], options["escalate"], options["signal"]),
                          ("run", newest.run_id, False, "command"))
         self.assertEqual(options["data"], dict(run_id=newest.run_id, run_dir=newest.run_dir, stages=[
-            dict(id="fit", type="fit", state="WAITING", message="", info=[])]))
+            dict(id="fit", type="fit", state="WAITING", message="", info=[["Inputs", "shapes: None"],
+                                                                         ["Output", "stages/fit/"]])]))
         self.assertEqual(ui.screens[-1][0], "Run " + newest.run_id)
 
     def test_advance_once(self):

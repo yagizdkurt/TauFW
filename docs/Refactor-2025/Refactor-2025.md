@@ -1065,6 +1065,16 @@ behind the menu (CL §18), like the tests, and the run screen follows them.
   through the SIGTERM escalation, which runs do not have. The supervisor now catches SIGINT with a handler that does
   nothing (reset at exec), so taufw.py and Tests/run.py get the stop as Ctrl-C
   (`RealStopTests.test_a_run_stop_is_a_keyboardinterrupt_in_the_command`, lxplus only).
+- **From the lxplus menu tests (2026-10-21):** an operation that exits 0 is DONE also when its stop came too late
+  (it was STOPPED); a lost advance stays in the main menu until a newer advance of its run starts or its run ends,
+  not only until its card is seen; Continue also lists the runs of the advances behind the menu (a recipe outside
+  `Analyses/`, another run root); a stage that runs one command is not counted ("1/2 slow", not "1/2 slow, 1/1"),
+  several are "3/5 plots, 5/7 commands"; the stopped and lost cards mention submitted jobs only for runs with a
+  production stage; the take-over warning says "its process is gone" whenever that is known (`read_lock` `gone`).
+- **Info box (part 4d, first version):** the box next to the stage list shows each stage's options as written in the
+  recipe (config, eras, channels, file, ...), its inputs, its output directory (`stages/<id>/`) and, on Continue,
+  the attempt (`interactive._stage_info`). Without facts the screen has no box, which is why the live screen looked
+  different from the preview before. Fields per stage type can still be chosen later.
 - Removed: `poll_interval`, `invalid_poll_interval` (UI), `validate_poll` (adapter), the "polling interval" preview
   screen; added the "grid proxy needed" preview screen. Plan and status still run in the menu's process (TODO §6
   step 3). The info box next to the stage list stays empty until its fields are chosen (part 4d).

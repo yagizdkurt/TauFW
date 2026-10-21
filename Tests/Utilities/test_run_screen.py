@@ -51,6 +51,20 @@ class RunProgressTests(unittest.TestCase):
         self.assertIsNone(run.card())  # not ended
         self.assertEqual(run.states["RUNNING"], ("RUNNING", "accent"))
 
+    def test_a_stage_with_one_command_is_not_counted(self):
+        """A python step runs one command: "running", not "running 1/1 slow"; the header and the menus say only
+        the stage."""
+        run = RunProgress(dict(run_id="menutest", stages=[dict(id="slow", type="python"),
+                                                          dict(id="second", type="python")]))
+        run.feed([event("stage_step", stage="slow", type="python", state="NEW"),
+                  event("progress", stage="slow", index=1, total=1, label="slow", status="run")])
+        slow = run.items()[0]
+        with mock.patch("time.time", return_value=T + 5):
+            self.assertEqual(run.row(slow)[0], "[ RUN] slow    running")
+            self.assertEqual(run.summary(), "stage 1/2 slow")
+        run.finish(130, state="STOPPED")
+        self.assertEqual(run.card()[1][1][0], "Finished stages are kept. Continue resumes from slow.")
+
     def test_the_facts_of_a_stage(self):
         run = RunProgress(DATA)
         self.assertEqual(run.info(run.items()[0]), ("Info: ntuples", [("Type", "production"),
@@ -162,7 +176,7 @@ class RunLabelTests(unittest.TestCase):
         return _advance(os.path.join(self.root, str(self.count)), kind, **options)
 
     def test_run_summary_of_every_state(self):
-        cases = [(self.advance(ago=14.0), ("3/5 plots, 5/7", "waiting")),
+        cases = [(self.advance(ago=14.0), ("3/5 plots, 5/7 commands", "waiting")),
                  (self.advance("jobs", ago=8.0), ("1/5 ntuples, waiting for jobs", "waiting")),
                  (self.advance("complete"), ("Done", "good")),
                  (self.advance("waiting"), ("Waiting for jobs", "waiting")),
@@ -197,7 +211,7 @@ class RunLabelTests(unittest.TestCase):
         curses, screen = fake_curses([1002, 10, 27])
         self.assertEqual(ConsoleUI(curses).active_runs(operations), ("select", 1))
         drawn = [call.args[2] for call in screen.addnstr.call_args_list]
-        self.assertTrue(any("tes_2025: 3/5 plots, 5/7  00:14" in line for line in drawn))
+        self.assertTrue(any("tes_2025: 3/5 plots, 5/7 commands  00:14" in line for line in drawn))
         self.assertTrue(any("mutau_2024: Failed at plots" in line for line in drawn))
         self.assertEqual(ConsoleUI(curses).active_runs(operations), ("back", None))
         ui = ConsoleUI(mock.Mock())
@@ -205,7 +219,8 @@ class RunLabelTests(unittest.TestCase):
             ui.select_run([("tes_2025", "WAITING", "today"), ("old", "DONE", "today")],
                           advances=[operations[0], None])
             self.assertEqual(choose.call_args.args[1][:2], ["tes_2025 | WAITING | updated today | advancing: "
-                                                            "3/5 plots, 5/7", "old      | DONE    | updated today"])
+                                                            "3/5 plots, 5/7 commands",
+                                                            "old      | DONE    | updated today"])
             self.assertEqual(choose.call_args.kwargs["row_colors"][:2], ["waiting", "good"])
 
     def test_run_lock_screens(self):

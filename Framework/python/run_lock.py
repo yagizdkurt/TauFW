@@ -20,7 +20,8 @@ when it is of another machine (it may be a slow file system, not a dead
 advance: the user decides). A live lock is never taken.
 
 read_lock(run_dir) -> the lock as a dict with quiet (s since the last sign of
-life) and lost, or None: what a menu or `status` shows. Standard library only.
+life), gone (its process is gone on this machine) and lost, or None: what a
+menu or `status` shows. Standard library only.
 """
 import json
 import os
@@ -173,8 +174,8 @@ def read_lock(run_dir, clock=time.time):
 def _view(record, now):
     lock = dict(record)
     lock['quiet'] = max(0.0, now - float(lock.get('t', 0)))
-    lock['lost'] = lock['quiet'] > LOST_AFTER or (lock.get('host') == socket.gethostname() and
-                                                  not _alive(lock.get('pid')))
+    lock['gone'] = lock.get('host') == socket.gethostname() and not _alive(lock.get('pid'))
+    lock['lost'] = lock['quiet'] > LOST_AFTER or lock['gone']
     return lock
 
 

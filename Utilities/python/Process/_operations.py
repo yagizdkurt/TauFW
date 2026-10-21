@@ -23,7 +23,7 @@ file (`stop`) that the supervisor reads. An operation directory:
 
 The state, from these files:
 
-  exit.json:     DONE (exit 0), FAILED, or STOPPED (the stop was asked for)
+  exit.json:     DONE (exit 0, also after a stop that came too late), STOPPED (the stop was asked for), or FAILED
   no exit.json:  RUNNING, or STOPPING once `stop` exists; LOST when no heartbeat came for LOST_AFTER s, or at once
                  when the supervisor's process is gone on this machine (the login session ended, the machine
                  restarted, ...). Running on after the login session ends is not a goal: such an operation is LOST.
@@ -77,7 +77,9 @@ class Operation:
     def state(self) -> str:
         """RUNNING, STOPPING, DONE, FAILED, STOPPED or LOST (see the module docstring)."""
         if self.poll() is not None:
-            return STOPPED if self.stopped else (DONE if self.returncode == 0 else FAILED)
+            if self.returncode == 0:
+                return DONE  # also when a stop was asked for too late: the command finished its work
+            return STOPPED if self.stopped else FAILED
         if self._lost():
             return LOST
         return STOPPING if self.cancelled else RUNNING

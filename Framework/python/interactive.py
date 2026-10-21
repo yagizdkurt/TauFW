@@ -13,7 +13,7 @@ from argparse import Namespace
 from pathlib import Path
 
 from TauFW.Framework.defaults import (ANALYSES_DIR, DEFAULT_POLL_SECONDS, DEFAULT_RUN_ROOT, RECIPE_NAME,
-                                      RUN_RECORD_NAME)
+                                      RUN_RECORD_NAME, STAGES_DIR_NAME)
 from TauFW.Framework.run_record import RunRecord, RunState
 from TauFW.Framework.recipe import Recipe, read_recipe, run_root_dir
 from TauFW.Framework.validation import check_recipe
@@ -21,7 +21,7 @@ from TauFW.Framework.framework import Framework
 from TauFW.Framework.reporting import SilentReporter
 from TauFW.Framework.run_lock import read_lock
 from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation
-from TauFW.Utilities.Process import EventReader, EventWriter, OperationStore
+from TauFW.Utilities.Process import LOST, EventReader, EventWriter, OperationStore
 
 CHECKOUT = Path(__file__).resolve().parents[2]
 OPERATIONS_DIR = CHECKOUT / ".artifacts" / "menu" / "operations"  # what runs behind the menu (git-ignored)
@@ -100,18 +100,24 @@ class _Operations:
                                   for root in roots))
 
     def runs(self):
-        runs = []
+        """The runs in the run roots, and those of the advances behind the menu (a run of a recipe outside the
+        recipes directory, or started with another run root)."""
+        directories = []
         for root in self.run_roots():
-            if not root.is_dir():
-                continue
-            for directory in root.iterdir():
-                if directory.is_dir() and (directory / RUN_RECORD_NAME).is_file():
-                    try:
-                        record = self.load_run(str(directory))
-                        runs.append((record.created, str(directory),
-                                     (record.run_id, record.state, record.updated)))
-                    except Exception:
-                        runs.append(("", str(directory), (directory.name, None, None)))
+            if root.is_dir():
+                directories.extend(directory for directory in root.iterdir() if directory.is_dir())
+        try:
+            directories.extend(Path(run_dir) for run_dir in map(_run_dir_of, self.store.all("run")) if run_dir)
+        except OSError:
+            pass  # the operations cannot be read: the run roots only
+        runs = []
+        for directory in dict.fromkeys(directory.resolve() for directory in directories):
+            if (directory / RUN_RECORD_NAME).is_file():
+                try:
+                    record = self.load_run(str(directory))
+                    runs.append((record.created, str(directory), (record.run_id, record.state, record.updated)))
+                except Exception:
+                    runs.append(("", str(directory), (directory.name, None, None)))
         return sorted(runs, key=lambda row: (row[0], row[1]), reverse=True)
 
     # =========================================================================
@@ -215,7 +221,8 @@ class _Operations:
         return its Operation (kind "run"). Its data: run_id (the recipe's name until the run directory exists),
         run_dir (empty until then: the screen takes both from the `run` event) and the recipe's stages."""
         loaded = Recipe.load(str(recipe))
-        stages = [dict(id=stage.id, type=stage.stage, state="NEW", message="", info=[]) for stage in loaded.stages]
+        stages = [dict(id=stage["id"], type=stage["stage"], state="NEW", message="", info=_stage_info(stage))
+                  for stage in loaded.to_dict()["stages"]]
         return self._start_run(loaded.name, ["start", str(recipe), "--wait"],
                                dict(run_id=loaded.name, run_dir="", stages=stages))
 
@@ -225,18 +232,38 @@ class _Operations:
         for operation in self._run_operations_of(record.run_dir):
             operation.mark_seen()
         argv = ["advance", record.run_dir] + (["--wait"] if wait else []) + (["--take-lock"] if take_lock else [])
-        stages = [dict(id=stage.get("id"), type=stage.get("stage"), state=record.stage(stage.get("id")).state,
-                       message=record.stage(stage.get("id")).message, info=[])
-                  for stage in record.recipe.get("stages", ())]
+        stages = []
+        for stage in record.recipe.get("stages", ()):
+            saved = record.stage(stage.get("id"))
+            info = _stage_info(stage) + ([["Attempt", str(saved.attempt)]] if saved.attempt else [])
+            stages.append(dict(id=stage.get("id"), type=stage.get("stage"), state=saved.state, message=saved.message,
+                               info=info))
         return self._start_run(record.run_id, argv, dict(run_id=record.run_id, run_dir=record.run_dir,
                                                           stages=stages))
 
     def run_operations(self):
-        """The advances to show in the main menu: those running now, and those that ended and were not seen."""
+        """The advances to show in the main menu: those running now, those that ended and were not seen, and a
+        lost one until its run goes on (a newer advance of the run) or ends (run.json finished; e.g. advanced
+        from the CLI)."""
         try:
-            return [operation for operation in self.store.all("run") if operation.running or not operation.seen]
+            operations = self.store.all("run")
         except OSError:
             return []
+        shown, later = [], set()
+        for operation in operations:  # newest first
+            run_dir = _run_dir_of(operation)
+            if operation.running or not operation.seen:
+                shown.append(operation)
+            elif operation.state() == LOST and run_dir not in later and not self._finished(run_dir):
+                shown.append(operation)
+            later.add(run_dir)
+        return shown
+
+    def _finished(self, run_dir):
+        try:
+            return RunState(self.load_run(run_dir).state).finished
+        except Exception:
+            return False  # no run directory yet, or unreadable: the lost advance stays listed
 
     def run_operation(self, run_dir):
         """The advance of this run that runs behind the menu now (any menu, any machine), or None."""
@@ -309,6 +336,31 @@ class _Operations:
                     events=EventWriter(None))  # in the menu's own process: no events (taufw.py main sets them)
         args.update(values)
         return self.commands[command](Namespace(**args))
+
+
+def _stage_info(stage):
+    """The facts of a stage for the box next to the run screen's stage list: its options as written in the
+    recipe (config files, eras, channels, ...), its inputs and its output directory; [label, value] pairs."""
+    facts = []
+    for key, value in stage.items():
+        if key in ("stage", "id", "description", "inputs") or value in (None, "", [], {}):
+            continue
+        facts.append([key.replace("_", " ").capitalize(), _fact(value)])
+    inputs = stage.get("inputs") or {}
+    if inputs:
+        facts.append(["Inputs", ", ".join("%s: %s" % (slot, _fact(source)) if source != slot else str(slot)
+                                          for slot, source in inputs.items())])
+    facts.append(["Output", "%s/%s/" % (STAGES_DIR_NAME, stage.get("id"))])
+    return facts
+
+
+def _fact(value):
+    """A recipe value as one line: lists joined by spaces, mappings as `key: value`."""
+    if isinstance(value, dict):
+        return ", ".join("%s: %s" % (key, _fact(item)) for key, item in value.items())
+    if isinstance(value, (list, tuple)):
+        return " ".join(_fact(item) for item in value)
+    return str(value)
 
 
 def _run_dir_of(operation):
