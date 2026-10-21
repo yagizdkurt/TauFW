@@ -1188,3 +1188,55 @@ drawn.
   menu; S/Ctrl+C asks, K kills while it stops); "Grid Certificate" describes the password panel.
 - **UI preview:** "Panel: an error over the screen", "Grid Certificate: password (typed as *)", "Grid Certificate:
   renewal failed"; the quit scenarios show the new panel.
+
+## 33. Start a new run and Esc answer at once
+
+**Date:** 2026-10-22
+**Status:** done on Windows (unit tests); lxplus check in TODO §1 "Start and Esc speed on lxplus"
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#33-start-a-new-run-and-esc-answer-at-once)
+
+Found by the user after CL §32: "Start a new run" took long to open, and Esc was slow on every screen.
+
+- **Start:** the recipe list checks every recipe (`check_recipe`), and each check's `recipe_warnings` called
+  `configs.copy_warnings`, which scanned the whole `Configs/` directory again: every template read, parsed and
+  hashed. With the 4 recipes of `Analyses/`: 7 scans, 133 template reads, 93 % of the time (Windows, local disk:
+  0.57 s; AFS is much slower). Now `configs._templates` keeps the scan while no file of the directory changed (its
+  path, mtime and size: one stat per file); with a FileIO of the caller it scans as before. Windows: 0.18 s for the
+  first list (one scan), 0.08 s after. The CLI's output is unchanged.
+- **Esc:** curses waits `ESCDELAY` ms (default 1000) after Esc for the rest of a key sequence (an arrow key is
+  Esc + `[A`). `ConsoleUI.open` sets `ESCDELAY` to `ESC_DELAY` (25 ms) unless the user set it, and `_setup` calls
+  `curses.set_escdelay` (Python 3.9+). The menu and FastSetup's checklist both open through `ConsoleUI.open`.
+
+## 34. Start and Continue/Inspect read their lists ahead, and open at once
+
+**Date:** 2026-10-22
+**Status:** done on Windows (unit tests); lxplus check in TODO §1 "Lists read ahead on lxplus"
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#34-start-and-continueinspect-read-their-lists-ahead-and-open-at-once)
+
+After CL §33 the first Start of a menu still read every recipe's check before the list opened, and Continue/Inspect
+read every `run.json`. Decisions of the user, 2026-10-22: A + C (a thread reads the lists ahead from the menu's
+start, and a list opens at once with the rows that are still read marked), Continue/Inspect included. Not done
+(proposed, not chosen): a separate process (B), a cache on disk across menu sessions (D).
+
+- **Read ahead** (`Menu/_prefetch.py` `Prefetch`): jobs run one at a time by a daemon thread (quitting never waits;
+  it works while the menu waits for a key: curses releases the GIL in `getch`), a key is queued once until its job
+  ended, an error is dropped (the screen asks again and shows it). `threaded=False` (the default of
+  `MenuNavigation`, the unit tests) runs a job at once in the caller. `run_menu` passes a threaded one
+  (`Menu(ui, prefetch=Prefetch())`). `MenuNavigation.run` queues every recipe's check, then every run's row.
+- **Kept with the signature of their files** (`_Operations`): `recipe_preview(path)` keeps its view (also the view of
+  a recipe that cannot be checked: its error, before in the navigation) with the signature (path, inode, mtime,
+  size) of the recipe file or every file of its bundle and of `Configs/`; `kept_recipe_preview(path)` gives it
+  while the signature is the same, else None. `run_row(run_dir)` / `kept_run_row(run_dir)` the same for a run's
+  row with its `run.json` (replaced on every save: another inode). `run_roots()` keeps each recipe's `run_root` by
+  the recipe file; `run_directories()` names the runs, `runs()` gives the rows (kept or read). Nothing is ever
+  stale: a list asks the kept value, which a changed file drops.
+- **Lists** (`MenuNavigation.start`, `_pick_run`): a row without a kept value asks for its job and shows
+  "checking..." (a recipe: Pipeline "Checking the recipe...") or "loading..." (a run, after the read ones, its
+  directory name); while one is missing the list waits `LIST_EVERY` (0.5 s) for a key, then draws again
+  (`select_recipe(checking=, position=, live=)`, `select_run(loading=, position=, live=)`, `_pipeline_choice(live=)`
+  answer "refresh"). The focus stays: on the recipe by its position, on the run by its directory (the rows move as
+  they come). Enter on a recipe still checked opens its review at once (`prepare_review` reads it anyway), Enter on
+  a run still loading loads it (`load_run`).
+- Windows, the 4 recipes of `Analyses/`: the read-ahead 0.19 s after the menu opened; then the recipe list's data
+  0.004 s (the stats of the signatures).
+- **UI preview:** "Start a run: recipes still checked", "Continue: runs still loading".

@@ -25,6 +25,8 @@ QUIT_WARNING = ("If you quit, they keep running, but only while this login sessi
 
 
 LIVE_EVERY = 2.0      # seconds between two draws of a live main menu (something runs behind it)
+LIST_EVERY = 0.5      # seconds between two draws of a list whose rows are still read (Start, Continue)
+ESC_DELAY = 25        # ms curses waits after Esc for the rest of a key sequence (its default: 1000, a slow Esc)
 MODAL_WIDTH = 76      # columns of a panel over the screen at most
 REFRESH = "refresh"   # the answer of a live screen that was not answered in time: draw it again
 
@@ -100,6 +102,7 @@ class ConsoleUI:
             print("Cannot initialize the TauFW terminal menu: %s" % error, file=sys.stderr)
             parser.print_help()
             return None
+        os.environ.setdefault("ESCDELAY", str(ESC_DELAY))  # read when curses starts; one set by the user is kept
         return cls(curses)
 
     def is_terminal_error(self, error):
@@ -119,6 +122,11 @@ class ConsoleUI:
     def _setup(self, screen):
         screen.keypad(True)
         screen.timeout(-1)  # wait for a key: the screen before may have drawn live
+        if hasattr(self.curses, "set_escdelay"):  # Python 3.9+: also when curses read no ESCDELAY
+            try:
+                self.curses.set_escdelay(int(os.environ.get("ESCDELAY", ESC_DELAY)))
+            except (self.curses.error, ValueError):
+                pass
         self.styles = dict(accent=0, good=0, waiting=0, warning=0, error=0, brand=0, version=0)
         try:
             if self.colors_enabled() and self.curses.has_colors():
@@ -270,14 +278,17 @@ class ConsoleUI:
                                             len(lines)))[:width], color=self.styles["accent"])
         return offset, visible
 
-    def _pipeline_choice(self, title, choices, preview, review=False, position=None, row_colors=None):
+    def _pipeline_choice(self, title, choices, preview, review=False, position=None, row_colors=None, live=None):
         """Two equal columns, with independent recipe/action and pipeline scrolling.
-        row_colors: a style name per choice (e.g. "error"), or None."""
+        row_colors: a style name per choice (e.g. "error"), or None. live: seconds; without a key by then, REFRESH
+        (the caller draws it again with what came meanwhile; the position is kept)."""
         position = position if position is not None else {}
 
         def draw(screen):
             self._setup(screen)
-            selected, offset = position.get("selected", 0), position.get("offset", 0)
+            if live:
+                screen.timeout(int(live * 1000))
+            selected, offset = min(position.get("selected", 0), len(choices) - 1), position.get("offset", 0)
             while True:
                 screen.erase()
                 height, width = screen.getmaxyx()
@@ -312,6 +323,9 @@ class ConsoleUI:
                 self._footer(screen, "Up/Down Move | Enter Select | PgUp/Dn Pipeline | Esc Back")
                 screen.refresh()
                 key = screen.getch()
+                if key == -1 and live:
+                    position.update(selected=selected, offset=offset)
+                    return REFRESH
                 if key == 27:
                     position.update(selected=selected, offset=offset)
                     return None
@@ -738,11 +752,15 @@ class ConsoleUI:
             return "manual", None
         return "select", selected
 
-    def select_recipe(self, names, preview=None, broken=None, warnings=None):
-        """Return (select, index), (manual, None), or (back, None). broken: True for each recipe with problems
-        (shown in red). Warnings without problems are shown in yellow."""
+    def select_recipe(self, names, preview=None, broken=None, warnings=None, checking=None, position=None,
+                      live=False):
+        """Return (select, index), (manual, None), (back, None), or (refresh, None) (live: a check may have come).
+        broken: True for each recipe with problems (shown in red). Warnings without problems are shown in yellow.
+        checking: True for each recipe whose check is still read ("checking..."). position: the focus, kept by
+        the caller across a refresh."""
         if preview is None:
             return self._pick("Select a recipe", names, "Enter another recipe path")
+        names = [name + ("  checking..." if checking and checking[index] else "") for index, name in enumerate(names)]
 
         def view(index):
             if index < len(names):
@@ -754,7 +772,10 @@ class ConsoleUI:
                   for index, flag in enumerate(broken or [False] * len(names))]
         selected = self._pipeline_choice("Start a new run / Select a recipe",
                                          names + ["Enter another recipe path", "Back"], view,
-                                         row_colors=colors + [None, None])
+                                         row_colors=colors + [None, None], position=position,
+                                         live=LIST_EVERY if live else None)
+        if selected == REFRESH:
+            return REFRESH, None
         if selected is None or selected == len(names) + 1:
             return "back", None
         return ("manual", None) if selected == len(names) else ("select", selected)
@@ -770,24 +791,30 @@ class ConsoleUI:
                                          lambda index: review, review=True, position=position)
         return "back" if selected is None else actions[selected]
 
-    def select_run(self, summaries, advances=None):
+    def select_run(self, summaries, advances=None, loading=None, position=None, live=False):
         """Summaries are (run_id, state, updated); state=None marks unreadable runs. advances: an Operation (kind
         "run") or None per summary: the advance of that run behind the menu, shown after its row
-        ("| advancing: 3/5 plots, 5/7 commands")."""
+        ("| advancing: 3/5 plots, 5/7 commands"). loading: True for each run whose run.json is still read
+        ("loading...", its directory name as run_id). live: (refresh, None) when no key came in LIST_EVERY s;
+        position: the focus, kept by the caller."""
+        loading = loading or [False] * len(summaries)
         id_width = min(36, max([len(row[0]) for row in summaries] or [0]))
         labels = []
-        for run_id, state, updated in summaries:
+        for (run_id, state, updated), waiting in zip(summaries, loading):
             label = (run_id if len(run_id) <= id_width else run_id[:id_width - 3] + "...").ljust(id_width)
-            labels.append("%s | UNREADABLE" % label if state is None else
+            labels.append("%s | loading..." % label if waiting else "%s | UNREADABLE" % label if state is None else
                           "%s | %-7s | updated %s" % (label, state, updated))
-        colors = ["error" if state in (None, "FAILED", "BLOCKED") else
-                  "good" if state == "DONE" else "waiting" for _, state, _ in summaries]
+        colors = [None if waiting else "error" if state in (None, "FAILED", "BLOCKED") else
+                  "good" if state == "DONE" else "waiting" for (_, state, _), waiting in zip(summaries, loading)]
         for index, operation in enumerate(advances or ()):
             if operation is not None:
                 text, colors[index] = self._operation_summary(operation)
                 labels[index] += " | %s: %s" % ("advancing" if operation.running else "advance", text)
         selected = self.choose("Select an existing run", labels + ["Enter another run directory", "Back"],
-                               row_colors=colors + ["accent", "accent"])
+                               row_colors=colors + ["accent", "accent"], position=position,
+                               live=LIST_EVERY if live else None)
+        if selected == REFRESH:
+            return REFRESH, None
         if selected is None or selected == len(labels) + 1:
             return "back", None
         return ("manual", None) if selected == len(labels) else ("select", selected)

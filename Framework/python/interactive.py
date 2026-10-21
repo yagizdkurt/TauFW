@@ -6,6 +6,12 @@ here. Presentation and screen transitions live in TauFW.Utilities.Menu. Every
 command runs behind the menu as taufw.py (OperationStore): start/advance
 (kind "run"), plan/status (kind "command", read only) and the tests; the
 menu's own process only reads (recipes, run.json, check_recipe, a dry plan).
+
+What Start and Continue list (a recipe's check, a run's row) is kept with the
+signature of the files it was read from (path, inode, mtime, size: a stat
+each), so a list reads again only what changed; the menu reads them ahead in
+a thread of its own (Menu/_prefetch.py) and asks kept_recipe_preview() and
+kept_run_row().
 """
 import json
 import os
@@ -15,7 +21,7 @@ import sys
 import time
 from pathlib import Path
 
-from TauFW.Framework.defaults import (ANALYSES_DIR, DEFAULT_RUN_ROOT, RECIPE_NAME, RUN_RECORD_NAME,
+from TauFW.Framework.defaults import (ANALYSES_DIR, CONFIGS_DIR, DEFAULT_RUN_ROOT, RECIPE_NAME, RUN_RECORD_NAME,
                                       STAGES_DIR_NAME)
 from TauFW.Framework.run_record import RunRecord, RunState
 from TauFW.Framework.recipe import Recipe, read_recipe, run_root_dir
@@ -23,7 +29,7 @@ from TauFW.Framework.validation import check_recipe
 from TauFW.Framework.framework import Framework
 from TauFW.Framework.reporting import SilentReporter
 from TauFW.Framework.run_lock import read_lock
-from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation
+from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation, Prefetch
 from TauFW.Utilities.Process import LOST, EventReader, OperationStore
 
 CHECKOUT = Path(__file__).resolve().parents[2]
@@ -44,6 +50,7 @@ class _Operations:
         self.recipes_dir = Path(recipes_dir or ANALYSES_DIR)
         self.store = OperationStore(operations_dir or OPERATIONS_DIR)
         self._proxy = None  # (valid, until, proxy file): the last answer of voms-proxy-info (grid_proxy_valid)
+        self._kept = {}     # (what, path) -> (signature of its files, value): previews, run roots, run rows
 
     def resolve_path(self, value):
         path = Path(value).expanduser()
@@ -67,11 +74,23 @@ class _Operations:
                     notes=(), problems=(), warnings=tuple(str(warning) for warning in recipe.warnings))
 
     def recipe_preview(self, path):
-        """Check the recipe (validation.py) without constructing stage APIs: its stages and every problem."""
-        check = check_recipe(str(path))
-        return dict(name=check.name, path=str(path), stages=check.stages, notes=(),
-                    problems=tuple(str(issue) for issue in check.issues),
-                    warnings=tuple(str(warning) for warning in check.warnings))
+        """Check the recipe (validation.py) without constructing stage APIs: its stages and every problem; a
+        recipe that cannot be checked: its name and the error. Kept until a file of it changes (kept_recipe_preview;
+        also a template of Configs/, its copies are compared with them)."""
+        signature = _recipe_signature(path)
+        try:
+            check = check_recipe(str(path))
+            view = dict(name=check.name, path=str(path), stages=check.stages, notes=(),
+                        problems=tuple(str(issue) for issue in check.issues),
+                        warnings=tuple(str(warning) for warning in check.warnings))
+        except Exception as error:
+            view = dict(name=Path(path).name, error=str(error))
+        self._kept[("preview", str(path))] = (signature, view)
+        return view
+
+    def kept_recipe_preview(self, path):
+        """The preview of the recipe as recipe_preview() left it, if no file of it changed since; else None."""
+        return self._kept_value("preview", path, _recipe_signature)
 
     def prepare_review(self, path):
         """Reload and dry-plan the selected recipe without terminal output or writes."""
@@ -94,19 +113,17 @@ class _Operations:
         recipes directory (also of a recipe with problems, if its run_root can be read)."""
         roots = [self.launch_dir / DEFAULT_RUN_ROOT]
         for path in self.recipes():
-            try:
-                data = read_recipe(str(path))[0]
-                value = data.get('run_root') if isinstance(data, dict) else None
-                if isinstance(value, str) and value.strip():
-                    roots.append(Path(run_root_dir(value)))
-            except Exception:
-                continue  # an unreadable recipe: its problems are shown with the recipe
+            value = self._kept_value("root", path, _file_signature)
+            if value is None:
+                value = self._run_root_of(path)
+            if value:
+                roots.append(Path(run_root_dir(value)))
         return list(dict.fromkeys(root.resolve() if root.is_absolute() else self.launch_dir / root
                                   for root in roots))
 
-    def runs(self):
-        """The runs in the run roots, and those of the advances behind the menu (a run of a recipe outside the
-        recipes directory, or started with another run root)."""
+    def run_directories(self):
+        """The run directories (with a run.json) in the run roots, and those of the advances behind the menu (a run
+        of a recipe outside the recipes directory, or started with another run root)."""
         directories = []
         for root in self.run_roots():
             if root.is_dir():
@@ -115,15 +132,48 @@ class _Operations:
             directories.extend(Path(run_dir) for run_dir in map(_run_dir_of, self.store.all("run")) if run_dir)
         except OSError:
             pass  # the operations cannot be read: the run roots only
-        runs = []
-        for directory in dict.fromkeys(directory.resolve() for directory in directories):
-            if (directory / RUN_RECORD_NAME).is_file():
-                try:
-                    record = self.load_run(str(directory))
-                    runs.append((record.created, str(directory), (record.run_id, record.state, record.updated)))
-                except Exception:
-                    runs.append(("", str(directory), (directory.name, None, None)))
-        return sorted(runs, key=lambda row: (row[0], row[1]), reverse=True)
+        return [str(directory) for directory in dict.fromkeys(directory.resolve() for directory in directories)
+                if (directory / RUN_RECORD_NAME).is_file()]
+
+    def run_row(self, run_dir):
+        """(created, run_dir, (run_id, state, updated)) of a run; state None: its run.json cannot be read. Kept
+        until run.json changes (kept_run_row)."""
+        signature = _file_signature(Path(run_dir) / RUN_RECORD_NAME)
+        try:
+            record = self.load_run(str(run_dir))
+            row = (record.created, str(run_dir), (record.run_id, record.state, record.updated))
+        except Exception:
+            row = ("", str(run_dir), (Path(run_dir).name, None, None))
+        self._kept[("run", str(run_dir))] = (signature, row)
+        return row
+
+    def kept_run_row(self, run_dir):
+        """The row of the run as run_row() left it, if its run.json did not change since; else None."""
+        return self._kept_value("run", run_dir, lambda path: _file_signature(Path(path) / RUN_RECORD_NAME))
+
+    def runs(self):
+        """The rows of every run (run_directories), newest first."""
+        rows = [self.kept_run_row(run_dir) or self.run_row(run_dir) for run_dir in self.run_directories()]
+        return sorted(rows, key=lambda row: (row[0], row[1]), reverse=True)
+
+    def _run_root_of(self, path):
+        """The run_root a recipe names, or "" (none, or it cannot be read: its problems are shown with the
+        recipe); kept until the recipe file changes."""
+        signature, value = _file_signature(path), ""
+        try:
+            data = read_recipe(str(path))[0]
+            found = data.get('run_root') if isinstance(data, dict) else None
+            value = found if isinstance(found, str) and found.strip() else ""
+        except Exception:
+            pass
+        self._kept[("root", str(path))] = (signature, value)
+        return value
+
+    def _kept_value(self, what, path, signature_of):
+        kept = self._kept.get((what, str(path)))
+        if kept is None or kept[0] != signature_of(path):
+            return None
+        return kept[1]
 
     # =========================================================================
     # ========================== VALIDATION AND DISPATCH ======================
@@ -379,6 +429,32 @@ class _Operations:
                                 str(self.launch_dir), data=dict(command=command, target=str(target)))
 
 
+def _file_signature(path):
+    """(inode, mtime, size) of a file, None without one: a file written again (run.json is replaced) has another."""
+    try:
+        status = os.stat(str(path))
+    except OSError:
+        return None
+    return status.st_ino, status.st_mtime_ns, status.st_size
+
+
+def _recipe_signature(path):
+    """The signature of every file a recipe's check reads: the recipe file, or every file of its bundle, and the
+    templates of Configs/ (its copies are compared with them). Hidden files and directories are skipped."""
+    path = Path(path)
+    files = _tree(path) if path.is_dir() else [path]
+    return tuple((str(file), _file_signature(file)) for file in files + _tree(Path(CONFIGS_DIR)))
+
+
+def _tree(directory):
+    """Every file under a directory, sorted, without hidden files and directories."""
+    found = []
+    for parent, directories, names in os.walk(str(directory)):
+        directories[:] = sorted(name for name in directories if not name.startswith('.'))
+        found.extend(Path(parent) / name for name in sorted(names) if not name.startswith('.'))
+    return found
+
+
 def _proxy_file():
     """(mtime, size) of the grid proxy file ($X509_USER_PROXY, else /tmp/x509up_u<uid>), or None without one."""
     path = os.environ.get("X509_USER_PROXY") or "/tmp/x509up_u%s" % (os.getuid() if hasattr(os, "getuid") else "")
@@ -430,10 +506,11 @@ def _run_dir_of(operation):
 # ================================== LAUNCH ===================================
 
 
-def Menu(ui, launch_dir=None, recipes_dir=None, operations_dir=None):
+def Menu(ui, launch_dir=None, recipes_dir=None, operations_dir=None, prefetch=None):
     """Build navigation with Framework callbacks. operations_dir: where the operations behind the menu are kept
-    (default: OPERATIONS_DIR)."""
-    return MenuNavigation(ui, _Operations(launch_dir, recipes_dir, operations_dir))
+    (default: OPERATIONS_DIR). prefetch: what reads the lists ahead (Menu/_prefetch.py; default: at once, in the
+    caller)."""
+    return MenuNavigation(ui, _Operations(launch_dir, recipes_dir, operations_dir), prefetch=prefetch)
 
 
 def run_menu(parser):
@@ -442,7 +519,8 @@ def run_menu(parser):
     if ui is None:
         return 1
     try:
-        return ui.session(Menu(ui).run)  # one curses session: nothing is printed between two screens
+        # one curses session: nothing is printed between two screens; the lists are read ahead by a thread
+        return ui.session(Menu(ui, prefetch=Prefetch()).run)
     except Exception as error:
         if not ui.is_terminal_error(error):
             raise

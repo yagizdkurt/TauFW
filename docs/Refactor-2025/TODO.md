@@ -151,6 +151,14 @@ Items marked **(verify)** may already be done; check before working on them.
       the main menu label moves every 2 s without a key, Up/Down keeps working; after the end it stops moving. S on a
       test run: the panel, N, S, Y; while it stops K: the Kill now panel, Y ends it (STOPPED). Quit while tests run:
       the panel over the main menu. A small terminal (80 x 24 and smaller): the panels fit, a long text scrolls.
+- [ ] **Start and Esc speed on lxplus (CL §33):** in the menu, Start a new run opens the recipe list at once (the
+      first time after a `Configs/` change a little slower); Esc leaves every screen at once; arrow keys still work
+      (also over a slow SSH connection: an arrow key must not act as Esc). FastSetup's checklist: Esc at once.
+- [ ] **Lists read ahead on lxplus (CL §34):** open the menu and press Start at once: the list opens at once,
+      recipes still checked say "checking..." and fill in within seconds (colours, Pipeline), Up/Down works
+      meanwhile; wait a few seconds, then Start: everything is there at once. Edit a recipe in another terminal:
+      the next Start says "checking..." for that one only. Continue and Inspect: the same with "loading..." rows;
+      the selected run stays selected while rows come. Quit right after opening the menu: no wait.
 - [ ] **Tests behind the menu on lxplus (CL §18):** `python3 Tests/Utilities/test_operations.py` (the two real
       stop tests run there). In the menu: Tests > Normal tests > Run entire family, Esc at once: the main menu shows
       "Tests (Running n/N)"; Tests opens the live screen again; after the end "Tests (Done)" or "(Failed: n)" and

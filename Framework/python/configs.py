@@ -154,10 +154,10 @@ def update(directory=None, files=None):
 def copy_warnings(bundle_dir, directory=None, files=None):
     """[(file relative to the bundle, message)] for the copies of templates in a bundle whose template has another
     version (or is gone), and for copies with an invalid header. Files without a taufw_config header are skipped."""
-    files = files or default_file_io()
     if not bundle_dir or not os.path.isdir(bundle_dir):
         return []
-    templates = {template.header.id: template for template in scan(directory, files).templates}
+    templates = _templates(directory, files)
+    files = files or default_file_io()
     warnings = []
     for relative in _tree(bundle_dir):
         if os.path.splitext(relative)[1] not in EXTENSIONS or relative == RECIPE_NAME:
@@ -360,6 +360,25 @@ def _read_lock(directory, files, problems):
             continue
         lock[fields[0]] = (int(fields[1]), fields[2])
     return lock
+
+
+_SCANS = {}  # Configs/ directory -> (its files' signature, templates by id): see _templates
+
+
+def _templates(directory, files=None):
+    """The templates of a Configs/ directory by id, for copy_warnings. The menu checks every recipe on each Start
+    (each check scans), so with the default FileIO the scan is kept while no file of the directory changed (path,
+    mtime, size: a stat per file instead of reading and parsing each template)."""
+    directory = directory or CONFIGS_DIR
+    if files is not None:
+        return {template.header.id: template for template in scan(directory, files).templates}
+    signature = tuple((relative, status.st_mtime_ns, status.st_size) for relative, status in
+                      ((relative, os.stat(os.path.join(directory, relative))) for relative in _tree(directory)))
+    kept = _SCANS.get(directory)
+    if kept is None or kept[0] != signature:
+        templates = {template.header.id: template for template in scan(directory).templates}
+        kept = _SCANS[directory] = (signature, templates)
+    return kept[1]
 
 
 def _tree(directory):

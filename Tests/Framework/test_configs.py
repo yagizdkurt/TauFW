@@ -230,6 +230,24 @@ class CopyWarningTests(ConfigsCase):
     def warnings(self):
         return copy_warnings(self.bundle, self.configs)
 
+    def test_the_scan_is_kept_while_configs_is_unchanged(self):
+        """The menu checks every recipe on each Start: Configs/ is scanned again only when one of its files
+        changed (path, mtime, size), never with a FileIO of the caller."""
+        from TauFW.Framework import configs
+        self.write("samples.yml", template(version=1), self.bundle)
+        with mock.patch.object(configs, "scan", wraps=configs.scan) as scanned:
+            self.assertEqual(len(self.warnings()), 1)
+            self.assertEqual(len(self.warnings()), 1)
+            self.assertEqual(scanned.call_count, 1)
+            self.write("Plotter/samples/test.yml", template(version=1, body="xsec: 12345\n"))  # the maintainers
+            self.assertEqual(self.warnings(), [])  # the copy is as new as the template now
+            self.assertEqual(scanned.call_count, 2)
+            self.write("Plotter/samples/other.yml", template("plotter.other"))
+            self.warnings()
+            self.assertEqual(scanned.call_count, 3)  # a new template
+            copy_warnings(self.bundle, self.configs, files=configs.default_file_io())
+            self.assertEqual(scanned.call_count, 4)
+
     def test_copy_of_the_current_version(self):
         self.write("samples.yml", template(version=2, body="xsec: 7\n"), self.bundle)  # values edited: fine
         self.assertEqual(self.warnings(), [])

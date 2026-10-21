@@ -499,3 +499,38 @@ removed). Open: BBB, two nodes, Ctrl-C (TODO §1 "Run lock and safe stop on lxpl
 - `Tests/Utilities/test_preview.py`: every scenario draws, the three new ones too.
 - `python Tests/run.py checks` on Windows: 13/15 (the known two: import debt in `check_import_boundaries`,
   `check_root`); FastSetup's `unit.setup` OK (its checklist outside a session).
+
+## 33. Start a new run and Esc answer at once
+
+**Change:** [CL §33](Refactor-2025.md#33-start-a-new-run-and-esc-answer-at-once)
+
+**Status:** unit tests on Windows; lxplus check open (TODO §1 "Start and Esc speed on lxplus").
+
+- `Tests/Framework/test_configs.py` `test_the_scan_is_kept_while_configs_is_unchanged`: two `copy_warnings`, one
+  scan; a changed template and a new template scan again (the warning follows the new version); a FileIO given by
+  the caller always scans.
+- `Tests/Utilities/test_menu.py` `test_terminal_open_and_initialization_failures`: `ESCDELAY` 25 unless set (100
+  kept), `set_escdelay` with it.
+- Profile (Windows, `cProfile` over the 4 recipe previews): before 1.76 s under the profiler, 93 % in
+  `copy_warnings` -> `scan`; after: 0.18 s, then 0.08 s per list.
+- `python Tests/run.py checks` on Windows: 13/15 (the known two).
+
+## 34. Start and Continue/Inspect read their lists ahead, and open at once
+
+**Change:** [CL §34](Refactor-2025.md#34-start-and-continueinspect-read-their-lists-ahead-and-open-at-once)
+
+**Status:** unit tests on Windows; lxplus check open (TODO §1 "Lists read ahead on lxplus").
+
+- `Tests/Utilities/test_menu.py`: `test_prefetch_runs_each_key_once_and_in_order` (without a thread: at once, a job
+  that adds one, an error dropped; with the thread: a key queued once while it runs, the order, `wait`);
+  `test_the_menu_reads_the_lists_ahead` (the menu's start reads every recipe and run with a real thread);
+  `test_start_lists_at_once_and_fills_in_the_checks_as_they_come` ("checking...", live, the job asked once, the
+  focus kept); `test_continue_lists_at_once_and_fills_in_the_runs_as_they_come` (loading rows after the read ones,
+  the selected run kept while the rows move); `test_rows_still_read_say_so_and_the_list_draws_again` (the labels,
+  `timeout(500)`, "refresh", no UNREADABLE for a loading run). The navigation mocks get `kept_*` that read at once.
+- `Tests/Framework/test_interactive.py` `test_kept_previews_and_rows_last_until_their_files_change`: never read ->
+  None; kept until the recipe file changes; an unreadable recipe (its problem) and one whose check raises (its
+  error) are kept too; a run row until `run.json` is saved again; `runs()` and `run_directories()`.
+- Windows timing with the real adapter and a threaded `Prefetch`: read-ahead 0.19 s, then the Start list's data
+  0.004 s.
+- `python Tests/run.py checks` on Windows: 13/15 (the known two; `check_import_boundaries`: 0 new pairs).

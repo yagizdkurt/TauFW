@@ -45,7 +45,7 @@ class FakeUI(ConsoleUI):
     def help(self):
         pass
 
-    def select_recipe(self, names, preview=None, broken=None, warnings=None):
+    def select_recipe(self, names, preview=None, broken=None, warnings=None, **layout):
         self.broken = broken
         return super().select_recipe(names)
 
@@ -243,6 +243,29 @@ class MenuTests(unittest.TestCase):
         other.stage("fit").state = "DONE"
         other.save()
         self.assertEqual(operations.run_operations(), [])  # the run ended meanwhile (e.g. from the CLI)
+
+    def test_kept_previews_and_rows_last_until_their_files_change(self):
+        operations = self.menu(FakeUI()).operations
+        path = self.recipe_file(self.recipes / "kept.json", name="before")
+        self.assertIsNone(operations.kept_recipe_preview(path))  # never read
+        self.assertEqual(operations.recipe_preview(path)["name"], "before")
+        self.assertEqual(operations.kept_recipe_preview(path)["name"], "before")
+        self.recipe_file(path, name="after_a_change")
+        self.assertIsNone(operations.kept_recipe_preview(path))  # changed: read again
+        path.write_text("{")
+        self.assertTrue(operations.recipe_preview(path)["problems"])  # an unreadable recipe: its problem, kept too
+        self.assertTrue(operations.kept_recipe_preview(path)["problems"])
+        with mock.patch.object(interactive, "check_recipe", side_effect=RuntimeError("cannot check")):
+            self.assertEqual(operations.recipe_preview(path), dict(name="kept.json", error="cannot check"))
+        record = self.record()
+        self.assertIsNone(operations.kept_run_row(record.run_dir))
+        self.assertEqual(operations.run_row(record.run_dir)[2][:2], (record.run_id, "WAITING"))
+        self.assertEqual(operations.kept_run_row(record.run_dir)[2][1], "WAITING")
+        record.stage("fit").state = "DONE"
+        record.save()  # run.json replaced: another inode
+        self.assertIsNone(operations.kept_run_row(record.run_dir))
+        self.assertEqual([row[2][1] for row in operations.runs()], ["DONE"])
+        self.assertEqual(operations.run_directories(), [str(Path(record.run_dir).resolve())])
 
     def test_continue_lists_the_runs_of_the_advances_behind_the_menu(self):
         operations = self.menu(FakeUI()).operations

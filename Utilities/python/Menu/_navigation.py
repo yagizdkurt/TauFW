@@ -1,15 +1,18 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Menu navigation independent of Framework, files, and batch operations.
 
-The injected operations object supplies launch_dir, recipes(), runs(),
-resolve_path(value), load_run(path), can_advance(record),
-recipe_preview(path), prepare_review(path), and start_command(command, target), which starts a read-only command
+The injected operations object supplies launch_dir, recipes(), resolve_path(value), load_run(path),
+can_advance(record), prepare_review(path), and start_command(command, target), which starts a read-only command
 (`plan` of a recipe, `status` of a run directory) behind the menu and returns its Operation (kind "command"; its
 screen, ConsoleUI.command_output, stops it when it is left).
 Recipe views contain name, path, ordered (stage id, type, description) triples, notes, problems (a recipe with
 problems is shown in red and cannot start) and warnings (yellow; the recipe can still start).
 Records expose run_id, run_dir, and state;
-run rows are (created, path, (run_id, state, updated)). Only operations reads
+run rows are (created, path, (run_id, state, updated)). The lists of Start and Continue/Inspect are read ahead:
+recipe_preview(path) and run_row(run_dir) compute and keep (in a Prefetch job, from the menu's start on),
+kept_recipe_preview(path) and kept_run_row(run_dir) give what was kept while its files did not change (else None:
+the row says "checking..." and the list draws itself again until it came), run_directories() names the runs.
+Only operations reads
 files, validates values, or invokes commands. Grid callbacks are grid_proxy_valid(fresh=False)
 (the main menu may get a kept answer; fresh before a run), renew_grid_proxy(password) -> (valid, output), valid
 None when voms-proxy-init cannot read the password from stdin, and renew_grid_proxy_in_terminal() (it asks on the
@@ -26,6 +29,7 @@ While one runs, the main menu draws itself again every 2 s (ConsoleUI.main_menu(
 in a panel over the current screen (ui.operation_error). This class owns screen transitions.
 """
 from ._menu import ConsoleUI
+from ._prefetch import Prefetch
 
 
 class MenuNavigation:
@@ -34,9 +38,23 @@ class MenuNavigation:
     # =========================================================================
     # ================================= SETUP =================================
 
-    def __init__(self, ui, operations):
+    def __init__(self, ui, operations, prefetch=None):
+        """prefetch: what reads the lists ahead (a Prefetch with its thread: the menu); default: each read at once,
+        in the caller."""
         self.ui = ui
         self.operations = operations
+        self.prefetch = prefetch if prefetch is not None else Prefetch(threaded=False)
+
+    def _read_ahead(self):
+        """Read what Start and Continue/Inspect list, behind the main menu: every recipe's check, then every run."""
+        self.prefetch.add("recipes", lambda: [self._ask_preview(path) for path in self.operations.recipes()])
+        self.prefetch.add("runs", lambda: [self._ask_row(run_dir) for run_dir in self.operations.run_directories()])
+
+    def _ask_preview(self, path):
+        self.prefetch.add(("recipe", str(path)), lambda: self.operations.recipe_preview(path))
+
+    def _ask_row(self, run_dir):
+        self.prefetch.add(("run", str(run_dir)), lambda: self.operations.run_row(run_dir))
 
     # =========================================================================
     # ============================ OPERATION FEEDBACK =========================
@@ -58,13 +76,22 @@ class MenuNavigation:
     # =========================== RECIPE NAVIGATION ===========================
 
     def start(self):
+        """The recipe list opens at once: a recipe whose check is not read yet says "checking..." and the list
+        draws itself again until every check came (read ahead from the menu's start, see _read_ahead)."""
+        position = {}
         while True:
             recipes = self.operations.recipes()
-            previews = [self._preview(path) for path in recipes]  # all at once: the list marks broken recipes
+            previews = [self._kept_preview(path) for path in recipes]
+            checking = [view is None for view in previews]
+            previews = [view if view is not None else dict(name=path.name, hint="Checking the recipe...")
+                        for path, view in zip(recipes, previews)]
             broken = [bool(view.get("error") or view.get("problems")) for view in previews]
             warnings = [bool(view.get("warnings")) for view in previews]
             action, index = self.ui.select_recipe([p.name for p in recipes], preview=lambda i: previews[i],
-                                                  broken=broken, warnings=warnings)
+                                                  broken=broken, warnings=warnings, checking=checking,
+                                                  position=position, live=any(checking))
+            if action == "refresh":
+                continue  # a check came
             if action == "back":
                 return
             if action == "manual":
@@ -94,20 +121,39 @@ class MenuNavigation:
                     self._follow_run(self.operations.start_run(path))
                     return
 
-    def _preview(self, path):
-        try:
-            return self.operations.recipe_preview(str(path))
-        except Exception as error:
-            return dict(name=path.name, error=str(error))
+    def _kept_preview(self, path):
+        """The kept check of a recipe, or None while it is read (asked for here if it is not)."""
+        view = self.operations.kept_recipe_preview(path)
+        if view is None:
+            self._ask_preview(path)
+            view = self.operations.kept_recipe_preview(path)  # read at once without a thread
+        return view
 
     # =========================================================================
     # ============================= RUN NAVIGATION ============================
 
     def _pick_run(self):
+        """The run list opens at once: a run whose run.json is not read yet says "loading..." (after the others)
+        and the list draws itself again until every row came; the selected run stays selected."""
+        position, focus = {}, None
         while True:
-            runs = self.operations.runs()
-            action, index = self.ui.select_run([r[2] for r in runs],
-                                               advances=self.operations.run_advances([r[1] for r in runs]))
+            rows, loading = [], []
+            for run_dir in self.operations.run_directories():
+                row = self._kept_row(run_dir)
+                (rows if row is not None else loading).append(row or ("", run_dir, None))
+            rows = sorted(rows, key=lambda row: (row[0], row[1]), reverse=True)
+            runs = rows + sorted(loading, key=lambda row: row[1], reverse=True)
+            paths = [row[1] for row in runs]
+            if focus in paths:
+                position["selected"] = paths.index(focus)
+            summaries = [row[2] if row[2] is not None else (_name(row[1]), None, None) for row in runs]
+            action, index = self.ui.select_run(summaries, advances=self.operations.run_advances(paths),
+                                               loading=[row[2] is None for row in runs], position=position,
+                                               live=bool(loading))
+            selected = position.get("selected", 0)
+            focus = paths[selected] if selected < len(paths) else None
+            if action == "refresh":
+                continue  # a row came
             if action == "back":
                 return None
             if action == "manual":
@@ -121,6 +167,14 @@ class MenuNavigation:
                 return self.operations.load_run(path)
             except Exception as error:
                 self.ui.unreadable_run(error)
+
+    def _kept_row(self, run_dir):
+        """The kept row of a run, or None while its run.json is read (asked for here if it is not)."""
+        row = self.operations.kept_run_row(run_dir)
+        if row is None:
+            self._ask_row(run_dir)
+            row = self.operations.kept_run_row(run_dir)  # read at once without a thread
+        return row
 
     def inspect(self, record=None):
         if record is not None:
@@ -296,6 +350,7 @@ class MenuNavigation:
         self.ui.grid_result(valid, output)
 
     def run(self):
+        self._read_ahead()
         actions = {"start": self.start, "continue": self.continue_run, "run": self.follow_runs,
                    "runs": self.follow_runs, "inspect": self.inspect, "tests": self.tests,
                    "grid_certificate": self.grid_certificate, "help": self.ui.help}
@@ -319,3 +374,7 @@ class MenuNavigation:
                     raise  # Terminal failures cannot be recovered by drawing another menu.
                 self.ui.operation_error(error)
 
+
+def _name(path):
+    """The last part of a run directory: its name until its run.json is read."""
+    return str(path).replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]

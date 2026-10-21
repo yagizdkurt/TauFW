@@ -3,5 +3,6 @@
 
 from ._menu import ConsoleUI
 from ._navigation import MenuNavigation
+from ._prefetch import Prefetch
 
-__all__ = ["ConsoleUI", "MenuNavigation"]
+__all__ = ["ConsoleUI", "MenuNavigation", "Prefetch"]

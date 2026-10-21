@@ -503,6 +503,16 @@ def _recipes(ui, directory):
                             warnings=[bool(view.get("warnings")) for view in RECIPES])
 
 
+def _recipes_checking(ui, directory):
+    """The list right after the menu opened: the checks after the first are still read (not live here)."""
+    checking = [index > 0 for index in range(len(RECIPES))]
+    return ui.select_recipe([view["name"] for view in RECIPES],
+                            preview=lambda index: RECIPES[index] if index == 0 else
+                            dict(name=RECIPES[index]["name"], hint="Checking the recipe..."),
+                            broken=[bool(RECIPES[0].get("problems"))] + [False] * (len(RECIPES) - 1),
+                            checking=checking)
+
+
 def _review(ui, directory):
     review = dict(RECIPES[0], path="/afs/cern.ch/user/u/username/TauFW/recipes/tes_2025.yml")
     return ui.confirm_recipe("recipes/tes_2025.yml", review=review, position={})
@@ -540,6 +550,7 @@ SCENARIOS = [
     Scenario("Main menu", "tests running, no grid proxy",
              lambda ui, directory: ui.main_menu(tests=_tests(directory, ago=12.0))),
     Scenario("Start a run", "select a recipe", _recipes),
+    Scenario("Start a run", "recipes still checked (right after the menu opened)", _recipes_checking),
     Scenario("Start a run", "review", _review),
     Scenario("Main menu", "a run advancing",
              lambda ui, directory: ui.main_menu(True, runs=_runs(directory, ("advancing", None, 14.0)))),
@@ -555,6 +566,10 @@ SCENARIOS = [
              lambda ui, directory: ui.active_runs(_runs(directory, ("advancing", None, 14.0),
                                                         ("jobs", "etau_fr_2024", 8.0),
                                                         ("failed", "mutau_2024", None)))),
+    Scenario("Continue", "runs still loading",
+             lambda ui, directory: ui.select_run(RUNS[:2] + [(name, None, None) for name in ("mutau_2024_20261012",
+                                                                                         "tes_2025_20261001")],
+                                                 loading=[False, False, True, True])),
     Scenario("Continue", "select a run (one advancing)",
              lambda ui, directory: ui.select_run(RUNS, advances=_runs(directory, ("advancing", None, 14.0))
                                                  + [None] * (len(RUNS) - 1))),

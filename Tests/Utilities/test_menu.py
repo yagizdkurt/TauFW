@@ -2,6 +2,7 @@
 import contextlib
 import io
 import itertools
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -10,7 +11,7 @@ import unittest
 from unittest import mock
 
 import checkout
-from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation
+from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation, Prefetch
 
 
 def idle_operations():
@@ -24,6 +25,9 @@ def idle_operations():
     operations.run_advances.side_effect = lambda run_dirs: [None] * len(run_dirs)
     operations.run_lock.return_value = None
     operations.needs_grid_proxy.return_value = False
+    operations.run_directories.return_value = []
+    operations.kept_recipe_preview.side_effect = lambda path: operations.recipe_preview(path)  # read at once
+    operations.kept_run_row.side_effect = lambda run_dir: operations.run_row(run_dir)
     return operations
 
 
@@ -125,6 +129,44 @@ class ScreenTests(unittest.TestCase):
         self.assertEqual(ui.main_menu(), "inspect")  # the selected line stayed through the redraws
         curses, screen = self.curses([-1, 10])
         self.assertEqual(ConsoleUI(curses).main_menu(), "start")  # not live: no key is no answer
+
+    def test_rows_still_read_say_so_and_the_list_draws_again(self):
+        curses, screen = self.curses([1002, -1, 10])
+        ui = ConsoleUI(curses)
+        screen.getmaxyx.return_value = (24, 90)
+        position = {}
+        self.assertEqual(ui.select_recipe(["a", "b"], lambda i: dict(name="b", hint="Checking the recipe..."),
+                                          broken=[False, False], checking=[False, True], position=position,
+                                          live=True), ("refresh", None))
+        screen.timeout.assert_called_with(500)
+        drawn = [call.args[2] for call in screen.addnstr.call_args_list]
+        self.assertTrue(any(line.startswith("> b  checking...") for line in drawn))
+        self.assertEqual(ui.select_recipe(["a", "b"], lambda i: dict(name="b"), position=position), ("select", 1))
+        curses, screen = self.curses([-1, 27])
+        ui = ConsoleUI(curses)
+        self.assertEqual(ui.select_run([("a_1", "DONE", "today"), ("b_2", None, None)], loading=[False, True],
+                                       live=True), ("refresh", None))
+        drawn = [call.args[2] for call in screen.addnstr.call_args_list]
+        self.assertTrue(any("b_2 | loading..." in line for line in drawn))
+        self.assertFalse(any("UNREADABLE" in line for line in drawn))
+        self.assertEqual(ui.select_run([("a_1", "DONE", "today")]), ("back", None))
+
+    def test_prefetch_runs_each_key_once_and_in_order(self):
+        done = []
+        prefetch = Prefetch(threaded=False)
+        prefetch.add("a", lambda: done.append("a") or prefetch.add("b", lambda: done.append("b")))
+        prefetch.add("c", lambda: 1 / 0)  # an error is dropped
+        self.assertEqual(done, ["a", "b"])
+        self.assertFalse(prefetch.busy("c"))
+        import threading
+        gate, prefetch = threading.Event(), Prefetch()
+        prefetch.add("slow", gate.wait)
+        prefetch.add("slow", lambda: done.append("again"))  # queued or running: not again
+        prefetch.add("next", lambda: done.append("next"))
+        self.assertTrue(prefetch.busy("slow"))
+        gate.set()
+        self.assertTrue(prefetch.wait(10))
+        self.assertEqual(done, ["a", "b", "next"])
 
     def test_one_session_for_every_screen_and_errors_in_a_panel(self):
         curses, screen = self.curses([10, 27, 10])
@@ -501,7 +543,8 @@ class ScreenTests(unittest.TestCase):
     def runs_menu(self, **lock):
         """Mocks for Continue on one WAITING run; lock: its advance lock (none without)."""
         ui, operations = mock.Mock(), idle_operations()
-        operations.runs.return_value = [("today", "runs/example", ("example", "WAITING", "today"))]
+        operations.run_directories.return_value = ["runs/example"]
+        operations.run_row.return_value = ("today", "runs/example", ("example", "WAITING", "today"))
         record = mock.Mock(run_id="example", run_dir="runs/example", state="WAITING")
         operations.load_run.return_value = record
         operations.can_advance.return_value = True
@@ -654,7 +697,7 @@ sys.path.insert(0, %r)
 import checkout
 from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation
 import TauFW.Utilities.Menu as menu
-assert menu.__all__ == ['ConsoleUI', 'MenuNavigation']
+assert menu.__all__ == ['ConsoleUI', 'MenuNavigation', 'Prefetch']
 assert not any(name.startswith('TauFW.Framework.') for name in sys.modules)
 assert sys.modules['curses'] is None
 ConsoleUI(None)
@@ -670,8 +713,18 @@ ConsoleUI(None)
                 mock.patch("sys.stdin.isatty", return_value=True), \
                 mock.patch("sys.stdout.isatty", return_value=True):
             with mock.patch.dict(sys.modules, {"curses": curses}):
-                ui = ConsoleUI.open(mock.Mock())
+                for given, delay in ((None, "25"), ("100", "100")):  # Esc answers at once; the user's delay is kept
+                    with mock.patch.dict(os.environ, {} if given is None else {"ESCDELAY": given}):
+                        if given is None:
+                            os.environ.pop("ESCDELAY", None)
+                        ui = ConsoleUI.open(mock.Mock())
+                        self.assertEqual(os.environ["ESCDELAY"], delay)
+                        with mock.patch.object(ui, "colors_enabled", return_value=False):
+                            ui._setup(mock.Mock())
+                        curses.set_escdelay.assert_called_with(int(delay))
                 self.assertIs(ui.curses, curses)
+                curses.setupterm.reset_mock()
+                ConsoleUI.open(mock.Mock())
                 curses.setupterm.assert_called_once()
                 for error, expected in [(OSError("unsupported"), "requires curses"),
                                         (RuntimeError("setup failed"), "Cannot initialize")]:
@@ -802,15 +855,76 @@ ConsoleUI(None)
         self.assertIn("Path: Analyses/analysis", text)
         self.assertIn("Planning notes:", text)
 
+    def test_start_lists_at_once_and_fills_in_the_checks_as_they_come(self):
+        """A check that is not read yet: "checking..." and a live list, its job asked for once; the next draw
+        shows it; the focus stays."""
+        ui, operations = mock.Mock(), idle_operations()
+        operations.recipes.return_value = [Path("a.yml"), Path("b.yml")]
+        kept = {"a.yml": dict(name="a")}
+        operations.kept_recipe_preview.side_effect = lambda path: kept.get(str(path))
+        prefetch = mock.Mock()
+        drawn = []
+
+        def select(names, preview, broken, warnings, checking, position, live):
+            drawn.append((list(checking), live, preview(1).get("hint"), dict(position)))
+            if len(drawn) == 1:
+                position["selected"] = 1
+                kept["b.yml"] = dict(name="b", problems=("x",))  # the job of b came meanwhile
+                return "refresh", None
+            return "back", None
+        ui.select_recipe.side_effect = select
+        MenuNavigation(ui, operations, prefetch=prefetch).start()
+        self.assertEqual(drawn, [([False, True], True, "Checking the recipe...", {}),
+                                 ([False, False], False, None, {"selected": 1})])
+        (key, job), = [call.args for call in prefetch.add.call_args_list]
+        self.assertEqual(key, ("recipe", "b.yml"))
+        job()
+        operations.recipe_preview.assert_called_once_with(Path("b.yml"))
+
+    def test_continue_lists_at_once_and_fills_in_the_runs_as_they_come(self):
+        ui, operations = mock.Mock(), idle_operations()
+        operations.run_directories.return_value = ["runs/a_1", "runs/b_2", "runs/c_3"]
+        kept = {"runs/a_1": ("2026-10-01", "runs/a_1", ("a_1", "DONE", "today"))}
+        operations.kept_run_row.side_effect = lambda run_dir: kept.get(run_dir)
+        drawn = []
+
+        def select(summaries, advances, loading, position, live):
+            drawn.append((list(summaries), list(loading), live, dict(position)))
+            if len(drawn) == 1:
+                position["selected"] = 2  # runs/b_2 (loading, after the read ones)
+                kept["runs/b_2"] = ("2026-10-02", "runs/b_2", ("b_2", "WAITING", "today"))
+                kept["runs/c_3"] = ("2026-10-03", "runs/c_3", ("c_3", "FAILED", "today"))
+                return "refresh", None
+            return "back", None
+        ui.select_run.side_effect = select
+        self.assertIsNone(MenuNavigation(ui, operations, prefetch=mock.Mock()).continue_run())
+        self.assertEqual(drawn[0][:3], ([("a_1", "DONE", "today"), ("c_3", None, None), ("b_2", None, None)],
+                                        [False, True, True], True))
+        self.assertEqual(drawn[1][:3], ([("c_3", "FAILED", "today"), ("b_2", "WAITING", "today"),
+                                         ("a_1", "DONE", "today")], [False, False, False], False))
+        self.assertEqual(drawn[1][3], {"selected": 1})  # b_2 stayed selected while the rows moved
+
+    def test_the_menu_reads_the_lists_ahead(self):
+        ui, operations = mock.Mock(), idle_operations()
+        operations.recipes.return_value = [Path("a.yml")]
+        operations.run_directories.return_value = ["runs/a_1"]
+        ui.main_menu.side_effect = ["exit"]
+        prefetch = Prefetch(threaded=True)
+        MenuNavigation(ui, operations, prefetch=prefetch).run()
+        self.assertTrue(prefetch.wait(10))
+        operations.recipe_preview.assert_called_once_with(Path("a.yml"))
+        operations.run_row.assert_called_once_with("runs/a_1")
+
     def test_picker_preview_cache_and_exception_recovery(self):
         ui, operations = mock.Mock(), idle_operations()
         operations.recipes.return_value = [Path("good.yml"), Path("bad.yml"), Path("wrong.yml")]
         operations.recipe_preview.side_effect = [dict(name="good", warnings=("run_root: not set",)),
-                                                 ValueError("bad recipe"),
+                                                 dict(name="bad.yml", error="bad recipe"),  # the adapter's view
                                                  dict(name="wrong", problems=("stages[0] (fit): missing 'id'",),
                                                       warnings=("run_root: not set",))]
 
-        def select(names, preview, broken, warnings):
+        def select(names, preview, broken, warnings, checking, position, live):
+            self.assertEqual((checking, live), ([False] * 3, False))  # every check was read: not live
             self.assertEqual(preview(0), preview(0))
             self.assertEqual(preview(1), preview(1))
             self.assertEqual(preview(1)["error"], "bad recipe")
