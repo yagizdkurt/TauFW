@@ -25,8 +25,8 @@ stage type; the preview makes them up). The events it reads:
   progress     stage, index, total, label, status (run, ok, failed), [seconds], [log]
   wait         seconds                            warning     text            error  message
 
-(The `log` of a progress event is planned, TODO §6: until then a stage shows
-no command log.) The model lives in the Menu, not in the Framework: it reads
+The `log` of a progress event is the path of the command's log file (the
+runner's, set before the command starts). The model lives in the Menu, not in the Framework: it reads
 only events, so the Menu imports no Framework module.
 """
 import time

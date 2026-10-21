@@ -396,3 +396,21 @@ re-captures the whole suite: 22 same, 1 changed): 658 `lumi` fields added, each 
 `CMSStyle.lumi_dict` value of its era (2022_postEE 27.0072, 2022_preEE 8.077, 2023C 17.06, 2023D 9.525, 2024
 109.08, 2025 110.18, 2026 25.3, 2526 135.48), the baseline otherwise identical. `histogrammer.tes_inputs` needed
 `lumi` in its own mini model (`3268066`) and then passed without re-lock. `bbb check` 23/23; `checks` 14/15.
+
+## 28. One advance per run, a safe stop, the command log in the progress events
+
+**Change:** [CL §28](Refactor-2025.md#28-one-advance-per-run-a-safe-stop-the-command-log-in-the-progress-events)
+
+**Status:** unit tests on Windows; lxplus check open (TODO §1 "Run lock and safe stop on lxplus").
+
+- `Tests/Framework/test_run_lock.py`: held and removed; a second lock refused; a live lock of another machine never
+  taken (also with take); a lost one only with take; a lock of this machine whose process is gone taken at once; a
+  half-written lock goes by the file time; the heartbeat renews `t`; `check()` after a takeover. `Framework.advance`
+  holds and releases it (also after a stage error), is refused without changing `run.json`, says when it took a lock
+  over. `taufw.py advance`: one warning line, the `--take-lock` hint only for a lost lock, `--take-lock` continues.
+- `Tests/Framework/test_interrupts.py`: one Ctrl-C waits for the block, a second stops at once, the handler is
+  restored; a submission cut by Ctrl-C is still recorded (SUBMITTED, lock gone); a merge stops at once (MERGING).
+- `Tests/Utilities/test_operations.py` `test_signal_command_stops_the_command_alone`; `test_process.py` and
+  `Tests/Framework/test_stages.py` `test_progress_events`: the log path in the callback and in the events.
+- `python Tests/run.py all` on Windows: unit and harness 13/15 (known import debt, `check_root`), Framework 195 and
+  Utilities 180 tests OK; normal and BBB need lxplus.

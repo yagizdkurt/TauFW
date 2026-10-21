@@ -11,7 +11,8 @@ in a session of its own. So leaving a screen or quitting the menu never stops
 an operation, its exit code is kept without the menu, and stopping it is a
 file (`stop`) that the supervisor reads. An operation directory:
 
-  operation.json  kind, title, argv, cwd, data (what its screen needs), host, user, started, heartbeat, escalate
+  operation.json  kind, title, argv, cwd, data (what its screen needs), host, user, started, heartbeat, escalate,
+                  signal
   output.log      stdout and stderr of the command
   events.jsonl    its events ($TAUFW_EVENTS, _events.py)
   heartbeat.json  host, pid, t: written by the supervisor every `heartbeat` seconds
@@ -194,15 +195,17 @@ class OperationStore:
     """
 
     def start(self, kind: str, title: str, argv: Sequence[str], cwd: str, data: Optional[Mapping] = None,
-              env: Optional[Mapping[str, str]] = None, escalate: bool = True,
+              env: Optional[Mapping[str, str]] = None, escalate: bool = True, signal: str = "group",
               heartbeat: float = HEARTBEAT, popen: Callable = subprocess.Popen) -> Operation:
         """A new operation directory, and its supervisor started beside the caller. The command gets the
         caller's environment (with env), $TAUFW_EVENTS naming its events file and unbuffered Python output.
-        escalate: a stop goes on to SIGTERM and SIGKILL (False: SIGINT only; kill() remains)."""
+        escalate: a stop goes on to SIGTERM and SIGKILL (False: SIGINT only; kill() remains).
+        signal: where a stop's SIGINT goes: "group" (the command and everything it started) or "command" (the
+        command alone, which then ends what it started itself: taufw.py lets a job submission finish)."""
         path = self._new_directory(kind)
         record = dict(kind=kind, title=title, argv=list(argv), cwd=cwd, data=dict(data or {}),
                       host=socket.gethostname(), user=_user(), started=self.clock(), heartbeat=heartbeat,
-                      escalate=escalate)
+                      escalate=escalate, signal=signal)
         for name in (EVENTS_FILE, OUTPUT_FILE):
             open(os.path.join(path, name), "w").close()
         write_json(os.path.join(path, OPERATION_FILE), record)

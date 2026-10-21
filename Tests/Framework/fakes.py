@@ -222,13 +222,13 @@ class _FakeLocalAPI:
         os.makedirs(logdir, exist_ok=True)
         results = []
         for index, command in enumerate(plan.commands, 1):
-            progress(index, len(plan.commands), command, None)
             log = os.path.join(logdir, "%02d.log" % (index))
+            progress(index, len(plan.commands), command, None, log)
             with open(log, "w") as stream:
                 stream.write("".join("line %d\n" % (n) for n in range(30)))
             result = Result(command.label, returncode=2 if command.label == self.fail else 0, log=log)
             results.append(result)
-            progress(index, len(plan.commands), command, result)
+            progress(index, len(plan.commands), command, result, log)
             if not result.ok:
                 break
         report = RunReport(tuple(results), len(plan.commands))

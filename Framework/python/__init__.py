@@ -30,8 +30,9 @@ from TauFW.Framework.run_record import RunRecord, RunState, StageRecord
 from TauFW.Framework.stages import STAGES, StageState, StageOutcome
 from TauFW.Framework.reporting import Reporter, FrameworkReporter, SilentReporter, EventReporter
 from TauFW.Framework.framework import Framework, load_run, RunPlan, RunSummary, RunDirectoryError
+from TauFW.Framework.run_lock import RunLockError, read_lock
 
-__all__ = ['Framework', 'load_run', 'RunPlan', 'RunSummary', 'RunDirectoryError',
+__all__ = ['Framework', 'load_run', 'RunPlan', 'RunSummary', 'RunDirectoryError', 'RunLockError', 'read_lock',
            'Recipe', 'StageSpec', 'Issue', 'RecipeError',
            'check_recipe', 'RecipeCheck',
            'RunRecord', 'RunState', 'StageRecord', 'STAGES', 'StageState', 'StageOutcome',

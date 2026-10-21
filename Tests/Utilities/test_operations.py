@@ -68,10 +68,10 @@ class OperationTestCase(unittest.TestCase):
 class SupervisorTests(OperationTestCase):
     """supervise() with a fake command, a fake clock and the stop/kill files."""
 
-    def run_supervisor(self, child, escalate=True, files=(), terminated=()):
+    def run_supervisor(self, child, escalate=True, files=(), terminated=(), groups=None, **fields):
         path = self.record("tests-%d" % len(os.listdir(self.root)) if os.path.isdir(self.root) else "tests-0",
-                           escalate=escalate)
-        clock, signals = Clock(), []
+                           escalate=escalate, **fields)
+        clock, signals, groups = Clock(), [], [] if groups is None else groups
         steps = {round(t / _supervisor.TICK): name for t, name in files}
 
         def sleep(seconds):
@@ -79,7 +79,8 @@ class SupervisorTests(OperationTestCase):
             name = steps.get(round((clock.now - 1000.0) / _supervisor.TICK))
             if name:
                 open(os.path.join(path, name), "w").close()
-        with mock.patch.object(_supervisor, "_signal", lambda process, number: signals.append(number)):
+        with mock.patch.object(_supervisor, "_signal",
+                               lambda process, number, group=True: signals.append(number) or groups.append(group)):
             code = _supervisor.supervise(path, popen=lambda *a, **k: child, clock=clock, sleep=sleep,
                                          terminated=terminated)
         with open(os.path.join(path, "exit.json")) as stream:
@@ -102,6 +103,18 @@ class SupervisorTests(OperationTestCase):
         self.assertEqual(signals, [signal.SIGINT])  # a run is never killed without the kill file
         code, end, signals, _ = self.run_supervisor(FakeChild(None, None, 0), files=[(0.2, "stop")])
         self.assertEqual((code, end["stopped"]), (0, True))  # it still succeeded
+
+    def test_signal_command_stops_the_command_alone(self):
+        """A run (signal "command"): the stop's SIGINT reaches taufw.py only, never the condor_submit it runs;
+        the kill file still ends the whole group."""
+        statuses = [None] * 10 + [-9]
+        groups = []
+        _, end, signals, _ = self.run_supervisor(FakeChild(*statuses), escalate=False, signal="command",
+                                                 files=[(0.2, "stop"), (1.0, "kill")], groups=groups)
+        self.assertEqual(list(zip(signals, groups)), [(signal.SIGINT, False), (_supervisor.SIGKILL, True)])
+        groups = []
+        self.run_supervisor(FakeChild(None, None, 0), files=[(0.2, "stop")], groups=groups)
+        self.assertEqual(groups, [True])  # the default: the group, as before
 
     def test_kill_file_and_sigterm_of_the_supervisor(self):
         statuses = [None] * 10 + [-9]

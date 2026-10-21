@@ -6,14 +6,17 @@ operation's directory as the only argument:
 
     python3 -B _supervisor.py <operation directory>
 
-It reads operation.json (argv, cwd, heartbeat, escalate), starts the command
+It reads operation.json (argv, cwd, heartbeat, escalate, signal), starts the command
 (in its own process group, output to output.log) and, until the command ends:
 
   - every `heartbeat` seconds writes heartbeat.json {host, pid, child, t}: a
     menu tells a running operation from a lost one by it
-  - when the file `stop` appears: SIGINT to the command's group; with escalate,
-    SIGTERM after TERM_AFTER s and SIGKILL after KILL_AFTER s. SIGTERM to the
-    supervisor itself (e.g. the login session ends) counts as `stop`
+  - when the file `stop` appears: SIGINT to the command's group (signal
+    "group", the default) or to the command alone (signal "command": it ends
+    what it started itself; taufw.py first lets a job submission finish); with
+    escalate, SIGTERM after TERM_AFTER s and SIGKILL after KILL_AFTER s to the
+    group. SIGTERM to the supervisor itself (e.g. the login session ends)
+    counts as `stop`
   - when the file `kill` appears: SIGKILL to the group at once
 
 then writes exit.json {returncode, stopped, finished}. The exit code is the
@@ -64,6 +67,7 @@ def supervise(directory, popen=subprocess.Popen, clock=time.time, sleep=time.sle
         operation = json.load(stream)
     heartbeat = float(operation.get("heartbeat", 5.0))
     escalate = operation.get("escalate", True)
+    alone = operation.get("signal", "group") == "command"
     try:
         with open(path(OUTPUT_FILE), "ab") as output:
             process = popen(list(operation["argv"]), cwd=operation.get("cwd"), stdin=subprocess.DEVNULL,
@@ -87,7 +91,7 @@ def supervise(directory, popen=subprocess.Popen, clock=time.time, sleep=time.sle
             _signal(process, SIGKILL)
         elif stopped is None and (terminated or os.path.exists(path(STOP_FILE))):
             stopped = now
-            _signal(process, signal.SIGINT)
+            _signal(process, signal.SIGINT, group=not alone)
         elif stopped is not None and escalate:
             if now - stopped >= KILL_AFTER and level < 2:
                 level = 2
@@ -109,10 +113,11 @@ def write_json(path, data):
     os.replace(temporary, path)
 
 
-def _signal(process, number):
-    """Send a signal to the command's process group (to the command alone where there are no groups)."""
+def _signal(process, number, group=True):
+    """Send a signal to the command's process group (group=False, or where there are no groups: to the command
+    alone)."""
     try:
-        if hasattr(os, "killpg"):
+        if group and hasattr(os, "killpg"):
             os.killpg(process.pid, number)
         else:
             process.send_signal(number)

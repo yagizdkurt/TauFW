@@ -138,6 +138,11 @@ class ProductionStage(Stage):
             pattern = os.path.join(placeholder, *self.pico.TUPLE_LAYOUT.split('/'))
         return ({'pattern': pattern},)
 
+    def submits(self, stage_record):
+        """NEW submits; SUBMITTED and WAITING may resubmit. MERGING does not (a cut merge is merged again)."""
+        state = StageState(stage_record.state)
+        return state is StageState.NEW or state.waiting
+
     def status(self, spec, stage_record):
         """The live StageStatus of the jobs (read-only), or None before the first submission."""
         if StageState(stage_record.state) is StageState.NEW:

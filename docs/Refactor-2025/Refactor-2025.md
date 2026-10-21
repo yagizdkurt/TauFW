@@ -990,3 +990,40 @@ fixed "109 fb^-1" for an era missing from the table, and the samples took their 
   samples carry (`controlhists.normalisation_lumi`, an error if they differ), no longer the global.
 - **BBB**: `plotter.sample_model` gains `lumi` also in the core `getsampleset` call (the same value); still covered by
   the approval of plan 22 K2 (only `lumi` differs). The fit scripts have no BBB case (they need combine).
+
+---
+
+## 28. One advance per run, a safe stop, the command log in the progress events
+
+**Date:** 2026-10-21
+**Status:** done on Windows (unit tests); lxplus check in TODO §1 "Run lock and safe stop on lxplus"
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#28-one-advance-per-run-a-safe-stop-the-command-log-in-the-progress-events)
+
+Part 1 of the run wiring of the menu (TODO §6 "Menu as a program"): what the menu needs from the Framework before
+Start/Continue can run behind it. The CLI keeps its commands and its output; two cases change on purpose (user,
+2026-10-21): a second advance of a run is refused, and Ctrl-C during a job submission waits for it.
+
+- **Advance lock** (`Framework/python/run_lock.py`): `Framework.advance` holds `<run_dir>/advance.lock` (`host`,
+  `pid`, `since`, `t`; made with `O_EXCL`, no `flock` on AFS/EOS) while it works and waits; a thread renews `t` every
+  5 s, the file is removed at the end (also after an error). Before (two terminals, or two lxplus nodes): both
+  advances submit, resubmit and merge the same jobs. After: the second one gets `Cannot advance run <id>: the run is
+  being advanced on lxplus801 since 2026-10-21 14:02:00 (pid 4711)` and exit code 1. A lock is lost after 120 s
+  without a sign of life, or at once when its process is gone on this machine; a lost lock of this machine is taken
+  over without asking, one of another machine with `taufw.py advance RUN_DIR --take-lock` (the refusal names it). A
+  live lock is never taken; an advance whose lock was taken over stops before its next step (`RunLockError`).
+  `read_lock(run_dir)` gives the lock with `quiet` and `lost` (for the menu's `run_lock()` screen). Not in `run.json`.
+- **Safe stop** (`Framework/python/interrupts.py`, `Stage.submits`): a production step that may submit or resubmit
+  (from NEW, SUBMITTED, WAITING) and the save of `run.json` after it run with SIGINT held back: the first Ctrl-C prints
+  `Stage production: stopping once run.json records this step (Ctrl-C again to force)` and stops after the save, a
+  second one stops at once. Every other step (merge, the local stages, the `--wait` sleep) stops at once as before;
+  a local command is ended by `subprocess.run`. In a terminal the Ctrl-C also reaches `condor_submit` itself (same
+  process group): only the Python side is protected there.
+- **Supervisor** (`Utilities/python/Process/_supervisor.py`, `OperationStore.start(signal=)`): `signal: "command"`
+  sends a stop's SIGINT to the command alone (taufw.py), not to its process group, so a run stopped from the menu
+  never cuts `condor_submit`. The default stays `"group"` (tests); the `kill` file and the escalation still end the
+  group.
+- **Command log in the progress events** (`ProcessRunner.run_all`, `stages/local.py`): the progress callback gets a
+  fifth argument, the command's log path (now chosen before the command starts), and the `progress` events carry it
+  as `log`; the run screen shows that log. The printed progress lines are unchanged.
+- **BBB:** `framework.production` is unchanged by design: the lock is outside `run.json` and the compared trees, and is
+  gone when `advance` ends; `status` is unchanged.

@@ -158,6 +158,7 @@ class PipelineTests(LocalStageTestCase):
         self.assertEqual({p["stage"] for p in progress}, {"hists"})
         self.assertNotIn("seconds", progress[0])
         self.assertIn("seconds", progress[1])
+        self.assertEqual([os.path.basename(p["log"]) for p in progress], ["01.log", "01.log", "02.log", "02.log"])
 
     def test_failed_command_fails_the_stage(self):
         self.tes_shapes.fail = "shapes 2025 Tight Tight %s" % (resolve(TT, None))  # the API gets the template's path

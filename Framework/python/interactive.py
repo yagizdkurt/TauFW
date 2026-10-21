@@ -224,6 +224,7 @@ class _Operations:
 
     def execute(self, command, **values):
         args = dict(verbose=0, wait=False, poll=DEFAULT_POLL_SECONDS, run_root=None, local=False, maxevts=100,
+                    take_lock=False,
                     events=EventWriter(None))  # in the menu's own process: no events (taufw.py main sets them)
         args.update(values)
         return self.commands[command](Namespace(**args))

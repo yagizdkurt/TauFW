@@ -89,11 +89,13 @@ class ProcessRunnerTests(unittest.TestCase):
         events = []
         logdir = os.path.join(self.directory, "logs")
         results = self.runner.run_all(commands, logdir,
-                                      progress=lambda i, n, c, r: events.append((i, n, c.label, r is None)))
+                                      progress=lambda i, n, c, r, log: events.append((i, n, c.label, r is None,
+                                                                                os.path.basename(log))))
         self.assertEqual([r.label for r in results], ["first step", "second"])
         self.assertEqual(sorted(os.listdir(logdir)), ["01_first_step.log", "02_second.log"])
-        self.assertEqual(events, [(1, 3, "first step", True), (1, 3, "first step", False),
-                                  (2, 3, "second", True), (2, 3, "second", False)])
+        self.assertEqual(events, [(1, 3, "first step", True, "01_first_step.log"),
+                                  (1, 3, "first step", False, "01_first_step.log"),
+                                  (2, 3, "second", True, "02_second.log"), (2, 3, "second", False, "02_second.log")])
 
     def test_injected_execute_and_environment(self):
         seen = {}

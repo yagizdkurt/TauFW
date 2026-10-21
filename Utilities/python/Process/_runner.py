@@ -113,7 +113,7 @@ class RunReport:
 # ================================== RUNNER ===================================
 
 
-Progress = Callable[[int, int, Command, Optional[CommandResult]], None]
+Progress = Callable[[int, int, Command, Optional[CommandResult], str], None]
 
 
 class ProcessRunner:
@@ -131,19 +131,19 @@ class ProcessRunner:
                 progress: Optional[Progress] = None) -> Tuple[CommandResult, ...]:
         """Run the commands in order, logging to logdir/NN_<label>.log, and
         stop after the first one that is not ok. progress(index, total,
-        command, result) is called before (result None) and after each
-        command."""
+        command, result, log) is called before (result None) and after each
+        command; log is the path of the command's log file."""
         commands = tuple(commands)
         os.makedirs(logdir, exist_ok=True)
         results = []
         for index, command in enumerate(commands, 1):
-            if progress:
-                progress(index, len(commands), command, None)
             log = os.path.join(logdir, "%02d_%s.log" % (index, _safe(command.label)))
+            if progress:
+                progress(index, len(commands), command, None, log)
             result = self.run(command, log)
             results.append(result)
             if progress:
-                progress(index, len(commands), command, result)
+                progress(index, len(commands), command, result, log)
             if not result.ok:
                 break
         return tuple(results)

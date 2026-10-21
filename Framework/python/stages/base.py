@@ -165,6 +165,8 @@ class Stage:
     status(spec, stage_record)                      -> object        live status, read-only (None if there is
                                                                      nothing to check)
     planned_artifacts(spec, plan, context)          -> tuple         what the later stages see in a plan
+    submits(stage_record)                           -> bool          whether the next step may submit jobs: then
+                                                                     Ctrl-C waits until run.json records it
 
     `spec` is always the stage's Spec: the validated options of the stage from the recipe (for example a
     ProductionSpec). `stage_record` is the StageRecord of this stage in run.json. `context` is a StageContext
@@ -185,6 +187,11 @@ class Stage:
 
     def status(self, spec, stage_record):
         return None
+
+    def submits(self, stage_record):
+        """Whether the next step may submit jobs to the batch system (by default: no). Such a step and the save of
+        run.json after it are not cut by Ctrl-C (interrupts.py)."""
+        return False
 
     def planned_artifacts(self, spec, plan, context=None):
         """The artifacts the later stages see in their plans: by default the plan's `artifacts` (none)."""

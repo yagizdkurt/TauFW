@@ -94,6 +94,13 @@ Items marked **(verify)** may already be done; check before working on them.
       runs the real process-group test there (skipped on Windows). Framework events (§18): `python3 Tests/run.py bbb check`
       for the `framework.*` cases passes unchanged; then `TAUFW_EVENTS=/tmp/$USER-ev.jsonl taufw.py advance <a run
       with a local stage>` prints the same and the file holds run, stage_step, progress, stage_state, run_state.
+- [ ] **Run lock and safe stop on lxplus (CL §28):** `python3 Tests/run.py bbb check --case framework.production`
+      passes without re-lock. Two terminals on different nodes: `taufw.py advance <run> --wait` in one, `advance` in
+      the other is refused with host and pid; Ctrl-C in the first, then the second runs. Kill the first with
+      `kill -9` on its node: `advance` on the same node takes over at once; from another node it is refused until
+      120 s passed, then names `--take-lock`, which continues. Ctrl-C while `start` submits: the warning line, the
+      run.json says SUBMITTED, a second `advance` does not submit again. Ctrl-C during a local stage: stops at once,
+      no command left in `ps -u $USER`.
 - [ ] **Tests behind the menu on lxplus (CL §18):** `python3 Tests/Utilities/test_operations.py` (the two real
       stop tests run there). In the menu: Tests > Normal tests > Run entire family, Esc at once: the main menu shows
       "Tests (Running n/N)"; Tests opens the live screen again; after the end "Tests (Done)" or "(Failed: n)" and
@@ -293,7 +300,8 @@ Parts 1–5 are done (CL §5–§8; the Part 2 changelog section was removed).
       model stays in the Menu (K2 revised: events only, Framework supplies the `run.json` stages as data). Done
       2026-10-18: the run screen and its result cards in the preview (`_run_screen.py`, CL §18), and the main
       menu run line, the runs chooser, the run list label and the lock screens (CL §18 "Runs in the menus").
-      Left: (1), then the wiring (CL §18 lists what): `interactive.py` starts start/advance as operations
+      Done 2026-10-21: (1) and the log path in `progress` (CL §28). Left: the wiring (CL §18 lists what; start/advance
+      as operations with `signal="command"`, `escalate=False`, the lock from `read_lock`): `interactive.py` starts start/advance as operations
       (`kind="run"`, data run_id/run_dir/stages from `run.json`), passes the runs to `main_menu`/`select_run`, the
       `seen` file, Continue on an advancing run opens it, the lock record to `run_lock()`, and each stage's
       `info` facts for the box next to the Stages list (which fields per stage type: to choose then).

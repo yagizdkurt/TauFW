@@ -37,6 +37,9 @@ Pipeline map:
                  written there. A directory that cannot be read (no manifest, moved, wrong kind) is a note in
                  plan() and stops the stage in advance() like a preflight problem (it stays NEW). What was read is
                  recorded in the stage's `sources` (run.json and its own manifest).
+    one advance: advance() holds the run's advance lock (run_lock.py: <run_dir>/advance.lock, not in run.json)
+                 while it works and waits; a second advance of the run is refused (RunLockError), also from another
+                 machine, until the lock is released or lost (then taken over: see run_lock.py).
     bundle:      start() copies the bundle files the recipe uses to <run_dir>/bundle/; the run reads them from
                  there, so later edits of the bundle never change a run (see bundle.py).
     samples:     plan() and start() compare the samples a production stage makes with those its readers' sample
@@ -52,6 +55,7 @@ Public API:
   RunPlan, RunSummary, StageSummary           records (bottom of this file)
 """
 import os, json, time
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Mapping, Optional, Tuple
@@ -62,6 +66,8 @@ from TauFW.Framework.manifest import write_manifest, ManifestError
 from TauFW.Framework.recipe import Recipe, RecipeError, Issue
 from TauFW.Framework.samples import sample_issues
 from TauFW.Framework.run_record import RunRecord, RunState
+from TauFW.Framework.run_lock import RunLock, RunLockError
+from TauFW.Framework.interrupts import deferred_interrupt
 from TauFW.Framework.reporting import FrameworkReporter
 from TauFW.Framework.validation import read_source
 from TauFW.Framework.stages import (STAGES, StageState, StageContext, StageNotImplemented, PreflightError,
@@ -69,7 +75,7 @@ from TauFW.Framework.stages import (STAGES, StageState, StageContext, StageNotIm
                                     PythonStage)
 
 __all__ = ['Framework', 'RunPlan', 'StagePlan', 'RunSummary', 'StageSummary', 'load_run', 'check_writable',
-           'RunDirectoryError', 'RUN_LOG_NAME', 'DEFAULT_RUN_ROOT']
+           'RunDirectoryError', 'RunLockError', 'RUN_LOG_NAME', 'DEFAULT_RUN_ROOT']
 
 
 # =============================================================================
@@ -84,7 +90,7 @@ class Framework:
 
     Pipelines:      plan(recipe=None)                         -> RunPlan     changes nothing
                     start(recipe=None, run_root=None)         -> RunRecord   new run directory, then advance()
-                    advance(record, wait=False, poll=600)     -> RunRecord   step the stages in order; saves run.json
+                    advance(record, wait, poll, take_lock)    -> RunRecord   step the stages in order; saves run.json
                     run(recipe=None, run_root, wait, poll)    -> RunRecord   start(), then advance() while waiting
                     status(record)                            -> RunSummary  read-only: saved and live state
                     make_bundle(target, name)                 -> paths       new bundle from this recipe
@@ -160,17 +166,29 @@ class Framework:
         record.save(self.files)
         return self.advance(record)
 
-    def advance(self, record, wait=False, poll=DEFAULT_POLL_SECONDS):
+    def advance(self, record, wait=False, poll=DEFAULT_POLL_SECONDS, take_lock=False):
         """Step the stages in order until one waits for the batch system, fails or is not implemented. run.json is
         saved after every step. With wait=True, this is repeated every `poll` seconds while the run is waiting.
         The run directory is first tried with a small file written and removed (RunDirectoryError if that fails,
-        e.g. an expired AFS token), before any stage moves.
-        Side effects: whatever the stages do (production: submit, resubmit, merge); run.json and run.log."""
+        e.g. an expired AFS token), before any stage moves. The run's advance lock is held throughout
+        (run_lock.py): RunLockError if another advance holds it; take_lock=True takes over a lost lock of another
+        machine (a lost lock of this machine, whose process is gone, is always taken over).
+        Side effects: whatever the stages do (production: submit, resubmit, merge); run.json and run.log;
+        <run_dir>/advance.lock while it runs."""
         check_writable(record.run_dir, "run directory")
+        with RunLock(record.run_dir, take=take_lock) as lock:
+            if lock.taken is not None:
+                self.reporter.warning("Took over the advance lock of pid %s on %s (since %s, no sign of life "
+                                      "for %.0f s)" % (lock.taken.get('pid'), lock.taken.get('host'),
+                                                       lock.taken.get('since'), lock.taken.get('quiet', 0)))
+            return self._advance(record, wait, poll, lock)
+
+    def _advance(self, record, wait, poll, lock):
+        """advance() while the lock is held."""
         self.reporter.attach_log(os.path.join(record.run_dir, RUN_LOG_NAME))
         self.reporter.event('run', run_id=record.run_id, run_dir=record.run_dir)
         while True:
-            self._advance_stages(record)
+            self._advance_stages(record, lock)
             record.save(self.files)
             self.reporter.message("Run %s: %s" % (record.run_id, record.state))
             self.reporter.event('run_state', run_id=record.run_id, state=RunState(record.state).value)
@@ -223,7 +241,7 @@ class Framework:
     # =========================================================================
     # ============================ STAGE DISPATCH =============================
 
-    def _advance_stages(self, record):
+    def _advance_stages(self, record, lock=None):
         """Advance the stages in recipe order, and stop where the run cannot go further for now.
 
         A stage may take several steps in one call (for example MERGING -> DONE, then the next stage starts).
@@ -237,10 +255,15 @@ class Framework:
           - otherwise:                take a step and look again.
         A stage that has not settled after MAX_STEPS steps also stops the call (a safety net).
         run.json is saved after every step, so a crash never loses a step that was done.
+        lock: the RunLock of advance(); before every step, RunLockError if another advance took it over.
+        A step that may submit jobs (Stage.submits) and the save of run.json after it are not cut by Ctrl-C
+        (interrupts.py); other steps stop at once (a local command is ended by the runner).
         """
         for stage_spec in self._recipe_of(record).stages:
             stage_record = record.stage(stage_spec.id)
             for step in range(MAX_STEPS):
+                if lock is not None:
+                    lock.check()
                 state = StageState(stage_record.state)
                 if state is StageState.DONE:
                     break  # this stage is finished: continue with the next stage
@@ -248,18 +271,22 @@ class Framework:
                     return  # FAILED or NOT_IMPLEMENTED: the later stages cannot start
                 if step > 0 and state.waiting:
                     return  # already checked once in this call: come back later
-                try:
-                    outcome = self._advance_stage(stage_spec, stage_record, self._context(record, stage_spec))
-                except PreflightError:
-                    record.save(self.files)  # not ready: the reason is in the stage's message and history
-                    return
-                except Exception:
-                    record.save(self.files)  # keep the error in the stage's history; the state is unchanged
-                    raise
-                self._apply(stage_record, outcome)
-                if outcome.state is StageState.DONE:  # first the manifest: a crash before run.json is saved
-                    self._write_manifest(record, stage_spec, stage_record)  # only repeats the stage
-                record.save(self.files)
+                submits = getattr(self._stage_for(stage_spec.id), 'submits', None)
+                guard = (deferred_interrupt(self.reporter, "Stage %s" % (stage_spec.id))
+                         if submits and submits(stage_record) else nullcontext())
+                with guard:
+                    try:
+                        outcome = self._advance_stage(stage_spec, stage_record, self._context(record, stage_spec))
+                    except PreflightError:
+                        record.save(self.files)  # not ready: the reason is in the stage's message and history
+                        return
+                    except Exception:
+                        record.save(self.files)  # keep the error in the stage's history; the state is unchanged
+                        raise
+                    self._apply(stage_record, outcome)
+                    if outcome.state is StageState.DONE:  # first the manifest: a crash before run.json is saved
+                        self._write_manifest(record, stage_spec, stage_record)  # only repeats the stage
+                    record.save(self.files)
                 if outcome.state.waiting:
                     return  # the stage now waits for the batch system: come back later
             else:

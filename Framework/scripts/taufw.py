@@ -9,8 +9,11 @@
                                                           nothing is written
                                                           (--local: quick local test of the production stage)
   taufw.py start   RECIPE [--run-root DIR] [--wait [--poll S]]   new run: run directory, run.json, first steps
-  taufw.py advance RUN_DIR [--wait [--poll S]]            continue a run: check, resubmit, merge, next stages
-                                                          (controlhists, controlplots, shapes, fit, python: run locally)
+  taufw.py advance RUN_DIR [--wait [--poll S]] [--take-lock]
+                                                          continue a run: check, resubmit, merge, next stages
+                                                          (controlhists, controlplots, shapes, fit, python: run locally);
+                                                          refused while another advance of the run is working
+                                                          (--take-lock: take over a lost one of another machine)
   taufw.py status  RUN_DIR                                saved and live state of a run (read-only)
   taufw.py init    NAME [--from RECIPE] [--root DIR]      new analysis bundle Analyses/NAME/ (with copies of the
                                                           files of RECIPE's bundle and of the module configs it
@@ -36,7 +39,7 @@ import sys
 from argparse import ArgumentParser
 try:
     from TauFW.Framework import (Framework, Recipe, RecipeError, load_run, FrameworkReporter, EventReporter,
-                                 RunState, check_recipe, RunDirectoryError)
+                                 RunState, check_recipe, RunDirectoryError, RunLockError)
     from TauFW.Framework.bundle import BundleError, make_bundle
     from TauFW.Framework.configs import LOCK_NAME, lock_changes, update
     from TauFW.Framework.defaults import (DEFAULT_RUN_ROOT, DEFAULT_POLL_SECONDS, ANALYSES_DIR, CONFIGS_DIR,
@@ -130,7 +133,14 @@ def cmd_advance(args):
     reporter = _reporter(args)
     record = load_run(args.run_dir)
     framework = Framework.from_record(record, reporter=reporter)
-    record = framework.advance(record, wait=args.wait, poll=args.poll)
+    try:
+        record = framework.advance(record, wait=args.wait, poll=args.poll, take_lock=args.take_lock)
+    except RunLockError as error:
+        reporter.warning("Cannot advance run %s: %s" % (record.run_id, error))
+        reporter.event('error', message=str(error))
+        if error.lost:
+            reporter.message("Take it over with: taufw.py advance %s --take-lock" % (args.run_dir))
+        return 1
     return _finish(reporter, record)
 
 
@@ -327,6 +337,8 @@ def build_parser():
                             "(default: run_root, else %s)" % (DEFAULT_RUN_ROOT))
     advance = subparsers.add_parser('advance', parents=[common, waiter], help="continue a run")
     advance.add_argument('run_dir', help="run directory (with run.json)")
+    advance.add_argument('--take-lock', dest='take_lock', action='store_true',
+                         help="take over the lock of a lost advance of this run on another machine")
     status = subparsers.add_parser('status', parents=[common], help="state of a run (read-only)")
     status.add_argument('run_dir', help="run directory (with run.json)")
     init = subparsers.add_parser('init', parents=[common], help="new analysis bundle")
@@ -356,7 +368,7 @@ def main(argv=None):
     args.events = EventWriter(os.environ.pop(EVENTS_ENV, None))  # read once; the stages' commands never see it
     try:
         return COMMANDS[args.command](args)
-    except (RecipeError, RunDirectoryError) as error:  # every problem of the recipe, without a traceback
+    except (RecipeError, RunDirectoryError, RunLockError) as error:  # every problem of the recipe, without a traceback
         reporter = _reporter(args)
         reporter.warning(str(error))
         reporter.event('error', message=str(error))

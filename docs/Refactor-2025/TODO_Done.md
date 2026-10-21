@@ -1,7 +1,7 @@
 # Refactor-2025: done
 
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-**Last updated:** 2026-10-19
+**Last updated:** 2026-10-21
 
 Completed TODO points, kept under their original headings and in their original order.
 
@@ -47,7 +47,7 @@ Completed TODO points, kept under their original headings and in their original 
       (`check_import_boundaries` known debt, 25 / 23 / 21, 0 new pairs).
 - [x] **CL §25-§27 (postfit era via CMSStyle; lumi in the sample model and the control-histogram file; fit plot
       labels, explicit sample lumi).** Done 2026-10-19 on lxplus (`74d8e68` -> `4afa0bd`): reference run of a
-      `hists` + `plots` copy of `tes_id_2025` with the old code (`~/c1/old`), then the pull; `check_setera.py` SAME (28
+      `hists` + `plots` copy of `tes_id_2025` with the old code (`~/refactor-tests-2026-10-21-pp4d5N/c1/old`), then the pull; `check_setera.py` SAME (28
       cases); `bbb check`: only `plotter.sample_model` (lumi) and `histogrammer.tes_inputs` failed, the latter because
       its own mini sample model had no `lumi` (fixed in `3268066`, then it passed without re-lock); re-lock of the whole
       suite (`lock` takes no `--case`): `bbb diff` 22 same / 1 changed, only `plotter.sample_model.json` and
@@ -65,7 +65,7 @@ Completed TODO points, kept under their original headings and in their original 
   - CL §21 S3: `--hists` and `draw.py` change no plot (mutau 31/31, mumu 19/19 with 18 variables, since `m_ll` has
     no branch, BUGS L17); the logs were not compared line by line.
   - CL §21 S4a: `taufw.py plan tes_id_2025` gives the same commands after `histograms` -> `shapes`.
-  - CL §21 S4: `controlhists` + `controlplots` give every PNG of the old `plots` stage (`~/s4ref`). **Noise:**
+  - CL §21 S4: `controlhists` + `controlplots` give every PNG of the old `plots` stage (`~/refactor-tests-2026-10-21-pp4d5N/s4ref`). **Noise:**
     `--no-draw` vs fill-and-draw differ by 4.6e-13 relative, the same as two runs of the old path (1.9e-13,
     6.5e-13): run-to-run noise of the multithreaded fill. Timing: mutau fill 388 s, drawing 5 s per file.
   - CL §20: `plotter.sample_model` locked with the old code, switched with no difference; `example_mutau_long` plans
