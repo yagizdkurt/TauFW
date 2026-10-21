@@ -1,7 +1,7 @@
 # Refactor-2025: still to do
 
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-**Last updated:** 2026-10-19
+**Last updated:** 2026-10-21
 
 Everything the `Refactor-2025` branch has left open: checks that need lxplus, the rest of the `common` → `Utilities`
 move, old output kept on purpose, open bugs, and planned next steps. The [change log](Refactor-2025.md) ("CL §N")
@@ -25,6 +25,19 @@ Items marked **(verify)** may already be done; check before working on them.
   the mumu/ee/emu weight of the eras before 2025 uses these 2025 names, `samples_v15.py:281-284`). Find the step,
   bring it in as a weights step, then drop the external-branch list of the C2 contract test. Meanwhile: external
   dependency in C2 (decision of 2026-10-19).
+- **Faster histogram filling (group chat 2026-10-21, look at later):** filling the control histograms from the
+  inclusive pico tuples takes ~40 min although multithreading is on (`min(64,os.cpu_count())` in
+  `common/python/tools/RDataFrame.py:82`; master has 8). `Run3_DEV/ModuleETau_Inclusive.py` has no tau ID cut, the
+  tight cuts come only in the setup `baselineCuts`. First check `tree.Print("clusters")` on the slowest sample (one
+  big hadd'ed file with few clusters cannot be split over threads). Two ideas:
+  (1) **Skim step** between the common pico tuple and the histograms (nano → common loose pico → user skim, e.g.
+  VSe, VSmu, VSjet >= 1 and only the needed branches → histograms → plots). The `preselect` option of
+  `Sample.getrdframe` is only an RDataFrame `Filter` and still reads the whole file. The skim must copy the
+  `cutflow` histogram unchanged (nevents in bin 1, sumw in bin 17, `Sample.setnevents`), or the lumi-xsec
+  normalization breaks.
+  (2) **Skip hadd** (`PicoProducer/python/jobs/merge.py`) and let RDataFrame read the job outputs directly (better
+  parallel over files). Needs: the completeness check that today gates hadd (`merge.py` step 3), the `cutflow`
+  summed over all files for the normalization, and no mixing of outputs from different job settings.
 
 ## 1. Checks to run on lxplus
 

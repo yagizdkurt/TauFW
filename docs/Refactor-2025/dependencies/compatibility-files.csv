@@ -1,0 +1,406 @@
+old_file,parser,definitions,candidate_files
+Fitter/ETauFR/Plotter/plotpostfit.py,ast,1,Fitter/ETauFR/Plotter/plotpostfit.py
+Fitter/ETauFR/compare.py,lexical: line 36: invalid syntax,0,
+Fitter/ETauFR/correctionlib/tau_createJSONs_VSe.py,ast,6,Fitter/ETauFR/correctionlib/tau_createJSONs_VSe.py
+Fitter/ETauFR/correctionlib/tau_ltf.py,ast,3,Fitter/ETauFR/correctionlib/tau_ltf.py
+Fitter/ETauFR/correctionlib/utils.py,ast,18,Fitter/ETauFR/correctionlib/utils.py
+Fitter/ETauFR/createinputs.py,ast,1,Histogrammer/shapes/ETauFR/createinputs.py
+Fitter/ETauFR/dump_sf2root.py,ast,6,Fitter/ETauFR/dump_sf2root.py
+Fitter/ETauFR/text2wp.py,ast,0,Fitter/ETauFR/text2wp.py
+Fitter/ETauFR/writedatacard.py,lexical: line 19: Missing parentheses in call to 'print'. Did you mean print(...)?,1,Fitter/ETauFR/writedatacard.py
+Fitter/ETauFR/writedatacard2.py,lexical: line 18: Missing parentheses in call to 'print'. Did you mean print(...)?,1,
+Fitter/HighPT/DatacardsWToMuNu.py,ast,2,Fitter/HighPT/DatacardsWToMuNu.py
+Fitter/HighPT/DatacardsWToTauNu.py,ast,6,Fitter/HighPT/DatacardsWToTauNu.py
+Fitter/HighPT/FakeFactorHighPt.py,ast,4,Fitter/HighPT/FakeFactorHighPt.py
+Fitter/HighPT/MetTrigger.py,ast,2,Fitter/HighPT/MetTrigger.py
+Fitter/HighPT/PlotSysDatacardsHighPT.py,ast,1,Fitter/HighPT/PlotSysDatacardsHighPT.py
+Fitter/HighPT/PlotSysHighPT.py,ast,1,Fitter/HighPT/PlotSysHighPT.py
+Fitter/HighPT/PlotWToMuNu.py,ast,1,Fitter/HighPT/PlotWToMuNu.py
+Fitter/HighPT/PlotWToTauNu.py,ast,1,Fitter/HighPT/PlotWToTauNu.py
+Fitter/HighPT/createinputs.py,lexical: line 121: Missing parentheses in call to 'print'. Did you mean print(...)?,1,Histogrammer/shapes/HighPT/createinputs.py
+Fitter/MuTauFR/compare.py,lexical: line 36: invalid syntax,0,
+Fitter/MuTauFR/createinputs.py,ast,1,Fitter/MuTauFR/createinputs.py
+Fitter/MuTauFR/models/zttmodels.py,ast,8,Fitter/MuTauFR/models/zttmodels.py
+Fitter/MuTauFR/plotpostfit.py,lexical: line 35: Missing parentheses in call to 'print'. Did you mean print(...)?,1,
+Fitter/MuTauFR/writedatacard_2016.py,lexical: line 12: Missing parentheses in call to 'print'. Did you mean print(...)?,0,
+Fitter/MuTauFR/writedatacard_2017.py,lexical: line 12: Missing parentheses in call to 'print'. Did you mean print(...)?,0,
+Fitter/MuTauFR/writedatacard_2018.py,lexical: line 12: Missing parentheses in call to 'print'. Did you mean print(...)?,0,
+Fitter/MuTauFR/writedatacard_UL2016_postVFP.py,lexical: line 12: Missing parentheses in call to 'print'. Did you mean print(...)?,0,
+Fitter/MuTauFR/writedatacard_UL2016_preVFP.py,lexical: line 12: Missing parentheses in call to 'print'. Did you mean print(...)?,0,
+Fitter/MuTauFR/writedatacard_UL2017.py,lexical: line 12: Missing parentheses in call to 'print'. Did you mean print(...)?,0,
+Fitter/MuTauFR/writedatacard_UL2018_withJEC.py,lexical: line 14: Missing parentheses in call to 'print'. Did you mean print(...)?,0,
+Fitter/TauES/checkShapes_TES.py,lexical: line 28: Missing parentheses in call to 'print'. Did you mean print(...)?,8,
+Fitter/TauES/correctionlib/tau_createJSONsTauES.py,ast,6,Legacy/Fitter/TauES/correctionlib/tau_createJSONsTauES.py
+Fitter/TauES/correctionlib/tau_tes.py,ast,6,Legacy/Fitter/TauES/correctionlib/tau_tes.py
+Fitter/TauES/correctionlib/utils.py,ast,18,Fitter/TauES/correctionlib/utils.py
+Fitter/TauES/createinputsTES.py,ast,3,Histogrammer/shapes/TauES/createinputsTES.py
+Fitter/TauES/createinputsTESPlots.py,lexical: line 149: Missing parentheses in call to 'print'. Did you mean print(...)?,1,
+Fitter/TauES/harvestDatacards_TES.py,ast,6,Legacy/Fitter/TauES/harvestDatacards_TES.py
+Fitter/TauES/makeTESfit.py,lexical: line 27: Missing parentheses in call to 'print'. Did you mean print(...)?,0,
+Fitter/TauES/plotParabola_TES.py,lexical: line 26: Missing parentheses in call to 'print'. Did you mean print(...)?,25,
+Fitter/TauES/plotPostFitScan_TES.py,lexical: line 40: Missing parentheses in call to 'print'. Did you mean print(...)?,23,
+Fitter/TauES/run_createinputsTES.py,ast,0,Legacy/Fitter/TauES/run_createinputsTES.py
+Fitter/TauES_ID/WriteSFsFit.py,ast,1,Legacy/OldAnalysis/2022/WriteSFsFit.py
+Fitter/TauES_ID/harvestDatacards_TES_idSF_MCStat.py,ast,7,Fitter/TauES_ID/harvestDatacards_TES_idSF_MCStat.py
+Fitter/TauES_ID/harvestDatacards_TES_idSF_MCStat_corrTES.py,ast,8,Fitter/TauES_ID/harvestDatacards_TES_idSF_MCStat_corrTES.py
+Fitter/TauES_ID/harvestDatacards_zmm.py,ast,6,Fitter/TauES_ID/harvestDatacards_zmm.py
+Fitter/TauES_ID/makecombinedfitTES_SF.py,ast,8,Fitter/TauES_ID/makecombinedfitTES_SF.py
+Fitter/TauES_ID/makecombinedfitTES_SF_corrTES.py,ast,9,Fitter/TauES_ID/makecombinedfitTES_SF_corrTES.py
+Fitter/TauES_ID/makecombinedfitTES_SF_postfit.py,ast,7,Fitter/TauES_ID/makecombinedfitTES_SF_postfit.py
+Fitter/TauES_ID/makecombinedfitTES_SF_postfit_corrTES.py,ast,4,Fitter/TauES_ID/makecombinedfitTES_SF_postfit_corrTES.py
+Fitter/TauES_ID/makefit_PODAS23.py,ast,4,Fitter/TauES_ID/makefit_PODAS23.py
+Fitter/TauES_ID/plot2DParabola_FitDiagnostics.py,ast,9,Legacy/OldAnalysis/MultiYear/plot2DParabola_FitDiagnostics.py
+Fitter/TauES_ID/plot2DScan_MultiDimFit.py,ast,18,Fitter/TauES_ID/plot2DScan_MultiDimFit.py
+Fitter/TauES_ID/plotParabola_POI_region.py,ast,26,Fitter/TauES_ID/plotParabola_POI_region.py
+Fitter/TauES_ID/plotPostFitScan_POI.py,ast,25,Fitter/TauES_ID/plotPostFitScan_POI.py
+Fitter/TauES_ID/printParamWorkspace.py,ast,1,Legacy/OldAnalysis/2022/printParamWorkspace.py
+Fitter/TauES_ID/run_makecombinedfitTES_SF.py,ast,0,Legacy/Fitter/TauES_ID/run_makecombinedfitTES_SF.py
+Fitter/TauES_ID/saveSFs_root_JSON.py,ast,7,Legacy/Fitter/TauES_ID/saveSFs_root_JSON.py
+Fitter/TauES_ID/shape_syt.py,ast,1,Legacy/OldAnalysis/2022/shape_syt.py
+Fitter/TauID/createinputs.py,lexical: line 142: Missing parentheses in call to 'print'. Did you mean print(...)?,1,
+Fitter/TauID/createinputs_simple.py,lexical: line 132: Missing parentheses in call to 'print'. Did you mean print(...)?,1,
+Fitter/TauID/createinputs_v10_2p5.py,lexical: line 142: Missing parentheses in call to 'print'. Did you mean print(...)?,1,Histogrammer/shapes/tutorial/createinputs.py
+Fitter/TauID/harvestcards.py,ast,1,Fitter/TauID/harvestcards.py
+Fitter/TauID/plotfit.py,lexical: line 20: Missing parentheses in call to 'print'. Did you mean print(...)?,8,
+Fitter/TauID/plotfit_dm.py,lexical: line 36: Missing parentheses in call to 'print'. Did you mean print(...)?,7,
+Fitter/TauID/takeZmu.py,lexical: line 5: expected an indented block after 'for' statement on line 4,0,Legacy/OldAnalysis/2018/takeZmu.py
+Fitter/Zpt/compareZpt.py,ast,2,Fitter/Zpt/compareZpt.py
+Fitter/Zpt/config/samples.py,lexical: line 69: Missing parentheses in call to 'print'. Did you mean print(...)?,1,Fitter/Zpt/config/samples.py
+Fitter/Zpt/measureZpt.py,ast,3,Fitter/Zpt/measureZpt.py
+Fitter/Zpt/measureZpt_average.py,ast,2,Fitter/Zpt/measureZpt_average.py
+Fitter/Zpt/utils.py,lexical: line 19: Missing parentheses in call to 'print'. Did you mean print(...)?,3,Fitter/Zpt/utils.py
+Fitter/Zpt/validateZpt.py,ast,2,Fitter/Zpt/validateZpt.py
+Fitter/createJSON_TES.py,ast,6,Legacy/Fitter/createJSON_TES.py
+Fitter/createroot_TES.py,ast,8,Fitter/createroot_TES.py
+Fitter/make_measurements_grid.py,ast,2,Fitter/make_measurements_grid.py
+Fitter/make_scan_grid.py,ast,6,Fitter/make_scan_grid.py
+Fitter/make_tid_2025.py,ast,6,Fitter/make_tid_2025.py
+Fitter/merge_tau_jsons.py,ast,7,Fitter/merge_tau_jsons.py
+Fitter/paper/createinputs.py,ast,2,Histogrammer/shapes/paper/createinputs.py
+Fitter/paper/plotpostfit.py,lexical: line 35: Missing parentheses in call to 'print'. Did you mean print(...)?,1,
+Fitter/paper/writecards.py,lexical: line 39: Missing parentheses in call to 'print'. Did you mean print(...)?,3,
+Fitter/plot1D_NLL_profiles.py,ast,19,Fitter/plot1D_NLL_profiles.py
+Fitter/plot_measurements.py,ast,9,Fitter/plot_measurements.py
+Fitter/pre_post_plot_combiner.py,ast,1,Fitter/pre_post_plot_combiner.py
+Fitter/python/ETauFR/zttmodels.py,ast,8,Fitter/python/ETauFR/zttmodels.py
+Fitter/python/HighPT/stylesHighPT.py,ast,12,Fitter/python/HighPT/stylesHighPT.py
+Fitter/python/HighPT/utilsHighPT.py,ast,17,Fitter/python/HighPT/utilsHighPT.py
+Fitter/python/models/TagAndProbeModel.py,ast,4,Legacy/Fitter/python/models/TagAndProbeModel.py
+Fitter/python/plot/correlation.py,ast,2,Fitter/python/plot/correlation.py
+Fitter/python/plot/datacard.py,ast,6,Histogrammer/python/shapes/inputs.py
+Fitter/python/plot/postfit.py,ast,1,Fitter/python/plot/postfit.py
+Fitter/python/plot/postfit_TES.py,ast,2,Fitter/python/plot/postfit_TES.py
+Fitter/python/plot/rebinning.py,ast,5,Histogrammer/python/shapes/rebinning.py
+Fitter/python/plot/runpostfit.py,ast,1,Fitter/python/plot/runpostfit.py
+Fitter/run_createroot_TES.py,ast,0,Legacy/Fitter/run_createroot_TES.py
+Fitter/scripts/histedit.py,lexical: line 27: Missing parentheses in call to 'print'. Did you mean print(...)?,1,
+Fitter/scripts/plotBiasTest.py,lexical: line 77: Missing parentheses in call to 'print'. Did you mean print(...)?,10,Legacy/Fitter/scripts/plotBiasTest.py
+Fitter/scripts/plotChannelCompatibility.py,lexical: line 21: Missing parentheses in call to 'print'. Did you mean print(...)?,8,Legacy/Fitter/scripts/plotChannelCompatibility.py
+Fitter/scripts/plot_pulls.py,ast,3,Fitter/scripts/plot_pulls.py
+Fitter/scripts/project_bins.py,ast,15,Legacy/OldAnalysis/YearIndependent/project_bins.py
+Fitter/scripts/pulls.py,ast,11,Legacy/Fitter/scripts/pulls.py
+Fitter/tau_tid_2024.py,ast,13,Fitter/tau_tid_2024.py
+Fitter/tutorial/createinputs.py,ast,1,Histogrammer/shapes/tutorial/createinputs.py
+Fitter/tutorial/harvestcards.py,ast,1,Fitter/tutorial/harvestcards.py
+Fitter/tutorial/plotpostfit.py,ast,1,Fitter/tutorial/plotpostfit.py
+PicoProducer/TauES_ID/job_submit_for_TauES.py,ast,2,PicoProducer/TauES_ID/job_submit_for_TauES.py
+PicoProducer/data/beamspot/getBeamSpotProfiles.py,ast,6,PicoProducer/data/beamspot/getBeamSpotProfiles.py
+PicoProducer/data/btag/getBTagEfficiencies.py,ast,8,PicoProducer/data/btag/getBTagEfficiencies.py
+PicoProducer/data/pileup/bylsToPileupJSON.py,ast,1,PicoProducer/data/pileup/bylsToPileupJSON.py
+PicoProducer/data/pileup/combinePileupProfiles.py,ast,0,PicoProducer/data/pileup/combinePileupProfiles.py
+PicoProducer/data/pileup/filterRunsJSON.py,ast,8,PicoProducer/data/pileup/filterRunsJSON.py
+PicoProducer/data/pileup/getPileupProfiles.py,ast,8,PicoProducer/data/pileup/getPileupProfiles.py
+PicoProducer/data/pileup/pileupCalc.py,ast,7,PicoProducer/data/pileup/pileupCalc.py
+PicoProducer/getTESvariations.py,ast,4,
+PicoProducer/python/__init__.py,ast,0,Legacy/PicoProducer/python/__init__.py
+PicoProducer/python/analysis/CMSDAS2020/ModuleMuTau.py,ast,5,PicoProducer/python/analysis/CMSDAS2020/ModuleMuTau.py
+PicoProducer/python/analysis/CheckMuTrigger.py,ast,4,Legacy/OldAnalysis/2016-2017/CheckMuTrigger.py
+PicoProducer/python/analysis/Cutflow.py,ast,5,PicoProducer/python/analysis/Cutflow.py
+PicoProducer/python/analysis/ETauFakeRate/ModuleETau.py,ast,3,PicoProducer/python/analysis/ETauFakeRate/ModuleETau.py
+PicoProducer/python/analysis/GenDumper.py,ast,4,PicoProducer/python/analysis/GenDumper.py
+PicoProducer/python/analysis/GenFilterMuTau.py,ast,7,Legacy/OldAnalysis/2018/GenFilterMuTau.py
+PicoProducer/python/analysis/GenMatcher.py,ast,9,Legacy/OldAnalysis/2018/GenMatcher.py
+PicoProducer/python/analysis/HighPT/ModuleDiJet.py,ast,3,PicoProducer/python/analysis/HighPT/ModuleDiJet.py
+PicoProducer/python/analysis/HighPT/ModuleMuNu.py,ast,3,PicoProducer/python/analysis/HighPT/ModuleMuNu.py
+PicoProducer/python/analysis/HighPT/ModuleTauNu.py,ast,5,PicoProducer/python/analysis/HighPT/ModuleTauNu.py
+PicoProducer/python/analysis/HighPT/ModuleWJ.py,ast,3,PicoProducer/python/analysis/HighPT/ModuleWJ.py
+PicoProducer/python/analysis/JetTauFakeRate/ModuleCharmTauFakeSimple.py,ast,4,Legacy/OldAnalysis/UnknownYear/ModuleCharmTauFakeSimple.py
+PicoProducer/python/analysis/JetTauFakeRate/ModuleEETau.py,ast,6,Legacy/OldAnalysis/2016-2018/ModuleEETau.py
+PicoProducer/python/analysis/JetTauFakeRate/ModuleJetTauFakeSimple.py,ast,4,Legacy/OldAnalysis/UnknownYear/ModuleJetTauFakeSimple.py
+PicoProducer/python/analysis/JetTauFakeRate/ModuleMuMETTau.py,ast,5,Legacy/OldAnalysis/2016-2018/ModuleMuMETTau.py
+PicoProducer/python/analysis/JetTauFakeRate/ModuleMuMuTau.py,ast,5,Legacy/OldAnalysis/2016-2018/ModuleMuMuTau.py
+PicoProducer/python/analysis/LQ/ModuleGenLQ.py,ast,11,Legacy/OldAnalysis/2018/ModuleGenLQ.py
+PicoProducer/python/analysis/ModuleEMu.py,ast,3,PicoProducer/python/analysis/ModuleEMu.py
+PicoProducer/python/analysis/ModuleETau.py,ast,3,PicoProducer/python/analysis/ModuleETau.py
+PicoProducer/python/analysis/ModuleHighPT.py,ast,12,PicoProducer/python/analysis/ModuleHighPT.py
+PicoProducer/python/analysis/ModuleMuMu.py,ast,3,PicoProducer/python/analysis/ModuleMuMu.py
+PicoProducer/python/analysis/ModuleMuTau.py,ast,3,PicoProducer/python/analysis/ModuleMuTau.py
+PicoProducer/python/analysis/ModuleMuTauSimple.py,ast,4,PicoProducer/python/analysis/ModuleMuTauSimple.py
+PicoProducer/python/analysis/ModuleMuTau_nanoV10_DeepTau2p1.py,ast,3,Legacy/PicoProducer/python/analysis/ModuleMuTau_nanoV10_DeepTau2p1.py
+PicoProducer/python/analysis/ModuleMuTau_nanoV10_DeepTau2p5.py,ast,3,PicoProducer/python/analysis/ModuleMuTau_nanoV10_DeepTau2p5.py
+PicoProducer/python/analysis/ModuleTauPair.py,ast,10,PicoProducer/python/analysis/ModuleTauPair.py
+PicoProducer/python/analysis/ModuleTauTau.py,ast,3,PicoProducer/python/analysis/ModuleTauTau.py
+PicoProducer/python/analysis/MuTauFakeRate/ModuleMuTau.py,ast,3,Legacy/PicoProducer/python/analysis/MuTauFakeRate/ModuleMuTau.py
+PicoProducer/python/analysis/MuTauFakeRate/ModuleTauPair.py,ast,8,Legacy/PicoProducer/python/analysis/MuTauFakeRate/ModuleTauPair.py
+PicoProducer/python/analysis/PileUp.py,ast,3,PicoProducer/python/analysis/PileUp.py
+PicoProducer/python/analysis/Run3_DEV/ModuleEE.py,ast,3,PicoProducer/python/analysis/Run3_DEV/ModuleEE.py
+PicoProducer/python/analysis/Run3_DEV/ModuleETau.py,ast,3,PicoProducer/python/analysis/Run3_DEV/ModuleETau.py
+PicoProducer/python/analysis/Run3_DEV/ModuleETau_Inclusive.py,ast,3,PicoProducer/python/analysis/Run3_DEV/ModuleETau_Inclusive.py
+PicoProducer/python/analysis/Run3_DEV/ModuleMuMu.py,ast,3,PicoProducer/python/analysis/Run3_DEV/ModuleMuMu.py
+PicoProducer/python/analysis/Run3_DEV/ModuleMuTau.py,ast,3,PicoProducer/python/analysis/Run3_DEV/ModuleMuTau.py
+PicoProducer/python/analysis/Run3_DEV/ModuleMuTau_Inclusive.py,ast,3,PicoProducer/python/analysis/Run3_DEV/ModuleMuTau_Inclusive.py
+PicoProducer/python/analysis/Run3_DEV/puppiMET/ModuleMuTau.py,ast,3,Legacy/PicoProducer/python/analysis/Run3_DEV/puppiMET/ModuleMuTau.py
+PicoProducer/python/analysis/Run3_DEV/puppiMET/ModuleTauPair.py,ast,9,Legacy/PicoProducer/python/analysis/Run3_DEV/puppiMET/ModuleTauPair.py
+PicoProducer/python/analysis/StitchEffs.py,ast,5,Legacy/OldAnalysis/2018/StitchEffs.py
+PicoProducer/python/analysis/SumWeights.py,ast,3,PicoProducer/python/analysis/SumWeights.py
+PicoProducer/python/analysis/TauES/ModuleMuTau.py,ast,3,Legacy/PicoProducer/python/analysis/TauES/ModuleMuTau.py
+PicoProducer/python/analysis/Tau_trig_SF_studies/ModuleMuTau_trig.py,ast,5,PicoProducer/python/analysis/Tau_trig_SF_studies/ModuleMuTau_trig.py
+PicoProducer/python/analysis/Tau_trig_SF_studies/ModuleTauPair_trig.py,ast,10,PicoProducer/python/analysis/Tau_trig_SF_studies/ModuleTauPair_trig.py
+PicoProducer/python/analysis/Tau_trig_SF_studies/TreeProducerMuTau_trig.py,ast,1,PicoProducer/python/analysis/Tau_trig_SF_studies/TreeProducerMuTau_trig.py
+PicoProducer/python/analysis/TestModule.py,ast,5,Tests/PicoProducer/analysis/TestModule.py
+PicoProducer/python/analysis/TreeProducer.py,ast,6,PicoProducer/python/analysis/TreeProducer.py
+PicoProducer/python/analysis/TreeProducerDiJet.py,ast,1,PicoProducer/python/analysis/TreeProducerDiJet.py
+PicoProducer/python/analysis/TreeProducerEMu.py,ast,1,PicoProducer/python/analysis/TreeProducerEMu.py
+PicoProducer/python/analysis/TreeProducerETau.py,ast,1,PicoProducer/python/analysis/TreeProducerETau.py
+PicoProducer/python/analysis/TreeProducerHighPT.py,ast,1,PicoProducer/python/analysis/TreeProducerHighPT.py
+PicoProducer/python/analysis/TreeProducerMuMu.py,ast,1,PicoProducer/python/analysis/TreeProducerMuMu.py
+PicoProducer/python/analysis/TreeProducerMuNu.py,ast,1,PicoProducer/python/analysis/TreeProducerMuNu.py
+PicoProducer/python/analysis/TreeProducerMuTau.py,ast,1,PicoProducer/python/analysis/TreeProducerMuTau.py
+PicoProducer/python/analysis/TreeProducerTauNu.py,ast,1,PicoProducer/python/analysis/TreeProducerTauNu.py
+PicoProducer/python/analysis/TreeProducerTauPair.py,ast,1,PicoProducer/python/analysis/TreeProducerTauPair.py
+PicoProducer/python/analysis/TreeProducerTauTau.py,ast,1,PicoProducer/python/analysis/TreeProducerTauTau.py
+PicoProducer/python/analysis/TreeProducerWJ.py,ast,1,PicoProducer/python/analysis/TreeProducerWJ.py
+PicoProducer/python/analysis/gmin2/ModuleGen_gmin2.py,ast,7,Legacy/OldAnalysis/2018/ModuleGen_gmin2.py
+PicoProducer/python/analysis/tutorial/ModuleMuTau.py,ast,3,PicoProducer/python/analysis/tutorial/ModuleMuTau.py
+PicoProducer/python/analysis/utils.py,ast,28,PicoProducer/python/analysis/utils.py
+PicoProducer/python/batch/BatchSystem.py,ast,19,PicoProducer/python/batch/base.py
+PicoProducer/python/batch/HTCondor.py,ast,5,PicoProducer/python/batch/htcondor.py
+PicoProducer/python/batch/HTCondor_CMG.py,ast,1,PicoProducer/python/batch/htcondor.py
+PicoProducer/python/batch/HTCondor_DESY.py,ast,1,PicoProducer/python/batch/htcondor.py
+PicoProducer/python/batch/HTCondor_KIT.py,ast,1,PicoProducer/python/batch/htcondor.py
+PicoProducer/python/batch/HTCondor_NAF.py,ast,1,PicoProducer/python/batch/htcondor.py
+PicoProducer/python/batch/SGE.py,ast,5,PicoProducer/python/batch/sge.py
+PicoProducer/python/batch/SLURM.py,ast,5,PicoProducer/python/batch/slurm.py
+PicoProducer/python/batch/SLURM_UCL.py,ast,1,PicoProducer/python/batch/slurm.py
+PicoProducer/python/batch/__init__.py,ast,0,PicoProducer/python/batch/__init__.py
+PicoProducer/python/batch/utils.py,ast,4,PicoProducer/python/batch/factory.py;PicoProducer/python/jobs/chunking.py;PicoProducer/python/jobs/jobconfig.py;PicoProducer/python/settings/defaults.py
+PicoProducer/python/corrections/BTagTool.py,ast,13,PicoProducer/python/corrections/BTagTool.py
+PicoProducer/python/corrections/BeamSpotTool.py,ast,7,Legacy/PicoProducer/python/corrections/BeamSpotTool.py
+PicoProducer/python/corrections/DYandRecoilCorrlib.py,ast,3,PicoProducer/python/corrections/DYandRecoilCorrlib.py
+PicoProducer/python/corrections/ElectronSFs.py,ast,3,PicoProducer/python/corrections/ElectronSFs.py
+PicoProducer/python/corrections/JetVetoMapTool.py,ast,2,PicoProducer/python/corrections/JetVetoMapTool.py
+PicoProducer/python/corrections/METCorrectionTool.py,ast,2,Legacy/PicoProducer/python/corrections/METCorrectionTool.py
+PicoProducer/python/corrections/MetTriggerSF.py,ast,2,PicoProducer/python/corrections/MetTriggerSF.py
+PicoProducer/python/corrections/MuonSFs.py,ast,6,PicoProducer/python/corrections/MuonSFs.py
+PicoProducer/python/corrections/MuonSFs_ROOT.py,ast,3,Legacy/PicoProducer/python/corrections/MuonSFs_ROOT.py
+PicoProducer/python/corrections/PileupTool.py,ast,4,PicoProducer/python/corrections/PileupTool.py
+PicoProducer/python/corrections/PreFireTool.py,ast,4,Legacy/PicoProducer/python/corrections/PreFireTool.py
+PicoProducer/python/corrections/RecoilCorrectionTool.py,ast,8,PicoProducer/python/corrections/RecoilCorrectionTool.py
+PicoProducer/python/corrections/ScaleFactorTool.py,ast,10,PicoProducer/python/corrections/ScaleFactorTool.py
+PicoProducer/python/corrections/TauTriggerSFs.py,ast,7,PicoProducer/python/corrections/TauTriggerSFs.py
+PicoProducer/python/corrections/TrigObjMatcher.py,ast,15,PicoProducer/python/corrections/TrigObjMatcher.py
+PicoProducer/python/corrections/WmassCorrection.py,ast,2,PicoProducer/python/corrections/WmassCorrection.py
+PicoProducer/python/corrections/era_config.py,ast,3,PicoProducer/python/corrections/era_config.py
+PicoProducer/python/pico/common.py,ast,0,PicoProducer/python/cli/common.py
+PicoProducer/python/pico/config.py,ast,6,PicoProducer/python/cli/config.py
+PicoProducer/python/pico/job.py,ast,5,PicoProducer/python/api/producer.py;PicoProducer/python/cli/jobs.py;PicoProducer/python/jobs/__init__.py;PicoProducer/python/jobs/chunking.py;PicoProducer/python/jobs/jobconfig.py;PicoProducer/python/jobs/local.py;PicoProducer/python/jobs/merge.py;PicoProducer/python/jobs/pipeline.py;PicoProducer/python/jobs/planner.py;PicoProducer/python/jobs/reporting.py;PicoProducer/python/jobs/request.py;PicoProducer/python/jobs/status.py;PicoProducer/python/jobs/worker_command.py
+PicoProducer/python/pico/run.py,ast,2,PicoProducer/python/cli/jobs.py;PicoProducer/python/jobs/__init__.py;PicoProducer/python/jobs/chunking.py;PicoProducer/python/jobs/jobconfig.py;PicoProducer/python/jobs/local.py;PicoProducer/python/jobs/merge.py;PicoProducer/python/jobs/pipeline.py;PicoProducer/python/jobs/planner.py;PicoProducer/python/jobs/reporting.py;PicoProducer/python/jobs/request.py;PicoProducer/python/jobs/status.py;PicoProducer/python/jobs/worker_command.py
+PicoProducer/python/processors/Bookkeeper.py,ast,6,PicoProducer/python/workers/Bookkeeper.py
+PicoProducer/python/processors/__init__.py,ast,0,PicoProducer/python/workers/__init__.py
+PicoProducer/python/processors/dumpGen.py,ast,4,Legacy/OldAnalysis/2018/dumpGen.py
+PicoProducer/python/processors/picojob.py,ast,0,PicoProducer/python/workers/picojob.py
+PicoProducer/python/processors/skimjob.py,ast,0,PicoProducer/python/workers/skimjob.py
+PicoProducer/python/processors/test.py,ast,5,Tests/PicoProducer/processors/test.py
+PicoProducer/python/processors/testBookkeeper.py,ast,1,Tests/PicoProducer/processors/testBookkeeper.py
+PicoProducer/python/processors/test_coffea.py,ast,4,Tests/PicoProducer/processors/test_coffea.py
+PicoProducer/python/storage/EOS.py,ast,1,PicoProducer/python/storage/eos.py
+PicoProducer/python/storage/GridKA_NRG.py,ast,4,PicoProducer/python/storage/gridka_nrg.py
+PicoProducer/python/storage/Sample.py,ast,17,PicoProducer/python/datasets/sample.py
+PicoProducer/python/storage/StorageSystem.py,ast,17,PicoProducer/python/storage/base.py
+PicoProducer/python/storage/T2_DESY.py,ast,5,PicoProducer/python/storage/t2_desy.py
+PicoProducer/python/storage/T2_PSI.py,ast,3,PicoProducer/python/storage/t2_psi.py
+PicoProducer/python/storage/T3_PSI.py,ast,1,PicoProducer/python/storage/t3_psi.py
+PicoProducer/python/storage/das.py,ast,5,PicoProducer/python/datasets/das.py
+PicoProducer/python/storage/utils.py,ast,11,PicoProducer/python/datasets/catalog.py;PicoProducer/python/settings/defaults.py;PicoProducer/python/storage/Sample.py;PicoProducer/python/storage/__init__.py;PicoProducer/python/storage/base.py;PicoProducer/python/storage/eos.py;PicoProducer/python/storage/factory.py;PicoProducer/python/storage/gridka_nrg.py;PicoProducer/python/storage/log.py;PicoProducer/python/storage/t2_desy.py;PicoProducer/python/storage/t2_psi.py;PicoProducer/python/storage/t3_psi.py;PicoProducer/python/storage/validation.py
+PicoProducer/python/tools/config.py,ast,19,PicoProducer/python/settings/__init__.py;PicoProducer/python/settings/defaults.py;PicoProducer/python/settings/model.py;PicoProducer/python/settings/store.py
+PicoProducer/runShapevar.py,ast,0,
+PicoProducer/runTESvar.py,ast,0,
+PicoProducer/sample_monitor.py,ast,14,
+PicoProducer/samples/CMSDAS2020/samples_mutau_2018.py,ast,0,PicoProducer/samples/CMSDAS2020/samples_mutau_2018.py
+PicoProducer/samples/CMSDAS2020/samples_mutau_2018_preselected.py,ast,0,PicoProducer/samples/CMSDAS2020/samples_mutau_2018_preselected.py
+PicoProducer/samples/Embedded/samples_2016.py,ast,0,PicoProducer/samples/Embedded/samples_2016.py
+PicoProducer/samples/Embedded/samples_2017.py,ast,0,PicoProducer/samples/Embedded/samples_2017.py
+PicoProducer/samples/Embedded/samples_2018.py,ast,0,PicoProducer/samples/Embedded/samples_2018.py
+PicoProducer/samples/Embedded/samples_UL2017.py,ast,0,PicoProducer/samples/Embedded/samples_UL2017.py
+PicoProducer/samples/HighPT/samples_UL2018.py,ast,0,PicoProducer/samples/HighPT/samples_UL2018.py
+PicoProducer/samples/MuTauFakeRate/samples_2016.py,ast,0,PicoProducer/samples/MuTauFakeRate/samples_2016.py
+PicoProducer/samples/MuTauFakeRate/samples_2017.py,ast,0,PicoProducer/samples/MuTauFakeRate/samples_2017.py
+PicoProducer/samples/MuTauFakeRate/samples_2018.py,ast,0,PicoProducer/samples/MuTauFakeRate/samples_2018.py
+PicoProducer/samples/MuTauFakeRate/samples_UL2017.py,ast,0,PicoProducer/samples/MuTauFakeRate/samples_UL2017.py
+PicoProducer/samples/PODAS23/samples_2022_postEE.py,ast,0,PicoProducer/samples/PODAS23/samples_2022_postEE.py
+PicoProducer/samples/PODAS23/samples_2022_preEE.py,ast,0,PicoProducer/samples/PODAS23/samples_2022_preEE.py
+PicoProducer/samples/Summer19UL/samples_UL2016_postVFP.py,ast,0,PicoProducer/samples/Summer19UL/samples_UL2016_postVFP.py
+PicoProducer/samples/Summer19UL/samples_UL2016_preVFP.py,ast,0,PicoProducer/samples/Summer19UL/samples_UL2016_preVFP.py
+PicoProducer/samples/Summer19UL/samples_UL2017.py,ast,0,PicoProducer/samples/Summer19UL/samples_UL2017.py
+PicoProducer/samples/Summer19UL/samples_UL2018.py,ast,0,PicoProducer/samples/Summer19UL/samples_UL2018.py
+PicoProducer/samples/TauID/samples_2016.py,ast,0,PicoProducer/samples/TauID/samples_2016.py
+PicoProducer/samples/TauID/samples_2017.py,ast,0,PicoProducer/samples/TauID/samples_2017.py
+PicoProducer/samples/TauID/samples_2018.py,ast,0,PicoProducer/samples/TauID/samples_2018.py
+PicoProducer/samples/TauID/samples_UL2016_postVFP.py,ast,0,PicoProducer/samples/TauID/samples_UL2016_postVFP.py
+PicoProducer/samples/TauID/samples_UL2016_preVFP.py,ast,0,PicoProducer/samples/TauID/samples_UL2016_preVFP.py
+PicoProducer/samples/TauID/samples_UL2017.py,ast,0,PicoProducer/samples/TauID/samples_UL2017.py
+PicoProducer/samples/TauID/samples_UL2018.py,ast,0,PicoProducer/samples/TauID/samples_UL2018.py
+PicoProducer/samples/Tau_trig_SF_samples/2024/samples_2024_DY.py,ast,0,PicoProducer/samples/Tau_trig_SF_samples/2024/samples_2024_DY.py
+PicoProducer/samples/Tau_trig_SF_samples/2024/samples_2024_data.py,ast,0,PicoProducer/samples/Tau_trig_SF_samples/2024/samples_2024_data.py
+PicoProducer/samples/Tau_trig_SF_samples/2025/samples_2025_DY.py,ast,0,PicoProducer/samples/Tau_trig_SF_samples/2025/samples_2025_DY.py
+PicoProducer/samples/Tau_trig_SF_samples/2025/samples_2025_data.py,ast,0,PicoProducer/samples/Tau_trig_SF_samples/2025/samples_2025_data.py
+PicoProducer/samples/__init__.py,ast,0,PicoProducer/samples/__init__.py
+PicoProducer/samples/samples_2022_postEE.py,ast,0,PicoProducer/samples/samples_2022_postEE.py
+PicoProducer/samples/samples_2022_preEE.py,ast,0,PicoProducer/samples/samples_2022_preEE.py
+PicoProducer/samples/samples_2023C.py,ast,0,PicoProducer/samples/samples_2023C.py
+PicoProducer/samples/samples_2023D.py,ast,0,PicoProducer/samples/samples_2023D.py
+PicoProducer/samples/samples_2024.py,ast,0,PicoProducer/samples/samples_2024.py
+PicoProducer/samples/samples_2024v15.py,ast,0,PicoProducer/samples/samples_2024v15.py
+PicoProducer/samples/samples_2025.py,ast,0,PicoProducer/samples/samples_2025.py
+PicoProducer/samples/samples_UL2016_postVFP.py,ast,0,PicoProducer/samples/samples_UL2016_postVFP.py
+PicoProducer/samples/samples_UL2016_postVFP_nanoV10.py,ast,0,PicoProducer/samples/samples_UL2016_postVFP_nanoV10.py
+PicoProducer/samples/samples_UL2016_preVFP.py,ast,0,PicoProducer/samples/samples_UL2016_preVFP.py
+PicoProducer/samples/samples_UL2016_preVFP_nanoV10.py,ast,0,PicoProducer/samples/samples_UL2016_preVFP_nanoV10.py
+PicoProducer/samples/samples_UL2017.py,ast,0,PicoProducer/samples/samples_UL2017.py
+PicoProducer/samples/samples_UL2017_nanoV10.py,ast,0,PicoProducer/samples/samples_UL2017_nanoV10.py
+PicoProducer/samples/samples_UL2018.py,ast,0,PicoProducer/samples/samples_UL2018.py
+PicoProducer/samples/samples_UL2018_nanoV10.py,ast,0,PicoProducer/samples/samples_UL2018_nanoV10.py
+PicoProducer/samples/samples_UL2018v10.py,ast,0,PicoProducer/samples/samples_UL2018v10.py
+PicoProducer/samples/tutorial/samples_2022_postEE.py,ast,0,PicoProducer/samples/tutorial/samples_2022_postEE.py
+PicoProducer/samples/tutorial/samples_UL2018.py,ast,0,PicoProducer/samples/tutorial/samples_UL2018.py
+PicoProducer/scripts/get_dataset_info.py,ast,2,PicoProducer/scripts/get_dataset_info.py
+PicoProducer/scripts/modify_cutflow_hist.py,ast,4,Legacy/OldAnalysis/2022/modify_cutflow_hist.py
+PicoProducer/scripts/modify_cutflow_hist_v2.py,ast,4,Legacy/OldAnalysis/2022/modify_cutflow_hist_v2.py
+PicoProducer/scripts/pico.py,ast,1,PicoProducer/python/cli/__init__.py;PicoProducer/python/cli/common.py;PicoProducer/python/cli/config.py;PicoProducer/python/cli/install.py;PicoProducer/python/cli/jobs.py;PicoProducer/python/cli/parser.py
+PicoProducer/scripts/pico2.py,lexical: line 4: invalid syntax,0,
+PicoProducer/test/testBatch.py,ast,3,Tests/PicoProducer/testBatch.py
+PicoProducer/test/testEventBased.py,ast,5,Tests/PicoProducer/testEventBased.py
+PicoProducer/test/testSFs.py,ast,11,Tests/PicoProducer/testSFs.py
+PicoProducer/test/testSample.py,lexical: line 88: '(' was never closed,3,Tests/PicoProducer/testSample.py
+PicoProducer/test/testStorage.py,ast,4,Tests/PicoProducer/testStorage.py
+PicoProducer/utils/checkEvents.py,lexical: line 23: Missing parentheses in call to 'print'. Did you mean print(...)?,1,PicoProducer/utils/checkEvents.py
+PicoProducer/utils/compareNano.py,lexical: line 34: Missing parentheses in call to 'print'. Did you mean print(...)?,3,
+PicoProducer/utils/comparePico.py,lexical: line 70: Missing parentheses in call to 'print'. Did you mean print(...)?,2,
+PicoProducer/utils/convertGENSIM.py,lexical: line 29: Missing parentheses in call to 'print'. Did you mean print(...)?,21,PicoProducer/utils/convertGENSIM.py
+PicoProducer/utils/convertGENSIM_mutau.py,lexical: line 30: Missing parentheses in call to 'print'. Did you mean print(...)?,16,
+PicoProducer/utils/getDASParents.py,lexical: line 14: Missing parentheses in call to 'print'. Did you mean print(...)?,3,PicoProducer/utils/getDASParents.py
+PicoProducer/utils/pickEvents.py,lexical: line 22: Missing parentheses in call to 'print'. Did you mean print(...)?,9,
+PicoProducer/utils/printNanoAOD.py,lexical: line 36: Missing parentheses in call to 'print'. Did you mean print(...)?,2,
+Plotter/config/__init__.py,ast,0,Histogrammer/config/__init__.py
+Plotter/config/samples.py,ast,1,Histogrammer/config/samples.py
+Plotter/config/samples_HighPT.py,ast,1,Histogrammer/config/samples_HighPT.py
+Plotter/config/samples_Summer24.py,ast,1,Legacy/Plotter/config/samples_Summer24.py
+Plotter/config/samples_Summer24v15.py,ast,1,Legacy/Plotter/config/samples_Summer24v15.py
+Plotter/config/samples_v10.py,ast,1,Legacy/Plotter/config/samples_v10.py
+Plotter/config/samples_v12.py,ast,1,Histogrammer/config/samples_v12.py
+Plotter/config/samples_v15.py,ast,1,Histogrammer/config/samples_v15.py
+Plotter/fromTCanvasToHist.py,ast,0,Legacy/OldAnalysis/2022/fromTCanvasToHist.py
+Plotter/plot.py,ast,2,Histogrammer/fillhists.py
+Plotter/plot2D.py,ast,2,Legacy/OldAnalysis/2016-2018/plot2D.py
+Plotter/plot_CMSPODAS23.py,ast,2,Legacy/Plotter/plot_CMSPODAS23.py
+Plotter/plot_GENSIM.py,ast,9,Legacy/OldAnalysis/YearIndependent/plot_GENSIM.py
+Plotter/plot_compare.py,ast,6,Legacy/OldAnalysis/2016-2018/plot_compare.py
+Plotter/plot_compare_nano.py,ast,6,Legacy/OldAnalysis/2016-2018/plot_compare_nano.py
+Plotter/plot_differential.py,ast,2,Legacy/OldAnalysis/2016-2018/plot_differential.py
+Plotter/plot_mvis_uncorr_corr.py,ast,1,Legacy/OldAnalysis/2022/plot_mvis_uncorr_corr.py
+Plotter/plot_postfit.py,ast,2,Histogrammer/plot_postfit.py
+Plotter/plot_postfit_shift.py,ast,2,Histogrammer/plot_postfit_shift.py
+Plotter/plot_stitching.py,ast,3,Legacy/OldAnalysis/2018/plot_stitching.py
+Plotter/plot_v10.py,ast,2,Histogrammer/plot_v10.py
+Plotter/plots_and_histograms_CMSDAS2020.py,ast,3,Legacy/Plotter/plots_and_histograms_CMSDAS2020.py
+Plotter/python/corrections/JetToTauFR/plotJetToTauFRvariables_writeJson.py,ast,8,Legacy/Plotter/python/corrections/JetToTauFR/plotJetToTauFRvariables_writeJson.py
+Plotter/python/corrections/JetToTauFR/plotJetToTauFRvariables_writeJson_FRinPtBins.py,ast,8,Legacy/Plotter/python/corrections/JetToTauFR/plotJetToTauFRvariables_writeJson_FRinPtBins.py
+Plotter/python/corrections/JetToTauFR/plot_forTauFR.py,ast,2,Legacy/Plotter/python/corrections/JetToTauFR/plot_forTauFR.py
+Plotter/python/corrections/JetToTauFR/readAndPlotFR.py,ast,9,Legacy/Plotter/python/corrections/JetToTauFR/readAndPlotFR.py
+Plotter/python/corrections/JetToTauFR/tools/ShellStyles.py,ast,16,Legacy/Plotter/python/corrections/JetToTauFR/tools/ShellStyles.py
+Plotter/python/corrections/JetToTauFR/tools/dataset.py,ast,356,Legacy/Plotter/python/corrections/JetToTauFR/tools/dataset.py
+Plotter/python/corrections/JetToTauFR/tools/fakeFactors.py,ast,39,Legacy/Plotter/python/corrections/JetToTauFR/tools/fakeFactors.py
+Plotter/python/corrections/JetToTauFR/tools/histograms.py,ast,195,Legacy/Plotter/python/corrections/JetToTauFR/tools/histograms.py
+Plotter/python/corrections/JetToTauFR/tools/jsonWriter.py,ast,9,Legacy/Plotter/python/corrections/JetToTauFR/tools/jsonWriter.py
+Plotter/python/corrections/JetToTauFR/tools/plots.py,ast,146,Legacy/Plotter/python/corrections/JetToTauFR/tools/plots.py
+Plotter/python/corrections/JetToTauFR/tools/styles.py,ast,59,Legacy/Plotter/python/corrections/JetToTauFR/tools/styles.py
+Plotter/python/corrections/JetToTauFR/tools/tdrstyle.py,ast,20,Legacy/Plotter/python/corrections/JetToTauFR/tools/tdrstyle.py
+Plotter/python/methods/JetToTau_MisID.py,ast,1,Legacy/Plotter/python/methods/JetToTau_MisID.py
+Plotter/python/methods/QCD_OSSS.py,ast,1,Histogrammer/python/methods/QCD_OSSS.py
+Plotter/python/methods/ScaleVariations.py,ast,1,Legacy/Plotter/python/methods/ScaleVariations.py
+Plotter/python/plot/CMSStyle.py,ast,9,Utilities/python/Drawing/CMSStyle.py
+Plotter/python/plot/Context.py,ast,5,Histogrammer/python/spec/Context.py
+Plotter/python/plot/MultiDraw.py,ast,4,Histogrammer/python/sample/MultiDraw.py
+Plotter/python/plot/MultiThread.py,ast,14,Utilities/python/Process/_parallel.py
+Plotter/python/plot/Plot.py,ast,14,Utilities/python/Drawing/Plot.py
+Plotter/python/plot/Plot2D.py,ast,6,Utilities/python/Drawing/Plot2D.py
+Plotter/python/plot/Ratio.py,ast,4,Utilities/python/Drawing/Ratio.py
+Plotter/python/plot/Selection.py,ast,18,Histogrammer/python/spec/Selection.py
+Plotter/python/plot/Stack.py,ast,2,Utilities/python/Drawing/Stack.py
+Plotter/python/plot/Variable.py,ast,37,Histogrammer/python/spec/Variable.py
+Plotter/python/plot/__init__.py,ast,0,Histogrammer/python/spec/__init__.py
+Plotter/python/plot/string.py,ast,17,Histogrammer/python/spec/string.py;Utilities/python/Drawing/labels.py;Utilities/python/Expressions/_expressions.py
+Plotter/python/plot/utils.py,ast,30,Utilities/python/Drawing/hist_tools.py
+Plotter/python/sample/HistSet.py,ast,16,Histogrammer/python/sample/HistSet.py
+Plotter/python/sample/MergedSample.py,ast,10,Histogrammer/python/sample/MergedSample.py
+Plotter/python/sample/ResultDict.py,ast,29,Histogrammer/python/sample/ResultDict.py
+Plotter/python/sample/Sample.py,ast,47,Histogrammer/python/sample/Sample.py
+Plotter/python/sample/SampleSet.py,ast,37,Histogrammer/python/sample/SampleSet.py
+Plotter/python/sample/SampleStyle.py,ast,3,Utilities/python/Drawing/SampleStyle.py
+Plotter/python/sample/utils.py,ast,13,Histogrammer/python/sample/utils.py
+Plotter/test/WstarplotPico.py,ast,3,Tests/Plotter/WstarplotPico.py
+Plotter/test/plotPico.py,ast,3,Tests/Plotter/plotPico.py
+Plotter/test/pseudoSamples.py,ast,6,Tests/Plotter/pseudoSamples.py
+Plotter/test/testCMSStyle.py,ast,6,Tests/Plotter/testCMSStyle.py
+Plotter/test/testColors.py,ast,9,Tests/Plotter/testColors.py
+Plotter/test/testLatex.py,ast,2,Tests/Plotter/testLatex.py
+Plotter/test/testLegend.py,ast,4,Tests/Plotter/testLegend.py
+Plotter/test/testMacros.py,ast,6,Tests/Plotter/testMacros.py
+Plotter/test/testMethods.py,ast,1,Tests/Plotter/testMethods.py
+Plotter/test/testMultiDraw.py,ast,4,Tests/Plotter/testMultiDraw.py
+Plotter/test/testMultiThread.py,ast,10,Tests/Plotter/testMultiThread.py
+Plotter/test/testPanels.py,ast,2,Tests/Plotter/testPanels.py
+Plotter/test/testPlot.py,ast,6,Tests/Plotter/testPlot.py
+Plotter/test/testRDataFrame.py,ast,5,Tests/Plotter/testRDataFrame.py
+Plotter/test/testRDataFrame_Sample.py,ast,9,Tests/Plotter/testRDataFrame_Sample.py
+Plotter/test/testRatio.py,ast,3,Tests/Plotter/testRatio.py
+Plotter/test/testSampleSet.py,ast,4,Tests/Plotter/testSampleSet.py
+Plotter/test/testSamples.py,ast,4,Tests/Plotter/testSamples.py
+Plotter/test/testSelection.py,ast,1,Tests/Plotter/testSelection.py
+Plotter/test/testStack.py,ast,3,Tests/Plotter/testStack.py
+Plotter/test/testStitching.py,ast,5,Tests/Plotter/testStitching.py
+Plotter/test/testTGAxis.py,ast,6,Tests/Plotter/testTGAxis.py
+Plotter/test/testTLaTeX.py,ast,3,Tests/Plotter/testTLaTeX.py
+Plotter/test/testUnpacking.py,ast,3,Tests/Plotter/testUnpacking.py
+Plotter/test/testUnroll.py,ast,5,Tests/Plotter/testUnroll.py
+Plotter/test/testVariables.py,ast,1,Tests/Plotter/testVariables.py
+Plotter/tutorial/config/samples.py,ast,1,Histogrammer/tutorial/config/samples.py
+Plotter/tutorial/plot.py,ast,2,Histogrammer/tutorial/plot.py
+Plotter/utils/plot_decayLengths.py,ast,2,Legacy/OldAnalysis/YearIndependent/plot_decayLengths.py
+Tau_Trigger_SF/Efficiency_plotters/Trigger_Efficiency_data_generic.py,ast,8,Tau_Trigger_SF/Efficiency_plotters/Trigger_Efficiency_data_generic.py
+Tau_Trigger_SF/Efficiency_plotters/Trigger_Efficiency_datavsmc.py,ast,6,Tau_Trigger_SF/Efficiency_plotters/Trigger_Efficiency_datavsmc.py
+Tau_Trigger_SF/Efficiency_plotters/Trigger_Efficiency_dtauvspnet.py,ast,7,Tau_Trigger_SF/Efficiency_plotters/Trigger_Efficiency_dtauvspnet.py
+Tau_Trigger_SF/TriggerSF_tools/Common/AnalysisTools.py,ast,13,Tau_Trigger_SF/TriggerSF_tools/Common/AnalysisTools.py
+Tau_Trigger_SF/TriggerSF_tools/Common/AnalysisTypes.py,ast,2,Tau_Trigger_SF/TriggerSF_tools/Common/AnalysisTypes.py
+Tau_Trigger_SF/TriggerSF_tools/Common/RootObjects.py,ast,6,Tau_Trigger_SF/TriggerSF_tools/Common/RootObjects.py
+Tau_Trigger_SF/TriggerSF_tools/Common/RootPlotting.py,ast,18,Tau_Trigger_SF/TriggerSF_tools/Common/RootPlotting.py
+Tau_Trigger_SF/TriggerSF_tools/Common/TriggerConfig.py,ast,6,Tau_Trigger_SF/TriggerSF_tools/Common/TriggerConfig.py
+Tau_Trigger_SF/TriggerSF_tools/Common/utils.py,ast,21,Tau_Trigger_SF/TriggerSF_tools/Common/utils.py
+Tau_Trigger_SF/TriggerSF_tools/convert_to_json_TauPOG.py,ast,9,Tau_Trigger_SF/TriggerSF_tools/convert_to_json_TauPOG.py
+Tau_Trigger_SF/TriggerSF_tools/createTurnOn_multi.py,ast,3,Tau_Trigger_SF/TriggerSF_tools/createTurnOn_multi.py
+Tau_Trigger_SF/TriggerSF_tools/fitTurnOn_multi.py,ast,5,Tau_Trigger_SF/TriggerSF_tools/fitTurnOn_multi.py
+Tau_Trigger_SF/helper_scripts/hadd_files.py,ast,3,Tau_Trigger_SF/helper_scripts/hadd_files.py
+add_muon_weights.py,ast,10,Legacy/OldAnalysis/2025/add_muon_weights.py
+add_pileup_weights.py,ast,11,Legacy/OldAnalysis/2025-2026/add_pileup_weights.py
+common/python/math_helper.py,ast,0,
+common/python/tools/LoadingBar.py,ast,4,Utilities/python/CLI/_internal/loading_bar.py
+common/python/tools/RDataFrame.py,ast,6,common/python/tools/RDataFrame.py
+common/python/tools/Table.py,ast,7,Utilities/python/CLI/_internal/table.py
+common/python/tools/file.py,ast,8,common/python/tools/file.py
+common/python/tools/log.py,ast,28,common/python/tools/log.py
+common/python/tools/math.py,ast,9,Utilities/python/Math/_math.py
+common/python/tools/root.py,ast,7,common/python/tools/root.py
+common/python/tools/string.py,ast,10,common/python/tools/string.py
+common/python/tools/utils.py,ast,6,common/python/tools/utils.py
+common/test/testLoadingBar.py,lexical: line 18: Missing parentheses in call to 'print'. Did you mean print(...)?,1,
+common/test/testTable.py,lexical: line 20: Missing parentheses in call to 'print'. Did you mean print(...)?,2,
