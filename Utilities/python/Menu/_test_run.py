@@ -20,8 +20,7 @@ when a test run is shown (FastSetup imports Menu before TauFW is built).
 import time
 
 from ._menu import _clock
-from ._operation_screen import ScreenModel, follow
-from ..Process import EventReader
+from ._operation_screen import ScreenModel, follow, summary_model
 from ..Process._operations import DONE, FAILED, LOST, RUNNING, STOPPED, STOPPING
 
 __all__ = ["TestRun", "follow_tests", "test_summary"]
@@ -174,12 +173,12 @@ def follow_tests(ui, screen, title, process, expected=()):
     return follow(ui, screen, title, process, TestRun(expected))
 
 
-def test_summary(operation):
+def test_summary(operation, kept=None):
     """(text, role) of a test run for the menus: "Running 12/40", "Failed: 3", "Done", "Stopping", "Stopped",
-    "Lost"; role: a style name of ConsoleUI."""
+    "Lost"; role: a style name of ConsoleUI. kept: see
+    summary_model (the menus keep one per operation: only the new events are read)."""
     state = operation.state()
-    run = TestRun(operation.data.get("expected", ()))
-    run.feed(EventReader(operation.events_path).read())  # a reader of its own: the screen's stays at the top
+    run = summary_model(operation, state, lambda: TestRun(operation.data.get("expected", ())), kept)
     counts = run.counts()
     if state == RUNNING:
         done = counts["PASS"] + counts["FAIL"] + counts["SKIP"]

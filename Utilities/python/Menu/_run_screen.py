@@ -32,8 +32,7 @@ only events, so the Menu imports no Framework module.
 import time
 
 from ._menu import _clock
-from ._operation_screen import ScreenModel, follow
-from ..Process import EventReader
+from ._operation_screen import ScreenModel, follow, summary_model
 from ..Process._operations import DONE, FAILED, LOST, RUNNING, STOPPED, STOPPING
 
 __all__ = ["RunProgress", "follow_run", "run_summary"]
@@ -311,14 +310,14 @@ def follow_run(ui, screen, title, process):
     return follow(ui, screen, title, process, RunProgress(process.data))
 
 
-def run_summary(operation):
+def run_summary(operation, kept=None):
     """(text, role) of an advance for the menus: "3/5 plots, 5/7 commands" (the commands only when the stage runs
     several), "1/5 ntuples, waiting for jobs", "Stopping",
     "Done", "Waiting for jobs", "Blocked at fit", "Failed at plots", "Stopped at plots", "Lost - Continue to
-    resume"; role: a style name of ConsoleUI."""
+    resume"; role: a style name of ConsoleUI. kept: see
+    summary_model (the menus keep one per operation: only the new events are read)."""
     state = operation.state()
-    run = RunProgress(operation.data)
-    run.feed(EventReader(operation.events_path).read())  # a reader of its own: the screen's stays at the top
+    run = summary_model(operation, state, lambda: RunProgress(operation.data), kept)
     stage = run._working()
     name = stage["id"] if stage else ""
     if state == RUNNING:

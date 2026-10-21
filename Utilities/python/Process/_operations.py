@@ -30,6 +30,12 @@ The state, from these files:
 
 OperationStore.prune(kind) keeps the newest records of a kind (never one that
 runs). One operation of a kind at a time is the caller's rule (running()).
+
+A menu asks the store on every draw, from AFS: the store reads operation.json
+once per directory (it never changes), and what an ended operation knew (its
+end, its seen mark) goes to the next Operation of that directory, which then
+reads no file. Every query still returns new Operations, their readers at the
+top of the files (a screen shows the whole log).
 """
 import getpass
 import json
@@ -115,14 +121,17 @@ class Operation:
 
     @property
     def seen(self) -> bool:
-        """Its result was shown once (mark_seen)."""
-        return os.path.exists(self._path(SEEN_FILE))
+        """Its result was shown once (mark_seen); kept once true (the mark is never removed)."""
+        if not self._seen:
+            self._seen = os.path.exists(self._path(SEEN_FILE))
+        return self._seen
 
     def mark_seen(self) -> None:
         """Record that its result was shown; only once it ended (a running operation is never seen)."""
         if not self.running:
             with open(self._path(SEEN_FILE), "w"):
                 pass
+            self._seen = True
 
     def elapsed(self) -> float:
         """Seconds since the start, until the end once it ended."""
@@ -150,6 +159,14 @@ class Operation:
             lost = self.poll() is None  # the supervisor this menu started is gone without an exit.json
         self._was_lost = lost
         return lost
+
+    def _carry(self, earlier):
+        """What an earlier Operation of this directory knew that never changes again: the end, the seen mark,
+        the supervisor this menu started."""
+        self.process = earlier.process
+        self._seen = earlier._seen
+        if earlier.returncode is not None:
+            self.returncode, self.stopped, self.finished = earlier.returncode, earlier.stopped, earlier.finished
 
     def _touch(self, name):
         if self.poll() is None:
@@ -188,6 +205,7 @@ class Operation:
         self.finished = None
         self._checked = None
         self._was_lost = False
+        self._seen = False
         self.events_path = self._path(EVENTS_FILE)
         self.output_path = self._path(OUTPUT_FILE)
         self.events = EventReader(self.events_path)
@@ -232,18 +250,23 @@ class OperationStore:
             process = popen([sys.executable, "-B", SUPERVISOR, path], cwd=cwd, env=environment,
                             stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
                             start_new_session=True)
-        return Operation(path, record, process=process, clock=self.clock)
+        operation = self._known[path] = Operation(path, record, process=process, clock=self.clock)
+        return operation
 
     def all(self, kind: Optional[str] = None) -> List[Operation]:
-        """Every readable operation (of a kind), newest first."""
+        """Every readable operation (of a kind), newest first. New Operations every call; operation.json is read
+        once per directory and an ended one reads no file (see the module docstring)."""
         if not os.path.isdir(self.root):
             return []
+        names = os.listdir(self.root)
+        present = set(os.path.join(self.root, name) for name in names)
+        self._known = {path: operation for path, operation in self._known.items() if path in present}  # pruned
         operations = []
-        for name in os.listdir(self.root):
+        for name in names:
             if kind is not None and not name.startswith(kind + "-"):
                 continue
             try:
-                operation = Operation.load(os.path.join(self.root, name), clock=self.clock)
+                operation = self._load(os.path.join(self.root, name))
             except (OSError, ValueError):
                 continue  # half made, or not an operation
             if kind is None or operation.kind == kind:
@@ -267,6 +290,16 @@ class OperationStore:
     # =========================================================================
     # ================================ HELPERS ================================
 
+    def _load(self, path):
+        earlier = self._known.get(path)
+        if earlier is None:
+            operation = Operation.load(path, clock=self.clock)
+        else:
+            operation = Operation(path, earlier.record, clock=self.clock)
+            operation._carry(earlier)
+        self._known[path] = operation
+        return operation
+
     def _new_directory(self, kind):
         os.makedirs(self.root, exist_ok=True)
         stamp = time.strftime("%Y%m%d-%H%M%S", time.localtime(self.clock()))
@@ -285,6 +318,7 @@ class OperationStore:
     def __init__(self, root: str, clock: Callable[[], float] = time.time) -> None:
         self.root = str(root)
         self.clock = clock
+        self._known = {}  # directory -> the Operation last returned for it (see the module docstring)
 
     def __repr__(self) -> str:
         return "<OperationStore %s>" % (self.root,)

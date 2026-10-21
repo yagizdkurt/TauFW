@@ -10,8 +10,8 @@ Recipe views contain name, path, ordered (stage id, type, description) triples, 
 problems is shown in red and cannot start) and warnings (yellow; the recipe can still start).
 Records expose run_id, run_dir, and state;
 run rows are (created, path, (run_id, state, updated)). Only operations reads
-files, validates values, or invokes commands. Grid callbacks are grid_proxy_valid()
-and renew_grid_proxy(). Test callbacks are test_catalog(), start_tests(family, cases, title, expected), which
+files, validates values, or invokes commands. Grid callbacks are grid_proxy_valid(fresh=False)
+(the main menu may get a kept answer; fresh before a run) and renew_grid_proxy(). Test callbacks are test_catalog(), start_tests(family, cases, title, expected), which
 returns the TauFW.Utilities.Process.Operation that the test screen follows, and tests_operation(), the last test
 run (or None). Run callbacks: start_run(recipe) and advance_run(record, wait, take_lock) start taufw.py behind the
 menu and return its Operation (kind "run"); run_operations() (the advances for the main menu), run_operation(run_dir)
@@ -186,7 +186,7 @@ class MenuNavigation:
 
     def _grid_ready(self, needed):
         """Whether a run may start: no grid proxy is needed, or it is valid (renewed here if the user agrees)."""
-        while needed and not self.operations.grid_proxy_valid():
+        while needed and not self.operations.grid_proxy_valid(fresh=True):  # never a kept answer before a run
             if self.ui.grid_proxy_needed() != "renew":
                 return False
             self.grid_certificate()

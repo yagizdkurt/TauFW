@@ -12,6 +12,7 @@ import os
 import socket
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 from TauFW.Framework.defaults import (ANALYSES_DIR, DEFAULT_RUN_ROOT, RECIPE_NAME, RUN_RECORD_NAME,
@@ -28,6 +29,7 @@ from TauFW.Utilities.Process import LOST, EventReader, OperationStore
 CHECKOUT = Path(__file__).resolve().parents[2]
 OPERATIONS_DIR = CHECKOUT / ".artifacts" / "menu" / "operations"  # what runs behind the menu (git-ignored)
 TAUFW_SCRIPT = CHECKOUT / "Framework" / "scripts" / "taufw.py"
+PROXY_MARGIN = 60  # seconds a proxy must still be valid for (voms-proxy-info --valid 0:01 before)
 
 
 class _Operations:
@@ -40,6 +42,7 @@ class _Operations:
         self.launch_dir = Path(launch_dir or os.getcwd()).resolve()
         self.recipes_dir = Path(recipes_dir or ANALYSES_DIR)
         self.store = OperationStore(operations_dir or OPERATIONS_DIR)
+        self._proxy = None  # (valid, until, proxy file): the last answer of voms-proxy-info (grid_proxy_valid)
 
     def resolve_path(self, value):
         path = Path(value).expanduser()
@@ -132,15 +135,25 @@ class _Operations:
     def can_advance(record):
         return not RunState(record.state).finished
 
-    @staticmethod
-    def grid_proxy_valid():
-        """Check the existing proxy quietly; never prompt during menu startup."""
+    def grid_proxy_valid(self, fresh=False):
+        """Whether the grid proxy is valid for PROXY_MARGIN seconds more; quiet, never prompts. Every main menu
+        draw asks: the answer of voms-proxy-info (up to 5 s) is kept until the proxy expires or its file changes
+        (renewed in another terminal: mtime and size); fresh: ask voms-proxy-info again (before a run that may
+        submit jobs, after a renewal)."""
+        now, proxy_file = time.time(), _proxy_file()
+        if not fresh and self._proxy is not None:
+            valid, until, known_file = self._proxy
+            if known_file == proxy_file and (not valid or now < until):
+                return valid
         try:
-            result = subprocess.run(["voms-proxy-info", "--exists", "--valid", "0:01"],
-                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
-            return result.returncode == 0
-        except (OSError, subprocess.TimeoutExpired):
-            return False
+            result = subprocess.run(["voms-proxy-info", "--timeleft"], stdout=subprocess.PIPE,
+                                    stderr=subprocess.DEVNULL, text=True, timeout=5)
+            left = int(result.stdout.split()[-1]) if result.returncode == 0 else 0  # after any warning
+        except (OSError, ValueError, IndexError, subprocess.TimeoutExpired):
+            left = 0
+        valid = left > PROXY_MARGIN
+        self._proxy = (valid, now + left - PROXY_MARGIN, proxy_file)
+        return valid
 
     def renew_grid_proxy(self):
         """Let VOMS read the certificate password directly from the terminal."""
@@ -150,7 +163,7 @@ class _Operations:
         except OSError as error:
             raise RuntimeError("Cannot initialize the grid proxy; check that VOMS tools are available: %s"
                                % error) from error
-        valid = result.returncode == 0 and self.grid_proxy_valid()
+        valid = result.returncode == 0 and self.grid_proxy_valid(fresh=True)
         print("Grid proxy active." if valid else
               "Proxy Failed! Check your grid certificate and password, then retry Grid Certificate.")
         return 0 if valid else 1
@@ -345,6 +358,16 @@ class _Operations:
         return self.store.start("command", "%s %s" % (command, Path(target).name),
                                 [sys.executable, "-B", str(TAUFW_SCRIPT), command, str(target)],
                                 str(self.launch_dir), data=dict(command=command, target=str(target)))
+
+
+def _proxy_file():
+    """(mtime, size) of the grid proxy file ($X509_USER_PROXY, else /tmp/x509up_u<uid>), or None without one."""
+    path = os.environ.get("X509_USER_PROXY") or "/tmp/x509up_u%s" % (os.getuid() if hasattr(os, "getuid") else "")
+    try:
+        status = os.stat(path)
+    except OSError:
+        return None
+    return status.st_mtime_ns, status.st_size
 
 
 def _stage_info(stage):

@@ -120,6 +120,28 @@ Items marked **(verify)** may already be done; check before working on them.
       table (wrapped lines readable?). Inspect a WAITING production run: the screen draws at once, the output comes
       when `condor_q` answers; Esc before that stops it (`ps -u $USER`: no `taufw.py status` left); R refreshes once
       it ended. Continue on a DONE run > Inspect status: the same screen. No line is printed over the screen.
+- [ ] **Menu speed on lxplus (CL §31):** after `cmsenv`, from the repo root, three draws' data in a row (the first
+      is the old cost: the proxy and every record read; the next two the new):
+
+      ```sh
+      python3 - <<'EOF'
+      import time
+      from TauFW.Framework.interactive import _Operations
+      from TauFW.Utilities.Menu import ConsoleUI
+      operations, ui = _Operations(), ConsoleUI(None)
+      for draw in range(3):
+          start = time.time(); operations.grid_proxy_valid(); proxy = time.time()
+          shown = [operations.tests_operation()] + operations.run_operations()
+          [ui._operation_summary(operation) for operation in shown if operation]
+          print("draw %d: proxy %.2f s, records %.2f s" % (draw + 1, proxy - start, time.time() - proxy))
+      EOF
+      ```
+
+      Check that `voms-proxy-info --timeleft` prints the seconds (the menu shows the ✓ with a valid proxy). In the
+      menu: the main menu returns at once from a screen; `voms-proxy-destroy` in another terminal: the next draw
+      shows "Proxy Failed!"; `voms-proxy-init -voms cms` there: ✓ again; Start a production recipe without a proxy:
+      the "Grid proxy needed" screen (a fresh check). A test run that ends while the main menu is shown: the next
+      draw shows "Tests (Done)".
 - [ ] **Tests behind the menu on lxplus (CL §18):** `python3 Tests/Utilities/test_operations.py` (the two real
       stop tests run there). In the menu: Tests > Normal tests > Run entire family, Esc at once: the main menu shows
       "Tests (Running n/N)"; Tests opens the live screen again; after the end "Tests (Done)" or "(Failed: n)" and
@@ -322,9 +344,9 @@ Parts 1–5 are done (CL §5–§8; the Part 2 changelog section was removed).
       Done 2026-10-21: (1) and the log path in `progress` (CL §28); the wiring of Start/Continue, the run lines,
       the `seen` file, Continue on an advancing run and the lock screen (CL §29); the info box with each stage's
       recipe options (first version, CL §29). Done 2026-10-21: step (3) for plan and status (CL §30; the plain
-      output, Esc stops; no `check`: the lists show the problems). Left: a choice of fields per stage type if the
-      options are too much; menu speed (`grid_proxy_valid` runs `voms-proxy-info` on every main-menu draw, the
-      operation records are read from AFS each draw), then step (4).
+      output, Esc stops; no `check`: the lists show the problems). Done 2026-10-21: menu speed (CL §31: the proxy
+      answer kept until it expires or its file changes, fresh before a run; ended operations and their events read
+      once). Left: a choice of fields per stage type if the options are too much; then step (4).
 
 Next-work proposals (not designed in detail yet):
 

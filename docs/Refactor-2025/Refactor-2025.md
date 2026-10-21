@@ -1110,3 +1110,35 @@ operations behind the menu, like the tests and runs (CL §18), and a screen show
   `ConsoleUI.status_actions` (the Refresh/Back screen) and `ConsoleUI.interrupted_operation`. The CLI is unchanged.
 - **UI preview:** "detailed plan (taufw.py plan behind the menu)" and "run status, HTCondor answers after 4 s"
   replace "status actions". In the preview R shows the screen again, so Refresh is tried in the real menu.
+
+## 31. The main menu draws without voms-proxy-info and without re-reading ended operations
+
+**Date:** 2026-10-21
+**Status:** done on Windows (unit tests); lxplus check in TODO §1 "Menu speed on lxplus"
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#31-the-main-menu-draws-without-voms-proxy-info-and-without-re-reading-ended-operations)
+
+TODO §6 "Menu as a program", menu speed (user, 2026-10-21: approach A and B). Before: every main-menu draw (each
+return from a screen) ran `voms-proxy-info --exists --valid 0:01` (up to 5 s) and read the operation records from
+AFS: `operation.json` of every record (`latest` loaded all of a kind), `exit.json`/`seen`/`stop` of each, and the
+whole `events.jsonl` of every operation with a line (thousands of lines after "All tests"). Counted for 5 test and
+5 run records with one advance running: one process and about 25-30 file reads per draw. After: no process, and
+only the files of the running advance (`exit.json`, `stop`, the heartbeat at most once a second, the new event
+lines).
+
+- **Grid proxy** (`_Operations.grid_proxy_valid(fresh=False)`): `voms-proxy-info --timeleft` (the last token of
+  its output: seconds); valid with more than `PROXY_MARGIN` (60 s, as `--valid 0:01` before). The answer is kept
+  until the proxy expires (the clock, no process) or the proxy file changes (`$X509_USER_PROXY`, else
+  `/tmp/x509up_u<uid>`: mtime and size; renewed or destroyed in another terminal); an invalid answer is kept until
+  the file changes. `fresh=True` asks again: `_grid_ready` before a run that may submit jobs (never a kept answer)
+  and after `renew_grid_proxy`. The main menu calls it as before.
+- **Operation records** (`OperationStore`): `operation.json` is read once per directory (it never changes); the
+  next `Operation` of a directory gets what the last one knew that never changes again (`_carry`: the end from
+  `exit.json`, the `seen` mark once true, the supervisor this menu started), so an ended and seen operation reads
+  no file. `all()` still lists the directory (new and pruned records) and returns new `Operation`s, their readers
+  at the top of the files (a screen shows the whole log). `Operation.seen` is kept once true; `mark_seen` sets it.
+- **Menu lines** (`summary_model` in `_operation_screen.py`; `test_summary`/`run_summary(operation, kept=None)`):
+  `ConsoleUI` keeps per operation directory the line's model and its own `EventReader`, so a draw reads only the
+  events added since the last one, and none once the operation ended (then it reads past `READ_LIMIT` once).
+  Without `kept` the summaries read from the top as before.
+- Not changed: the run list of Continue/Inspect (`runs()` reads every `run.json`), the `run.json` of a lost
+  advance in the main menu (`_finished`, rare). Step (4), one curses session, comes next.

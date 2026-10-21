@@ -34,6 +34,7 @@ class ConsoleUI:
 
     def __init__(self, curses):
         self.curses = curses
+        self._summaries = {}  # operation directory -> what its menu line keeps between draws (summary_model)
 
     @classmethod
     def open(cls, parser):
@@ -678,15 +679,15 @@ class ConsoleUI:
                     return "cancel"
         return self.curses.wrapper(draw)
 
-    @staticmethod
-    def _operation_summary(operation):
-        """(text, style role) of an operation's state for the menus."""
+    def _operation_summary(self, operation):
+        """(text, style role) of an operation's state for the menus; only the events added since the last draw
+        are read, none once it ended."""
         if operation.kind == "tests":
             from ._test_run import test_summary  # imported here: see test_run()
-            return test_summary(operation)
+            return test_summary(operation, self._summaries.setdefault(operation.path, {}))
         if operation.kind == "run":
             from ._run_screen import run_summary  # imported here: see test_run()
-            return run_summary(operation)
+            return run_summary(operation, self._summaries.setdefault(operation.path, {}))
         state = operation.state()
         return state.capitalize(), {"RUNNING": "accent", "DONE": "good", "FAILED": "error"}.get(state, "warning")
 

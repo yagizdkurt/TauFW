@@ -65,15 +65,45 @@ FIT = {"stage": "fit", "id": "fit", "inputs": {"shapes": None}}
 class MenuTests(unittest.TestCase):
     def test_grid_proxy_check_is_quiet_and_handles_unavailable_tools(self):
         operations = self.menu(FakeUI()).operations
-        for status in (0, 1):
+        for status, left, valid in ((0, "43190\n", True), (0, "30\n", False), (0, "0\n", False),
+                                    (1, "", False), (0, "Proxy not found", False)):
             with mock.patch.object(interactive.subprocess, "run",
-                                   return_value=SimpleNamespace(returncode=status)) as check:
-                self.assertEqual(operations.grid_proxy_valid(), status == 0)
-                check.assert_called_once_with(["voms-proxy-info", "--exists", "--valid", "0:01"],
-                                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+                                   return_value=SimpleNamespace(returncode=status, stdout=left)) as check:
+                self.assertEqual(operations.grid_proxy_valid(fresh=True), valid)
+                check.assert_called_once_with(["voms-proxy-info", "--timeleft"], stdout=subprocess.PIPE,
+                                              stderr=subprocess.DEVNULL, text=True, timeout=5)
         for error in (FileNotFoundError(), subprocess.TimeoutExpired("voms-proxy-info", 5)):
             with mock.patch.object(interactive.subprocess, "run", side_effect=error):
-                self.assertFalse(operations.grid_proxy_valid())
+                self.assertFalse(operations.grid_proxy_valid(fresh=True))
+
+    def test_grid_proxy_answer_is_kept_until_it_expires_or_the_proxy_file_changes(self):
+        operations = self.menu(FakeUI()).operations
+        clock, proxy = [1000.0], [(1, 100)]
+
+        def ask(left):
+            with mock.patch.object(interactive.time, "time", side_effect=lambda: clock[0]), \
+                    mock.patch.object(interactive, "_proxy_file", side_effect=lambda: proxy[0]), \
+                    mock.patch.object(interactive.subprocess, "run",
+                                      return_value=SimpleNamespace(returncode=0, stdout="%d\n" % left)) as check:
+                return operations.grid_proxy_valid(), check.call_count
+
+        self.assertEqual(ask(600), (True, 1))     # the first draw asks voms-proxy-info
+        self.assertEqual(ask(600), (True, 0))     # the next draws do not
+        clock[0] += 539
+        self.assertEqual(ask(0), (True, 0))       # valid for PROXY_MARGIN s more
+        clock[0] += 1
+        self.assertEqual(ask(0), (False, 1))      # expired: asked again
+        self.assertEqual(ask(43200), (False, 0))  # an invalid answer is kept while the file is the same
+        proxy[0] = (2, 100)
+        self.assertEqual(ask(43200), (True, 1))   # renewed in another terminal
+        proxy[0] = None
+        self.assertEqual(ask(0), (False, 1))      # removed (voms-proxy-destroy)
+        with mock.patch.object(interactive.subprocess, "run",
+                               return_value=SimpleNamespace(returncode=0, stdout="43200\n")) as check, \
+                mock.patch.object(interactive, "_proxy_file", return_value=None):
+            self.assertTrue(operations.grid_proxy_valid(fresh=True))  # before a run, after a renewal
+            check.assert_called_once_with(["voms-proxy-info", "--timeleft"], stdout=subprocess.PIPE,
+                                          stderr=subprocess.DEVNULL, text=True, timeout=5)
 
     def test_grid_proxy_renewal_uses_terminal_and_checks_result(self):
         operations = self.menu(FakeUI()).operations

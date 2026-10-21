@@ -1,6 +1,7 @@
 """Operations behind the menu: the supervisor, the operation directory, the states and the store."""
 import json
 import os
+import shutil
 import signal
 import socket
 import sys
@@ -230,6 +231,50 @@ class StoreTests(OperationTestCase):
         store.prune("tests", keep=2)
         self.assertEqual(sorted(os.listdir(self.root)), ["runs-1", "tests-7", "tests-old2"])
         self.assertEqual(OperationStore(os.path.join(self.root, "missing")).all(), [])
+
+    def test_a_menu_draw_reads_no_file_of_an_ended_operation(self):
+        """The main menu asks on every draw: operation.json once per directory, nothing of an ended and seen
+        operation, the files of a running one; new Operations every time, their readers at the top."""
+        ended, unseen, running = (self.record("tests-%d" % index, started=1000.0 + index) for index in range(3))
+        for path in (ended, unseen):
+            self.write(path, "exit.json", dict(returncode=0, stopped=False, finished=1500.0))
+        open(os.path.join(ended, "seen"), "w").close()
+        self.write(running, "heartbeat.json", dict(host="lxplus812.cern.ch", pid=1, t=1009.0))
+        with open(os.path.join(running, "events.jsonl"), "w") as stream:
+            stream.write('{"kind": "case_end", "id": "a"}\n')
+        store = OperationStore(self.root, clock=Clock(1010.0))
+
+        def draw():
+            """The files one draw reads (as the main menu asks: state, seen), by directory."""
+            reads = []
+            read_json, exists = _operations._read_json, os.path.exists
+            with mock.patch.object(_operations, "_read_json", lambda path: reads.append(path) or read_json(path)), \
+                    mock.patch.object(_operations.os.path, "exists", lambda path: reads.append(path) or exists(path)):
+                operations = {os.path.basename(o.path): o for o in store.all("tests")}
+                for operation in operations.values():
+                    operation.state(), operation.seen
+            return operations, sorted(set(os.path.basename(os.path.dirname(path)) for path in reads))
+
+        first, read = draw()
+        self.assertEqual(read, ["tests-0", "tests-1", "tests-2"])
+        self.assertEqual(first["tests-2"].events.read(), [{"kind": "case_end", "id": "a"}])
+        second, read = draw()
+        self.assertEqual(read, ["tests-1", "tests-2"])  # tests-1: its seen mark may come from another menu
+        self.assertEqual({name: o.state() for name, o in second.items()},
+                         {"tests-0": DONE, "tests-1": DONE, "tests-2": RUNNING})
+        self.assertIsNot(second["tests-2"], first["tests-2"])
+        self.assertEqual(second["tests-2"].events.read(), [{"kind": "case_end", "id": "a"}])  # from the top
+        second["tests-1"].mark_seen()  # this menu showed it
+        self.write(running, "exit.json", dict(returncode=1, stopped=False, finished=1600.0))
+        third, read = draw()
+        self.assertEqual(read, ["tests-2"])
+        self.assertEqual((third["tests-1"].seen, third["tests-2"].state()), (True, FAILED))
+        self.assertEqual(draw()[1], ["tests-2"])  # ended, not seen yet: its seen mark only
+        store.latest("tests").mark_seen()
+        self.assertEqual(draw()[1], [])  # all ended and seen: no file read at all
+        shutil.rmtree(ended)  # pruned by another menu
+        self.assertEqual([os.path.basename(o.path) for o in store.all("tests")], ["tests-2", "tests-1"])
+        self.assertNotIn(ended, store._known)
 
 
 @unittest.skipUnless(os.name == "posix", "process groups and signals: lxplus")

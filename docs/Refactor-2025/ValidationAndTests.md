@@ -453,3 +453,24 @@ removed). Open: BBB, two nodes, Ctrl-C (TODO §1 "Run lock and safe stop on lxpl
   in taufw.py, as for Start); the real output needs lxplus.
 - `python Tests/run.py checks` on Windows: 13/15 (the known two: import debt in `check_import_boundaries`,
   `check_root`).
+
+## 31. The main menu draws without voms-proxy-info and without re-reading ended operations
+
+**Change:** [CL §31](Refactor-2025.md#31-the-main-menu-draws-without-voms-proxy-info-and-without-re-reading-ended-operations)
+
+**Status:** unit tests on Windows; lxplus check open (TODO §1 "Menu speed on lxplus").
+
+- `Tests/Framework/test_interactive.py` `test_grid_proxy_answer_is_kept_until_it_expires_or_the_proxy_file_changes`:
+  the first draw asks `voms-proxy-info`, the next do not; valid until `PROXY_MARGIN` s before the end, then asked
+  again; an invalid answer kept while the file is the same; a changed or removed proxy file asks again; `fresh`
+  always asks. `test_grid_proxy_check_is_quiet_and_handles_unavailable_tools`: `--timeleft` output, a short proxy,
+  no proxy, unreadable output, missing tools and a timeout.
+- `Tests/Utilities/test_operations.py` `test_a_menu_draw_reads_no_file_of_an_ended_operation`: the files one draw
+  reads (`_read_json`, `os.path.exists`): all three directories the first time, then only the running one and the
+  `seen` mark of an unseen one, none once all ended and seen; new objects whose events read from the top; an
+  `exit.json` that comes later is seen; a directory removed by another menu leaves the list and the cache.
+- `Tests/Utilities/test_menu.py` `test_a_menu_line_reads_only_the_new_events_and_none_once_ended`: "Running 1/2",
+  then "Running 2/2" with the same reader, "Failed: 1" once ended, then no read. `_grid_ready` asks with
+  `fresh=True` (`test_a_run_that_may_submit_needs_a_valid_grid_proxy`).
+- `python Tests/run.py checks` on Windows: 13/15 (the known two: import debt in `check_import_boundaries`,
+  `check_root`).

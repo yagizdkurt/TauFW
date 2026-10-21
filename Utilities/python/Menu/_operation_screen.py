@@ -28,10 +28,10 @@ import re
 import textwrap
 
 from ._menu import _clock
-from ..Process import LogTail
+from ..Process import EventReader, LogTail
 from ..Process._operations import ACTIVE, DONE, FAILED, LOST, RUNNING, STOPPED, STOPPING
 
-__all__ = ["ScreenModel", "follow", "printable"]
+__all__ = ["ScreenModel", "follow", "printable", "summary_model"]
 
 
 # =============================================================================
@@ -110,6 +110,25 @@ class ScreenModel:
     def __init__(self):
         self.messages = []
         self.answer = None               # of the action that left the screen
+
+
+def summary_model(operation, state, make, kept=None):
+    """The model of an operation's events for its line in a menu (test_summary, run_summary), fed after
+    operation.state() gave `state`: then an ended operation's events are all there. make() builds the model.
+    kept: a dict per operation that the caller keeps between draws (the menus: one per directory); it holds the
+    model and its own reader (the screen's stays at the top), so the next call reads only the new events, and
+    none once the operation ended."""
+    kept = {} if kept is None else kept
+    if "model" not in kept:
+        kept.update(model=make(), events=EventReader(operation.events_path), ended=False)
+    if not kept["ended"]:
+        while True:
+            events = kept["events"].read()
+            kept["model"].feed(events)
+            if not events or state in ACTIVE:
+                break  # an ended operation: read on past READ_LIMIT, it is the last time
+        kept["ended"] = state not in ACTIVE
+    return kept["model"]
 
 
 # =============================================================================

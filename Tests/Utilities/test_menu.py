@@ -1,6 +1,7 @@
 """Menu screens without a real terminal or Framework imports."""
 import contextlib
 import io
+import itertools
 from pathlib import Path
 import subprocess
 import sys
@@ -27,10 +28,13 @@ def idle_operations():
 
 
 class FakeOperation:
-    """A test run behind the menu (TauFW.Utilities.Process.Operation stand-in) with its events in a file."""
+    """A test run behind the menu (TauFW.Utilities.Process.Operation stand-in) with its events in a file; each
+    one is an operation of its own (path: the menus keep what they read per path)."""
     kind = "tests"
+    numbers = itertools.count()
 
     def __init__(self, directory, state="RUNNING", events="", expected=("a", "b"), remote=False):
+        self.path = str(Path(directory) / ("tests-%d" % next(self.numbers)))
         self.events_path = str(Path(directory) / "events.jsonl")
         Path(self.events_path).write_text(events)
         self._state = state
@@ -242,6 +246,27 @@ class ScreenTests(unittest.TestCase):
             self.assertIn("Normal tests: Running 2/2  01:15 on lxplus812.cern.ch", drawn)
             self.assertIn("C Cancel (stay) | S Stop all and quit | Q Quit anyway", drawn)
             self.assertTrue(any("closing the SSH" in line for line in drawn))
+
+    def test_a_menu_line_reads_only_the_new_events_and_none_once_ended(self):
+        event = '{"kind": "case_end", "id": "%s", "status": "%s"}\n'
+        with tempfile.TemporaryDirectory() as directory:
+            ui, operation = ConsoleUI(mock.Mock()), FakeOperation(directory, "RUNNING", event % ("a", "PASS"))
+
+            def label():
+                with mock.patch.object(ui, "choose", return_value=3) as choose:
+                    ui.main_menu(tests=operation)
+                return choose.call_args.args[1][3]
+            self.assertEqual(label(), "Tests (Running 1/2)")
+            reader = ui._summaries[operation.path]["events"]
+            with open(operation.events_path, "a") as stream:
+                stream.write(event % ("b", "FAIL"))
+            self.assertEqual(label(), "Tests (Running 2/2)")
+            self.assertIs(ui._summaries[operation.path]["events"], reader)  # the same reader: the new line only
+            operation._state = "FAILED"
+            self.assertEqual(label(), "Tests (Failed: 1)")
+            with mock.patch.object(reader, "read") as read:
+                self.assertEqual(label(), "Tests (Failed: 1)")
+            read.assert_not_called()  # ended: its events are not read again
 
     def test_all_and_environment_review_before_running(self):
         for family in ("all", "environment"):
@@ -480,6 +505,8 @@ class ScreenTests(unittest.TestCase):
                 operations.needs_grid_proxy.assert_called_with(record=record)
                 self.assertEqual(operations.renew_grid_proxy.call_count, answers.count("renew"))
                 self.assertEqual(operations.advance_run.called, started)
+                self.assertTrue(all(call == mock.call(fresh=True)  # never a kept answer before a run
+                                    for call in operations.grid_proxy_valid.call_args_list))
 
     def test_the_main_menu_run_line_follows_the_runs(self):
         ui, operations = mock.Mock(), idle_operations()
