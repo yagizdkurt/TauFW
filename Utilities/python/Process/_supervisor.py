@@ -125,13 +125,19 @@ def _signal(process, number, group=True):
         pass  # it ended just before
 
 
+def _ignore(number, frame):
+    """SIGINT of the supervisor: nothing (see main)."""
+
+
 def main(argv):
     """The supervisor as its own process: SIGINT and SIGHUP are ignored (stopping is asked through the `stop`
-    file, and the terminal is not its own), SIGTERM counts as a stop."""
+    file, and the terminal is not its own), SIGTERM counts as a stop. SIGINT gets a handler that does nothing,
+    not SIG_IGN: an ignored signal stays ignored in the command it starts, and Python then never raises
+    KeyboardInterrupt, so a stop's SIGINT would not reach taufw.py (a handler is reset at exec)."""
     terminated = []
     if hasattr(signal, "SIGHUP"):
         signal.signal(signal.SIGHUP, signal.SIG_IGN)
-    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    signal.signal(signal.SIGINT, _ignore)
     signal.signal(signal.SIGTERM, lambda number, frame: terminated.append(number))
     supervise(argv[1], terminated=terminated)
     return 0

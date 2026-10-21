@@ -242,6 +242,19 @@ class RealStopTests(OperationTestCase):
         self.assertEqual(wait(operation, 20), STOPPED)
         self.assertEqual(operation.returncode, 130)
 
+    def test_a_run_stop_is_a_keyboardinterrupt_in_the_command(self):
+        """signal "command", no escalation (a run): the SIGINT must reach Python as KeyboardInterrupt (the
+        supervisor must not pass SIGINT on as ignored)."""
+        marker = os.path.join(self.temporary.name, "interrupted")
+        code = ("import time\ntry:\n    time.sleep(60)\nexcept KeyboardInterrupt:\n"
+                "    open(%r, 'w').close()\n    raise SystemExit(130)\n" % marker)
+        operation = self.store.start("run", "R", [sys.executable, "-c", code], self.temporary.name, heartbeat=0.1,
+                                     escalate=False, signal="command")
+        time.sleep(1.0)
+        operation.cancel()
+        self.assertEqual(wait(operation, 10), STOPPED)
+        self.assertTrue(os.path.exists(marker))
+
     def test_a_command_that_ignores_sigint_is_terminated(self):
         code = "import signal, time\nsignal.signal(signal.SIGINT, signal.SIG_IGN)\ntime.sleep(60)\n"
         operation = self.store.start("tests", "T", [sys.executable, "-c", code], self.temporary.name, heartbeat=0.1)

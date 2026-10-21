@@ -1060,6 +1060,11 @@ behind the menu (CL §18), like the tests, and the run screen follows them.
   password): the "Grid proxy needed" screen offers the renewal.
 - **Quit warning:** says what happens to runs at logout (Lost; Continue resumes, at once from this machine, after 2
   minutes with Take over from another), that Stop all lets a job submission finish.
+- **Fix found on lxplus (2026-10-21):** a run stopped with S stayed STOPPING: the supervisor ignored SIGINT with
+  `SIG_IGN`, which the command inherits, and Python then never raises KeyboardInterrupt; the test runs stopped only
+  through the SIGTERM escalation, which runs do not have. The supervisor now catches SIGINT with a handler that does
+  nothing (reset at exec), so taufw.py and Tests/run.py get the stop as Ctrl-C
+  (`RealStopTests.test_a_run_stop_is_a_keyboardinterrupt_in_the_command`, lxplus only).
 - Removed: `poll_interval`, `invalid_poll_interval` (UI), `validate_poll` (adapter), the "polling interval" preview
   screen; added the "grid proxy needed" preview screen. Plan and status still run in the menu's process (TODO §6
   step 3). The info box next to the stage list stays empty until its fields are chosen (part 4d).
