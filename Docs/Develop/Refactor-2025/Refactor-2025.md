@@ -1335,8 +1335,9 @@ Decisions of the user (2026-10-26):
 
 **Date:** 2026-10-26
 **Status:** in progress. D0 done (locked on lxplus 2026-10-26: 23 cases `same`, the new one `ADDED`). D1 done, checked
-on lxplus 2026-10-26 (BBB 24/24 without re-lock; `fillhists.py` by hand with and without a configuration). D2 done on Windows (unit
-tests), lxplus check in TODO §1 "APIs take the tuples (CL §37 D2)". D3, D4 next.
+on lxplus 2026-10-26 (BBB 24/24 without re-lock; `fillhists.py` by hand with and without a configuration). D2 done (lxplus 2026-10-26:
+checks, BBB). D3 done on Windows (unit tests), lxplus check in TODO §1 "Recipes give every input (CL §37 D3)". D4
+next.
 **Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#37-inputs-are-given-never-found)
 
 **Details:** `LocalR/architecture/23-given-inputs-plan.md` (ModuleIsolationFinalizations §3 D; decisions of the
@@ -1387,3 +1388,19 @@ migration point.
   Before / after (`taufw.py plan`, a fit command): `TAUFW_PICO_CONFIG=/run/bundle/pico.json python3
   harvestDatacards_zmm.py ...` -> `python3 harvestDatacards_zmm.py ...`; a controlhists command with tuples is
   unchanged.
+- **D3, the recipe gives every input.** No slot may be `null` (`null_inputs = {}` for `controlhists`, `shapes`,
+  `fit`); the issue says what `null` meant and what to write (`recipe.RETIRED_NULL`, `_null_message`):
+  `stages[1] (controlhists).inputs.tuples: null (the tuples in $PICODIR of the PicoProducer configuration) is no
+  longer read, inputs are given (CL §37): name a production stage, {external: /eos/.../$ERA/$GROUP} or {path:
+  <run_dir>/stages/<id>}`; the fit's `shapes: null` (the shapes in `Fitter/input_pt_less_region/`, the "temporary
+  exception" of CL §17) the same, naming a shapes stage or `{path: ...}`. A run whose saved recipe has a null input
+  is refused with the same message when it is continued. `pico.config` other than null in a recipe without a
+  production stage is an error (decision K5); `taufw.py plan` prints the "PicoProducer config:" line only for a
+  recipe with a production stage. Python steps: no `$TAUFW_PICO_CONFIG` in their command, `ctx.pico_config` stays
+  (K4). New warning (TODO §6): a production stage with a `tag` whose tuples another stage reads (the readers look
+  for `<sample>_<channel>.root`). No shipped recipe changes: the four of `Analyses/` name every input and have
+  `pico.config: null` (`example_broken` keeps its four intended errors). BBB `framework.production` has a production
+  stage without a tag: its `plan` output is unchanged.
+  Before / after (`taufw.py check` of an old recipe): `inputs: {tuples: null}` was valid (the scripts got
+  `$TAUFW_PICO_CONFIG`) -> the error above; `pico: {config: pico.json}` with only a fit stage was valid -> "pico.config:
+  only a production stage reads the PicoProducer configuration, and this recipe has none: ...".

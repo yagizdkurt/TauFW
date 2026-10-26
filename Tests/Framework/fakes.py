@@ -3,6 +3,11 @@ import os
 from dataclasses import dataclass, asdict, field
 from typing import Tuple
 
+# Tuples made outside the run, for the stages that read tuples (a tuples input is never null, CL §37): a pattern
+# whose fixed part is this directory, so the preflight finds it.
+TUPLES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "$ERA", "$GROUP")
+EXTERNAL = {"external": TUPLES}
+
 
 class _Record:
     def to_dict(self):

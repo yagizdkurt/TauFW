@@ -18,12 +18,12 @@ from test_framework import Clock
 
 PRODUCTION = {"stage": "production", "id": "production", "inputs": None, "eras": ["2025"], "channels": ["mutau"],
               "samples": ["DY*"]}
-HISTS = {"stage": "controlhists", "id": "hists", "inputs": {"tuples": None}, "eras": [2025], "configs": ["mutau", "mumu"],
+HISTS = {"stage": "controlhists", "id": "hists", "inputs": {"tuples": fakes.EXTERNAL}, "eras": [2025], "configs": ["mutau", "mumu"],
          "variables": ["m_vis"]}
-SHAPES = {"stage": "shapes", "id": "shapes", "inputs": {"tuples": None}, "eras": [2025],
+SHAPES = {"stage": "shapes", "id": "shapes", "inputs": {"tuples": fakes.EXTERNAL}, "eras": [2025],
               "jet_wps": ["VTight", "Tight"], "ele_wps": ["Tight"]}
 PLOTS = {"stage": "controlplots", "id": "plots", "inputs": {"hists": "hists"}, "pdf": True}
-FIT = {"stage": "fit", "id": "fit", "inputs": {"shapes": None}, "steps": ["fit", "corrections"]}
+FIT = {"stage": "fit", "id": "fit", "inputs": {"shapes": "shapes"}, "steps": ["fit", "corrections"]}
 TT, MM = "Configs/Fitter/tes_id/config_coarse_TT.yml", "Configs/Fitter/tes_id/FitSetup_mumu.yml"  # templates (CL §22)
 
 
@@ -192,18 +192,17 @@ class PipelineTests(LocalStageTestCase):
         record = fw.advance(record)
         self.assertEqual(record.stage("hists").state, "DONE")
 
-    def test_fit_without_points_fails(self):
-        record = self.framework(FIT).start(run_root=self.root)
+    def test_fit_without_points_fails(self):  # no point has the shapes of both configs
+        record = self.framework(dict(SHAPES, configs=[TT]), FIT).start(run_root=self.root)
         self.assertEqual(record.stage("fit").state, "FAILED")
         self.assertIn("no working points", record.stage("fit").message)
 
     def test_fit_points_from_the_recipe(self):
-        fit = dict(FIT, eras=["2025"], jet_wps=["Medium", "Tight"], ele_wps=["VVLoose"])
-        self.framework(fit).start(run_root=self.root)
-        self.assertIs(self.fitter.call("preflight_fit")[1], True)  # shapes: null: check the shapes on disk
-        self.assertEqual(self.fitter.call("fit")[0]["points"],
-                         (("2025", "Medium", "VVLoose"), ("2025", "Tight", "VVLoose")))
-        self.assertEqual(self.fitter.call("fit")[0]["shapes_dirs"], ())  # null: the scripts read Fitter/
+        fit = dict(FIT, eras=["2025"], jet_wps=["Tight"], ele_wps=["Tight"])
+        self.framework(SHAPES, fit).start(run_root=self.root)
+        self.assertIs(self.fitter.call("preflight_fit")[1], False)  # shapes of this run: not checked on disk
+        self.assertEqual(self.fitter.call("fit")[0]["points"], (("2025", "Tight", "Tight"),))
+        self.assertEqual(self.fitter.call("fit")[0]["shapes_dirs"], (("2025", "Tight", "Tight", "/fit"),))
 
     def test_fit_point_without_shapes_in_the_input_stage_fails(self):
         fit = connected(dict(FIT, eras=["2025"], jet_wps=["Loose"], ele_wps=["Tight"]), shapes="shapes")
@@ -272,18 +271,18 @@ class PlanTests(LocalStageTestCase):
         self.assertNotIn("make_shapes", self.tes_shapes.names())
 
     def test_unplannable_stage_has_a_note(self):
-        plan = self.framework(FIT).plan()
-        self.assertIsNone(plan.stages[0].plan)
-        self.assertIn("no working points", plan.stages[0].note)
+        plan = self.framework(dict(SHAPES, configs=[TT]), FIT).plan()
+        self.assertIsNone(plan.stages[1].plan)
+        self.assertIn("no working points", plan.stages[1].note)
 
     def test_stage_plan_raises_preflight_error_directly(self):
         with self.assertRaises(PreflightError):
-            FitStage(self.fitter).plan(recipe(FIT).stage("fit").spec, StageContext())
+            FitStage(self.fitter).plan(recipe(SHAPES, FIT).stage("fit").spec, StageContext())
 
 
 class TupleInputTests(LocalStageTestCase):
     """Where hists and shapes read their tuples: the pattern of the production stage their input names,
-    {external: <pattern>}, or (null, old recipes) $PICODIR of the PicoProducer configuration."""
+    {external: <pattern>} or {path: ...}; never null (CL §37)."""
 
     def external(self, stage, pattern):
         return dict(stage, inputs={"tuples": {"external": pattern}})
@@ -313,12 +312,17 @@ class TupleInputTests(LocalStageTestCase):
                          % (os.path.join(self.root, "missing"), pattern))
         self.assertNotIn("make", self.histogrammer.names())
 
-    def test_null_gives_no_tuples(self):  # CL §37 D2: no PicoProducer configuration either (D3: a recipe error)
-        record = self.framework(HISTS).start(run_root=self.root)
-        request = self.histogrammer.call("make")[0]
-        self.assertIsNone(request["tuples"])
-        self.assertNotIn("pico_config", request)
-        self.assertNotIn("tuples", record.stage("hists").last_status)
+    def test_null_is_a_recipe_error(self):  # CL §37: inputs are given, never found
+        for stage, slot, meant in ((HISTS, "tuples", "$PICODIR"), (SHAPES, "tuples", "$PICODIR"),
+                                   (dict(FIT, eras=["2025"], jet_wps=["Tight"], ele_wps=["Tight"]), "shapes",
+                                    "Fitter/input_pt_less_region/")):
+            with self.assertRaises(RecipeError) as raised:
+                recipe(dict(stage, inputs={slot: None}))
+            message = str(raised.exception)
+            self.assertIn("inputs.%s: null (" % (slot), message)
+            self.assertIn(meant, message)
+            self.assertIn("is no longer read, inputs are given (CL §37)", message)
+            self.assertIn("{external: /eos/.../$ERA/$GROUP}" if slot == "tuples" else "a shapes stage", message)
 
     def test_plan_gives_the_planned_pattern(self):
         plan = self.framework(PRODUCTION, connected(HISTS, tuples="production")).plan()
@@ -515,7 +519,7 @@ class ContextTests(LocalStageTestCase):
         self.assertEqual(context.artifacts(kind="shapes"), ())
 
     def test_a_stage_sees_only_the_stages_its_inputs_name(self):
-        fw = self.framework(PRODUCTION, HISTS)  # hists: tuples null, although the recipe has a production stage
+        fw = self.framework(PRODUCTION, HISTS)  # hists: external tuples, although the recipe has a production stage
         record = fw.advance(fw.start(run_root=self.root))
         self.assertEqual(record.stage("production").state, "DONE")
         context = fw._context(record, fw.recipe.stage("hists"))
@@ -544,7 +548,7 @@ class SpecTests(unittest.TestCase):
         self.assertEqual(spec.eras, ("2025",))  # numbers from YAML become strings
         self.assertEqual(spec.configs, (TT, MM))  # default: the configs of run_inputs.sh
         self.assertEqual(recipe(dict(HISTS, configs="mutau")).stage("hists").spec.configs, ("mutau",))
-        fit = recipe({"stage": "fit", "id": "fit", "inputs": {"shapes": None}}).stage("fit").spec
+        fit = recipe(SHAPES, {"stage": "fit", "id": "fit", "inputs": {"shapes": "shapes"}}).stage("fit").spec
         self.assertEqual(fit.steps, ("fit", "postfit", "plots", "corrections", "summary"))
         self.assertTrue(fit.impacts)
 
@@ -587,8 +591,8 @@ class CommandLineTests(LocalStageTestCase):
         self.assertIn("combine is not on PATH", self.warnings())
         messages = [t for k, t in self.reporter.messages if k == "message"]
         self.assertIn("Inputs: shapes <- shapes", messages)
-        self.assertIn("Inputs: tuples <- outside this run (the tuples in $PICODIR of the run's PicoProducer "
-                      "config)", messages)
+        self.assertIn("Inputs: tuples <- external %s" % (fakes.TUPLES), messages)
+        self.assertFalse([m for m in messages if m.startswith("PicoProducer config:")])  # no production (CL §37)
         path = os.path.join(self.root, "external.json")
         os.makedirs(os.path.join(self.root, "tuples"))
         pattern = os.path.join(self.root, "tuples", "$ERA", "$GROUP")
@@ -624,7 +628,7 @@ class CommandLineTests(LocalStageTestCase):
             "Recipe tes: 2 problem(s)",
             "  stages[0] (shapes).id: must be a word of letters, digits, '_', '.' or '-' (got 'a/b')",
             "  stages[1] (fit).inputs: fit reads shapes: write inputs: {shapes: <stage id, {path: <stage "
-             "directory>} or null>}"])
+             "directory>}>}"])
         self.assertEqual(self.cli.main(["plan", path]), 1)  # an invalid recipe: the problems, no traceback
         self.assertIn("r.json: 2 problems", self.warnings()[-1])
         with open(path, "w") as stream:

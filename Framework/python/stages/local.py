@@ -145,7 +145,7 @@ class LocalStage(Stage):
                                     (the request needs a pattern, CL §37). Also another run's ({path:
                                     ...}, its manifest's artifacts); artifacts without a kind (before CL §36)
                                     are a problem.
-          null                   -> None (the scripts read $PICODIR of the PicoProducer configuration)"""
+          no input               -> None (not in a valid recipe: a tuples slot is never null, CL §37)"""
         if slot in context.external:
             return context.external[slot], ()
         stage_id = context.inputs.get(slot)

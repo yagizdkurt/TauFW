@@ -495,7 +495,7 @@ Source of truth: [run_record.py](../../../Framework/python/run_record.py), [mani
 stages:
   - stage: controlhists
     id: hists
-    inputs: {tuples: null}       # retain configured $PICODIR on this supported fallback
+    inputs: {tuples: {external: /eos/cms/store/group/phys_tau/TauFW/pico2024/TES_variations/$ERA/$GROUP}}
     eras: [2025]
     configs: [Configs/Histogrammer/setups/setup_mutau.yml]
     samples: [Configs/Histogrammer/samples/v15_2025.yml]
@@ -507,7 +507,7 @@ stages:
     pdf: true
 ```
 
-This is a stage fragment, not a complete recipe. In a production pipeline replace `tuples: null` with the production stage ID or an explicit external tuple pattern. The `controlplots.hists` slot must refer to control-histogram artifacts and cannot be null. The stage ID `plots` is valid: it is the old **type** `stage: plots` that is retired.
+This is a stage fragment, not a complete recipe. In a production pipeline name the production stage ID instead of the external pattern. Since CL §37 no input slot may be null (`tuples: null`, the old `$PICODIR` fallback, and the fit's `shapes: null` are recipe errors); the `controlplots.hists` slot must refer to control-histogram artifacts. The stage ID `plots` is valid: it is the old **type** `stage: plots` that is retired.
 
 For fit shapes, rename the type to `shapes`; a fit can consume `inputs: {shapes: <shape-stage-id>}`. Do not blindly rename arbitrary user IDs if other input references rely on them.
 

@@ -85,7 +85,8 @@ def cmd_plan(args):
     if plan.bundle_dir:
         reporter.message("Bundle: %s" % (plan.bundle_dir))
     reporter.message("Run root: %s" % (_run_root_line(framework.recipe)))
-    reporter.message("PicoProducer config: %s" % (plan.pico_config or "PicoProducer/config/config.json (default)"))
+    if framework.recipe.first('production'):  # only production reads it (CL §37)
+        reporter.message("PicoProducer config: %s" % (plan.pico_config or "PicoProducer/config/config.json (default)"))
     for stage_plan in plan.stages:
         stage_spec = framework.recipe.stage(stage_plan.stage)
         reporter.header("Stage %s (%s)" % (stage_spec.id, stage_spec.stage))

@@ -29,10 +29,10 @@ Every stage has the keys `stage`, `id` and `inputs`, and may have `description`;
               <run_dir>/stages/<id>/ (output) and <run_dir>/logs/<id>/ (logs).
     inputs:   which earlier stage's output the stage reads, per input slot (Stage.inputs):
                 production    no slots                     inputs: null
-                controlhists  tuples   <- tuples           null: the tuples in $PICODIR of the PicoProducer config
-                controlplots  hists    <- control_histograms  (never null)
-                shapes        tuples   <- tuples           null: the same
-                fit           shapes   <- shapes           null: the shapes already in Fitter/ (temporary exception)
+                controlhists  tuples   <- tuples
+                controlplots  hists    <- control_histograms
+                shapes        tuples   <- tuples
+                fit           shapes   <- shapes
                 python        any names <- any stage       null: no inputs; a mapping names stages, never null
               A slot names a stage that comes earlier in the recipe and makes that kind of data
               (Stage.outputs). A slot may instead name the stage directory of another run (a stage that is
@@ -42,10 +42,14 @@ Every stage has the keys `stage`, `id` and `inputs`, and may have `description`;
               outside TauFW:
                 tuples: {external: /eos/.../TES_variations/$ERA/$GROUP}
               (an absolute directory pattern with $ERA and $GROUP, the files <sample>_<channel>.root in it).
-              A slot may be null (only for old recipes: the module's own default) only if its stage lists it in
-              Stage.null_inputs. Nothing is connected implicitly: a stage sees only the artifacts of its inputs.
+              A slot is never null: the inputs are given, never found (CL §37; until then null meant the tuples
+              in $PICODIR of the PicoProducer config, or the shapes in Fitter/, and is now an error naming the
+              ways to give them). Stage.null_inputs is the hook for a slot that may be null (none today).
+              Nothing is connected implicitly: a stage sees only the artifacts of its inputs.
     order:    the stages run in the order they are written (the user's choice); the only rule is that an input
-              names an earlier stage. Any stage may appear any number of times (with its own id), except
+              names an earlier stage.
+pico.config is read only by a production stage (its PicoProducer configuration); in a recipe without one it must be
+null or left out (CL §37: the other stages never read it, their tuples are named in the inputs). Any stage may appear any number of times (with its own id), except
               production: at most once (its job files are outside the run, and a run has one pico.config).
 
 run_root is the parent directory of the runs: a run is <run_root>/<name>_<YYYYmmdd-HHMMSS>/. It must be absolute, on
@@ -245,6 +249,11 @@ class Recipe:
             stages = []
         entries = [_stage_entry(entry, index, bundle_dir, issues) for index, entry in enumerate(stages)]
         _check_graph([e for e in entries if e is not None], issues)
+        if pico.get('config') is not None and not any(isinstance(entry, dict) and entry.get('stage') == 'production'
+                                                      for entry in stages):
+            issues.append(Issue('pico.config', "only a production stage reads the PicoProducer configuration, and "
+                                               "this recipe has none: remove pico.config (or write null); the tuples "
+                                               "are named in the inputs (CL §37)"))
         stage_specs = [(e.index, e.stage_spec) for e in entries if e is not None and e.stage_spec is not None]
         if issues:
             return None, stage_specs, issues
@@ -414,8 +423,7 @@ def _check_inputs(entry, name, where, bundle_dir, issues):
             issues.append(Issue("%s.%s" % (where, slot), "must name an earlier stage (leave the input out if "
                                                          "it has none)"))
         elif value is None and slot not in nullable:
-            issues.append(Issue("%s.%s" % (where, slot), "must name an earlier stage that makes %s (null is not "
-                                                         "allowed for this input)" % (slots[slot])))
+            issues.append(Issue("%s.%s" % (where, slot), _null_message(slots[slot])))
         elif isinstance(value, dict):
             problem = _mapping_problem(value, slots.get(slot) if slots else None, bundle_dir)
             if problem:
@@ -428,6 +436,23 @@ def _check_inputs(entry, name, where, bundle_dir, issues):
             issues.append(Issue("%s.%s" % (where, slot), "missing (the id of an earlier stage%s)"
                                 % (", or null" if slot in nullable else "")))
     return dict(inputs)
+
+
+# What null meant for a slot until CL §37 (inputs are given, never found), and what to write instead.
+RETIRED_NULL = {
+    'tuples': ("the tuples in $PICODIR of the PicoProducer configuration",
+               "a production stage, {external: /eos/.../$ERA/$GROUP} or {path: <run_dir>/stages/<id>}"),
+    'shapes': ("the shapes in Fitter/input_pt_less_region/",
+               "a shapes stage or {path: <run_dir>/stages/<id>} of another run"),
+}
+
+
+def _null_message(kind):
+    """The issue of a null input of this kind."""
+    if kind in RETIRED_NULL:
+        meant, instead = RETIRED_NULL[kind]
+        return "null (%s) is no longer read, inputs are given (CL §37): name %s" % (meant, instead)
+    return "must name an earlier stage that makes %s (null is not allowed for this input)" % (kind)
 
 
 def _inputs_hint(name, slots, nullable):
@@ -603,6 +628,15 @@ def recipe_warnings(data, bundle_dir=None):
     elif isinstance(value, str) and run_root_dir(value) != value and '$' not in run_root_dir(value):
         warnings.append(Issue('run_root', "%s is expanded where taufw.py runs (here: %s); someone else, or another "
                                           "machine, gets another directory" % (value, run_root_dir(value))))
+    read = {value for entry in stages if isinstance(entry, dict) and isinstance(entry.get('inputs'), dict)
+            for value in entry['inputs'].values() if isinstance(value, str)}  # the stage ids that are read
+    for index, entry in enumerate(stages):
+        if (isinstance(entry, dict) and entry.get('stage') == 'production' and entry.get('tag')
+                and entry.get('id', 'production') in read):
+            warnings.append(Issue("stages[%d] (production).tag" % (index),
+                                  "%r: the tuples are named <sample>_<channel>%s.root, but the stages that read them "
+                                  "look for <sample>_<channel>.root (the tag does not reach them)"
+                                  % (entry['tag'], entry['tag'])))
     if is_bundle(bundle_dir):
         warnings.extend(Issue(relative, message) for relative, message in copy_warnings(bundle_dir))
     return warnings

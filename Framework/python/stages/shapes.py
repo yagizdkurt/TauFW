@@ -7,8 +7,8 @@ It runs what Fitter/run_inputs.sh runs: Histogrammer/shapes/TauES/createinputsTE
 pair and config. The fit stage reads the files by the contract Docs/Develop/contracts/tes-shapes.md.
 
     inputs:   tuples: pico tuples, given to createinputsTES.py as --tuples <pattern>: those of the production
-              stage the slot names (the pattern on its artifacts), or {external: <pattern>}; with null (old
-              recipes) the scripts read $PICODIR of the run's PicoProducer config (as $TAUFW_PICO_CONFIG). The TES,
+              stage the slot names (the pattern on its artifacts), {external: <pattern>} or {path: ...}; never
+              null (CL §37). The TES,
               LTF and JTF variations need their own tuples in the same directory (e.g.
               <sample>_mutau_TES0p950.root); with a tuple pattern and `samples` the preflight checks the nominal
               tuples (ControlHists) and every variation tuple the configs read (TESShapes.preflight_shapes), so a
@@ -54,7 +54,7 @@ class ShapesStage(LocalStage):
     TESShapes only passes them to createinputsTES.py)."""
     name = 'shapes'
     inputs = {'tuples': 'tuples'}
-    null_inputs = {'tuples': "the tuples in $PICODIR of the run's PicoProducer config"}
+    null_inputs = {}  # the tuples are given, never found (CL §37)
     outputs = ('shapes',)
     group = 'fitter'  # taufw.py init names a copied config <group>_<name> if its name is taken (fit configs)
     # Spec = ShapesSpec: set at the bottom of this file.

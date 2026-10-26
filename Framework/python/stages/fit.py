@@ -7,8 +7,8 @@ post-fit shapes, the plots, the correction files, and once per era the summary (
 
     inputs:   shapes: the shapes made by the shapes stage the slot names, or by the shapes stage of
               another run ({path: <run_dir>/stages/<id>}, its manifest's artifacts); the directory of each point's
-              shapes is taken from those shapes artifacts. null (old recipes only, a temporary exception): the
-              shapes already in Fitter/input_pt_less_region/..., made outside the Framework. The points come from
+              shapes is taken from those shapes artifacts. Never null (CL §37; it was the shapes already in
+              Fitter/input_pt_less_region/..., made outside the Framework). The points come from
               the recipe (eras x jet_wps x ele_wps; each must have shapes in the input stage), or, if jet_wps and
               ele_wps are empty, from the shapes artifacts of that stage (every era and working point pair that
               has shapes of both configs).
@@ -53,9 +53,7 @@ class FitStage(LocalStage):
     fitter: a TauFW.Fitter.api.TauESID, or any object with the same methods (tests pass a fake one)."""
     name = 'fit'
     inputs = {'shapes': 'shapes'}
-    # Temporary exception, kept for old recipes only: null reads the shapes the Fitter scripts made outside the
-    # Framework. A new recipe names a shapes stage, or another run's with {path: <run_dir>/stages/<id>} (R4).
-    null_inputs = {'shapes': "the shapes already in Fitter/input_pt_less_region/ (temporary)"}
+    null_inputs = {}  # a shapes stage, or another run's with {path: <run_dir>/stages/<id>} (R4); never null (CL §37)
     outputs = ('fit', 'corrections')
     group = 'fitter'  # taufw.py init names a copied config <group>_<name> if its name is taken
     # Spec = FitSpec: set at the bottom of this file.
@@ -77,8 +75,8 @@ class FitStage(LocalStage):
         return self.api.plan_fit(request)
 
     def preflight(self, request, context):
-        """The shapes on disk are checked unless a stage of this run makes (or made) them: for null, and for the
-        shapes of another run ({path: ...})."""
+        """The shapes on disk are checked unless a stage of this run makes (or made) them: for the shapes of
+        another run ({path: ...})."""
         check = 'shapes' in context.sources or not context.input_artifacts('shapes', kind='shapes')
         return self.api.preflight_fit(request, check_shapes=check)
 
@@ -96,7 +94,7 @@ class FitStage(LocalStage):
 
     def shapes_dirs(self, points, context):
         """(era, jet WP, electron WP, directory) of every point, from the shapes artifacts of the input stage (of
-        this run or another); empty if the slot is null (the scripts then read Fitter/). Raises ValueError if a
+        this run or another); empty without a shapes input (not in a valid recipe, CL §37). Raises ValueError if a
         point has no shapes in the input stage, or shapes in more than one directory."""
         if not context.inputs.get('shapes'):
             return ()

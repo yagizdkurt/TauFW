@@ -10,7 +10,7 @@ import checkout
 from TauFW.Framework import check_recipe
 from TauFW.Framework.defaults import CONFIGS_DIR
 
-FIT = {"stage": "fit", "id": "fit", "inputs": {"shapes": None}}
+FIT = {"stage": "fit", "id": "fit"}  # its inputs: setUp (the shapes of another run; never null, CL §37)
 STEP = {"stage": "python", "id": "check", "inputs": None, "file": "steps/check.py"}
 
 
@@ -19,6 +19,7 @@ class CheckRecipeTests(unittest.TestCase):
         self.root = tempfile.mkdtemp(prefix="taufw-test-")
         self.addCleanup(shutil.rmtree, self.root, ignore_errors=True)
         self.bundle = os.path.join(self.root, "tes")
+        self.fit = dict(FIT, inputs={"shapes": {"path": self.source("shapes", "shapes", run="r0")}})
 
     def write(self, relative, text):
         path = os.path.join(self.bundle, relative)
@@ -35,7 +36,7 @@ class CheckRecipeTests(unittest.TestCase):
         return [str(issue) for issue in check.issues]
 
     def check_root(self, run_root):
-        self.write("recipe.yml", json.dumps({"name": "tes", "run_root": run_root, "stages": [FIT]}))
+        self.write("recipe.yml", json.dumps({"name": "tes", "run_root": run_root, "stages": [self.fit]}))
         return check_recipe(self.bundle)
 
     def source(self, stage, stage_id, run="r1"):
@@ -86,7 +87,7 @@ class CheckRecipeTests(unittest.TestCase):
                 if value is None:
                     check = self.check_root(None)
                 else:
-                    check = self.check(FIT)
+                    check = self.check(self.fit)
                 self.assertTrue(check.ok)
                 self.assertEqual([str(w) for w in check.warnings], [
                     "run_root: not set: the runs go to taufw_runs/ in the directory taufw.py is started from. "
@@ -187,7 +188,7 @@ class CheckRecipeTests(unittest.TestCase):
 
     def test_valid_recipe(self):
         self.write("steps/check.py", "def run(ctx):\n    pass\n")
-        check = self.check(FIT, dict(STEP, description="look", inputs={"fit": "fit"}))
+        check = self.check(self.fit, dict(STEP, description="look", inputs={"fit": "fit"}))
         self.assertTrue(check.ok)
         self.assertEqual(check.name, "tes")
         self.assertEqual(check.stages, (("fit", "fit", ""), ("check", "python", "look")))
@@ -195,34 +196,55 @@ class CheckRecipeTests(unittest.TestCase):
 
     def test_files_the_recipe_names(self):
         absolute = os.path.join(self.root, "missing_tt.yml")
-        check = self.check(dict(FIT, config=absolute, config_mumu="TauES/config/defaultFitSetup_mumu.yml"), STEP,
+        check = self.check(dict(self.fit, config=absolute, config_mumu="TauES/config/defaultFitSetup_mumu.yml"), STEP,
                            pico="pico.json")
         self.assertEqual(self.messages(check), [
+            "pico.config: only a production stage reads the PicoProducer configuration, and this recipe has none: "
+            "remove pico.config (or write null); the tuples are named in the inputs (CL §37)",
             "pico.config: file not found: %s" % (os.path.join(self.bundle, "pico.json")),
             "stages[0] (fit).config: file not found: %s" % (absolute),  # a module path is the module's to check
             "stages[1] (python).file: steps/check.py is not a file of the bundle (%s)" % (self.bundle)])
         self.assertIsNone(check.recipe)
 
+    def test_pico_config_only_with_production(self):  # CL §37 (K5)
+        self.write("pico.json", "{}")
+        production = {"stage": "production", "id": "production", "inputs": None, "eras": [2025], "channels": ["mutau"]}
+        self.assertTrue(self.check(self.fit, pico=None).ok)
+        self.assertEqual(self.messages(self.check(self.fit, pico="pico.json")), [
+            "pico.config: only a production stage reads the PicoProducer configuration, and this recipe has none: "
+            "remove pico.config (or write null); the tuples are named in the inputs (CL §37)"])
+        self.assertTrue(self.check(production, pico="pico.json").ok)
+
+    def test_production_tag_warning(self):  # TODO §6: the readers look for <sample>_<channel>.root
+        production = {"stage": "production", "id": "production", "inputs": None, "eras": [2025], "channels": ["mutau"],
+                      "tag": "_v2"}
+        hists = {"stage": "controlhists", "id": "hists", "inputs": {"tuples": "production"}, "eras": [2025]}
+        tagged = [str(w) for w in self.check(production, hists).warnings if "(production).tag" in str(w)]
+        self.assertEqual(tagged, ["stages[0] (production).tag: '_v2': the tuples are named "
+                                  "<sample>_<channel>_v2.root, but the stages that read them look for "
+                                  "<sample>_<channel>.root (the tag does not reach them)"])
+        self.assertFalse([w for w in self.check(production).warnings if "(production).tag" in str(w)])  # nobody reads them
+
     def test_templates_and_moved_configs(self):
         """A Configs/ template must exist; the old module path of a config that became a template is an error naming
         the template (CL §22), also in plan and start (a Recipe error), not a module path for the module to look for."""
         missing = "Configs/Fitter/tes_id/no_such.yml"
-        check = self.check(dict(FIT, config=missing, config_mumu="Configs/Fitter/tes_id/FitSetup_mumu.yml"))
+        check = self.check(dict(self.fit, config=missing, config_mumu="Configs/Fitter/tes_id/FitSetup_mumu.yml"))
         self.assertEqual(self.messages(check), ["stages[0] (fit).config: no such template: %s"
                                                 % (os.path.normpath(os.path.join(os.path.dirname(CONFIGS_DIR),
                                                                                  missing)))])
-        moved = dict(FIT, config="TauES_ID/config/config_coarse_TT.yml", config_mumu="TauES/config/FitSetup_mumu.yml")
+        moved = dict(self.fit, config="TauES_ID/config/config_coarse_TT.yml", config_mumu="TauES/config/FitSetup_mumu.yml")
         self.assertEqual(self.messages(self.check(moved)), [
             "stages[0] (fit).config: TauES_ID/config/config_coarse_TT.yml moved to "
             "Configs/Fitter/tes_id/config_coarse_TT.yml (CL §22): name the template, or a copy of it in the bundle",
             "stages[0] (fit).config_mumu: TauES/config/FitSetup_mumu.yml moved to "
             "Configs/Fitter/tes_id/FitSetup_mumu.yml (CL §22): name the template, or a copy of it in the bundle"])
-        self.assertTrue(self.check(dict(FIT, config="Configs/Fitter/tes_id/config_coarse_TT.yml",
+        self.assertTrue(self.check(dict(self.fit, config="Configs/Fitter/tes_id/config_coarse_TT.yml",
                                         config_mumu="Configs/Fitter/tes_id/FitSetup_mumu.yml")).ok)
 
     def test_structure_and_files_together(self):
         """A wrong stage does not hide the problems of the others."""
-        check = self.check({"stage": "fit", "inputs": {"shapes": None}}, STEP, name="a b")
+        check = self.check({"stage": "fit", "inputs": self.fit["inputs"]}, STEP, name="a b")
         self.assertEqual(self.messages(check), [
             "name: must be a word of letters, digits, '_', '.' or '-' (got 'a b')",
             "stages[0] (fit): missing 'id' (every stage needs a unique id, e.g. id: fit)",

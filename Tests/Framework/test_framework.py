@@ -460,18 +460,17 @@ class RecipeTests(FrameworkTestCase):
         self.assertIn("unknown key 'cfg'", self.error({"name": "x", "pico": {"cfg": 1}, "stages": [{"stage": "fit"}]}))
 
     def test_stage_order_and_duplicates(self):
-        histograms = {"stage": "shapes", "id": "shapes", "inputs": {"tuples": None}, "eras": [2025],
+        histograms = {"stage": "shapes", "id": "shapes", "inputs": {"tuples": fakes.EXTERNAL}, "eras": [2025],
                       "jet_wps": ["Tight"], "ele_wps": ["Tight"]}
         fit = {"stage": "fit", "id": "fit", "inputs": {"shapes": "shapes"}}
         # R4: no fixed order; a fit above the shapes it reads is an input problem
         self.assertEqual(self.error({"name": "x", "stages": [fit, histograms]}),
                          "r.yml: stages[0] (fit).inputs.shapes: stage 'shapes' comes after this one; an input "
                          "names an earlier stage")
-        null_fit = {"stage": "fit", "id": "fit", "inputs": {"shapes": None}}
-        recipe = Recipe.from_dict({"name": "x", "stages": [null_fit, dict(null_fit, id="fit2")]})  # repeated stage
-        self.assertEqual([s.id for s in recipe.stages], ["fit", "fit2"])
-        self.assertIn("stages[1] (fit).id: 'fit' is already the id of stages[0]",
-                      self.error({"name": "x", "stages": [null_fit, null_fit]}))
+        recipe = Recipe.from_dict({"name": "x", "stages": [histograms, fit, dict(fit, id="fit2")]})  # repeated stage
+        self.assertEqual([s.id for s in recipe.stages], ["shapes", "fit", "fit2"])
+        self.assertIn("stages[2] (fit).id: 'fit' is already the id of stages[1]",
+                      self.error({"name": "x", "stages": [histograms, fit, fit]}))
         production = RECIPE["stages"][0]
         self.assertEqual(self.error({"name": "x", "stages": [production, dict(production, id="production2")]}),
                          "r.yml: stages[1] (production): a recipe has at most one production stage (put several "
@@ -479,13 +478,13 @@ class RecipeTests(FrameworkTestCase):
 
     def test_stages_in_any_order_and_repeated(self):
         """R4: shapes A, fit A, shapes B, fit B; hists after the fit; production anywhere."""
-        histograms = {"stage": "shapes", "inputs": {"tuples": None}, "eras": [2025], "ele_wps": ["Tight"]}
+        histograms = {"stage": "shapes", "inputs": {"tuples": fakes.EXTERNAL}, "eras": [2025], "ele_wps": ["Tight"]}
         recipe = Recipe.from_dict({"name": "x", "stages": [
             dict(histograms, id="hist_vt", jet_wps=["VTight"]),
             {"stage": "fit", "id": "fit_vt", "inputs": {"shapes": "hist_vt"}},
             dict(histograms, id="hist_t", jet_wps=["Tight"]),
             {"stage": "fit", "id": "fit_t", "inputs": {"shapes": "hist_t"}},
-            {"stage": "controlhists", "id": "hists", "inputs": {"tuples": None}, "eras": [2025]},
+            {"stage": "controlhists", "id": "hists", "inputs": {"tuples": fakes.EXTERNAL}, "eras": [2025]},
             dict(RECIPE["stages"][0], id="production")]})
         self.assertEqual([s.stage for s in recipe.stages],
                          ["shapes", "fit", "shapes", "fit", "controlhists", "production"])

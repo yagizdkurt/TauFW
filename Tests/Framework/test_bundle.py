@@ -13,17 +13,18 @@ import fakes
 from TauFW.Framework import Framework, Recipe, RecipeError, RunRecord, SilentReporter
 from TauFW.Framework.bundle import resolve, where, bundle_files, BundleError
 from TauFW.Framework.defaults import CONFIGS_DIR
-from TauFW.Framework.stages import ControlHistsStage, ShapesStage, FitStage
+from TauFW.Framework.stages import ProductionStage, ControlHistsStage, ShapesStage, FitStage
 from test_framework import Clock
 
 TEMPLATE = "Configs/Fitter/tes_id/config_coarse_TT.yml"  # a template of the repository (CL §22)
 
-SHAPES = {"stage": "shapes", "id": "shapes", "inputs": {"tuples": None}, "eras": [2025],
+PRODUCTION = {"stage": "production", "id": "production", "inputs": None, "eras": [2025], "channels": ["mutau"]}
+SHAPES = {"stage": "shapes", "id": "shapes", "inputs": {"tuples": fakes.EXTERNAL}, "eras": [2025],
               "jet_wps": ["VTight"], "ele_wps": ["Tight"], "configs": ["tt.yml", "mm.yml"]}
 LOOSE_SHAPES = dict(SHAPES, configs=[TEMPLATE])  # for recipes without a bundle: no module path (CL §22 H3)
 FIT = {"stage": "fit", "id": "fit", "inputs": {"shapes": "shapes"}, "config": "tt.yml", "config_mumu": "mm.yml",
        "steps": ["fit"]}
-HISTS = {"stage": "controlhists", "id": "hists", "inputs": {"tuples": None}, "eras": [2025],
+HISTS = {"stage": "controlhists", "id": "hists", "inputs": {"tuples": fakes.EXTERNAL}, "eras": [2025],
          "configs": ["mutau", "setup_mumu.yml"]}
 STEP = {"stage": "python", "id": "check", "inputs": None, "file": "steps/check.py"}
 
@@ -53,7 +54,8 @@ class BundleTestCase(unittest.TestCase):
         return Recipe.load(self.bundle)
 
     def framework(self, recipe):
-        stages = {"hists": ControlHistsStage(self.histogrammer), "shapes": ShapesStage(self.tes_shapes),
+        stages = {"production": ProductionStage(fakes.FakePicoProducer()),  # pico.config needs it (CL §37)
+                  "hists": ControlHistsStage(self.histogrammer), "shapes": ShapesStage(self.tes_shapes),
                   "fit": FitStage(self.fitter)}
         return Framework(recipe, {s.id: stages[s.id] for s in recipe.stages}, reporter=self.reporter,
                          sleep=lambda s: None, clock=Clock())
@@ -85,11 +87,11 @@ class PathRuleTests(BundleTestCase):
         self.assertEqual(resolve("tt.yml", None), "tt.yml")  # no bundle
 
     def test_plan_resolves_against_the_bundle(self):
-        fw = self.framework(self.recipe(HISTS, SHAPES, FIT, pico="pico.json"))
+        fw = self.framework(self.recipe(PRODUCTION, HISTS, SHAPES, FIT, pico="pico.json"))
         plan = fw.plan()
         self.assertEqual(plan.bundle_dir, self.bundle)
         self.assertEqual(plan.pico_config, os.path.join(self.bundle, "pico.json"))
-        plots = plan.stages[0]
+        plots = plan.stages[1]
         self.assertEqual([(row[1], row[3]) for row in plots.paths],
                          [("mutau", "module"), ("setup_mumu.yml", "bundle")])
         tt = os.path.normpath(os.path.join(self.bundle, "tt.yml"))
@@ -101,7 +103,7 @@ class PathRuleTests(BundleTestCase):
         self.assertEqual(self.fitter.call("plan_fit")[0]["points"], (("2025", "VTight", "Tight"),))
 
     def test_bundle_files(self):
-        recipe = self.recipe(HISTS, SHAPES, FIT, pico="pico.json")
+        recipe = self.recipe(PRODUCTION, HISTS, SHAPES, FIT, pico="pico.json")
         self.assertEqual(bundle_files(recipe), tuple(os.path.normpath(p) for p in (
             "pico.json", "setup_mumu.yml", "tt.yml",
             "mm.yml")))
@@ -109,7 +111,7 @@ class PathRuleTests(BundleTestCase):
 
 class RunSnapshotTests(BundleTestCase):
     def test_run_reads_its_copy_of_the_bundle(self):
-        recipe = self.recipe(SHAPES, pico="pico.json")
+        recipe = self.recipe(SHAPES)
         self.tes_shapes.problems = ("not ready",)  # stays NEW: the run is continued below, after the edit
         record = self.framework(recipe).start(run_root=os.path.join(self.root, "runs"))
         copy = os.path.join(record.run_dir, "bundle")
@@ -145,11 +147,9 @@ class RunSnapshotTests(BundleTestCase):
 
     def test_pico_config_above_the_bundle_stays_outside_the_run(self):
         pico = self.write("PicoProducer/config/config.json", "{}", base=self.root)
-        recipe = self.recipe(SHAPES, pico="../../PicoProducer/config/config.json")
+        recipe = self.recipe(PRODUCTION, pico="../../PicoProducer/config/config.json")
         self.assertEqual(recipe.pico_config, os.path.normpath(pico))  # made absolute when loaded
-        record = self.framework(recipe).start(run_root=os.path.join(self.root, "runs"))
-        self.assertFalse([f for f in record.bundle["files"] if f.startswith("..")])
-        self.assertNotIn("pico_config", self.tes_shapes.call("make_shapes")[0])  # CL §37
+        self.assertFalse([f for f in bundle_files(recipe) if f.startswith("..")])  # not copied into a run
 
     def test_old_run_json_without_bundle(self):
         recipe = self.recipe(SHAPES)
@@ -178,7 +178,8 @@ class RunSnapshotTests(BundleTestCase):
                          "stages[0] (shapes).configs: TauES/config/defaultFitSetupTES_mutau.yml is not a file of the "
                          "bundle or a Configs/ template: copy it into the bundle (or give an absolute path)")
         self.recipe(dict(SHAPES, configs=["tt.yml", TEMPLATE]))  # bundle files and templates are fine
-        fit = dict(FIT, inputs={"shapes": None}, config="TauES/config/defaultFitSetupTES_mutau.yml")
+        fit = dict(FIT, inputs={"shapes": {"path": "/afs/runs/x/stages/shapes"}},
+                   config="TauES/config/defaultFitSetupTES_mutau.yml")
         self.write("fit.json", json.dumps({"name": "fit", "stages": [fit]}), base=self.root)
         Recipe.load(os.path.join(self.root, "fit.json"))  # the fit stage still resolves module paths (Fitter API)
 
@@ -216,7 +217,8 @@ class StageIdTests(BundleTestCase):
                       self.error(dict(STEP, id="..")))
         recipe = Recipe.from_dict({"name": "x", "stages": [dict(STEP, id="bundle"), dict(STEP, id="logs")]})
         self.assertEqual([s.id for s in recipe.stages], ["bundle", "logs"])  # stages/<id>: no clash in the run
-        recipe = Recipe.from_dict({"name": "x", "stages": [dict(FIT, inputs={"shapes": None}), STEP, LOOSE_SHAPES]})
+        recipe = Recipe.from_dict({"name": "x", "stages": [dict(FIT, inputs={"shapes": {"path": "/afs/r/stages/s"}}),
+                                                           STEP, LOOSE_SHAPES]})
         self.assertEqual([s.stage for s in recipe.stages], ["fit", "python", "shapes"])  # no fixed order (R4)
         self.assertIn("unknown stage 'pyhton' (known: production, controlhists, controlplots, shapes, fit, python)",
                       self.error({"stage": "pyhton"}))
@@ -249,25 +251,22 @@ class StageIdTests(BundleTestCase):
                      "stages[4] (python).inputs.z: a stage cannot read its own output",
                      "stages[4] (python).inputs.w: no stage 'nowhere' in the recipe"):
             self.assertIn(text, message)
-        self.assertIn("stages[0] (fit).inputs: missing (write inputs: {shapes: <stage id, {path: <stage directory>} or "
-                      "null>})",
+        self.assertIn("stages[0] (fit).inputs: missing (write inputs: {shapes: <stage id, {path: <stage directory>}>})",
                       self.error({"stage": "fit", "id": "fit"}))
-        self.assertIn("stages[0] (fit).inputs.shapes: missing (the id of an earlier stage, or null)",
+        self.assertIn("stages[0] (fit).inputs.shapes: missing (the id of an earlier stage)",
                       self.error({"stage": "fit", "id": "fit", "inputs": {"shape": None}}))
         self.assertIn("stages[0] (controlhists).inputs: controlhists reads tuples: write inputs: {tuples: <stage id, {path: <stage "
-                      "directory>}, {external: <pattern>} or null>}",
+                      "directory>}, {external: <pattern>}>}",
                       self.error(dict(HISTS, inputs=None)))
 
-    def test_null_only_where_the_stage_allows_it(self):
-        self.assertEqual(Recipe.from_dict({"name": "x", "stages": [dict(FIT, inputs={"shapes": None})]})
-                         .stages[0].inputs, {"shapes": None})  # the fit's temporary exception
-        with mock.patch.object(FitStage, "null_inputs", {}):  # a slot that must name a stage
-            self.assertIn("stages[0] (fit).inputs.shapes: must name an earlier stage that makes shapes (null is "
-                          "not allowed for this input)", self.error(dict(FIT, inputs={"shapes": None})))
-            self.assertIn("stages[0] (fit).inputs: missing (write inputs: {shapes: <stage id, {path: <stage "
-                          "directory>}>})",
-                          self.error({"stage": "fit", "id": "fit"}))
-            self.assertIn("stages[0] (fit).inputs.shapes: missing (the id of an earlier stage)",
+    def test_null_only_where_the_stage_allows_it(self):  # since CL §37 no stage allows it
+        self.assertIn("stages[0] (fit).inputs.shapes: null (the shapes in Fitter/input_pt_less_region/) is no "
+                      "longer read, inputs are given (CL §37): name a shapes stage or {path: <run_dir>/stages/<id>} "
+                      "of another run", self.error(dict(FIT, inputs={"shapes": None})))
+        with mock.patch.object(FitStage, "null_inputs", {"shapes": "the shapes elsewhere"}):  # the hook stays
+            self.assertEqual(Recipe.from_dict({"name": "x", "stages": [dict(FIT, inputs={"shapes": None})]})
+                             .stages[0].inputs, {"shapes": None})
+            self.assertIn("stages[0] (fit).inputs.shapes: missing (the id of an earlier stage, or null)",
                           self.error({"stage": "fit", "id": "fit", "inputs": {"shape": None}}))
 
     def test_path_inputs(self):
@@ -359,7 +358,8 @@ class MakeBundleTests(BundleTestCase):
         self.write("steps/check.py", "def run(ctx):\n    pass\n")
         self.write("samples/v15_2025.yml", "taufw_config: {}\n")
         self.write("__pycache__/x.pyc", "")
-        source = self.recipe(dict(HISTS, configs=["mutau", "setup_mumu.yml"]), pico="pico.json")  # steps/: files
+        source = self.recipe(PRODUCTION, dict(HISTS, configs=["mutau", "setup_mumu.yml"]),
+                             pico="pico.json")  # steps/: files
         target = os.path.join(self.root, "Analyses", "copy")
         copied = self.framework(source).make_bundle(target)
         self.assertEqual(sorted(copied), sorted(os.path.normpath(path) for path in [

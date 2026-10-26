@@ -583,7 +583,9 @@ raises `OSError` on an unreadable file, which crashed the branch preflight of CL
 **Status:** D0 locked on lxplus 2026-10-26 (`bbb lock --replace`, `bbb diff`: PASS, 23 same, 1 added). D1 on lxplus953
 2026-10-26: `bbb check` 24/24 without re-lock, `checks` 14/16 (known boundary debt, Histogrammer -> PicoProducer 1 / 1 /
 1; one flaky stop test of `unit.utilities`, TODO §7), `normal` 30/30; by hand `fillhists.py` without `--tuples` read the tuples of `config.json`, a missing
-`$TAUFW_PICO_CONFIG` file gave the error naming `--tuples`. D2 on Windows; lxplus open (TODO §1).
+`$TAUFW_PICO_CONFIG` file gave the error naming `--tuples`. D2 on lxplus953 2026-10-26: `checks` 15/16 (the known
+boundary debt only), `bbb check` 24/24 without re-lock; the two `plan` commands open (TODO §1). D3 on Windows;
+lxplus open (TODO §1).
 
 - D0: `python Tests/run.py bbb list` lists `histogrammer.tes_inputs_picodir`; `python Tests/run.py checks` on
   Windows 14/16 (the known two). The case needs ROOT: locked on lxplus with the whole suite (`bbb lock --replace`,
@@ -606,3 +608,15 @@ raises `OSError` on an unreadable file, which crashed the branch preflight of CL
   the placeholder before production is planned; `test_null_gives_no_tuples` (D3 turns it into the recipe error).
   Windows: Histogrammer API 30, Fitter API 15, Utilities 200, Framework 206 pass (`test_run_lock` heartbeat failed
   once on a slow run, then three runs clean: timing, not this change); `checks` 14/16 (the known two).
+- D3: `Tests/Framework`: the stages that read tuples name `{external: <pattern>}` (`fakes.TUPLES`, a pattern whose
+  fixed part is `Tests/Framework/`, so the preflight finds it) or a production stage; the fit reads a shapes stage of
+  the recipe (`test_stages`, `test_interactive`, `test_framework`) or another run's (`test_validation`: a stage
+  directory with a manifest made in `setUp`; `test_bundle`, `test_manifest`: a `{path: ...}` value only). New:
+  `test_stages.test_null_is_a_recipe_error` (tuples of hists and shapes, the fit's shapes: the message, what null
+  meant, what to write), `test_bundle.test_null_only_where_the_stage_allows_it` (the message; the `null_inputs` hook
+  still works), `test_validation.test_pico_config_only_with_production`, `test_production_tag_warning` (only when the
+  tuples are read), `test_python_step` (no `$TAUFW_PICO_CONFIG` in the command, `ctx.pico_config` given),
+  `test_stages.test_plan_shows_commands_and_notes` (no "PicoProducer config:" line without production). The tests
+  with `pico.config` now have a production stage (`test_bundle`: `ProductionStage` with a fake PicoProducer).
+  `check_recipe` of the four `Analyses/` recipes: `example_mutau_short`, `example_mutau_long` OK, `tes_id_2025` only
+  the EOS directory (Windows), `example_broken` its four intended errors. Framework 208 tests pass; `checks` 14/16.

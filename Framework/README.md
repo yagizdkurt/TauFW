@@ -202,8 +202,8 @@ Plots and shapes give their scripts the tuples their input names as `--tuples <p
 artifacts of the production stage (`LocalStage.tuples_pattern`), or the recipe's `{external: <pattern>}`; preflight
 checks that the production tuple files, or the directory of the external pattern, exist. The module APIs never get
 the PicoProducer configuration (CL §37: no `pico_config` in their requests, no `$TAUFW_PICO_CONFIG`); a tuples input
-`null` gives no pattern, and the stage cannot be planned. Python steps still get the run's configuration as
-`$TAUFW_PICO_CONFIG` and `ctx.pico_config` (until CL §37 D3).
+is never `null` (a recipe error, CL §37). Python steps get the run's configuration as `ctx.pico_config` only (no
+environment variable); `pico.config` is allowed only in a recipe with a production stage.
 
 ## Recipe reference
 

@@ -72,7 +72,7 @@ class StepContext:
     stage_dir:   the directory for the step's own files, <run_dir>/stages/<id> (exists)
     run_dir:     the run directory
     bundle_dir:  the bundle directory of the run (its copy of the bundle files); also the working directory
-    pico_config: the run's PicoProducer configuration, or None (also in $TAUFW_PICO_CONFIG)
+    pico_config: the run's PicoProducer configuration (a recipe with a production stage), or None
     inputs:      input name -> stage id, as connected in the recipe's `inputs:` (for {path: <dir>}: that directory)
     upstream:    stage id (or directory) -> artifacts (dicts) of the stages the inputs name
     input(name, kind=None):           artifacts of the stage connected to an input, optionally of one kind

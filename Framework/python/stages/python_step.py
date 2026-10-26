@@ -88,8 +88,7 @@ class PythonStage(LocalStage):
     def plan_commands(self, request):
         """One command: the step runner on the step's context.json, in the bundle directory."""
         command = Command(request.stage_id, (self.python, STEP_RUNNER, request.context_file), request.bundle_dir,
-                          expects=(request.result_file,), timeout=request.timeout,
-                          env=(('TAUFW_PICO_CONFIG', request.pico_config),) if request.pico_config else ())
+                          expects=(request.result_file,), timeout=request.timeout)  # no $TAUFW_PICO_CONFIG (CL §37)
         return CommandPlan(cwd=request.bundle_dir, commands=(command,))
 
     def preflight(self, request, context):

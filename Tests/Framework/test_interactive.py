@@ -61,7 +61,12 @@ class FakeUI(ConsoleUI):
         return next(self.output_answers, "back")
 
 
-FIT = {"stage": "fit", "id": "fit", "inputs": {"shapes": None}}
+# A small valid recipe: shapes of tuples made outside the run (a directory that exists, as the check wants), then the
+# fit of those shapes (inputs are never null, CL §37).
+SHAPES = {"stage": "shapes", "id": "shapes", "eras": [2025], "jet_wps": ["Tight"], "ele_wps": ["Tight"],
+          "inputs": {"tuples": {"external": os.path.join(os.path.dirname(os.path.abspath(__file__)), "$ERA", "$GROUP")}}}
+FIT = {"stage": "fit", "id": "fit", "inputs": {"shapes": "shapes"}}
+STAGES = [SHAPES, FIT]
 
 
 class MenuTests(unittest.TestCase):
@@ -270,7 +275,7 @@ class MenuTests(unittest.TestCase):
     def test_continue_lists_the_runs_of_the_advances_behind_the_menu(self):
         operations = self.menu(FakeUI()).operations
         inside = self.record()  # in taufw_runs/ of the launch directory
-        recipe = Recipe.from_dict({"name": "elsewhere", "stages": [FIT]})
+        recipe = Recipe.from_dict({"name": "elsewhere", "stages": STAGES})
         outside = RunRecord.create(recipe, str(self.root / "my_runs"), now=datetime(2026, 10, 3))
         Path(outside.run_dir).mkdir(parents=True)
         outside.save()
@@ -298,7 +303,7 @@ class MenuTests(unittest.TestCase):
         self.assertTrue(operations.needs_grid_proxy(recipe=self.recipe_file(self.root / "p.json",
                                                                             stages=[production])))
         self.assertFalse(operations.needs_grid_proxy(recipe=self.recipe_file(self.root / "f.json")))
-        recipe = Recipe.from_dict({"name": "p", "stages": [production, dict(FIT, inputs={"shapes": None})]})
+        recipe = Recipe.from_dict({"name": "p", "stages": [production] + STAGES})
         record = RunRecord.create(recipe, str(self.root / "taufw_runs"), now=datetime(2026, 10, 1))
         for state, needed in (("NEW", True), ("WAITING", True), ("MERGING", True), ("DONE", False)):
             record.stage("ntuples").state = state
@@ -327,15 +332,16 @@ class MenuTests(unittest.TestCase):
         return Menu(ui, self.root, self.recipes, self.root / "operations")
 
     def recipe_file(self, path, name="test", stages=None):
-        path.write_text(json.dumps(dict(name=name, stages=stages or [FIT])),
+        path.write_text(json.dumps(dict(name=name, stages=stages or STAGES)),
                         encoding="utf-8")
         return path
 
     def record(self, name="test", state="WAITING", day=1):
-        recipe = Recipe.from_dict({"name": name, "stages": [FIT]})
+        recipe = Recipe.from_dict({"name": name, "stages": STAGES})
         record = RunRecord.create(recipe, str(self.root / "taufw_runs"),
                                   now=datetime(2026, 10, day))
         Path(record.run_dir).mkdir(parents=True)
+        record.stage("shapes").state = "DONE"  # the run's state is the fit's
         record.stage("fit").state = state
         record.save(now=datetime(2026, 10, day).strftime("%Y-%m-%d %H:%M:%S"))
         return record
@@ -386,7 +392,11 @@ class MenuTests(unittest.TestCase):
         self.assertEqual((options["kind"], options["title"], options["escalate"], options["signal"]),
                          ("run", newest.run_id, False, "command"))
         self.assertEqual(options["data"], dict(run_id=newest.run_id, run_dir=newest.run_dir, stages=[
-            dict(id="fit", type="fit", state="WAITING", message="", info=[["Inputs", "shapes: None"],
+            dict(id="shapes", type="shapes", state="DONE", message="",
+                 info=[["Eras", "2025"], ["Jet wps", "Tight"], ["Ele wps", "Tight"],
+                       ["Inputs", "tuples: external: " + SHAPES["inputs"]["tuples"]["external"]],
+                       ["Output", "stages/shapes/"]]),
+            dict(id="fit", type="fit", state="WAITING", message="", info=[["Inputs", "shapes"],
                                                                          ["Output", "stages/fit/"]])]))
         self.assertEqual(ui.screens[-1][0], "Run " + newest.run_id)
 
@@ -514,28 +524,30 @@ class MenuTests(unittest.TestCase):
             (steps / (name + ".py")).write_text("def run(ctx):\n    pass\n")
         path = self.recipe_file(self.recipes / "custom.json", stages=[
             {"stage": "python", "id": "prepare", "inputs": None, "file": "steps/prep.py"},
-            {"stage": "controlhists", "id": "hists", "inputs": {"tuples": None}, "eras": [2025]},
+            {"stage": "controlhists", "id": "hists", "inputs": SHAPES["inputs"], "eras": [2025]},
             {"stage": "python", "id": "check", "description": "look at the hists", "inputs": {"hists": "hists"},
              "file": "steps/check.py"},
+            SHAPES,
             FIT,
             {"stage": "python", "id": "report", "inputs": {"fit": "fit"}, "file": "steps/report.py"},
         ])
         view = self.menu(FakeUI()).operations.recipe_preview(path)
         self.assertEqual(view["stages"], (("prepare", "python", ""), ("hists", "controlhists", ""),
-                                          ("check", "python", "look at the hists"), ("fit", "fit", ""),
+                                          ("check", "python", "look at the hists"), ("shapes", "shapes", ""),
+                                          ("fit", "fit", ""),
                                           ("report", "python", "")))
         self.assertEqual(view["problems"], ())
         self.framework.assert_not_called()
 
     def test_runs_of_the_recipes_run_roots_are_listed(self):
         elsewhere = self.root / "elsewhere"
-        (self.recipes / "a.json").write_text(json.dumps(dict(name="a", run_root=str(elsewhere), stages=[FIT])),
+        (self.recipes / "a.json").write_text(json.dumps(dict(name="a", run_root=str(elsewhere), stages=STAGES)),
                                              encoding="utf-8")
-        (self.recipes / "b.json").write_text(json.dumps(dict(name="b", run_root=str(elsewhere), stages=[FIT])),
+        (self.recipes / "b.json").write_text(json.dumps(dict(name="b", run_root=str(elsewhere), stages=STAGES)),
                                              encoding="utf-8")  # the same root: listed once
         (self.recipes / "c.json").write_text("{not json", encoding="utf-8")  # unreadable: skipped
         here = self.record("here", day=1)
-        recipe = Recipe.from_dict({"name": "there", "stages": [FIT]})
+        recipe = Recipe.from_dict({"name": "there", "stages": STAGES})
         there = RunRecord.create(recipe, str(elsewhere), now=datetime(2026, 10, 2))
         Path(there.run_dir).mkdir(parents=True)
         there.save(now="2026-10-02 00:00:00")
@@ -556,7 +568,7 @@ class MenuTests(unittest.TestCase):
     def test_broken_recipes_are_marked_and_list_every_problem(self):
         self.recipe_file(self.recipes / "a_good.json")
         self.recipe_file(self.recipes / "b_bad.json", stages=[
-            {"stage": "shapes", "inputs": {"tuples": None}, "eras": [2025], "jet_wps": ["Tight"],
+            {"stage": "shapes", "inputs": SHAPES["inputs"], "eras": [2025], "jet_wps": ["Tight"],
              "ele_wps": ["Tight"]},
             {"stage": "fit", "id": "fit", "inputs": {"shapes": "histo"}},
         ])

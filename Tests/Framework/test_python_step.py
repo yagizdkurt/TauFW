@@ -84,8 +84,7 @@ class PythonStepTestCase(unittest.TestCase):
 
 class PythonStepTests(PythonStepTestCase):
     def test_two_steps_pass_artifacts(self):
-        record = self.start(step("make", options={"n": 5}), step("use", inputs={"numbers": "make"}),
-                            pico="configs/pico.json")
+        record = self.start(step("make", options={"n": 5}), step("use", inputs={"numbers": "make"}))
         self.assertEqual(record.state, "DONE", record.stage("use").message)
         make, use = record.stage("make"), record.stage("use")
         self.assertEqual(make.message, "made 5 numbers")
@@ -94,8 +93,11 @@ class PythonStepTests(PythonStepTestCase):
         value = use.artifacts[0]
         self.assertEqual(value["value"], 2 * (0 + 1 + 2 + 3 + 4) * 10)
         self.assertEqual(os.path.realpath(value["cwd"]), os.path.realpath(copy))  # runs in the run's bundle copy
-        self.assertEqual(value["pico"], os.path.join(copy, "configs", "pico.json"))
-        self.assertEqual(value["ctx_pico"], value["pico"])
+        self.assertEqual((value["pico"], value["ctx_pico"]), (None, None))  # no pico.config without production
+        spec = Recipe.from_dict(record.recipe, bundle_dir=copy).stage("use").spec
+        request = PythonStage().request(spec, StageContext(stage_id="use", pico_config="/p.json"))
+        self.assertEqual(request.pico_config, "/p.json")  # ctx.pico_config: the run's, given (CL §37 K4)
+        self.assertEqual(PythonStage().plan_commands(request).commands[0].env, ())  # no $TAUFW_PICO_CONFIG
         self.assertEqual(use.message, "1 command(s), 1 artifact(s)")  # no message returned
         stage_dir = os.path.join(record.run_dir, "stages", "make")  # the step's own files and the manifest only
         log_dir = os.path.join(record.run_dir, "logs", "make")      # the Framework's files

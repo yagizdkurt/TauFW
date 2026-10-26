@@ -7,8 +7,7 @@ with the Plotter. Until S4 one stage (plots) filled and drew in one script; fill
 each with the API of its own module, and the Framework carries the files between them.
 
     inputs:   tuples: pico tuples, given to the script as --tuples <pattern>: those of the production stage the slot
-              names (the pattern on its artifacts), or {external: <pattern>}; with null (old recipes) the script reads
-              $PICODIR of the run's PicoProducer config (passed as $TAUFW_PICO_CONFIG)
+              names (the pattern on its artifacts), {external: <pattern>} or {path: ...}; never null (CL §37)
     options:  ControlHistsSpec: what is filled (eras, channel setups (bundle files or the Histogrammer's), sample
               files, variable and selection filters, the tag of the file names, the script's filling options); the
               drawing options (-F, -p, -T) are the controlplots stage's
@@ -40,7 +39,7 @@ class ControlHistsStage(LocalStage):
     one)."""
     name = 'controlhists'
     inputs = {'tuples': 'tuples'}
-    null_inputs = {'tuples': "the tuples in $PICODIR of the run's PicoProducer config"}
+    null_inputs = {}  # the tuples are given, never found (CL §37)
     outputs = ('control_histograms',)
     group = 'histogrammer'  # taufw.py init names a copied config <group>_<name> if its name is taken
     # Spec = ControlHistsSpec: set at the bottom of this file.

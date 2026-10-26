@@ -170,7 +170,16 @@ Items marked **(verify)** may already be done; check before working on them.
       Tests/BBB/baselines/` shows only those keys; `bbb check` passes. A real production run (e.g.
       `example_mutau_short`) shows `sumw` and `kind` in `stages/production/manifest.json`, `sumw` equal to
       `cutflow->GetBinContent(17)` of that tuple.
-- [ ] **APIs take the tuples (CL §37 D2):** `python3 Tests/run.py checks` (Histogrammer/Fitter API, Utilities,
+- [ ] **Recipes give every input (CL §37 D3):** `python3 Tests/run.py checks` (Framework 208 pass) and `bbb check`
+      24/24 without re-lock (`framework.production`: production only, no tag; its `plan` output unchanged).
+      `python3 taufw.py check Analyses/<each of the four>`: as before (`tes_id_2025` and the two examples OK,
+      `example_broken` its four errors). A copy of `tes_id_2025` with `tuples: null` in the hists stage: `check` and
+      `plan` give one line "null (the tuples in $PICODIR ...) is no longer read ..."; with `pico: {config: x.json}`:
+      "only a production stage reads the PicoProducer configuration"; the menu's Start list marks it broken. A python
+      step that prints `os.environ.get("TAUFW_PICO_CONFIG")`: None.
+- [ ] **APIs take the tuples (CL §37 D2):** 2026-10-26 lxplus953: `checks` 15/16 (only the known boundary debt,
+      20 / 19 / 17), `bbb check` 24/24 without re-lock. Left: the two `plan` commands below. Original item:
+      `python3 Tests/run.py checks` (Histogrammer/Fitter API, Utilities,
       Framework pass) and `bbb check` 24/24 without re-lock (BBB calls no API: nothing may change).
       `python3 taufw.py plan Analyses/tes_id_2025`: the same commands as before, now without any
       `TAUFW_PICO_CONFIG=` prefix (the fit's had one only when `pico.config` was set; this recipe has `null`), the
@@ -459,11 +468,9 @@ Next-work proposals (not designed in detail yet):
         PicoProducer configuration per production stage, and list-valued input slots (or one directory for the
         tuples of several production stages). Until then one production stage takes several eras and channels in
         its lists, and separate production settings need separate recipes.
-- [ ] **Warning for `null` inputs** (separate session). `null` in a recipe's inputs (e.g. `tuples: null`) is accepted
-      only so that old recipes keep working; the standard Framework usage names every input explicitly. `check`,
-      `plan` and the menu should warn when a recipe uses it. The warning machinery exists (`recipe_warnings`,
-      CL §16 step 1). Same session: warn when a production stage has a non-empty `tag`, since the readers look for
-      `<sample>_<channel>.root` (the tag does not reach them).
+- [x] **`null` inputs and the production tag** (done in CL §37 D3, plan 23): a `null` input is a recipe error with a
+      message (not a warning: recipes take the clean design, decision of 2026-10-26); a production stage with a
+      `tag` whose tuples another stage reads gets a warning.
 - [ ] **Revise: one rule for the paths in a recipe** (separate session). A recipe has several path rules today:
       stage path options and `pico.config` (relative: the bundle file if it exists, else the module resolves it;
       `pico.config` above the bundle is made absolute when loaded), `run_root` (absolute; `~` and `$VARIABLES`
