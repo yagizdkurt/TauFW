@@ -1240,3 +1240,40 @@ start, and a list opens at once with the rows that are still read marked), Conti
 - Windows, the 4 recipes of `Analyses/`: the read-ahead 0.19 s after the menu opened; then the recipe list's data
   0.004 s (the stats of the signatures).
 - **UI preview:** "Start a run: recipes still checked", "Continue: runs still loading".
+
+## 35. The pico tuple contract (PicoProducer -> Histogrammer)
+
+**Date:** 2026-10-26
+**Status:** done on Windows (unit tests); lxplus check in TODO §1 "Pico tuple contract on lxplus"
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#35-the-pico-tuple-contract-picoproducer---histogrammer)
+
+**Details:** `LocalR/architecture/22-data-contracts-plan.md` (C2, decisions K5; 2026-10-26: a first version now,
+extended later), [pico-tuples contract](../contracts/pico-tuples.md),
+[2025 weight branches](../issues/2025-tuple-weight-branches.md)
+
+The last stage boundary without a written contract: the Histogrammer read `sumw` from cutflow bin 17, the DY
+stitching from bins 17-23, and the configs named branches, all by convention; a changed cut index or a misspelt
+branch showed up as a wrong normalisation or an error hours into a run. The 2025 weight branches looked like
+an unexplained external dependency; the group's answer (2026-10-26): 2024 MC for the 2025/2026 data, pileup and
+muon SF branches added afterwards by two scripts in `Legacy/OldAnalysis` (analysis specific).
+
+- **Contract page** `docs/contracts/pico-tuples.md`: file name and layout, tree `tree`, cutflow `cutflow` and its
+  bins (1 nevents, 16, 17 sumw, 18-23 DY stitching) with their readers, the rule that a skim or any post-processing
+  must carry the cutflow over unchanged, the channel -> tree producer table, which config fields name branches,
+  variation tuples (`dotight`, `dosys`), the 2025 analysis add-on (branch, script, files, inputs) and the known debt.
+- **Test** `Tests/contracts/test_pico_tuples.py` (no ROOT, both sides read as text, nothing imported; new check suite
+  `unit.contracts` in `Tests/run.py`): names and file name on both sides; the `addcut` indices of every channel module
+  against the bins `Sample` and the stitching read and against the cuts `ModuleTauPair.fillhists` fills; the
+  channel modules' tree producer; every branch of the setups, the TES/ID configs and the sample models (`Configs/`
+  and the bundle copies) written by the channel's tree producer, or in the add-on (eras 2025, 2026, 2526; muon SFs
+  for mutau/mumu), or in `KNOWN_DEBT`; the add-on list against the branch names in the two scripts. The debt lists
+  must match exactly, so a fix fails the test until its row is removed.
+- **Found by the test, left as known debt** (no behaviour change; TODO §0): `weights.other` of every era and the
+  campaign eras' etau/ee/emu weights read the muon SF add-on (also before 2025, where no tuple has them);
+  `setup_tautau.yml` reads `idMedium_1/_2`; `setup_etau_inclusive.yml` reads PNet branches `TreeProducerETau` does not
+  write; `ModuleETau`, `ModuleTauTau`, `ModuleEMu` declare no bins 18-23 but are filled them for DY files.
+- **Write-up** moved to `docs/issues/2025-tuple-weight-branches.md` (the TODO link pointed there) and rewritten with
+  the answer; five points stay open (`_v3`, the MC pileup profile, which files, electron channels, older eras).
+- `Legacy/OldAnalysis/2025-2026/add_pileup_weights.py`: banner and inventory row say 2024 MC (was "2025 MC").
+- Not covered yet: the variables defined in Python (`fillhists.py`, plotting scripts), weights given on the command
+  line, a check that the variation tuples have every branch of the MC weight.

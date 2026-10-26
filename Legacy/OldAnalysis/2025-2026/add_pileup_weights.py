@@ -3,7 +3,8 @@
 # LEGACY CODE - CORRECTION
 # Original location: add_pileup_weights.py
 # Data-taking year: 2025 and 2026
-# Year basis: 2025 MC tuples reweighted to 2025, 2026 and combined data profiles.
+# Year basis: 2024 MC tuples of the 2025 campaign (pico2024/TES_variations/2025) reweighted to
+#             2025, 2026 and combined data profiles.
 # Purpose: Adds missing 2025, 2026 and combined 2025+2026 pileup-weight branches to existing
 #          MC ROOT files in place.
 # Why legacy: April 2026 repair of the same fixed 2025 EOS tuple campaign; hardcoded

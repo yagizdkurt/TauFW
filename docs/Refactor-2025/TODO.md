@@ -1,7 +1,7 @@
 # Refactor-2025: still to do
 
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-**Last updated:** 2026-10-21
+**Last updated:** 2026-10-26
 
 Everything the `Refactor-2025` branch has left open: checks that need lxplus, the rest of the `common` → `Utilities`
 move, old output kept on purpose, open bugs, and planned next steps. The [change log](Refactor-2025.md) ("CL §N")
@@ -18,13 +18,21 @@ Items marked **(verify)** may already be done; check before working on them.
   `LocalR/architecture/13`; today the contract is a doc, `docs/contracts/tes-shapes.md`). (4) `FitRequest.pico_config`:
   the fit should not need a PicoProducer config once the shapes are made elsewhere. (5) `Fitter/MuTauFR/createinputs.py`
   (D11): broken import, repair or Legacy (workflow owner).
-- **2025 weight branches added outside this repository (plan 22, 2026-10-19):** the 2025/2026 tuples carry
-  `puweight_2025_*` (12 variants), `puweight_2026_69p2`, `puweight_2025_2026_69p2`, `trigweight_2025`,
-  `idisoweight_1_2025` (`idisoweight_2_2025` in mumu), which the analysis weights read but no code here writes.
-  Write-up for the group: [docs/issues/2025-tuple-weight-branches.md](../issues/2025-tuple-weight-branches.md) (also:
-  the mumu/ee/emu weight of the eras before 2025 uses these 2025 names, `samples_v15.py:281-284`). Find the step,
-  bring it in as a weights step, then drop the external-branch list of the C2 contract test. Meanwhile: external
-  dependency in C2 (decision of 2026-10-19).
+- **2025 weight branches added after production (plan 22; group answer 2026-10-26):** the 2025/2026 analysis uses
+  2024 MC; `puweight_2025_*`, `puweight_2026_69p2`, `puweight_2025_2026_69p2`, `trigweight_2025`,
+  `idisoweight_1_2025`, `idisoweight_2_2025` were added to the tuples by `Legacy/OldAnalysis/2025-2026/
+  add_pileup_weights.py` and `Legacy/OldAnalysis/2025/add_muon_weights.py` (analysis specific). In the pico tuple
+  contract as the "analysis add-on" (CL §35). Open, write-up
+  [docs/issues/2025-tuple-weight-branches.md](../issues/2025-tuple-weight-branches.md): which script version made
+  `puweight_2025_69p2_v3` (the copy here writes `_v2`); `MC_PileUp_2025.root` into `PicoProducer/data/pileup/`;
+  variation and 2026 files processed?; muon SFs read by etau/ee/emu; the 2025 names in `weights.other` of the eras
+  before 2025 (known debt in the contract test). Later: the two scripts as a weights step (inputs from the recipe),
+  then the add-on list of `Tests/contracts/test_pico_tuples.py` becomes production.
+- **Known debt of the pico tuple contract (CL §35):** `setup_tautau.yml` reads `idMedium_1/_2` (muon IDs, not in
+  tautau tuples); `setup_etau_inclusive.yml` reads PNet branches `TreeProducerETau` does not write; `ModuleETau`,
+  `ModuleTauTau`, `ModuleEMu` have no cutflow bins 18-23 but `ModuleTauPair.fillhists` fills them for DY files.
+  Fix (with the setup owners / PicoProducer Part 6), then remove the rows in `KNOWN_DEBT` /
+  `MODULES_WITHOUT_STITCH_BINS`.
 - **Faster histogram filling (group chat 2026-10-21, look at later):** filling the control histograms from the
   inclusive pico tuples takes ~40 min although multithreading is on (`min(64,os.cpu_count())` in
   `common/python/tools/RDataFrame.py:82`; master has 8). `Run3_DEV/ModuleETau_Inclusive.py` has no tau ID cut, the
@@ -154,6 +162,10 @@ Items marked **(verify)** may already be done; check before working on them.
 - [ ] **Start and Esc speed on lxplus (CL §33):** in the menu, Start a new run opens the recipe list at once (the
       first time after a `Configs/` change a little slower); Esc leaves every screen at once; arrow keys still work
       (also over a slow SSH connection: an arrow key must not act as Esc). FastSetup's checklist: Esc at once.
+- [ ] **Pico tuple contract on lxplus (CL §35):** `python3 Tests/run.py checks --case unit.contracts` passes; the
+      weight branches of one mumu and one etau tuple of the campaign (`.../pico2024/TES_variations/2025/DY/`, branch
+      names containing `weight`) answer the issue's open points 3-4 (`idisoweight_2_2025` in mumu? muon SFs in
+      etau?).
 - [ ] **Lists read ahead on lxplus (CL §34):** open the menu and press Start at once: the list opens at once,
       recipes still checked say "checking..." and fill in within seconds (colours, Pipeline), Up/Down works
       meanwhile; wait a few seconds, then Start: everything is there at once. Edit a recipe in another terminal:

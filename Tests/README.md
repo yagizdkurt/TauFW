@@ -79,7 +79,8 @@ process runner), the sample model tests
 (`Tests/Histogrammer/sample_model`: the templates of `Configs/Histogrammer/samples/` make the same
 core calls as `Histogrammer/config/samples_v15.py`, no ROOT), the old Plotter names
 (`Tests/Histogrammer/compat`: every alias shim, changelog §21), the control-histogram file
-(`Tests/Histogrammer/controlhists`, `Tests/Plotter/draw`, `Tests/Utilities/test_histfile.py`), the move check (`Tests/tools`), the harness and ROOT serializer checks, every normal case, and `bbb check` in
+(`Tests/Histogrammer/controlhists`, `Tests/Plotter/draw`, `Tests/Utilities/test_histfile.py`), the pico tuple
+contract (`Tests/contracts`: cutflow bins and config branches against the PicoProducer, no ROOT), the move check (`Tests/tools`), the harness and ROOT serializer checks, every normal case, and `bbb check` in
 quiet mode. Passing output is captured in logs; failures show their output tail
 and rerun command. Use `all --tail N` to change the tail length, or `all -v` for
 full output from every suite. Check logs are in

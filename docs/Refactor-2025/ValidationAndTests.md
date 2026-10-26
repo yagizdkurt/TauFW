@@ -534,3 +534,17 @@ removed). Open: BBB, two nodes, Ctrl-C (TODO §1 "Run lock and safe stop on lxpl
 - Windows timing with the real adapter and a threaded `Prefetch`: read-ahead 0.19 s, then the Start list's data
   0.004 s.
 - `python Tests/run.py checks` on Windows: 13/15 (the known two; `check_import_boundaries`: 0 new pairs).
+
+## 35. The pico tuple contract (PicoProducer -> Histogrammer)
+
+**Change:** [CL §35](Refactor-2025.md#35-the-pico-tuple-contract-picoproducer---histogrammer)
+
+**Status:** unit tests on Windows; lxplus check open (TODO §1 "Pico tuple contract on lxplus").
+
+- `Tests/contracts/test_pico_tuples.py` (9 tests): `NamesTests` (tree, cutflow, file name on both sides),
+  `CutflowTests` (Histogrammer bins, stitching bins, every channel module's bins, the cuts of
+  `ModuleTauPair.fillhists`), `BranchTests` (channel -> tree producer, add-on against the scripts, configs against
+  the producers).
+- Mutations (by hand, not kept): `weight_no0PU` at bin 18 fails the Histogrammer and the module test; an unknown
+  branch in every config, a stale `KNOWN_DEBT` row, an add-on branch removed from the list each fail.
+- `python Tests/run.py checks` on Windows: 14/16 (the known two: `check_import_boundaries` known debt, `check_root`).
