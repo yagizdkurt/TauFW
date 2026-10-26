@@ -23,7 +23,8 @@ A subclass sets `name` and `Spec`, and implements:
     requested_samples(spec, context) -> [(era, channel, MC names, data pattern)] of its sample model files
                                        (`samples` option; default: none), see samples.py
 A stage with a `tuples` input slot reads the tuples its input names (tuples_pattern): the pattern recorded on the
-artifacts of the production stage it names (of this run, or of another run: {path: <run_dir>/stages/<id>}), or the
+artifacts of kind 'tuples' of the production stage it names (of this run, or of another run: {path:
+<run_dir>/stages/<id>}; tuple artifacts without a kind, made before CL §36, are refused with a message), or the
 recipe's {external: <pattern>}; with `null` (old recipes) none,
 and the scripts read $PICODIR of the PicoProducer configuration as before. The pattern, and the tuple paths of a
 production stage, are recorded in the stage's last_status; input_problems() are added to the preflight.
@@ -77,8 +78,8 @@ class LocalStage(Stage):
         stage_id = context.stage_id or self.name
         report = self.execute(request, context.log_dir(stage_id), self._progress(reporter, stage_id))
         status = {'commands': [result.to_dict() for result in report.results]}
-        if context.input_artifacts('tuples'):
-            status['inputs'] = [artifact.get('path') for artifact in context.input_artifacts('tuples')]
+        if 'tuples' in (self.inputs or {}) and self.tuple_artifacts(context):
+            status['inputs'] = [artifact.get('path') for artifact in self.tuple_artifacts(context)]
         if 'tuples' in (self.inputs or {}) and self.tuples_pattern(context)[0]:
             status['tuples'] = self.tuples_pattern(context)[0]
         if not report.ok:
@@ -137,15 +138,22 @@ class LocalStage(Stage):
     def tuples_pattern(self, context, slot='tuples'):
         """(pattern or None, problems): where the stage's tuples are, as a directory pattern ($ERA, $GROUP).
           {external: <pattern>}  -> that pattern
-          a production stage     -> the pattern recorded on its tuple artifacts (in a plan: the planned one);
-                                    none yet (not planned) -> None. Also another run's ({path: ...}, its
-                                    manifest's artifacts).
+          a production stage     -> the pattern recorded on its artifacts of kind 'tuples' (in a plan: the
+                                    planned one); none yet (not planned) -> None. Also another run's ({path:
+                                    ...}, its manifest's artifacts); artifacts without a kind (before CL §36)
+                                    are a problem.
           null                   -> None (the scripts read $PICODIR of the PicoProducer configuration)"""
         if slot in context.external:
             return context.external[slot], ()
         stage_id = context.inputs.get(slot)
         artifacts = context.input_artifacts(slot)
         if not stage_id or not artifacts:
+            return None, ()
+        if not any('kind' in artifact for artifact in artifacts):
+            return None, ("the tuples of %s were recorded before their records had a kind (CL §36); start a new "
+                          "run, or name them with {external: <pattern>}" % (context.input_name(slot)),)
+        artifacts = self.tuple_artifacts(context, slot)
+        if not artifacts:
             return None, ()
         patterns = list(dict.fromkeys(artifact.get('pattern') for artifact in artifacts))
         if None in patterns:
@@ -157,6 +165,11 @@ class LocalStage(Stage):
                                                                          ', '.join(patterns)),)
         return patterns[0], ()
 
+    def tuple_artifacts(self, context, slot='tuples'):
+        """The artifacts of kind 'tuples' (TauFW.PicoProducer.api TupleArtifact, docs/contracts/pico-tuples.md) of
+        the stage connected to a tuples slot."""
+        return context.input_artifacts(slot, kind=self.inputs[slot])
+
     def input_problems(self, context, files=True):
         """Problems of the stage's tuples input (empty: none, or no such slot). files: also check that the tuple
         files of a production stage exist, and the fixed part of an external pattern (before its first $)."""
@@ -165,7 +178,7 @@ class LocalStage(Stage):
         pattern, problems = self.tuples_pattern(context)
         if problems or not files:
             return problems
-        missing = [artifact['path'] for artifact in context.input_artifacts('tuples')
+        missing = [artifact['path'] for artifact in self.tuple_artifacts(context)
                    if artifact.get('path') and '://' not in artifact['path'] and not os.path.exists(artifact['path'])]
         if missing:
             return ("%d tuple file(s) of %s not found, e.g. %s"

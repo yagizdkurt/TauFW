@@ -332,19 +332,28 @@ class TupleInputTests(LocalStageTestCase):
             return StageContext(inputs={"tuples": "production"}, upstream={"production": artifacts})
 
         self.assertEqual(stage.tuples_pattern(context()), (None, ()))  # nothing planned yet
-        self.assertEqual(stage.tuples_pattern(context({"path": "x"}, {"path": "y"}))[1],
+        # CL §36: records without a kind (made before) are refused; only kind 'tuples' is read
+        self.assertEqual(stage.tuples_pattern(context({"pattern": "/p/$ERA", "path": "x"}))[1],
+                         ("the tuples of stage 'production' were recorded before their records had a kind (CL §36); "
+                          "start a new run, or name them with {external: <pattern>}",))
+        self.assertEqual(stage.tuples_pattern(context({"kind": "tuples", "pattern": "/p/$ERA"},
+                                                      {"kind": "other", "pattern": "/q/$ERA"})), ("/p/$ERA", ()))
+        self.assertEqual(stage.tuples_pattern(context({"kind": "other", "pattern": "/q/$ERA"})), (None, ()))
+        self.assertEqual(stage.tuples_pattern(context({"kind": "tuples", "path": "x"},
+                                                      {"kind": "tuples", "path": "y"}))[1],
                          ("the tuples of stage 'production' do not record where they are (made before the Framework "
                           "chose their place, CL §16); start a new run, or name them with "
                           "{external: <pattern>}",))
-        self.assertIn("are in several places", stage.tuples_pattern(context({"pattern": "/a/$ERA"},
-                                                                            {"pattern": "/b/$ERA"}))[1][0])
+        several = context({"kind": "tuples", "pattern": "/a/$ERA"}, {"kind": "tuples", "pattern": "/b/$ERA"})
+        self.assertIn("are in several places", stage.tuples_pattern(several)[1][0])
         here = os.path.join(self.root, "DY_mutau.root")
         open(here, "w").close()
         missing = os.path.join(self.root, "TT_mutau.root")
-        problems = stage.input_problems(context({"pattern": "/p/$ERA", "path": here},
-                                                {"pattern": "/p/$ERA", "path": missing}))
+        problems = stage.input_problems(context({"kind": "tuples", "pattern": "/p/$ERA", "path": here},
+                                                {"kind": "tuples", "pattern": "/p/$ERA", "path": missing}))
         self.assertEqual(problems, ("1 tuple file(s) of stage 'production' not found, e.g. %s" % (missing),))
-        self.assertEqual(stage.input_problems(context({"pattern": "/p/$ERA", "path": missing}), files=False), ())
+        self.assertEqual(stage.input_problems(context({"kind": "tuples", "pattern": "/p/$ERA", "path": missing}),
+                                              files=False), ())
 
     def test_fixed_directory(self):
         from TauFW.Framework.stages.local import fixed_directory

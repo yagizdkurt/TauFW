@@ -80,7 +80,7 @@ All records are frozen dataclasses with `to_dict()` and `from_dict()`, so they c
 | `StageStatus` | `samples` (`SampleStatus`); `complete` (every sample can be merged), `npending`, `nfailed` |
 | `SampleStatus` | `era`, `channel`, `name`, `group`, `dtype`, `cfgname`, `subtry`, `nchunks`, `good`, `pending`, `failed`, `missing` (chunk numbers), `nprocevents`, `nexpected`, `complete` |
 | `MergeReport` | `artifacts` (`TupleArtifact`), `refused` (sample names), `invalid` (`(sample, reason)`), `cleaned` (sample names) |
-| `TupleArtifact` | `path`, `sample`, `group`, `era`, `channel`, `tag`, `dtype`, `nevents`, `tree` (`"tree"`), `cutflow` (`"cutflow"`) |
+| `TupleArtifact` | `path`, `sample`, `group`, `era`, `channel`, `tag`, `dtype`, `nevents` (cutflow bin 1 of the job outputs), `sumw` (cutflow bin 17 of the merged file, `None` if not read; CL §36), `tree` (`"tree"`), `cutflow` (`"cutflow"`), `kind` (`"tuples"`, CL §36). The production record of [the pico tuple contract](../contracts/pico-tuples.md#production-record) |
 | `LocalResult` | `era`, `channel`, `sample` (or `None` for user files), `command`, `exitcode` |
 
 The job configs (`output/<era>/<channel>/<sample>/config/jobconfig_<channel><tag>_try<N>.json`) remain the record of

@@ -552,3 +552,21 @@ removed). Open: BBB, two nodes, Ctrl-C (TODO §1 "Run lock and safe stop on lxpl
 - Mutations (by hand, not kept): `weight_no0PU` at bin 18 fails the Histogrammer and the module test; an unknown
   branch in every config, a stale `KNOWN_DEBT` row, an add-on branch removed from the list each fail.
 - `python Tests/run.py checks` on Windows: 14/16 (the known two: `check_import_boundaries` known debt, `check_root`).
+
+## 36. The production record: kind and sum of weights on the tuple artifacts
+
+**Change:** [CL §36](Refactor-2025.md#36-the-production-record-kind-and-sum-of-weights-on-the-tuple-artifacts)
+
+**Status:** unit tests on Windows; lxplus check and re-lock open (TODO §1 "Production record on lxplus").
+
+- `Tests/contracts/test_pico_tuples.py` `ProductionRecordTests` (2 new tests, 11 in the file): `TupleArtifact.kind`
+  = `tuples` = the production stage's `outputs` = the planned record = the `tuples` slot of `controlhists` and
+  `shapes`, and the local stages filter with the slot's kind; `merge.py` `SUMW_BIN` = the contract's normalisation
+  bin (17); the API passes `MergeResult.sumw` on.
+- `Tests/Framework/test_stages.py` `test_pattern_problems`: a record without a kind is refused with the CL §36
+  message; only kind `tuples` gives the pattern (another kind is ignored); the CL §16 message (no pattern) and
+  "several places" still come for kind `tuples`. `test_framework.py`: the planned record has `kind: tuples`.
+  `Tests/Framework/fakes.py` `Artifact` gets `sumw`, `kind` (as `TupleArtifact`). Framework: 206 tests pass.
+- `cutflow_bin` and the merge read need ROOT: checked on lxplus by BBB `framework.production` (the `sumw` of its two
+  merged tuples in `run.json`) and `pico.merge` (unchanged: the merge's files).
+- `python Tests/run.py checks` on Windows: 14/16 (the known two: `check_import_boundaries` known debt, `check_root`).

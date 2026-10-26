@@ -162,6 +162,13 @@ Items marked **(verify)** may already be done; check before working on them.
 - [ ] **Start and Esc speed on lxplus (CL §33):** in the menu, Start a new run opens the recipe list at once (the
       first time after a `Configs/` change a little slower); Esc leaves every screen at once; arrow keys still work
       (also over a slow SSH connection: an arrow key must not act as Esc). FastSetup's checklist: Esc at once.
+- [ ] **Production record on lxplus (CL §36):** `python3 Tests/run.py bbb check`: only `framework.production`
+      differs, and only in its two tuple records of `run.json` ("done"): `"sumw"` and `"kind": "tuples"` added
+      (`sumw` = cutflow bin 17 of the merged fixture tuple); `pico.merge` and every other case pass. If so, and
+      approved: `python3 Tests/run.py bbb lock --replace --case framework.production`; `git diff
+      Tests/BBB/baselines/` shows only those keys; `bbb check` passes. A real production run (e.g.
+      `example_mutau_short`) shows `sumw` and `kind` in `stages/production/manifest.json`, `sumw` equal to
+      `cutflow->GetBinContent(17)` of that tuple.
 - [ ] **Pico tuple contract on lxplus (CL §35):** `python3 taufw.py plan Analyses/tes_id_2025` shows no branch
       problem and takes at most a few seconds longer (the preflight reads the tuple headers); with a copy of
       `setup_mumu.yml` whose baseline names `no_such_branch`, the controlhists preflight names it.

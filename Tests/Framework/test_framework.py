@@ -287,7 +287,8 @@ class ProductionTuplesTests(FrameworkTestCase):
         self.assertNotIn("tupledir", pico.calls[0][1])  # no run yet: nothing to put there
         stage = fw.stages["production"]
         self.assertEqual(stage.planned_artifacts(fw.recipe.stage("production").spec, plan.stages[0].plan),
-                         ({"pattern": os.path.join("<run_dir>", "stages", "production", "$ERA", "$GROUP")},))
+                         ({"kind": "tuples",
+                           "pattern": os.path.join("<run_dir>", "stages", "production", "$ERA", "$GROUP")},))
         self.assertNotIn("tupledir", stage.request(fw.recipe.stage("production").spec))  # status, run_local
 
     def test_later_stages_see_the_planned_pattern(self):
@@ -303,8 +304,8 @@ class ProductionTuplesTests(FrameworkTestCase):
         recipe = dict(RECIPE, stages=RECIPE["stages"] + [
             {"stage": "python", "id": "look", "inputs": {"tuples": "production"}, "file": "look.py"}])
         framework(fakes.FakePicoProducer(), recipe, stages={"look": Reader()}).plan()
-        self.assertEqual(seen, [({"pattern": os.path.join("<run_dir>", "stages", "production", "$ERA",
-                                                          "$GROUP")},)])
+        self.assertEqual(seen, [({"kind": "tuples",
+                                  "pattern": os.path.join("<run_dir>", "stages", "production", "$ERA", "$GROUP")},)])
 
 
 class RunRootTests(FrameworkTestCase):

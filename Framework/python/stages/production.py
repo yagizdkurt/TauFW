@@ -9,7 +9,7 @@ Each call of ProductionStage.advance() takes one step, starting from the state s
                                              resubmit  ─▶ SUBMITTED   (attempt + 1)
                                              merge     ─▶ MERGING
                                              fail      ─▶ FAILED
-    MERGING    ─▶ merge(clean=merge.clean)             ─▶ DONE        (one TupleArtifact per sample)
+    MERGING    ─▶ merge(clean=merge.clean)             ─▶ DONE        (one TupleArtifact per sample, kind 'tuples')
 
 Where the tuples go is the Framework's choice, not the PicoProducer configuration's: the stage's directory
 <run_dir>/stages/<id>/ (JobRequest.tupledir). Below it PicoProducer chooses the layout ($ERA/$GROUP/<sample>_<channel>
@@ -128,15 +128,16 @@ class ProductionStage(Stage):
         return self.pico.sample_names(self.request(spec, context))
 
     def planned_artifacts(self, spec, plan, context=None):
-        """What the later stages see of the tuples before they exist: one artifact with their pattern,
-        <stage dir>/$ERA/$GROUP (in a plan before the run exists, under the placeholder '<run_dir>/stages/<id>')."""
+        """What the later stages see of the tuples before they exist: one artifact of kind 'tuples' with their
+        pattern, <stage dir>/$ERA/$GROUP (in a plan before the run exists, under the placeholder
+        '<run_dir>/stages/<id>')."""
         context = context or StageContext()
         if context.run_dir:
             pattern = self.pico.tuple_pattern(self.request(spec, context))
         else:  # the layout PicoProducer publishes; tuple_pattern() would make the placeholder absolute
             placeholder = StageContext(run_dir='<run_dir>', stage_id=context.stage_id or self.name).stage_dir()
             pattern = os.path.join(placeholder, *self.pico.TUPLE_LAYOUT.split('/'))
-        return ({'pattern': pattern},)
+        return ({'kind': self.outputs[0], 'pattern': pattern},)
 
     def submits(self, stage_record):
         """NEW submits; SUBMITTED and WAITING may resubmit. MERGING does not (a cut merge is merged again)."""

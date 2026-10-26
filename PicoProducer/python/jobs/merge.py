@@ -8,7 +8,8 @@
     4. hadd                storage.hadd(job outputs -> <picodir>/<sample>_<channel><tag>.root); picodir is the
                            configuration's, or the one the caller gives (merge_sample(picodir=...))
     5. validate            before cleaning after a merge: the merged tuple must be readable and hold the events
-                           of the job output (validated)
+                           of the job output (validated); after any merge, its sum of weights (cutflow bin
+                           SUMW_BIN) is read for the production record (MergeResult.sumw)
     6. clean               remove the job directory, or only this sample's files (cleanup_commands)
 
 merge_target, merge_gate, validated and cleanup_commands are pure: they read no files and change nothing.
@@ -22,6 +23,7 @@ Outputs: the merged tuple in storage (picodir); removed job directories/files; M
 Public API:
   merge_sample(sample, config, action, era, channel, tag, reporter, **options)  -> MergeResult
   TUPLE_LAYOUT                                                                  where the tuples go below a tupledir
+  SUMW_BIN                                                                      cutflow bin of the sum of weights
   merge_target(sample, picodir, era, channel, tag)                              -> MergeTarget
   merge_gate(status, force)                                                     -> bool
   validated(nevents, status)                                                    -> (ok, reason)
@@ -38,16 +40,18 @@ from TauFW.common.tools.string import repkey, lreplace
 from TauFW.PicoProducer.jobs.reporting import Reporter
 from TauFW.PicoProducer.jobs.status import check_sample, ChunkStatus
 from TauFW.PicoProducer.storage.factory import getstorage
-from TauFW.PicoProducer.storage.validation import isvalid
+from TauFW.PicoProducer.storage.validation import isvalid, cutflow_bin
 
 __all__ = ['merge_sample', 'merge_target', 'merge_gate', 'validated', 'cleanup_commands',
-           'MergeTarget', 'CleanupPlan', 'MergeResult', 'MERGE_ACTIONS', 'TUPLE_LAYOUT']
+           'MergeTarget', 'CleanupPlan', 'MergeResult', 'MERGE_ACTIONS', 'TUPLE_LAYOUT', 'SUMW_BIN']
 
 
 # ===== Constants =====
 MERGE_ACTIONS = ('hadd', 'haddclean', 'clean') # pico.py subcommands handled here
 TUPLE_LAYOUT  = "$ERA/$GROUP" # below a directory the caller gives (JobRequest.tupledir), the merged tuples go to
                               # <tupledir>/<era>/<group>/<sample>_<channel><tag>.root
+SUMW_BIN      = 17            # cutflow bin of the sum of genWeight with nTrueInt>0 ('weight_no0PU'): the MC
+                              # normalisation the Histogrammer reads (Sample.binsumw; docs/contracts/pico-tuples.md)
 
 
 # ===== Pipeline =====
@@ -95,9 +99,11 @@ def merge_sample(sample,config,action,era,channel,tag,reporter=None,clean=False,
     ok, reason = validated(isvalid(storage.file(target.outfile)),status)
     if not ok:
       reporter.warning("Not removing the job output of %r: %s"%(sample.name,reason))
-      return MergeResult(target=target,status=status,merged=True,haddout=haddout,invalid=reason)
+      return MergeResult(target=target,status=status,merged=True,haddout=haddout,invalid=reason,
+                         sumw=cutflow_bin(storage.file(target.outfile),SUMW_BIN))
 
   # 6. CLEAN UP
+  sumw   = cutflow_bin(storage.file(target.outfile),SUMW_BIN) if hadd and not dryrun else None # production record
   rmcmds = ()
   if cleanup:
     plan = cleanup_commands(target,lambda pattern: len(glob.glob(pattern)))
@@ -111,7 +117,7 @@ def merge_sample(sample,config,action,era,channel,tag,reporter=None,clean=False,
         rmcmd = lreplace(rmcmd,'rm',"rm -v",1)
       execute(rmcmd,dry=dryrun,verb=cmdverb)
 
-  return MergeResult(target=target,status=status,merged=hadd,haddout=haddout,rmcmds=tuple(rmcmds))
+  return MergeResult(target=target,status=status,merged=hadd,haddout=haddout,rmcmds=tuple(rmcmds),sumw=sumw)
 
 
 # ===== Decisions (pure) =====
@@ -221,7 +227,8 @@ class CleanupPlan:
 @dataclass(frozen=True)
 class MergeResult:
   """Outcome of merge_sample. refused: the gate failed (nothing merged or removed); invalid: why the merged tuple
-  failed validation (the job output was kept)."""
+  failed validation (the job output was kept); sumw: cutflow bin SUMW_BIN of the merged tuple (None: no merge, a dry
+  run, or the file could not be read)."""
   target:  MergeTarget
   status:  ChunkStatus
   refused: bool = False
@@ -229,6 +236,7 @@ class MergeResult:
   merged:  bool = False         # hadd ran (or was printed, in a dry run)
   haddout: Optional[str] = None # output of the hadd command
   rmcmds:  Tuple[str, ...] = () # rm commands (before 'rm -v' for verbosity>=1)
+  sumw:    Optional[float] = None # sum of weights of the merged tuple (cutflow bin SUMW_BIN)
 
   @property
   def outpath(self):

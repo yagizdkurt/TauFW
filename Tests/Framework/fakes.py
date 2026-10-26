@@ -70,9 +70,11 @@ class Status(_Record):
 
 
 @dataclass(frozen=True)
-class Artifact(_Record):
+class Artifact(_Record):  # TauFW.PicoProducer.api TupleArtifact (the fields the Framework reads)
     path: str
     sample: str
+    sumw: float = None
+    kind: str = "tuples"
 
 
 @dataclass(frozen=True)

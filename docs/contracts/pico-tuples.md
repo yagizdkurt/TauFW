@@ -3,7 +3,8 @@
 Written by the **PicoProducer** (`pico.py run/submit` + `hadd`, the Framework's `production` stage), read by the
 **Histogrammer** (`fillhists.py`, `TauFW.Histogrammer.controlhists`, the TES shapes, `createinputsTES.py`) through the
 sample model (`Configs/Histogrammer/samples/`) and the channel setups. The two modules never import each other; this
-page and the configs are all they share. Introduced in changelog §35 (plan 22, C2).
+page and the configs are all they share. Introduced in changelog §35 (plan 22, C2); the production record in §36
+(C3).
 
 The file itself carries no version and no metadata: this page writes down the format the Histogrammer has read for
 years. Changing anything below means changing both sides together. Checked without ROOT by
@@ -26,9 +27,8 @@ One ROOT file per sample, channel and tag, made by `hadd` of the job outputs:
 
 Example: `2025/DY/DYto2Tau_Bin-MLL-50to120_mutau.root`, its TES variation `..._mutau_TES0p950.root`.
 
-In a recipe the production stage reports each file as a tuple artifact (`TupleArtifact`, `PicoProducer/python/api/
-types.py`: path, sample, group, era, channel, tag, dtype, nevents, tree, cutflow); the reading stages get the
-directory or pattern from the recipe (`inputs.tuples`).
+In a recipe the production stage reports each file in a production record (below); the reading stages get the
+directory pattern from it, or from the recipe (`inputs.tuples: {external: <pattern>}`).
 
 ## Inside
 
@@ -151,6 +151,47 @@ Channel modules: `ModuleETau`, `ModuleTauTau` and `ModuleEMu` declare no bins 18
 fills them for files with `DY` in the name, where `Cutflow.fill` stops on the unknown cut (the `Run3_DEV` modules
 declare them). The test lists them in `MODULES_WITHOUT_STITCH_BINS`.
 
+## Production record
+
+The PicoProducer API reports each merged tuple as a `TupleArtifact` (`PicoProducer/python/api/types.py`; `pico.merge()`
+-> `MergeReport.artifacts`). In a TauFW recipe the production stage stores them as JSON in `run.json` and in
+`stages/<id>/manifest.json`, with the directory pattern added; the stages that read tuples (`controlhists`, `shapes`,
+python steps) see them as their input. The PicoProducer API owns this schema (decision K4 of plan 22); it is not
+written into the ROOT file.
+
+```json
+{"path": "<run_dir>/stages/production/2025/DY/DYto2Tau_Bin-MLL-50to120_mutau.root",
+ "sample": "DYto2Tau_Bin-MLL-50to120", "group": "DY", "era": "2025", "channel": "mutau", "tag": "", "dtype": "mc",
+ "nevents": 1234567.0, "sumw": 9.87e11, "tree": "tree", "cutflow": "cutflow", "kind": "tuples",
+ "pattern": "<run_dir>/stages/production/$ERA/$GROUP"}
+```
+
+| Field | Meaning |
+|---|---|
+| `kind` | always `"tuples"`: what a reader selects by. The production stage's `outputs`, the `tuples` input slot of `controlhists` and `shapes` (`Stage.inputs`), and `ctx.input(<slot>, kind='tuples')` in a python step use the same word |
+| `path` | the merged tuple (the file name rule above) |
+| `sample`, `group`, `era`, `channel`, `tag` | the sample (its PicoProducer name and group) and the production's era, channel and tag |
+| `dtype` | `mc`, `data` or `embed` |
+| `nevents` | processed events: cutflow bin 1 summed over the job outputs while their status is checked; `0` if the events were not counted (`checkevts` off) |
+| `sumw` | cutflow bin 17 of the merged file, read right after `hadd` (`merge.py` `SUMW_BIN`). MC: the sum of `genWeight` of the events with `Pileup_nTrueInt>0`, the denominator of `lumi x xsec / sumw`. Data: the events with a primary vertex (not a normalisation). `null` if no merge ran (`clean` only, dry run) or the file could not be read |
+| `tree`, `cutflow` | the names inside the file (`"tree"`, `"cutflow"`) |
+| `pattern` | added by the Framework: the directory pattern of all tuples of the stage, `<stage dir>/$ERA/$GROUP`; the reading stages are given it as `--tuples` |
+
+Before the tuples exist (`taufw.py plan`), the production stage gives the later stages one planned record,
+`{"kind": "tuples", "pattern": "<run_dir>/stages/<id>/$ERA/$GROUP"}`.
+
+Readers:
+- The Framework's local stages (`LocalStage.tuple_artifacts`, `tuples_pattern`) read only records of kind `tuples`.
+  Records without a `kind` (production runs before CL §36, read through `inputs.tuples: {path: ...}`) are refused:
+  "the tuples of ... were recorded before their records had a kind (CL §36); start a new run, or name them with
+  {external: <pattern>}".
+- Nothing reads `sumw` yet: the Histogrammer still reads the normalisation from the file's cutflow
+  (`Sample.setnevents`). It is the record of what a run produced, and the value a later hand-over of the tuples
+  (inputs given, not found; a skim; reading without `hadd`) must carry over unchanged.
+- The merge does not check `sumw` (a merged MC tuple with `sumw <= 0` is not refused): recording only.
+
+Versions: before CL §36 the record had no `kind` and no `sumw`.
+
 ## Checked by
 
 `Tests/contracts/test_pico_tuples.py` (no ROOT, both sides read as text; nothing imported from either module):
@@ -161,7 +202,13 @@ declare them). The test lists them in `MODULES_WITHOUT_STITCH_BINS`.
   bins of the DY stitching; the cuts `ModuleTauPair.fillhists` fills;
 - the channel -> tree producer table against the channel modules' imports;
 - every branch of the configs above (`Configs/` and `Analyses/*/`) against the tree producer, the add-on and the
-  known debt; the add-on list against the branch names in the two scripts.
+  known debt; the add-on list against the branch names in the two scripts;
+- the production record: `TupleArtifact.kind` = the production stage's output = the readers' slot kind and filter;
+  `merge.py` `SUMW_BIN` = the normalisation bin of the table above; the API passes the merge's `sumw` on.
+
+The Framework's unit tests (`Tests/Framework/test_stages.py` `test_pattern_problems`, `test_framework.py`) check
+the readers: only kind `tuples`, records without a kind refused, the planned record. BBB `framework.production`
+records the run's tuple records as JSON.
 
 The files themselves are checked before a run: the preflights of `ControlHists` and `TESShapes` (the `controlhists`
 and `shapes` stages, `plan`/`start`) read the branch list of every existing nominal tuple file of the requested

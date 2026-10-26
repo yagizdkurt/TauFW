@@ -7,6 +7,7 @@ Outputs: event counts; -1 marks an unreadable or corrupt file.
 Public API:
   getnevents(fname, treename)                 number of entries in a tree
   isvalid(fname, hname, bin)                  processed events of a job output file, or -1 if corrupt
+  cutflow_bin(fname, bin, hname)              one bin of a pico tuple's cutflow, or None if it cannot be read
   itervalid(fnames, checkevts, ncores, ...)   yield (nevents, fname) for job outputs, optionally in parallel
   iterevts(fnames, tree, filenevts, ...)      yield (nevents, fname) for input files, using a cache
 """
@@ -16,7 +17,7 @@ from TauFW.common.tools.root import ensureTFile
 from TauFW.PicoProducer.storage.log import LOG
 from ROOT import TFile
 
-__all__ = ['getnevents', 'isvalid', 'itervalid', 'iterevts']
+__all__ = ['getnevents', 'isvalid', 'cutflow_bin', 'itervalid', 'iterevts']
 
 
 # ===== Public API =====
@@ -58,6 +59,23 @@ def isvalid(fname,hname='cutflow',bin=1):
         LOG.warning("Could not open cutflow %s:%s..."%(fname,hname))
   return nevts
   
+
+def cutflow_bin(fname,bin,hname='cutflow'):
+  """The content of one bin of a pico tuple's cutflow histogram (docs/contracts/pico-tuples.md), or None if the file
+  or the histogram cannot be read. Reads only that histogram."""
+  try:
+    file = TFile.Open(fname,'READ')
+  except OSError as err:
+    print(err)
+    return None
+  if not file or file.IsZombie():
+    return None
+  try:
+    hist = file.Get(hname)
+    return float(hist.GetBinContent(bin)) if hist else None
+  finally:
+    file.Close()
+
 
 def itervalid(fnames,checkevts=True,nchunks=None,ncores=4,verb=0,**kwargs):
   """Iterate over file names and get number of events processed & check for corruption."""

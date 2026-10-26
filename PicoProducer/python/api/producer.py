@@ -315,7 +315,7 @@ def _sample_status(era,channel,sample,status):
 
 def _artifact(era,channel,tag,sample,result):
   return TupleArtifact(path=result.outpath,sample=sample.name,group=sample.group,era=era,channel=channel,tag=tag,
-                       dtype=sample.dtype,nevents=result.status.nprocevents)
+                       dtype=sample.dtype,nevents=result.status.nprocevents,sumw=result.sumw)
 
 
 def _report_jobcfg(reporter,sample):

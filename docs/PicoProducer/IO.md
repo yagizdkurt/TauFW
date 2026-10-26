@@ -39,4 +39,6 @@ The latest try per sample is found with the glob `jobdir/config/jobconfig_$CHANN
 ## Merged tuple
 
 `<picodir>/<sample>_<channel><tag>.root`: the `hadd` of the job outputs, with the analysis `tree` and the `cutflow`
-histogram (bin 1 = processed events). The API returns it as a `TupleArtifact`.
+histogram (bin 1 = processed events, bin 17 = sum of weights, the normalisation). The API returns it as a
+`TupleArtifact` (with `sumw`, read from bin 17 after `hadd`, and `kind: tuples`; CL §36). Format and record:
+[docs/contracts/pico-tuples.md](../contracts/pico-tuples.md).

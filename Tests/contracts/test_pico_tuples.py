@@ -225,6 +225,26 @@ class CutflowTests(unittest.TestCase):
         self.assertEqual(set(re.findall(r"cutflow\.fill\('(\w+)'", body)), set(CUTFLOW_BINS))
 
 
+class ProductionRecordTests(unittest.TestCase):  # CL §36: the TupleArtifact of the production stage
+    def test_kind_on_both_sides(self):
+        types = text(REPO / "PicoProducer" / "python" / "api" / "types.py")
+        record = types[types.index("class TupleArtifact("):types.index("class MergeReport(")]
+        self.assertIn('kind:    str = "tuples"', record)
+        stages = REPO / "Framework" / "python" / "stages"
+        self.assertIn("outputs = ('tuples',)", text(stages / "production.py"))
+        self.assertIn("return ({'kind': self.outputs[0], 'pattern': pattern},)", text(stages / "production.py"))
+        for reader in ("controlhists.py", "shapes.py"):
+            self.assertIn("inputs = {'tuples': 'tuples'}", text(stages / reader))
+        self.assertIn("context.input_artifacts(slot, kind=self.inputs[slot])", text(stages / "local.py"))
+
+    def test_sumw_is_the_normalisation_bin(self):
+        merge = text(REPO / "PicoProducer" / "python" / "jobs" / "merge.py")
+        self.assertEqual(re.search(r"^SUMW_BIN\s*=\s*(\d+)", merge, re.M).group(1),
+                         str(CUTFLOW_BINS['weight_no0PU']))
+        self.assertIn("nevents=result.status.nprocevents,sumw=result.sumw",
+                      text(REPO / "PicoProducer" / "python" / "api" / "producer.py"))
+
+
 class BranchTests(unittest.TestCase):
     def test_channel_modules_use_the_contract_producer(self):
         for path, source in channel_modules().items():

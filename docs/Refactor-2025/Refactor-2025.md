@@ -1283,3 +1283,49 @@ muon SF branches added afterwards by two scripts in `Legacy/OldAnalysis` (analys
 - `Legacy/OldAnalysis/2025-2026/add_pileup_weights.py`: banner and inventory row say 2024 MC (was "2025 MC").
 - Not covered yet: the variables defined in Python (`fillhists.py`, plotting scripts), weights given on the command
   line, the branches of the variation tuples.
+
+## 36. The production record: kind and sum of weights on the tuple artifacts
+
+**Date:** 2026-10-26
+**Status:** done on Windows (unit tests); lxplus check and the approved re-lock of `framework.production` in TODO §1
+"Production record on lxplus"
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#36-the-production-record-kind-and-sum-of-weights-on-the-tuple-artifacts)
+
+**Details:** `LocalR/architecture/22-data-contracts-plan.md` (C3, decision K4; user decisions 2026-10-26 below),
+[pico tuple contract, "Production record"](../contracts/pico-tuples.md#production-record), Framework BUGS K04
+
+A production stage records each merged tuple as a `TupleArtifact` in `run.json` and its `manifest.json`. Two things
+were missing. The record had no `kind`, unlike the artifacts of every other stage (`control_histograms`, `shapes`,
+`fit`), so a filter by kind found nothing: `ctx.input('tuples', kind='tuples')` in a python step returned an empty
+list (BUGS K04). And the normalisation of a tuple (cutflow bin 17) was only in the file, not in the record of what
+the run produced.
+
+Before / after (one record of `run.json`):
+
+```
+before: {"path": ".../DY/DYto2Tau_..._mutau.root", "sample": ..., "nevents": 1234567.0, "tree": "tree",
+         "cutflow": "cutflow", "pattern": ".../stages/production/$ERA/$GROUP"}
+after:  {"path": ..., "nevents": 1234567.0, "sumw": 9.87e11, "tree": "tree", "cutflow": "cutflow",
+         "kind": "tuples", "pattern": ...}
+```
+
+Decisions of the user (2026-10-26):
+1. `sumw` is read from the merged file right after `hadd` (not summed over the job outputs): the file the readers
+   use, already opened by the merge's validation.
+2. The readers select by kind: only records of kind `tuples`; a record without a kind (a production run before this
+   section, named with `inputs.tuples: {path: ...}`) is refused with a message, as the runs before CL §16 are.
+3. Data tuples get the raw bin 17 too (events with a primary vertex; documented as not a normalisation).
+4. The merge records `sumw` only; it does not refuse a merged MC tuple with `sumw <= 0`.
+
+- **PicoProducer** (`storage/validation.py` `cutflow_bin(fname, bin)`; `jobs/merge.py` `SUMW_BIN = 17`,
+  `MergeResult.sumw`, read after `hadd` unless dry run, also when the validation fails; `api/types.py`
+  `TupleArtifact.sumw` (None: not read) and `kind = "tuples"`; `api/producer.py` passes it on). What `pico.py` prints
+  and does is unchanged; the tuple files are unchanged.
+- **Framework** (`stages/production.py`: the planned record is `{kind: tuples, pattern}`; `stages/local.py`:
+  `LocalStage.tuple_artifacts(context, slot)` = the input's artifacts of the slot's kind, used by `tuples_pattern`,
+  `input_problems` and `last_status.inputs`; records without a kind are a problem).
+- **Docs**: the contract's "Production record" section (every field, the readers, the refusal); PicoProducer
+  `API.md`, `IO.md`; `Framework/README.md`; BUGS K04 fixed.
+- **BBB** `framework.production` records `run.json` after the merge: its two tuple records gain `"sumw"` and
+  `"kind": "tuples"`; nothing else should change (the tuple files, the plan and status output, the other cases).
+  Re-lock of this case only, to be approved by the user after `bbb check` on lxplus shows exactly this difference.

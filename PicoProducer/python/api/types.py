@@ -12,7 +12,8 @@ configs stay the source of truth for the state of the jobs.
   StageStatus       status(): SampleStatus per sample; `complete` when every sample can be merged
   MergeReport       merge()/clean(): TupleArtifact per merged sample, and the samples that were refused
   LocalResult       run_local(): one worker run and its exit code
-  TupleArtifact     one merged pico tuple: path, sample, era, channel, tag, data type, events
+  TupleArtifact     one merged pico tuple (kind 'tuples'): path, sample, era, channel, tag, data type, events,
+                    sum of weights; the production record of docs/contracts/pico-tuples.md
 
 Public API: the records above.
 """
@@ -157,7 +158,11 @@ class StageStatus(_Record):
 
 @dataclass(frozen=True)
 class TupleArtifact(_Record):
-  """One merged pico tuple. nevents: processed events (cutflow bin 1 summed over the job outputs; 0 if not counted)."""
+  """One merged pico tuple: the production record of docs/contracts/pico-tuples.md ("Production record").
+  nevents: processed events (cutflow bin 1 summed over the job outputs; 0 if not counted).
+  sumw:    cutflow bin 17 of the merged file (MC: sum of genWeight with nTrueInt>0, the normalisation; data: the
+           events with a primary vertex); None if it could not be read.
+  kind:    'tuples', what the readers select by (the Framework's input slots, ctx.input(..., kind='tuples'))."""
   path:    str
   sample:  str
   group:   str
@@ -166,8 +171,10 @@ class TupleArtifact(_Record):
   tag:     str
   dtype:   str
   nevents: float = 0
+  sumw:    Optional[float] = None
   tree:    str = "tree"
   cutflow: str = "cutflow"
+  kind:    str = "tuples"
 
 
 @dataclass(frozen=True)
