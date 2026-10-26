@@ -32,7 +32,6 @@ Public API:
   TauESID(basedir, runner, read_yaml, python, which, find_module)
   plan_fit, fit, preflight_fit                                               pipelines
   fit_request(**fields)                                                      a FitRequest
-  config_file(config)                                                        a config as an absolute path
 """
 import glob
 import importlib.util
@@ -137,10 +136,6 @@ class TauESID:
     def fit_request(self, **fields):
         """A FitRequest (unknown fields are an error), so callers need not import the records."""
         return FitRequest(**fields)
-
-    def config_file(self, config):
-        """A config file (relative to Fitter/, or absolute), as an absolute path."""
-        return self._path(config)
 
     # =========================================================================
     # =============================== COMMANDS ================================

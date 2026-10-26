@@ -12,6 +12,8 @@ from TauFW.Framework.defaults import CONFIGS_DIR
 
 FIT = {"stage": "fit", "id": "fit"}  # its inputs: setUp (the shapes of another run; never null, CL §37)
 STEP = {"stage": "python", "id": "check", "inputs": None, "file": "steps/check.py"}
+NOT_FOUND = ("%s is not a file of the bundle (%s), a Configs/ template or an absolute path: copy it into the bundle, "
+             "or give its absolute path (no module directory is searched, CL §38)")  # (value, bundle directory)
 
 
 class CheckRecipeTests(unittest.TestCase):
@@ -80,7 +82,6 @@ class CheckRecipeTests(unittest.TestCase):
     def test_run_root(self):
         check = self.check_root("/afs/cern.ch/work/u/user/taufw_runs")  # absolute on lxplus (also on Windows)
         self.assertEqual((self.messages(check), check.warnings), ([], ()))
-        self.assertEqual(check.recipe.run_root_dir, "/afs/cern.ch/work/u/user/taufw_runs")
         self.assertEqual(check.recipe.to_dict()["run_root"], "/afs/cern.ch/work/u/user/taufw_runs")
         for value in (None, "missing"):  # not set: a warning, not a problem
             with self.subTest(run_root=value):
@@ -95,20 +96,16 @@ class CheckRecipeTests(unittest.TestCase):
                 self.assertIsNone(check.recipe.run_root)
                 self.assertNotIn("run_root", check.recipe.to_dict())
 
-    def test_run_root_with_variables_is_expanded_with_a_warning(self):
-        with mock.patch.dict(os.environ, {"TAUFW_TEST_ROOT": self.root}):
-            check = self.check_root("$TAUFW_TEST_ROOT/runs")
-            self.assertTrue(check.ok)
-            expanded = self.root + "/runs"
-            self.assertEqual(check.recipe.run_root_dir, expanded)
-            self.assertEqual(check.recipe.run_root, "$TAUFW_TEST_ROOT/runs")  # as written (saved in run.json)
-            self.assertEqual([str(w) for w in check.warnings], [
-                "run_root: $TAUFW_TEST_ROOT/runs is expanded where taufw.py runs (here: %s); someone else, or "
-                "another machine, gets another directory" % (expanded)])
-        check = self.check_root("~/taufw_runs")
-        self.assertTrue(check.ok)
-        self.assertEqual(check.recipe.run_root_dir, os.path.expanduser("~/taufw_runs"))
-        self.assertIn("is expanded where taufw.py runs", str(check.warnings[0]))
+    def test_run_root_is_not_expanded(self):  # CL §38: --run-root on the command line instead
+        with mock.patch.dict(os.environ, {"TAUFW_TEST_ROOT": self.root}):  # also when the variable is set
+            for value in ("$TAUFW_TEST_ROOT/runs", "~/taufw_runs", "/afs/cern.ch/work/u/$USER/runs"):
+                with self.subTest(run_root=value):
+                    check = self.check_root(value)
+                    self.assertEqual(self.messages(check), [
+                        "run_root: %s: nothing is expanded in a recipe (another user or machine would get another "
+                        "directory, CL §38): write the absolute directory, or give --run-root on the command line "
+                        "(the shell expands it there)" % (value)])
+                    self.assertEqual(check.warnings, ())
 
     def test_external_tuples(self):
         os.makedirs(os.path.join(self.root, "tuples", "2025"))
@@ -157,9 +154,6 @@ class CheckRecipeTests(unittest.TestCase):
             ("root://eosuser.cern.ch//eos/user/u/user/runs",
              "run_root: must be a directory on a mounted file system, not a URL "
              "(got root://eosuser.cern.ch//eos/user/u/user/runs)"),
-            ("$TAUFW_UNDEFINED_VARIABLE/runs",
-             "run_root: $TAUFW_UNDEFINED_VARIABLE/runs: undefined environment variable "
-             "(expanded: $TAUFW_UNDEFINED_VARIABLE/runs)"),
             (inside, "run_root: %s is inside the bundle %s: every run copies its bundle, so it would copy the "
                      "earlier runs too. Choose a directory outside the bundle" % (inside, self.bundle)),
             (self.bundle, "run_root: %s is inside the bundle %s: every run copies its bundle, so it would copy the "
@@ -198,12 +192,13 @@ class CheckRecipeTests(unittest.TestCase):
         absolute = os.path.join(self.root, "missing_tt.yml")
         check = self.check(dict(self.fit, config=absolute, config_mumu="TauES/config/defaultFitSetup_mumu.yml"), STEP,
                            pico="pico.json")
-        self.assertEqual(self.messages(check), [
+        self.assertEqual(self.messages(check), [  # the recipe's problems (a module path, CL §38), then its files
+            "stages[0] (fit).config_mumu: " + NOT_FOUND % ("TauES/config/defaultFitSetup_mumu.yml", self.bundle),
+            "stages[1] (python).file: " + NOT_FOUND % ("steps/check.py", self.bundle),
             "pico.config: only a production stage reads the PicoProducer configuration, and this recipe has none: "
             "remove pico.config (or write null); the tuples are named in the inputs (CL §37)",
             "pico.config: file not found: %s" % (os.path.join(self.bundle, "pico.json")),
-            "stages[0] (fit).config: file not found: %s" % (absolute),  # a module path is the module's to check
-            "stages[1] (python).file: steps/check.py is not a file of the bundle (%s)" % (self.bundle)])
+            "stages[0] (fit).config: file not found: %s" % (absolute)])
         self.assertIsNone(check.recipe)
 
     def test_pico_config_only_with_production(self):  # CL §37 (K5)
@@ -248,7 +243,7 @@ class CheckRecipeTests(unittest.TestCase):
         self.assertEqual(self.messages(check), [
             "name: must be a word of letters, digits, '_', '.' or '-' (got 'a b')",
             "stages[0] (fit): missing 'id' (every stage needs a unique id, e.g. id: fit)",
-            "stages[1] (python).file: steps/check.py is not a file of the bundle (%s)" % (self.bundle)])
+            "stages[1] (python).file: " + NOT_FOUND % ("steps/check.py", self.bundle)])
         self.assertEqual(check.name, "a b")  # the name as written, even if it is not allowed
         self.assertEqual(check.stages, (("check", "python", ""),))
 

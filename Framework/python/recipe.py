@@ -54,12 +54,16 @@ null or left out (CL §37: the other stages never read it, their tuples are name
 
 run_root is the parent directory of the runs: a run is <run_root>/<name>_<YYYYmmdd-HHMMSS>/. It must be absolute, on
 a mounted file system (not a URL), and outside the bundle directory (every run copies its bundle, so it would copy
-the earlier runs too; a loose recipe file's directory is not copied). ~ and $VARIABLES are expanded where taufw.py runs (a warning says so; an undefined variable is a
-problem). Without run_root (or with run_root: null) the runs go to taufw_runs/ in the directory taufw.py is started
+the earlier runs too; a loose recipe file's directory is not copied). Nothing is expanded in a recipe (CL §38): ~ or
+a $VARIABLE is a problem, since another user or machine would get another directory; for a personal place give
+`--run-root` on the command line, where the shell expands it. Without run_root (or with run_root: null) the runs go to taufw_runs/ in the directory taufw.py is started
 from, with a warning. `taufw.py start --run-root DIR` takes precedence over the recipe.
 
 A recipe is usually the recipe.yml of an analysis bundle (Analyses/<name>/, see bundle.py): Recipe.load() takes
-the bundle directory or the file, and the path options of the stages are resolved against that directory.
+the bundle directory or the file, and the path options of the stages are resolved against that directory, with
+one rule for every option (bundle.py, CL §38): absolute, a file of the bundle (or above it: ../x, made absolute
+when loaded), a Configs/ template, or (controlhists configs) a channel name. Anything else is a problem: no module
+directory is searched.
 
 Every problem of a recipe is collected, not only the first: Recipe.parse() returns them as Issues, and
 Recipe.from_dict() / Recipe.load() raise one RecipeError that lists them all, e.g.
@@ -78,20 +82,19 @@ Public API:
   Recipe.load(path) / Recipe.from_dict(data, source, bundle_dir) / Recipe.parse(...) / recipe.to_dict()
   recipe_warnings(data, bundle_dir=None) -> [Issue]   what a recipe should change, though it can run (e.g. no
                                      run_root, an old copy of a Configs/ template in the bundle)
-  run_root_dir(value)   -> str       run_root with ~ and $VARIABLES expanded (None: not set)
   StageSpec            one stage of the recipe: its type, id, inputs, typed options (Spec), options as written
   Issue                one problem (or warning) of a recipe: where it is and what is wrong
   RecipeError          invalid recipe (its .issues list every problem)
 """
-import os, re, copy, posixpath
-from dataclasses import dataclass, field, replace
+import os, re, copy
+from dataclasses import dataclass, field
 from typing import Optional, Tuple
-from TauFW.Framework.bundle import leaves_bundle, is_bundle, where as path_kind
+from TauFW.Framework.bundle import leaves_bundle, is_bundle, is_absolute, path_rows
 from TauFW.Framework.configs import copy_warnings
 from TauFW.Framework.defaults import RECIPE_NAME, DEFAULT_RUN_ROOT, default_file_io
 from TauFW.Framework.stages import STAGES, ORDER, RETIRED, MOVED_CONFIGS, SpecError, spec_from_dict
 
-__all__ = ['Recipe', 'StageSpec', 'Issue', 'RecipeError', 'recipe_warnings', 'run_root_dir']
+__all__ = ['Recipe', 'StageSpec', 'Issue', 'RecipeError', 'recipe_warnings']
 
 
 # =============================================================================
@@ -162,7 +165,7 @@ class Recipe:
     """A checked recipe.
     pico_config: the PicoProducer configuration as written (None: PicoProducer's default); see pico_config_path.
     bundle_dir:  the directory the path options are resolved against (the bundle; None: none).
-    run_root:    the parent directory of the runs as written (None: not set); see run_root_dir.
+    run_root:    the parent directory of the runs, absolute, as written (None: not set).
     warnings:    what the recipe should change, though it can run (recipe_warnings)."""
     name:        str
     stages:      Tuple[StageSpec, ...]
@@ -191,18 +194,14 @@ class Recipe:
         """The path of the PicoProducer configuration (relative paths are in the bundle), or None."""
         return _pico_config_path(self.pico_config, self.bundle_dir)
 
-    @property
-    def run_root_dir(self):
-        """The parent directory of the runs, with ~ and $VARIABLES expanded, or None if the recipe sets none."""
-        return run_root_dir(self.run_root)
-
     # =========================================================================
     # ================================ LOADING ================================
 
     @classmethod
     def load(cls, path, files=None):
         """Read and check a recipe: a bundle directory (its recipe.yml) or a .yml/.yaml/.json file. The file's
-        directory is the bundle directory. files: a TauFW.Utilities FileIO (default: new).
+        directory is the bundle directory; a relative path above it (../x) is made absolute (bundle.py).
+        files: a TauFW.Utilities FileIO (default: new).
         Raises RecipeError listing every problem, also for a file that cannot be read (Framework BUGS K06)."""
         try:
             data, source, directory = read_recipe(path, files)
@@ -211,11 +210,7 @@ class Recipe:
         except Exception as error:  # a missing or unreadable file, a YAML syntax error, ...
             reason = "no such file" if not os.path.exists(path) else str(error)
             raise RecipeError(path, [Issue("", "cannot read the recipe: %s" % (reason))]) from None
-        recipe = cls.from_dict(data, source=source, bundle_dir=directory)
-        if recipe.pico_config and not os.path.isabs(recipe.pico_config) and leaves_bundle(recipe.pico_config):
-            # above the bundle (e.g. ../../PicoProducer/config/config.json): not copied into a run, so made absolute
-            recipe = replace(recipe, pico_config=recipe.pico_config_path)
-        return recipe
+        return cls.from_dict(_outside_made_absolute(data, directory), source=source, bundle_dir=directory)
 
     @classmethod
     def from_dict(cls, data, source="<recipe>", bundle_dir=None):
@@ -340,38 +335,33 @@ def _stage_entry(entry, index, bundle_dir, issues):
         location, _, message = str(err).partition(": ")
         issues.append(Issue(location, message) if message else Issue(where, str(err)))
         return result
-    _check_moved_configs(spec, where, bundle_dir, issues)
-    _check_module_paths(spec, where, bundle_dir, issues)
+    _check_paths(spec, where, bundle_dir, issues)
     if stage_id is not None:
         result.stage_spec = StageSpec(stage=name, id=stage_id, spec=spec, options=copy.deepcopy(options),
                                       inputs=copy.deepcopy(inputs), description=description or "")
     return result
 
 
-def _check_moved_configs(spec, where, bundle_dir, issues):
-    """A path option naming the old module path of a config that is a Configs/ template now (stages.MOVED_CONFIGS)
-    is an error naming the template; a bundle file with that relative path is the bundle's and is fine."""
+def _check_paths(spec, where, bundle_dir, issues):
+    """Every path option names a file by the rule of bundle.py (CL §38): absolute, in or above the bundle, a
+    Configs/ template or (the Spec's _channel_paths) a channel name. Anything else is an error: no module directory
+    is searched. The old module path of a config that became a template (stages.MOVED_CONFIGS) names the template.
+    Without a bundle directory (a recipe dict on its own) nothing is looked up."""
+    if not bundle_dir:
+        return
     moved = {os.path.normpath(old): new for old, new in MOVED_CONFIGS.items()}
-    for option in getattr(type(spec), '_paths', ()):
-        value = getattr(spec, option)
-        for item in (value if isinstance(value, tuple) else (value,)):
-            if isinstance(item, str) and os.path.normpath(item) in moved and path_kind(item, bundle_dir) == 'module':
-                issues.append(Issue("%s.%s" % (where, option), "%s moved to %s (CL §22): name the template, or a "
-                                    "copy of it in the bundle" % (item, moved[os.path.normpath(item)])))
-
-
-def _check_module_paths(spec, where, bundle_dir, issues):
-    """A path option that takes no module-relative path (the Spec's _no_module_paths) names a bundle file, a
-    Configs/ template or an absolute path: the shapes stage's API is the Histogrammer's, while its configs were
-    Fitter files (CL §22 H3). An old path of stages.MOVED_CONFIGS has its own message (_check_moved_configs)."""
-    moved = {os.path.normpath(old) for old in MOVED_CONFIGS}
-    for option in getattr(type(spec), '_no_module_paths', ()):
-        value = getattr(spec, option)
-        for item in (value if isinstance(value, tuple) else (value,)):
-            if (isinstance(item, str) and path_kind(item, bundle_dir) == 'module'
-                    and os.path.normpath(item) not in moved):
-                issues.append(Issue("%s.%s" % (where, option), "%s is not a file of the bundle or a Configs/ "
-                                    "template: copy it into the bundle (or give an absolute path)" % (item)))
+    for option, value, _, kind in path_rows(spec, bundle_dir):
+        if kind != 'missing':
+            continue
+        if os.path.normpath(value) in moved:
+            message = ("%s moved to %s (CL §22): name the template, or a copy of it in the bundle"
+                       % (value, moved[os.path.normpath(value)]))
+        else:
+            message = ("%s is not a file of the bundle (%s), a Configs/ template%s or an absolute path: copy it "
+                       "into the bundle, or give its absolute path (no module directory is searched, CL §38)"
+                       % (value, bundle_dir, ", a channel name" if option in getattr(type(spec), '_channel_paths', ())
+                          else ""))
+        issues.append(Issue("%s.%s" % (where, option), message))
 
 
 def _check_id(entry, where, issues):
@@ -486,7 +476,7 @@ def _path_problem(path, bundle_dir):
                 "/afs/.../taufw_runs/<run>/stages/shapes (got %r)" % (path,))
     if URLEXP.match(path):
         return "path must be a directory on a mounted file system, not a URL (got %s)" % (path)
-    if not _is_absolute(path):
+    if not is_absolute(path):
         return ("path must be absolute (got %s; relative paths are not allowed, and ~ and $VARIABLES are not "
                 "expanded)" % (path))
     if is_bundle(bundle_dir) and _inside(path, bundle_dir):
@@ -507,7 +497,7 @@ def _external_problem(value, kind):
         return "external must be an absolute directory pattern, e.g. /eos/.../$ERA/$GROUP (got %r)" % (pattern,)
     if URLEXP.match(pattern):
         return "external must be a directory on a mounted file system, not a URL (got %s)" % (pattern)
-    if not _is_absolute(pattern):
+    if not is_absolute(pattern):
         return ("external must be an absolute directory pattern (got %s; ~ and $VARIABLES at the start are not "
                 "expanded)" % (pattern))
     return None
@@ -560,20 +550,40 @@ def _check_keys(data, known, where, issues):
 
 
 def _pico_config_path(value, bundle_dir):
-    if not value or os.path.isabs(value) or not bundle_dir:
+    if not value or is_absolute(value) or not bundle_dir:
         return value
     return os.path.normpath(os.path.join(bundle_dir, value))
+
+
+def _outside_made_absolute(data, bundle_dir):
+    """A copy of a recipe dict whose relative paths above the bundle directory (../x in pico.config and in the
+    stages' path options) are absolute: such a file is not copied into a run, and a run reads its recipe against
+    its own copy of the bundle, where ../x would name another file (bundle.py, CL §38). Anything malformed is left
+    as it is for Recipe.parse to report."""
+    if not isinstance(data, dict) or not bundle_dir:
+        return data
+
+    def absolute(value):
+        if isinstance(value, str) and value and leaves_bundle(value):
+            return os.path.normpath(os.path.join(bundle_dir, value))
+        return value
+
+    data = copy.deepcopy(data)
+    if isinstance(data.get('pico'), dict) and 'config' in data['pico']:
+        data['pico']['config'] = absolute(data['pico']['config'])
+    for entry in data.get('stages') if isinstance(data.get('stages'), list) else ():
+        if isinstance(entry, dict) and entry.get('stage') in STAGES:
+            for option in getattr(STAGES[entry['stage']].Spec, '_paths', ()):
+                if isinstance(entry.get(option), list):
+                    entry[option] = [absolute(item) for item in entry[option]]
+                elif option in entry:
+                    entry[option] = absolute(entry[option])
+    return data
 
 
 # =============================================================================
 # ================================= RUN ROOT ==================================
 
-
-def run_root_dir(value):
-    """run_root with ~ and $VARIABLES expanded (where taufw.py runs), or None if it is not set."""
-    if value is None:
-        return None
-    return os.path.expandvars(os.path.expanduser(value))
 
 
 def _check_run_root(value, bundle_dir, issues):
@@ -587,17 +597,18 @@ def _check_run_root(value, bundle_dir, issues):
     if URLEXP.match(value):
         issues.append(Issue('run_root', "must be a directory on a mounted file system, not a URL (got %s)" % (value)))
         return None
-    expanded = run_root_dir(value)
-    if '$' in expanded:
-        issues.append(Issue('run_root', "%s: undefined environment variable (expanded: %s)" % (value, expanded)))
+    if value.startswith('~') or '$' in value:
+        issues.append(Issue('run_root', "%s: nothing is expanded in a recipe (another user or machine would get "
+                                        "another directory, CL §38): write the absolute directory, or give "
+                                        "--run-root on the command line (the shell expands it there)" % (value)))
         return None
-    if not _is_absolute(expanded):
+    if not is_absolute(value):
         issues.append(Issue('run_root', "must be an absolute path (got %s)" % (value)))
         return None
-    if is_bundle(bundle_dir) and _inside(expanded, bundle_dir):  # a bundle is copied whole (bundle.snapshot)
+    if is_bundle(bundle_dir) and _inside(value, bundle_dir):  # a bundle is copied whole (bundle.snapshot)
         issues.append(Issue('run_root', "%s is inside the bundle %s: every run copies its bundle, so it would copy "
                                         "the earlier runs too. Choose a directory outside the bundle"
-                            % (expanded, bundle_dir)))
+                            % (value, bundle_dir)))
         return None
     return value
 
@@ -625,9 +636,6 @@ def recipe_warnings(data, bundle_dir=None):
         warnings.append(Issue('run_root', "not set: the runs go to %s/ in the directory taufw.py is started from. "
                                           "Set run_root: <absolute directory> in the recipe, or start with "
                                           "--run-root" % (DEFAULT_RUN_ROOT)))
-    elif isinstance(value, str) and run_root_dir(value) != value and '$' not in run_root_dir(value):
-        warnings.append(Issue('run_root', "%s is expanded where taufw.py runs (here: %s); someone else, or another "
-                                          "machine, gets another directory" % (value, run_root_dir(value))))
     read = {value for entry in stages if isinstance(entry, dict) and isinstance(entry.get('inputs'), dict)
             for value in entry['inputs'].values() if isinstance(value, str)}  # the stage ids that are read
     for index, entry in enumerate(stages):
@@ -641,11 +649,6 @@ def recipe_warnings(data, bundle_dir=None):
         warnings.extend(Issue(relative, message) for relative, message in copy_warnings(bundle_dir))
     return warnings
 
-
-def _is_absolute(path):
-    """An absolute path on lxplus (/afs/..., /eos/...) or on this machine. posixpath: on Windows os.path.isabs
-    says False for /afs/... (K05)."""
-    return posixpath.isabs(path) or os.path.isabs(path)
 
 
 def _inside(path, directory):

@@ -94,7 +94,7 @@ def cmd_plan(args):
             reporter.message(stage_spec.description)
         reporter.message("Inputs: %s" % (_inputs_line(stage_spec, framework.stages[stage_spec.id],
                                                      stage_plan.sources)))
-        if stage_plan.paths:  # the files the stage reads: from the bundle, from its module, or absolute
+        if stage_plan.paths:  # the files the stage reads: bundle, template, channel name or absolute (bundle.py)
             reporter.table(["option", "file", "from"],
                            [(option, resolved, where) for option, _, resolved, where in stage_plan.paths])
         if stage_plan.plan is None:  # placeholder stage
@@ -235,13 +235,12 @@ def _show_warnings(reporter, warnings):
 
 
 def _run_root_line(recipe, given=None):
-    """Where the runs go, and why: --run-root, the recipe's run_root (with ~ and $VARIABLES expanded), or the
+    """Where the runs go, and why: --run-root, the recipe's run_root (absolute, nothing expanded), or the
     default."""
     if given:
         return "%s (--run-root)" % (os.path.abspath(given))
     if recipe.run_root:
-        expanded = recipe.run_root_dir
-        return "%s (recipe%s)" % (expanded, "" if expanded == recipe.run_root else ": %s" % (recipe.run_root))
+        return "%s (recipe)" % (recipe.run_root)
     return "%s (default: no run_root in the recipe)" % (os.path.abspath(DEFAULT_RUN_ROOT))
 
 

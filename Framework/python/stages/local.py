@@ -20,7 +20,7 @@ A subclass sets `name` and `Spec`, and implements:
     preflight(request, context)     -> tuple of problems (empty: ready)
     execute(request, logdir, progress) -> RunReport
     summary(report)                 -> the stage's message when it is DONE (default: counts)
-    config_file(value)              -> the module file of a path option (for taufw.py init; default: None)
+    config_file(value)              -> the file of a channel name (controlhists; for taufw.py init; default: None)
     requested_samples(spec, context) -> [(era, channel, MC names, data pattern)] of its sample model files
                                        (`samples` option; default: none), see samples.py
 A stage with a `tuples` input slot reads the tuples its input names (tuples_pattern): the pattern recorded on the

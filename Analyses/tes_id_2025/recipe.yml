@@ -26,7 +26,7 @@ name: tes_id_2025
 # run_root: the parent directory of the runs (<run_root>/<name>_<time>/). It is not set here, so taufw.py warns and
 # the runs go to taufw_runs/ in the directory it is started from. On lxplus, set it to a directory with enough
 # space; the home directory's AFS quota is small:
-#   run_root: /afs/cern.ch/work/u/user/taufw_runs     # absolute; ~ and $VARIABLES ($HOME, $USER) are expanded
+#   run_root: /afs/cern.ch/work/u/user/taufw_runs     # absolute; ~ and $VARIABLES are not expanded
 # (start --run-root DIR takes precedence). EOS as run_root is not tested yet.
 
 pico:

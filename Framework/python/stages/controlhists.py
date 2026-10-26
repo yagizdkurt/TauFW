@@ -8,7 +8,7 @@ each with the API of its own module, and the Framework carries the files between
 
     inputs:   tuples: pico tuples, given to the script as --tuples <pattern>: those of the production stage the slot
               names (the pattern on its artifacts), {external: <pattern>} or {path: ...}; never null (CL §37)
-    options:  ControlHistsSpec: what is filled (eras, channel setups (bundle files or the Histogrammer's), sample
+    options:  ControlHistsSpec: what is filled (eras, channel setups (bundle files, templates or channel names), sample
               files, variable and selection filters, the tag of the file names, the script's filling options); the
               drawing options (-F, -p, -T) are the controlplots stage's
     outputs:  one control_histograms artifact per channel setup and era: {kind: 'control_histograms', era, config,
@@ -58,6 +58,7 @@ class ControlHistsStage(LocalStage):
         return self.api.make(request, logdir, progress)
 
     def config_file(self, value):
+        """The channel setup of a channel name (taufw.py init copies it into the new bundle)."""
         return self.api.config_file(value)
 
 
@@ -67,7 +68,7 @@ class ControlHistsStage(LocalStage):
 
 @dataclass(frozen=True)
 class ControlHistsSpec:
-    """Recipe options: eras, channel setups (bundle files, .yml files relative to Histogrammer/, or a channel name for
+    """Recipe options: eras, channel setups (bundle files, Configs/ templates, absolute, or a channel name for
     Configs/Histogrammer/setups/setup_<channel>.yml), the script's filters -V (variables) and -S (selections), and its
     filling options. Everything here changes what is in the files; what changes only the picture is an option of
     the controlplots stage (plan 18 §14 K7)."""
@@ -96,4 +97,5 @@ class ControlHistsSpec:
 
 
 ControlHistsSpec._paths = ('configs', 'samples')  # resolved against the bundle (bundle.py)
+ControlHistsSpec._channel_paths = ('configs',)     # also a channel name, e.g. mutau (bundle.py)
 ControlHistsStage.Spec = ControlHistsSpec

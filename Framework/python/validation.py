@@ -2,27 +2,25 @@
 """Recipe validation: every problem of a recipe, before anything runs (the menu, `taufw.py check`).
 
     check_recipe(path) ─▶ read the file ─┬─ cannot read ─▶ one issue
-                                         └─▶ Recipe.parse() ─▶ structure, ids, inputs, order (recipe.py)
-                                                └─▶ files ─▶ pico.config, absolute path options, python step files,
+                                         └─▶ Recipe.parse() ─▶ structure, ids, inputs, order, path rule (recipe.py)
+                                                └─▶ files ─▶ pico.config, absolute path options, templates,
                                                              the stage directories of {path: ...} inputs
                                                        ─▶ RecipeCheck(recipe or None, stages, issues, warnings)
 
 What is checked here and what is not:
-    checked:      everything Recipe.load() checks, plus the files the recipe names that do not depend on a module:
-                  pico.config, absolute path options, Configs/ templates (`Configs/...`, bundle.py; the old module
-                  path of a config that became a template is a Recipe error, stages.MOVED_CONFIGS; so is a
-                  module-relative config of the shapes stage, whose API is not the configs' module, CL §22 H3),
-                  the `file` of python steps (always a bundle file), the
-                  directory of an {external: <pattern>} input (its part before the first $KEY), and the stage
+    checked:      everything Recipe.load() checks (a path option that is not a bundle file, a template, absolute
+                  or a channel name is a Recipe error, CL §38; the old module path of a config that became a
+                  template too, stages.MOVED_CONFIGS), plus the files the recipe names: pico.config, absolute
+                  path options (also ../x above the bundle, made absolute as Recipe.load() does), Configs/
+                  templates (`Configs/...`, bundle.py), the directory of an {external: <pattern>} input (its part before the first $KEY), and the stage
                   directory of a {path: <stage directory>} input: it exists, has a manifest of format 2 (its stage
                   is DONE), was not moved or copied, and its stage makes the kind of data the slot takes
                   (manifest.py; the same rule as between the stages of one recipe).
     samples:      the `samples` option (controlhists, shapes) names files of the bundle (copies of the templates in
-                  Configs/Histogrammer/samples/), templates (`Configs/...`) or absolute ones, not module files;
-                  they are read through the
+                  Configs/Histogrammer/samples/), templates (`Configs/...`) or absolute ones; they are read through the
                   Histogrammer API (the format is the Histogrammer's): readable, exactly one per era of the stage.
-    not checked:  path options a module resolves (e.g. the fit's TauES/config/...), and the environment (CMSSW,
-                  ROOT, combine, tuples on disk): they are the machine's state, not the recipe's. The stages' plan
+    not checked:  a channel name (controlhists configs: the Histogrammer's preflight finds its setup), and the
+                  environment (CMSSW, ROOT, combine, tuples on disk): they are the machine's state, not the recipe's. The stages' plan
                   notes and preflight report them.
 
 Inputs:  a recipe file or bundle directory.
@@ -38,12 +36,12 @@ import os
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
-from TauFW.Framework.bundle import path_rows
+from TauFW.Framework.bundle import path_rows, is_absolute
 from TauFW.Framework.manifest import read_stage_dir, ManifestError
 from TauFW.Framework.stages import STAGES
 from TauFW.Framework.stages.local import fixed_directory
 from TauFW.Framework.recipe import (Recipe, RecipeError, Issue, read_recipe, recipe_warnings, _external_problem,
-                                    _path_problem)
+                                    _path_problem, _outside_made_absolute)
 
 __all__ = ['check_recipe', 'RecipeCheck', 'read_source']
 
@@ -62,7 +60,7 @@ def check_recipe(path, files=None):
     except Exception as error:  # unreadable file, YAML syntax error, ...
         return RecipeCheck(name=os.path.basename(path), path=path,
                            issues=(Issue("", "cannot read %s: %s" % (path, error)),))
-    recipe, stage_specs, issues = Recipe.parse(data, source, bundle_dir)
+    recipe, stage_specs, issues = Recipe.parse(_outside_made_absolute(data, bundle_dir), source, bundle_dir)
     pico = data.get('pico') if isinstance(data, dict) else None
     issues = list(issues) + _file_issues(pico.get('config') if isinstance(pico, dict) else None, stage_specs,
                                          bundle_dir)
@@ -80,7 +78,7 @@ def _file_issues(pico_config, stage_specs, bundle_dir):
     """The files a recipe names that are missing (see the top of this file)."""
     issues = []
     if isinstance(pico_config, str) and pico_config:
-        found = pico_config if os.path.isabs(pico_config) else os.path.join(bundle_dir or "", pico_config)
+        found = pico_config if is_absolute(pico_config) else os.path.join(bundle_dir or "", pico_config)
         if not os.path.isfile(found):
             issues.append(Issue('pico.config', "file not found: %s" % (os.path.normpath(found))))
     for index, stage_spec in stage_specs:
@@ -90,9 +88,6 @@ def _file_issues(pico_config, stage_specs, bundle_dir):
                 issues.append(Issue("%s.%s" % (where, option), "file not found: %s" % (resolved)))
             elif kind == 'template' and not os.path.isfile(resolved):
                 issues.append(Issue("%s.%s" % (where, option), "no such template: %s" % (resolved)))
-            elif kind == 'module' and (stage_spec.stage == 'python' or option == 'samples'):
-                issues.append(Issue("%s.%s" % (where, option), "%s is not a file of the bundle (%s)"
-                                    % (value, bundle_dir)))
         issues.extend(_sample_issues(stage_spec, where, bundle_dir))
         for slot, pattern in stage_spec.external.items():
             if _external_problem({'external': pattern}, 'tuples'):
@@ -112,9 +107,9 @@ def _file_issues(pico_config, stage_specs, bundle_dir):
 def _sample_issues(stage_spec, where, bundle_dir):
     """The problems of the sample model files of a stage's `samples` option (read through the Histogrammer API)."""
     files = [resolved for option, _, resolved, kind in path_rows(stage_spec.spec, bundle_dir)
-             if option == 'samples' and kind != 'module']
+             if option == 'samples' and kind != 'missing']
     if not files or len(files) != len(getattr(stage_spec.spec, 'samples', ())):
-        return []  # none, or a module path (reported above)
+        return []  # none, or a file that is not found (a Recipe error)
     from TauFW.Histogrammer.api import ControlHists  # the format of the files is the Histogrammer's
     return [Issue("%s.samples" % (where), problem)
             for problem in ControlHists().samples_problems(files, stage_spec.spec.eras)]

@@ -14,8 +14,7 @@ pair and config. The fit stage reads the files by the contract Docs/Develop/cont
               tuples (ControlHists) and every variation tuple the configs read (TESShapes.preflight_shapes), so a
               missing one is a note in check/plan and stops the stage before any command runs.
     options:  ShapesSpec (eras, configs, jet and electron working points); the configs are bundle files,
-              Configs/ templates or absolute: a module-relative path is a recipe error (the API resolves it against
-              Histogrammer/, the configs were Fitter files; CL §22 H3)
+              Configs/ templates or absolute (the path rule of bundle.py, CL §38)
     outputs:  one shapes artifact per shape file: {kind: 'shapes', path, era, channel, config, jet_wp, ele_wp,
               observable}; the scripts run in the stage's directory, so the files are in
               <run_dir>/stages/<id>/input_pt_less_region/againstjet_<J>/againstelectron_<E>/
@@ -80,9 +79,6 @@ class ShapesStage(LocalStage):
     def execute(self, request, logdir, progress):
         return self.api.make_shapes(request, logdir, progress)
 
-    def config_file(self, value):
-        return self.api.config_file(value)
-
 
 # =============================================================================
 # ================================= CONTRACT ==================================
@@ -115,5 +111,4 @@ class ShapesSpec:
 
 
 ShapesSpec._paths = ('configs', 'samples')  # resolved against the bundle (bundle.py)
-ShapesSpec._no_module_paths = ('configs',)   # no module-relative path (recipe.py; CL §22 H3, E2)
 ShapesStage.Spec = ShapesSpec

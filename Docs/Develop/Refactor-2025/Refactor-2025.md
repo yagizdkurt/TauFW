@@ -1335,9 +1335,10 @@ Decisions of the user (2026-10-26):
 
 **Date:** 2026-10-26
 **Status:** in progress. D0 done (locked on lxplus 2026-10-26: 23 cases `same`, the new one `ADDED`). D1 done, checked
-on lxplus 2026-10-26 (BBB 24/24 without re-lock; `fillhists.py` by hand with and without a configuration). D2 done (lxplus 2026-10-26:
-checks, BBB). D3 done on Windows (unit tests), lxplus check in TODO §1 "Recipes give every input (CL §37 D3)". D4
-next.
+on lxplus 2026-10-26 (BBB 24/24 without re-lock; `fillhists.py` by hand with and without a configuration). D2 and D3 done (lxplus 2026-10-26: checks
+15/16, the known boundary debt only; BBB 24/24 without re-lock; `taufw.py check` of the four `Analyses/` recipes as
+before; `plan` without `TAUFW_PICO_CONFIG`, with `--tuples`, "PicoProducer config:" only with production). D4, the
+path rule of plan 23, is CL §38.
 **Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#37-inputs-are-given-never-found)
 
 **Details:** `LocalR/architecture/23-given-inputs-plan.md` (ModuleIsolationFinalizations §3 D; decisions of the
@@ -1404,3 +1405,65 @@ migration point.
   Before / after (`taufw.py check` of an old recipe): `inputs: {tuples: null}` was valid (the scripts got
   `$TAUFW_PICO_CONFIG`) -> the error above; `pico: {config: pico.json}` with only a fit stage was valid -> "pico.config:
   only a production stage reads the PicoProducer configuration, and this recipe has none: ...".
+
+## 38. One rule for the paths in a recipe
+
+**Date:** 2026-10-27
+**Status:** done on Windows (unit tests); lxplus check in TODO §1 "One path rule in recipes (CL §38)".
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#38-one-rule-for-the-paths-in-a-recipe)
+
+**Details:** `LocalR/architecture/23-given-inputs-plan.md` §4 (step D4 of "inputs are given, never found",
+ModuleIsolationFinalizations §3 D). Decisions of the user (2026-10-26/27): 8a no module fallback for files; 8b `../`
+allowed, the user's responsibility; 8c option A, nothing expanded in a recipe; 8d one test for "absolute"; the two
+Fitter default configs stay where they are (documented, removable at the migration point); the Fitter API's
+`config_file` removed.
+
+Until now a relative path option that was not a bundle file was handed to the module unchanged, which read it
+relative to its own directory (`Fitter/`, `Histogrammer/`): a recipe could read a module file without naming where it
+was. `run_root` had `~` and `$VARIABLES` expanded where `taufw.py` ran (with a warning); `{path: ...}` and
+`{external: ...}` expanded nothing; `pico.config: ../x` alone was made absolute; and the absolute test was
+`os.path.isabs` in some places and posixpath-or-os.path in others (Framework BUGS K05).
+
+- **One rule for every file key** (`configs`, `samples`, `config`, `config_mumu`, `file`, `pico.config`;
+  `bundle.where`): absolute -> as written; relative -> the recipe's directory + path: a bundle file (copied into the
+  run with the bundle), or above it (`../x`: `outside`, made absolute by `Recipe.load()` and by `check_recipe`, so a
+  run, which reads its recipe against its own bundle copy, reads the file where it is; not copied); `Configs/...` not
+  in the bundle -> the template; for an option in the Spec's `_channel_paths` (only `controlhists.configs`) a name
+  without `/` and `.yml` -> the channel's setup (`channel`). Anything else is `missing`, a recipe error (load, check,
+  plan, start, continue): `stages[2] (fit).config: TauES/config/defaultFitSetupTES_mutau.yml is not a file of the
+  bundle (<dir>), a Configs/ template or an absolute path: copy it into the bundle, or give its absolute path (no
+  module directory is searched, CL §38)`. The old module paths of configs that became templates keep their message
+  naming the template (`MOVED_CONFIGS`). One check, `recipe._check_paths`, replaces `_check_moved_configs`,
+  `_check_module_paths` and the shapes-only `ShapesSpec._no_module_paths`; `validation._file_issues` no longer
+  reports a module path of a python step or a `samples` file itself (the recipe error does).
+- **Data locations** (`run_root`, `{external: ...}`, `{path: ...}`): absolute, nothing expanded. `run_root: ~/runs`
+  or `$HOME/runs` is a problem: "nothing is expanded in a recipe (another user or machine would get another
+  directory, CL §38): write the absolute directory, or give --run-root on the command line (the shell expands it
+  there)". `recipe.run_root_dir`, `Recipe.run_root_dir` and the "is expanded where taufw.py runs" warning are gone;
+  `plan` prints `<run_root> (recipe)`.
+- **One absolute test** `bundle.is_absolute` (posixpath or os.path) in `bundle.where`, `recipe.py`
+  (`_pico_config_path`, `_path_problem`, `_external_problem`, `_check_run_root`) and `validation.py` (K05 fixed).
+- **`taufw.py init --from`** copies the templates and channel setups a recipe names (`where == 'channel'` asks the
+  controlhists stage for the setup file); the `config_file` wrappers of the shapes and fit stages are gone, and so is
+  `TauESID.config_file` of the Fitter API (only `init` called it; the API still reads relative configs against
+  `Fitter/` itself, `_path`). The Histogrammer APIs' `config_file` stays (their commands use it).
+- **The two Fitter defaults** `Fitter/TauES/config/defaultFitSetupTES_mutau.yml` and `defaultFitSetup_mumu.yml` stay
+  where they are: they are the `-c` defaults of the old standalone TauES scripts (`makeTESfit.py`,
+  `plotParabola_TES.py`, `checkShapes_TES.py`, `harvestDatacards_*`), not templates. A recipe no longer reads them by
+  their module path; the fit stage's own defaults are the templates `Configs/Fitter/tes_id/config_coarse_TT.yml` and
+  `FitSetup_mumu.yml` (the same content as `defaultFitSetup_mumu.yml` plus the `taufw_config` header). They may go
+  with the old scripts at the migration point (TODO §8).
+- Scripts, module APIs and BBB are not touched: a command typed by hand with `-c TauES/config/...` is unchanged.
+  The four `Analyses/` recipes use no module path and no `~`/`$` (only their comments said that `run_root` is
+  expanded); `example_broken`'s fourth error now comes from the recipe check with the new wording.
+  Before / after (`taufw.py check`):
+
+  ```
+  fit: {config: TauES/config/defaultFitSetupTES_mutau.yml}   Fitter/TauES/config/... read  ->  the error above
+  shapes: {configs: [../shared/tt.yml, ...]}                 handed to the module as ../shared/tt.yml (wrong
+                                                             place)  ->  <recipe dir>/../shared/tt.yml, absolute
+  pico: {config: ../pico.json}                               made absolute  ->  the same, by the general rule
+  run_root: ~/work/taufw_runs                                expanded + warning  ->  error, use --run-root
+  run_root: /afs/cern.ch/work/u/user/runs                    unchanged
+  controlhists: {configs: [mutau]}                           unchanged (plan shows `channel`, was `module`)
+  ```

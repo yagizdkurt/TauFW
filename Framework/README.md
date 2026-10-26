@@ -28,7 +28,7 @@ The words below are used everywhere in the code and in this README.
 
 | Term | Meaning | In the code |
 |---|---|---|
-| **analysis bundle** | A directory `Analyses/<name>/` with `recipe.yml`, the config files the recipe uses and its Python steps; every path is relative to the directory of `recipe.yml`. A stage's path option that names a bundle file uses it instead of the module's config. A run copies the bundle to `<run dir>/bundle/` and reads only that copy. | `bundle.py` |
+| **analysis bundle** | A directory `Analyses/<name>/` with `recipe.yml`, the config files the recipe uses and its Python steps; every path is relative to the directory of `recipe.yml`. A stage's path option names a bundle file, a `Configs/` template, an absolute file or (controlhists) a channel name; no module directory is searched (CL §38). A run copies the bundle to `<run dir>/bundle/` and reads only that copy. | `bundle.py` |
 | **recipe** | A YAML file that says what to run: a name, the PicoProducer configuration and a list of stages with their options. You write it; the Framework checks it before anything runs. | `Recipe` (`recipe.py`) |
 | **stage** | One step of the analysis: `production` (NanoAOD → pico tuples), `controlhists` (the histograms of the control plots, in a file), `controlplots` (the control plots drawn from that file), `shapes` (fit input shapes), `fit` (TES + tau ID fit), `python` (a Python file of the bundle). Each stage calls the API of its own package. | `Stage` subclasses (`stages/`) |
 | **stage id** | The name of a stage in a run, required for every stage (`id:`): `run.json` records, the stage's directories (`stages/<id>/`, `logs/<id>/`) and upstream artifacts are keyed by it, and `inputs:` refer to it. Unique; letters, digits, `_`, `.`, `-` (not `.` or `..`). Any stage may have any id. | `StageSpec.id` |
@@ -62,7 +62,7 @@ The words below are used everywhere in the code and in this README.
    `controlplots.py`, `shapes.py` and `fit.py` only map their options to the Histogrammer, Plotter and Fitter APIs; `python_step.py` runs a
    bundle's Python file through `step_runner.py`.
 6. `python/recipe.py` and `python/validation.py`: what a valid recipe is, and the checks of the files it names.
-7. `python/bundle.py`: the path rule (bundle file, `Configs/` template or module config) and the run's bundle copy.
+7. `python/bundle.py`: the path rule (absolute, bundle file or above it, `Configs/` template, channel name; CL §38) and the run's bundle copy.
 8. `python/run_record.py`: what is written to `run.json`, and how the run state is computed.
 9. `scripts/taufw.py`: the command line, which only calls the `Framework`.
 
@@ -285,7 +285,7 @@ of the stage) and in the reader's manifest.
 | `python/recipe.py` | `Recipe`, `StageSpec`, `Issue`, `RecipeError`: load and validate recipes (a bundle directory or a file): structure, stage ids, inputs (stage ids, `{path}`, `{external}`), at most one production; every problem at once |
 | `python/validation.py` | `check_recipe`, `RecipeCheck`: everything `recipe.py` checks plus the files a recipe names (and the stage directories of `{path}` inputs, `read_source`), without raising (`taufw.py check`, the menu) |
 | `python/manifest.py` | `write_manifest`, `read_stage_dir`, `StageDir`, `ManifestError`: the stage manifests (format 2) |
-| `python/bundle.py` | the path rule (bundle file, `Configs/` template, module config, absolute), the run's bundle copy, new bundles (`taufw.py init`) |
+| `python/bundle.py` | the path rule (absolute, bundle file, outside the bundle, `Configs/` template, channel name; `is_absolute`), the run's bundle copy, new bundles (`taufw.py init`) |
 | `python/samples.py` | `sample_issues`: before a run, the samples a production stage makes (PicoProducer's catalogs) vs those its readers' `samples` files ask for (Histogrammer API); `plan` lists, `start` refuses the problems |
 | `python/configs.py` | the config templates of `Configs/`: headers (`taufw_config`: id, version, schema), `configs.lock`, `update` (`taufw.py configs update`), the warnings for old copies in a bundle |
 | `python/step_runner.py` | runs a python step in its own process (standard library only): `context.json` → `run(ctx)` → `result.json` |

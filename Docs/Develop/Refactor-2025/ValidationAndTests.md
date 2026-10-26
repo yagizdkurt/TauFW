@@ -584,8 +584,12 @@ raises `OSError` on an unreadable file, which crashed the branch preflight of CL
 2026-10-26: `bbb check` 24/24 without re-lock, `checks` 14/16 (known boundary debt, Histogrammer -> PicoProducer 1 / 1 /
 1; one flaky stop test of `unit.utilities`, TODO §7), `normal` 30/30; by hand `fillhists.py` without `--tuples` read the tuples of `config.json`, a missing
 `$TAUFW_PICO_CONFIG` file gave the error naming `--tuples`. D2 on lxplus953 2026-10-26: `checks` 15/16 (the known
-boundary debt only), `bbb check` 24/24 without re-lock; the two `plan` commands open (TODO §1). D3 on Windows;
-lxplus open (TODO §1).
+boundary debt only), `bbb check` 24/24 without re-lock; the two `plan` commands open (TODO §1). D3 (and the D2 `plan`
+commands) on lxplus 2026-10-26: `checks` 15/16 (the known boundary debt only, 20 / 19 / 17, 0 new pairs), `bbb check`
+24/24 without re-lock; `taufw.py check`: `example_mutau_short`, `example_mutau_long`, `tes_id_2025` no problems,
+`example_broken` its four; `plan tes_id_2025`: no `TAUFW_PICO_CONFIG=`, every hists/shapes command with `--tuples`, no
+"PicoProducer config:" line; `plan example_mutau_long`: the line, and the hists command with `--tuples
+'<run_dir>/stages/production/$ERA/$GROUP'`.
 
 - D0: `python Tests/run.py bbb list` lists `histogrammer.tes_inputs_picodir`; `python Tests/run.py checks` on
   Windows 14/16 (the known two). The case needs ROOT: locked on lxplus with the whole suite (`bbb lock --replace`,
@@ -620,3 +624,23 @@ lxplus open (TODO §1).
   with `pico.config` now have a production stage (`test_bundle`: `ProductionStage` with a fake PicoProducer).
   `check_recipe` of the four `Analyses/` recipes: `example_mutau_short`, `example_mutau_long` OK, `tes_id_2025` only
   the EOS directory (Windows), `example_broken` its four intended errors. Framework 208 tests pass; `checks` 14/16.
+
+## 38. One rule for the paths in a recipe
+
+**Change:** [CL §38](Refactor-2025.md#38-one-rule-for-the-paths-in-a-recipe)
+
+**Status:** Windows (unit tests); lxplus open (TODO §1 "One path rule in recipes (CL §38)").
+
+- `Tests/Framework/test_bundle.py`: `test_path_rule` (was `test_bundle_module_absolute`: `missing` for a Fitter file
+  and a directory, `channel` only where the option takes one, `outside` for `../`, `/afs/...` absolute on Windows),
+  `test_module_paths_are_refused` (was `test_shapes_configs_are_never_module_paths`: shapes, fit and controlhists,
+  the message), new `test_paths_above_the_bundle` (absolute once loaded, not a bundle file, the same file when read
+  against a run's bundle copy), `test_make_bundle_copies_the_templates_and_channel_setups` (was `..._module_configs`),
+  `test_plan_resolves_against_the_bundle` (`channel`); `test_path_inputs` and `test_path_input_inside_the_bundle`
+  write the files their recipes name. `test_validation.py`: `test_run_root_is_not_expanded` (was
+  `..._is_expanded_with_a_warning`: `~`, `$VAR`, `$USER` inside an absolute path), the undefined-variable case of
+  `test_run_root_problems` is gone, `test_files_the_recipe_names` and `test_structure_and_files_together` (the
+  recipe's message first). `test_samples.test_module_path_is_refused`, `test_python_step.test_preflight_keeps_the_step_new`
+  (a missing step file is a `RecipeError`). `Tests/Fitter/api/test_tes_id.py`: no `config_file`.
+  `check_recipe` of the four `Analyses/` recipes: as before (`tes_id_2025` only the EOS directory on Windows,
+  `example_broken` four problems, the fourth with the new wording). Framework 209 pass.

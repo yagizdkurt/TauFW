@@ -64,15 +64,15 @@ Make a bundle with `taufw.py init`:
 ```bash
 python3 taufw.py init my_mutau                          # Analyses/my_mutau/ with an example Python step
 python3 taufw.py init my_tes --from Analyses/tes_id_2025  # a copy of a bundle or recipe file, with copies of
-                                                        # the module configs it uses next to recipe.yml
+                                                        # the templates it uses next to recipe.yml
 ```
 
 `init --from` copies every file of the source bundle (its configs, its copies
 of `Configs/` templates with their `taufw_config` header, its Python steps) to
-the same place in the new bundle, and every Histogrammer or Fitter config the recipe
-takes from its module next to the new `recipe.yml` (a name that is taken
-becomes `plotter_<name>` or `fitter_<name>`), pointing the new recipe at those
-copies, so you can edit them without touching the modules. From a loose recipe
+the same place in the new bundle, and every `Configs/` template and channel
+setup (`configs: [mutau]`) the recipe names next to the new `recipe.yml` (a name
+that is taken becomes `histogrammer_<name>` or `fitter_<name>`), pointing the new
+recipe at those copies, so you can edit them without touching the templates. From a loose recipe
 file, only the files its options name are copied. Comments of the source recipe
 are not kept.
 
@@ -238,10 +238,9 @@ my_mutau.yml: 2 problems
 ```
 
 `taufw.py check <bundle>` lists every problem without running anything, and
-also checks the files the recipe names: `pico.config`, absolute paths, python
-step files, and the stage directories of
-[inputs from another run](#inputs-from-another-run) (configs a module resolves,
-such as `TauES_ID/config/...`, are checked by `plan`). It exits with 1 if there is a problem. The menu runs the same check:
+also checks the files the recipe names: `pico.config`, every path option (see
+[Paths and configuration](#paths-and-configuration)), and the stage directories of
+[inputs from another run](#inputs-from-another-run). It exits with 1 if there is a problem. The menu runs the same check:
 a recipe with problems is red in the list and its preview lists them; it cannot
 be started. [example_broken](example_broken/recipe.yml) shows what this looks like.
 
@@ -269,9 +268,8 @@ running the shapes stage (hours) again:
   production stage for controlhists and shapes, the files of a controlhists
   stage for controlplots, `ctx.input()` of a python step.
 - The path must be absolute. A relative path is refused, and `~` and
-  `$VARIABLES` are not expanded (unlike `run_root`). It must not point inside the
-  bundle: data is never part of a bundle. (The rules of all paths in a recipe
-  are to be unified later, TODO §6.)
+  `$VARIABLES` are not expanded (nowhere in a recipe). It must not point inside the
+  bundle: data is never part of a bundle.
 - `taufw.py check`, `plan` and the menu check the directory: it exists, has a
   manifest of format 2 (runs started before this feature have format 1 and are
   refused: run that stage again), was not moved or copied (the manifest records
@@ -290,17 +288,36 @@ running the shapes stage (hours) again:
 
 ## Paths and configuration
 
-The path options of the stages (`controlhists.configs`, `shapes.configs`,
-`fit.config`, `fit.config_mumu`, a python step's `file`) and `pico.config`
-follow one rule:
+The path options of the stages (`controlhists.configs`, `controlhists.samples`,
+`shapes.configs`, `shapes.samples`, `fit.config`, `fit.config_mumu`, a python
+step's `file`) and `pico.config` follow one rule (changelog §38). A relative
+path is relative to the directory of `recipe.yml`, whatever the key:
 
-| Value | Resolution | `plan` shows |
-| --- | --- | --- |
-| Absolute path | Used as is. | `absolute` |
-| Relative path of a file in the bundle | That bundle file, e.g. `config_coarse_TT.yml` next to `recipe.yml`. | `bundle` |
-| `Configs/...`, not a bundle file | The template in `TauFW/Configs/` (changelog §22), e.g. `Configs/Fitter/tes_id/config_coarse_TT.yml`; the stage's module gets its absolute path. | `template` |
-| Any other relative path | Unchanged: the module resolves it as before, relative to `Fitter/` (e.g. the fit's `TauES/config/defaultFitSetupTES_mutau.yml`) or `Histogrammer/`. The old module paths of configs that became templates (`TauES_ID/config/config_coarse_TT.yml`, ...) fail the check with the template's name; the `shapes` stage's `configs` take no module path at all (changelog §22 H3). | `module` |
-| `controlhists.configs` channel name | `mutau` selects `Configs/Histogrammer/setups/setup_mutau.yml` (the template; a bundle copy is better: `taufw.py init --from` makes one). | `module` |
+| Value | Resolution | Copied into a run | `plan` shows |
+| --- | --- | --- | --- |
+| Absolute path | Used as is. | no | `absolute` |
+| Relative path of a file in the bundle | That bundle file, e.g. `config_coarse_TT.yml` next to `recipe.yml`. A bundle file wins over a template with the same relative path. | yes (the whole bundle) | `bundle` |
+| Relative path above the bundle (`../shared/x.yml`) | The recipe's directory + the path, made absolute when the recipe is loaded. Your responsibility: the run reads the file where it is, so a later edit changes what a continued run reads. | no | `absolute` |
+| `Configs/...`, not a bundle file | The template in `TauFW/Configs/` (changelog §22), e.g. `Configs/Fitter/tes_id/config_coarse_TT.yml`; the stage's module gets its absolute path. | no (`taufw.py init` makes copies) | `template` |
+| `controlhists.configs` only: a channel name (no `/`, no `.yml`) | `mutau` selects `Configs/Histogrammer/setups/setup_mutau.yml` (a bundle copy is better: `taufw.py init --from` makes one). | no | `channel` |
+| `pico.config: null` | PicoProducer's default configuration (a recipe with a production stage only). | snapshot in `run.json` | - |
+| Any other relative path | A problem: `... is not a file of the bundle (<recipe dir>), a Configs/ template or an absolute path`. No module directory is searched. | - | - |
+
+No module directory is searched (changelog §38): a file of `Fitter/` or
+`Histogrammer/` is used by copying it into the bundle or by naming its absolute
+path. Examples:
+
+- `fit.config: TauES/config/defaultFitSetupTES_mutau.yml` (relative to
+  `Fitter/`) is refused. `Fitter/TauES/config/defaultFitSetupTES_mutau.yml` and
+  `defaultFitSetup_mumu.yml` are the `-c` defaults of the old standalone TauES
+  scripts, not templates: the fit stage runs the TES + ID SF chain, whose configs
+  are `Configs/Fitter/tes_id/config_coarse_*.yml` and `FitSetup_mumu.yml` (the
+  same content as `defaultFitSetup_mumu.yml`). To use one anyway, copy it into
+  the bundle.
+- The old module paths of configs that became templates
+  (`TauES_ID/config/config_coarse_TT.yml`, ...) fail with the template's name.
+- `controlhists.configs: [config/setup_x.yml]` (relative to `Histogrammer/`) is
+  refused: name a template, a bundle copy, or a channel name.
 
 A bundle file **replaces** the module's config as a whole: the script reads the
 bundle's copy instead, nothing is merged. `taufw.py plan` lists every file each
@@ -318,9 +335,9 @@ Other paths:
 | Value | Resolution |
 | --- | --- |
 | CLI recipe/bundle path, run-directory path, `--run-root` | Relative to the directory where you launch `taufw.py`. |
-| `run_root` | Absolute; `~` and `$VARIABLES` are expanded where `taufw.py` runs. See [Where the runs go](#where-the-runs-go-run_root). |
+| `run_root` | Absolute; nothing is expanded (`~`, `$VARIABLES` are a problem); not inside the bundle. See [Where the runs go](#where-the-runs-go-run_root). |
 | `{path: ...}` input | Absolute only; nothing is expanded; not inside the bundle. See [Inputs from another run](#inputs-from-another-run). |
-| Relative `pico.config` | A file of the bundle (the recipe's directory), e.g. `pico.json`; a path above it (`../`) is made absolute when the recipe is loaded and is not copied into runs. |
+| `{external: ...}` input | An absolute directory pattern; nothing is expanded except the keys the scripts fill (`$ERA`, `$GROUP`, ...). |
 | Histogrammer/Fitter outputs | In the run: `<run_root>/<run>/stages/<id>/` (see [Outputs and logs](#outputs-and-logs)); nothing is written to `Histogrammer/` or `Fitter/`. Production's merged tuples too: `stages/<id>/<era>/<group>/`, not `$PICODIR` of the PicoProducer configuration. |
 
 ### Where the runs go (`run_root`)
@@ -339,10 +356,11 @@ run_root: /afs/cern.ch/work/u/user/taufw_runs
   small. A full quota stops a run midway. Choose a directory with enough space
   (e.g. under `/afs/cern.ch/work/`).
 - The value must be an absolute path on a mounted file system: a URL
-  (`root://...`) and a relative path are problems. `~` and `$VARIABLES` (e.g.
-  `$HOME/taufw_runs`) are expanded where `taufw.py` runs, with a warning, since
-  someone else or another machine gets another directory; an undefined variable
-  is a problem. `plan` and `start` print the directory they use.
+  (`root://...`) and a relative path are problems. Nothing is expanded in a
+  recipe (changelog §38): `~` or a `$VARIABLE` (e.g. `$HOME/taufw_runs`) is a
+  problem, since someone else or another machine would get another directory.
+  For a personal place give `start --run-root ~/taufw_runs`: the shell expands
+  it. `plan` and `start` print the directory they use.
 - It must be outside the bundle directory: every run copies its bundle, so a
   run root inside it would copy the earlier runs too (for a loose recipe file,
   whose directory is not copied, this does not apply).
@@ -513,7 +531,7 @@ them, with what the drawing needs, to one control-histogram file
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `eras` | Required | Non-empty eras; forwarded as `fillhists.py -y`. |
-| `configs` | `[mutau]` | Non-empty channel names, bundle files, or setup `.yml` paths relative to `Histogrammer/`; `-c`. |
+| `configs` | `[mutau]` | Non-empty channel names, bundle files, `Configs/` templates or absolute setup `.yml` paths; `-c`. |
 | `variables` | `[]` | Variable glob filters; `-V`. Empty selects all variables defined by the script. |
 | `selections` | `[]` | Selection glob filters; `-S`. Empty includes baseline and the setup's regions. |
 | `serial` | `false` | Serial processing; `-s`. |
@@ -571,7 +589,7 @@ config. The `fit` stage reads the files by the contract [Docs/Develop/contracts/
 | `eras` | Required | Non-empty eras; `-y`. |
 | `jet_wps` | Required | Non-empty DeepTau VSjet working points, for example `[VTight]`; `-j`. |
 | `ele_wps` | Required | Non-empty DeepTau VSe working points, for example `[Tight]`; `-e`. |
-| `configs` | `[Configs/Fitter/tes_id/config_coarse_TT.yml, Configs/Fitter/tes_id/FitSetup_mumu.yml]` | Non-empty configs (bundle files, `Configs/` templates or absolute): by default the mutau fit and mumu control region. A module-relative path (e.g. `TauES/config/...`) fails the check: the stage's API is the Histogrammer's, the configs were Fitter files (changelog §22 H3); copy the file into the bundle. |
+| `configs` | `[Configs/Fitter/tes_id/config_coarse_TT.yml, Configs/Fitter/tes_id/FitSetup_mumu.yml]` | Non-empty configs (bundle files, `Configs/` templates or absolute): by default the mutau fit and mumu control region. A module-relative path (e.g. `TauES/config/...`) fails the check, like every path option (changelog §38); copy the file into the bundle. |
 | `serial` | `false` | Serial shape creation; `-s`. |
 | `timeout` | `null` | Seconds per shape-creation command; unset means no time limit. |
 | `samples` | `[]` | Sample model files of the bundle (or absolute), one per era: copies of `Configs/Histogrammer/samples/v15_<era>.yml` (MC table, data, MC weights, stitching); `--samples`. Empty: the tables of `Histogrammer/config/samples_v15.py` (old recipes). See [Which samples](#which-samples). |
@@ -596,8 +614,8 @@ and transverse-momentum region, with the Z→μμ control region.
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `config` | `Configs/Fitter/tes_id/config_coarse_TT.yml` | Mutau fit config (a bundle file, a `Configs/` template, or relative to `Fitter/`). |
-| `config_mumu` | `Configs/Fitter/tes_id/FitSetup_mumu.yml` | Mumu control-region config (a bundle file, a `Configs/` template, or relative to `Fitter/`). |
+| `config` | `Configs/Fitter/tes_id/config_coarse_TT.yml` | Mutau fit config (a bundle file, a `Configs/` template, or absolute). |
+| `config_mumu` | `Configs/Fitter/tes_id/FitSetup_mumu.yml` | Mumu control-region config (a bundle file, a `Configs/` template, or absolute). |
 | `eras` | `[]` | Eras to fit; when inferring points, empty allows every upstream era. |
 | `jet_wps` | `[]` | VSjet working points; empty together with `ele_wps` means infer points from the input's histogram artifacts. |
 | `ele_wps` | `[]` | VSe working points; supply both WP lists or leave both empty. |
@@ -863,7 +881,9 @@ prints the last 20 lines of its log.
 | `has manifest format 1, expected 2` | The source run was started before inputs from other runs existed; run that stage again in a new run. |
 | `was moved or copied from` | The source directory is not where its manifest was written, so its artifacts name files elsewhere. Use the original directory. |
 | `it makes control_histograms, not shapes` | The `{path: ...}` directory belongs to a stage that makes another kind of data than the slot takes. |
-| A config change has no effect | Run `plan` and check the `from` column: `module` means the file is not in the bundle (typo in the path), so the module's own config is used. |
+| A config change has no effect | Run `plan` and check the `from` column: `template` means the file is not in the bundle (e.g. a typo in a `Configs/...` copy's path), so the template is used. |
+| `... is not a file of the bundle (...), a Configs/ template or an absolute path` | The path is relative to the directory of `recipe.yml` (changelog §38): fix a typo, copy the module's file into the bundle, or give its absolute path. Module directories (`Fitter/`, `Histogrammer/`) are not searched. |
+| `run_root: ...: nothing is expanded in a recipe` | Write the absolute directory, or remove `run_root` and start with `--run-root ~/...` (the shell expands it). |
 | Python step `NEW` with "no top-level function" | Define `def run(ctx):` at the top level of the file, or set `function:`. |
 | Python step `FAILED` | Read `taufw_runs/<run>/logs/<id>/01_<id>.log` for the traceback; `context.json` next to it shows what the step was given. |
 | No samples match production | Inspect `plan`, configured era/channel catalogs, sample/DAS filters, vetoes, and `dtypes`. |

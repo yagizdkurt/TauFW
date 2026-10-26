@@ -83,9 +83,6 @@ class FitStage(LocalStage):
     def execute(self, request, logdir, progress):
         return self.api.fit(request, logdir, progress)
 
-    def config_file(self, value):
-        return self.api.config_file(value)
-
     def status(self, spec, stage_record):
         """The fitted values of the finished fit (read from run.json; nothing is opened)."""
         return [dict(value, era=artifact['era'], jet_wp=artifact['jet_wp'], ele_wp=artifact['ele_wp'])
@@ -147,8 +144,8 @@ class FitStage(LocalStage):
 
 @dataclass(frozen=True)
 class FitSpec:
-    """Recipe options: the mutau fit config and the mumu control-region config (bundle files, Configs/ templates,
-    or relative to Fitter/; default: the templates of run_workflow_zmm.sh), the points
+    """Recipe options: the mutau fit config and the mumu control-region config (bundle files, Configs/ templates
+    or absolute, bundle.py; default: the templates of run_workflow_zmm.sh), the points
     (empty jet_wps and ele_wps: those of the input shapes), the steps to run, and whether to run impacts."""
     config:      str = DEFAULT_CONFIGS[0]
     config_mumu: str = DEFAULT_CONFIGS[1]

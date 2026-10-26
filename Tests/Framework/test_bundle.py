@@ -11,7 +11,7 @@ from unittest import mock
 import checkout  # noqa: F401  (must precede TauFW imports)
 import fakes
 from TauFW.Framework import Framework, Recipe, RecipeError, RunRecord, SilentReporter
-from TauFW.Framework.bundle import resolve, where, bundle_files, BundleError
+from TauFW.Framework.bundle import resolve, where, bundle_files, path_rows, BundleError
 from TauFW.Framework.defaults import CONFIGS_DIR
 from TauFW.Framework.stages import ProductionStage, ControlHistsStage, ShapesStage, FitStage
 from test_framework import Clock
@@ -62,11 +62,11 @@ class BundleTestCase(unittest.TestCase):
 
 
 class PathRuleTests(BundleTestCase):
-    def test_bundle_module_absolute(self):
+    def test_path_rule(self):  # CL §38: no module directory is searched
         self.assertEqual(where("tt.yml", self.bundle), "bundle")
         self.assertEqual(resolve("tt.yml", self.bundle),
                          os.path.normpath(os.path.join(self.bundle, "tt.yml")))
-        self.assertEqual(where("TauES/config/defaultFitSetup_mumu.yml", self.bundle), "module")  # not in the bundle
+        self.assertEqual(where("TauES/config/defaultFitSetup_mumu.yml", self.bundle), "missing")  # a Fitter file
         self.assertEqual(resolve("TauES/config/defaultFitSetup_mumu.yml", self.bundle),
                          "TauES/config/defaultFitSetup_mumu.yml")
         template = "Configs/Fitter/tes_id/config_coarse_TT.yml"  # a Configs/ template (CL §22): its absolute path
@@ -75,15 +75,19 @@ class PathRuleTests(BundleTestCase):
         self.assertEqual(where(template, None), "template")  # also without a bundle
         self.write(template, "a copy")  # a bundle file with the same relative path: the bundle's wins
         self.assertEqual(where(template, self.bundle), "bundle")
-        self.assertEqual(resolve("mutau", self.bundle), "mutau")  # a Histogrammer channel name
+        self.assertEqual((where("mutau", self.bundle, channel=True), resolve("mutau", self.bundle, channel=True)),
+                         ("channel", "mutau"))  # a channel name (controlhists configs): the Histogrammer's setup
+        self.assertEqual(where("mutau", self.bundle), "missing")  # only where the option takes a channel
+        self.assertEqual(where("x.yml", self.bundle, channel=True), "missing")  # a .yml file is never a channel
         absolute = os.path.join(self.root, "x.yml")
         self.assertEqual((where(absolute, self.bundle), resolve(absolute, self.bundle)), ("absolute", absolute))
         self.write("sub/dir/x.yml", "x")  # any layout inside the bundle works
         self.assertEqual(where("sub/dir/x.yml", self.bundle), "bundle")
-        self.assertEqual(where("sub", self.bundle), "module")  # a directory is not a bundle file
-        outside = self.write("outside.yml", "x", base=self.root)  # exists, but above the bundle
-        self.assertEqual(where(os.path.join("..", "..", "outside.yml"), self.bundle), "module")
-        self.assertTrue(os.path.isfile(outside))
+        self.assertEqual(where("sub", self.bundle), "missing")  # a directory is not a bundle file
+        outside = self.write("outside.yml", "x", base=self.root)  # above the bundle: relative to its directory
+        above = os.path.join("..", "..", "outside.yml")
+        self.assertEqual((where(above, self.bundle), resolve(above, self.bundle)), ("outside", outside))
+        self.assertEqual(where("/afs/cern.ch/x.yml", self.bundle), "absolute")  # also on Windows (K05)
         self.assertEqual(resolve("tt.yml", None), "tt.yml")  # no bundle
 
     def test_plan_resolves_against_the_bundle(self):
@@ -93,7 +97,7 @@ class PathRuleTests(BundleTestCase):
         self.assertEqual(plan.pico_config, os.path.join(self.bundle, "pico.json"))
         plots = plan.stages[1]
         self.assertEqual([(row[1], row[3]) for row in plots.paths],
-                         [("mutau", "module"), ("setup_mumu.yml", "bundle")])
+                         [("mutau", "channel"), ("setup_mumu.yml", "bundle")])
         tt = os.path.normpath(os.path.join(self.bundle, "tt.yml"))
         request = self.tes_shapes.call("plan_shapes")[0]
         self.assertEqual(request["configs"][0], tt)
@@ -169,19 +173,37 @@ class RunSnapshotTests(BundleTestCase):
         self.assertEqual(record.bundle["files"], [])
         self.assertEqual(self.tes_shapes.call("make_shapes")[0]["configs"], [config])
 
-    def test_shapes_configs_are_never_module_paths(self):  # CL §22 H3 (E2): the API is not the configs' module
+    def test_module_paths_are_refused(self):  # CL §38 (shapes since CL §22 H3): no module directory is searched
         path = self.write("plain.json", json.dumps({"name": "plain", "stages": [
             dict(SHAPES, configs=["TauES/config/defaultFitSetupTES_mutau.yml", TEMPLATE])]}), base=self.root)
         with self.assertRaises(RecipeError) as context:
             Recipe.load(path)
         self.assertEqual(str(context.exception).split(": ", 1)[1],
                          "stages[0] (shapes).configs: TauES/config/defaultFitSetupTES_mutau.yml is not a file of the "
-                         "bundle or a Configs/ template: copy it into the bundle (or give an absolute path)")
+                         "bundle (%s), a Configs/ template or an absolute path: copy it into the bundle, or give its "
+                         "absolute path (no module directory is searched, CL §38)" % (self.root))
         self.recipe(dict(SHAPES, configs=["tt.yml", TEMPLATE]))  # bundle files and templates are fine
         fit = dict(FIT, inputs={"shapes": {"path": "/afs/runs/x/stages/shapes"}},
-                   config="TauES/config/defaultFitSetupTES_mutau.yml")
-        self.write("fit.json", json.dumps({"name": "fit", "stages": [fit]}), base=self.root)
-        Recipe.load(os.path.join(self.root, "fit.json"))  # the fit stage still resolves module paths (Fitter API)
+                   config="TauES/config/defaultFitSetupTES_mutau.yml")  # a default of the old Fitter scripts
+        with self.assertRaises(RecipeError) as context:
+            self.recipe(fit)
+        self.assertIn("stages[0] (fit).config: TauES/config/defaultFitSetupTES_mutau.yml is not a file of the bundle",
+                      str(context.exception))
+        with self.assertRaises(RecipeError) as context:
+            self.recipe(dict(HISTS, configs=["mutau", "config/setup_x.yml"]))
+        self.assertIn("stages[0] (controlhists).configs: config/setup_x.yml is not a file of the bundle (%s), a "
+                      "Configs/ template, a channel name or an absolute path" % (self.bundle), str(context.exception))
+
+    def test_paths_above_the_bundle(self):  # CL §38: relative to the recipe's directory, absolute once loaded
+        shared = os.path.normpath(self.write("shared/tt.yml","shared\n", base=os.path.join(self.root, "Analyses")))
+        recipe = self.recipe(PRODUCTION, dict(SHAPES, configs=["../shared/tt.yml", "mm.yml"]),
+                             pico="../../pico_outside.json")
+        self.assertEqual(recipe.stage("shapes").options["configs"], [shared, "mm.yml"])  # also in run.json
+        self.assertEqual(recipe.pico_config, os.path.join(self.root, "pico_outside.json"))
+        self.assertEqual(bundle_files(recipe), ("mm.yml",))  # not copied into a run
+        self.write("mm.yml", "x", base=os.path.join(self.root, "run"))  # a run reads its recipe against its copy
+        again = Recipe.from_dict(recipe.to_dict(), bundle_dir=os.path.join(self.root, "run"))
+        self.assertEqual(path_rows(again.stage("shapes").spec, again.bundle_dir)[0][2:], (shared, "absolute"))
 
 
 class StageIdTests(BundleTestCase):
@@ -280,6 +302,8 @@ class StageIdTests(BundleTestCase):
         self.assertEqual(recipe.stage("fit").paths, {"shapes": source})
         self.assertEqual(recipe.stage("check").paths, {"fit": source})
         self.assertEqual(Recipe.from_dict(recipe.to_dict()), recipe)  # as written, also in run.json
+        for path in ("tt.yml", "mm.yml", "steps/check.py"):  # the run's copy of the bundle
+            self.write(path, "x", base=os.path.join(self.root, "run", "bundle"))
         self.assertEqual(Recipe.from_dict(recipe.to_dict(), bundle_dir=os.path.join(self.root, "run", "bundle"))
                          .stage("fit").paths, {"shapes": source})
         tuples = dict(HISTS, inputs={"tuples": {"path": os.path.join(self.root, "runs", "r1", "stages", "prod")}})
@@ -317,7 +341,9 @@ class StageIdTests(BundleTestCase):
         self.assertEqual(str(context.exception), "tes/recipe.yml: stages[0] (fit).inputs.shapes: %s is inside the "
                          "bundle %s: an input names another run's stage directory, and data is never part of a "
                          "bundle" % (inside, self.bundle))
-        loose = self.write("loose.yml", json.dumps({"name": "x", "stages": [fit]}), base=self.root)
+        loose = self.write("loose.yml", json.dumps({"name": "x", "stages": [dict(fit, config=TEMPLATE,
+                                                                                config_mumu=TEMPLATE)]}),
+                           base=self.root)
         self.assertEqual(Recipe.load(loose).stage("fit").paths, {"shapes": inside})  # not a bundle: allowed
 
 
@@ -327,29 +353,29 @@ class MakeBundleTests(BundleTestCase):
         self.modules = os.path.join(self.root, "modules")
         self.fitter.basedir = os.path.join(self.modules, "Fitter")
         self.histogrammer.basedir = os.path.join(self.modules, "Histogrammer")
-        for path in ("Fitter/TauES/config/defaultFitSetup_mumu.yml", "Histogrammer/mutau"):
-            self.write(path, "module %s\n" % (path), base=self.modules)
+        self.write("Histogrammer/mutau", "module Histogrammer/mutau\n", base=self.modules)
 
-    def test_make_bundle_copies_the_module_configs(self):  # and the Configs/ templates (CL §22)
+    def test_make_bundle_copies_the_templates_and_channel_setups(self):  # CL §22, §38
         source = self.write("old.json", json.dumps({"name": "old", "stages": [
             dict(HISTS, configs=["mutau"]),
             dict(SHAPES, configs=[TEMPLATE]),
             {"stage": "fit", "id": "fit", "inputs": {"shapes": "shapes"}, "config": TEMPLATE,
-             "config_mumu": "TauES/config/defaultFitSetup_mumu.yml"}]}), base=self.root)
+             "config_mumu": "Configs/Fitter/tes_id/FitSetup_mumu.yml"}]}), base=self.root)
         target = os.path.join(self.root, "Analyses", "new_one")
         copied = self.framework(Recipe.load(source)).make_bundle(target)
-        self.assertEqual(sorted(copied), ["config_coarse_TT.yml", "defaultFitSetup_mumu.yml", "mutau"])
+        self.assertEqual(sorted(copied), ["FitSetup_mumu.yml", "config_coarse_TT.yml", "mutau"])
         recipe = Recipe.load(target)
         self.assertEqual(recipe.name, "new_one")
         self.assertEqual(recipe.stage("fit").options["config"], "config_coarse_TT.yml")
         self.assertEqual(recipe.stage("shapes").options["configs"], ["config_coarse_TT.yml"])
-        self.assertEqual(recipe.stage("fit").options["config_mumu"], "defaultFitSetup_mumu.yml")
+        self.assertEqual(recipe.stage("fit").options["config_mumu"], "FitSetup_mumu.yml")
+        self.assertEqual(recipe.stage("hists").options["configs"], ["mutau"])  # the copy has the channel's name
         self.assertEqual(set(bundle_files(recipe)), {os.path.normpath(p) for p in copied})
         with open(os.path.join(target, "config_coarse_TT.yml"), "rb") as stream, \
                 open(os.path.join(os.path.dirname(CONFIGS_DIR), TEMPLATE), "rb") as original:
             self.assertEqual(stream.read(), original.read())  # a template (CL §22) is copied as it is, header and all
-        with open(os.path.join(target, "defaultFitSetup_mumu.yml")) as stream:
-            self.assertEqual(stream.read(), "module Fitter/TauES/config/defaultFitSetup_mumu.yml\n")
+        with open(os.path.join(target, "mutau")) as stream:
+            self.assertEqual(stream.read(), "module Histogrammer/mutau\n")
         self.assertTrue(os.path.isfile(os.path.join(target, "steps", "example.py")))
         with self.assertRaises(BundleError):
             self.framework(Recipe.load(source)).make_bundle(target)

@@ -8,7 +8,7 @@ import textwrap
 import unittest
 
 import checkout  # noqa: F401  (must precede TauFW imports)
-from TauFW.Framework import Framework, Recipe, RunRecord, SilentReporter
+from TauFW.Framework import Framework, Recipe, RecipeError, RunRecord, SilentReporter
 from TauFW.Framework.stages import PythonStage, StageContext, PreflightError
 from TauFW.Framework.step_runner import _result
 from test_framework import Clock
@@ -164,9 +164,9 @@ class PythonStepTests(PythonStepTestCase):
         self.assertFalse(os.path.exists(os.path.join(record.run_dir, "nofunc", "context.json")))  # nothing ran
         record = self.start(step("nofunc", function="main"))
         self.assertEqual(record.state, "DONE")
-        record = self.start(step("missing"))
-        self.assertIn("step file", record.stage("missing").message)
-        self.assertIn("not found", record.stage("missing").message)
+        with self.assertRaises(RecipeError) as context:  # a missing step file is a recipe error (CL §38)
+            self.start(step("missing"))
+        self.assertIn("(python).file: steps/missing.py is not a file of the bundle", str(context.exception))
 
     def test_plan_shows_the_runner_command(self):
         recipe = Recipe.from_dict({"name": "x", "stages": [step("make")]}, bundle_dir=self.bundle)

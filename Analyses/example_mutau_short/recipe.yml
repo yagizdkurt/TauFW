@@ -10,7 +10,7 @@ name: mutau_2022_postEE_short
 # the runs go to taufw_runs/ in the directory it is started from. The production stage below writes its merged tuples
 # into the run (stages/production/<era>/<group>/), often tens of GB. On lxplus, set it to a directory with enough
 # space; the home directory's AFS quota is small:
-#   run_root: /afs/cern.ch/work/u/user/taufw_runs     # absolute; ~ and $VARIABLES ($HOME, $USER) are expanded
+#   run_root: /afs/cern.ch/work/u/user/taufw_runs     # absolute; ~ and $VARIABLES are not expanded
 # (start --run-root DIR takes precedence). EOS as run_root is not tested yet.
 
 pico:

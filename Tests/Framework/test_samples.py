@@ -58,8 +58,9 @@ class ValidationTests(SamplesTestCase):
 
     def test_module_path_is_refused(self):
         check = check_recipe(self.write_recipe(PRODUCTION, dict(HISTS, samples=["config/samples_v15_2025.yml"])))
-        self.assertIn("stages[1] (controlhists).samples: config/samples_v15_2025.yml is not a file of the bundle (%s)"
-                      % (self.bundle), [str(issue) for issue in check.issues])
+        self.assertIn("stages[1] (controlhists).samples: config/samples_v15_2025.yml is not a file of the bundle (%s), "
+                      "a Configs/ template or an absolute path: copy it into the bundle, or give its absolute path "
+                      "(no module directory is searched, CL §38)" % (self.bundle), [str(issue) for issue in check.issues])
 
     def test_an_era_without_a_file(self):
         check = check_recipe(self.write_recipe(PRODUCTION, dict(HISTS, eras=[2025, 2024])))

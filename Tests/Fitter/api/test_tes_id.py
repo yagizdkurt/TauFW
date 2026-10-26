@@ -177,7 +177,7 @@ class FitTests(TauESIDTestCase):
                                     pico_config="/run/bundle/pico.json")
         self.assertTrue(all(c.env == () for c in self.fitter.plan_fit(self.fit_request()).commands))
         self.assertFalse(hasattr(self.fitter, "pico_config_source"))
-        self.assertEqual(self.fitter.config_file(TT), os.path.normpath(os.path.join(self.fitter_dir, TT)))
+        self.assertFalse(hasattr(self.fitter, "config_file"))  # only taufw.py init used it (CL §38)
 
     def test_no_shapes_api(self):  # CL §22 H3: the shapes are the Histogrammer's; the Fitter names none of its paths
         for name in ("plan_shapes", "make_shapes", "preflight_shapes", "shapes_request"):

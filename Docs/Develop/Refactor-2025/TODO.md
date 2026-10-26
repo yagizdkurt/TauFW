@@ -170,15 +170,29 @@ Items marked **(verify)** may already be done; check before working on them.
       Tests/BBB/baselines/` shows only those keys; `bbb check` passes. A real production run (e.g.
       `example_mutau_short`) shows `sumw` and `kind` in `stages/production/manifest.json`, `sumw` equal to
       `cutflow->GetBinContent(17)` of that tuple.
-- [ ] **Recipes give every input (CL §37 D3):** `python3 Tests/run.py checks` (Framework 208 pass) and `bbb check`
+- [ ] **One path rule in recipes (CL §38):** `python3 Tests/run.py checks` (Framework 209 pass; Fitter API without
+      `config_file`) and `bbb check` 24/24 without re-lock (no case has a path option or `run_root`).
+      `python3 taufw.py check Analyses/<each of the four>`: as before (`example_broken`: four problems, the fourth
+      "steps/missing_check.py is not a file of the bundle (...), a Configs/ template or an absolute path ...").
+      `python3 taufw.py plan Analyses/tes_id_2025`: the "from" column `bundle` for the configs and samples, `Run root:
+      ... (default ...)`. In a copy of `tes_id_2025`: `config: TauES/config/defaultFitSetupTES_mutau.yml` in the fit
+      -> one error line naming the bundle directory; `run_root: ~/taufw_runs` -> "nothing is expanded in a recipe";
+      `configs: [../tes_id_2025/setup_mutau.yml, setup_mumu.yml]` in the hists -> valid, `plan` shows the absolute
+      path. `python3 taufw.py start <copy> --run-root ~/taufw_runs_test`: the shell expands it (then stop the run).
+      `python3 taufw.py init /tmp/x --from Analyses/tes_id_2025`: the same files as before.
+- [x] **Recipes give every input (CL §37 D3), done 2026-10-26** on lxplus953: `checks` 15/16 (the known boundary
+      debt only), `bbb check` 24/24 without re-lock; `check` of the four recipes as before; `plan` as expected
+      (ValidationAndTests §37). Not run: the `null` copy (the unit tests check the message). Original item:
+      `python3 Tests/run.py checks` (Framework 208 pass) and `bbb check`
       24/24 without re-lock (`framework.production`: production only, no tag; its `plan` output unchanged).
       `python3 taufw.py check Analyses/<each of the four>`: as before (`tes_id_2025` and the two examples OK,
       `example_broken` its four errors). A copy of `tes_id_2025` with `tuples: null` in the hists stage: `check` and
       `plan` give one line "null (the tuples in $PICODIR ...) is no longer read ..."; with `pico: {config: x.json}`:
       "only a production stage reads the PicoProducer configuration"; the menu's Start list marks it broken. A python
       step that prints `os.environ.get("TAUFW_PICO_CONFIG")`: None.
-- [ ] **APIs take the tuples (CL §37 D2):** 2026-10-26 lxplus953: `checks` 15/16 (only the known boundary debt,
-      20 / 19 / 17), `bbb check` 24/24 without re-lock. Left: the two `plan` commands below. Original item:
+- [x] **APIs take the tuples (CL §37 D2), done 2026-10-26** on lxplus953: `checks` 15/16 (only the known boundary
+      debt, 20 / 19 / 17), `bbb check` 24/24 without re-lock; the two `plan` commands as expected (run with D3).
+      Original item:
       `python3 Tests/run.py checks` (Histogrammer/Fitter API, Utilities,
       Framework pass) and `bbb check` 24/24 without re-lock (BBB calls no API: nothing may change).
       `python3 taufw.py plan Analyses/tes_id_2025`: the same commands as before, now without any
@@ -349,7 +363,7 @@ Each changes logs, so do each in its own commit, with a BBB re-lock where a base
 - [ ] K02: a crash between `manifest.json` and `run.json` leaves the stage `NEW` with a non-empty output directory
       (latent).
 - [ ] K04: production's tuple artifacts have no `kind`, so a filter by `kind='tuples'` finds none (latent).
-- [ ] K05: on Windows (Python 3.13) `/afs/...` is not absolute for `os.path.isabs`; an lxplus `pico.config` is joined to the bundle directory (latent, Windows only).
+- [x] K05: fixed in CL §38 (one test, `bundle.is_absolute`).
 - [ ] K07: `taufw.py status` shows the last `advance`'s message ("... failed or missing; resubmitting") next to a live
       job table that says complete; reads as a contradiction (message only; seen on lxplus, CL §16).
 
@@ -471,7 +485,8 @@ Next-work proposals (not designed in detail yet):
 - [x] **`null` inputs and the production tag** (done in CL §37 D3, plan 23): a `null` input is a recipe error with a
       message (not a warning: recipes take the clean design, decision of 2026-10-26); a production stage with a
       `tag` whose tuples another stage reads gets a warning.
-- [ ] **Revise: one rule for the paths in a recipe** (separate session). A recipe has several path rules today:
+- [x] **Revise: one rule for the paths in a recipe** (done in CL §38, plan 23 D4: relative to the recipe's directory
+      for every key, `../` allowed, no module fallback, nothing expanded, one absolute test). The item was:
       stage path options and `pico.config` (relative: the bundle file if it exists, else the module resolves it;
       `pico.config` above the bundle is made absolute when loaded), `run_root` (absolute; `~` and `$VARIABLES`
       expanded where `taufw.py` runs, with a warning), `{external: <pattern>}` (absolute only, nothing expanded) and,
@@ -598,6 +613,13 @@ Other limitations ([Analyses/README.md](../../../Analyses/README.md) "Current li
       scripts without the option go to Legacy); `$TAUFW_PICO_CONFIG` in `PicoProducer/python/settings/store.py`
       (no Framework user after CL §37 D3). Open with K6: `getmcsample`'s `getconfig` (the last Histogrammer ->
       PicoProducer import).
+- [ ] **May go with the old TauES scripts at the migration point (CL §38):** `Fitter/TauES/config/defaultFitSetupTES_mutau.yml`
+      and `defaultFitSetup_mumu.yml`. They are only the `-c` defaults of the old standalone scripts (`makeTESfit.py`,
+      `plotParabola_TES.py`, `plotPostFitScan_TES.py`, `checkShapes_TES.py`, `harvestDatacards_*`, and the README
+      examples); a recipe can no longer read them by their module path (a bundle copy or an absolute path). The fit
+      stage uses the templates `Configs/Fitter/tes_id/config_coarse_*.yml` and `FitSetup_mumu.yml` (the latter is
+      `defaultFitSetup_mumu.yml` with the `taufw_config` header). Remove them with the scripts that default to them,
+      or keep them if those scripts stay.
 - [ ] **At the migration point, after S4 (CL §21):** `fillhists.py` still draws by default (commands typed by hand
       keep their result, user rule of S4); then drawing leaves it (`--hists --no-draw` becomes the default, the
       legacy `plot.py` texts show the two commands). Remove `stages.RETIRED` (the messages for `plots` and

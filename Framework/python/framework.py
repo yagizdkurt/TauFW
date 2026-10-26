@@ -152,7 +152,7 @@ class Framework:
             raise RecipeError(recipe.source, problems)
         for warning in warnings:
             self.reporter.warning(str(warning))
-        run_root = run_root or recipe.run_root_dir
+        run_root = run_root or recipe.run_root
         if run_root:
             check_writable(run_root, "run root")
         record = RunRecord.create(recipe, run_root or DEFAULT_RUN_ROOT, pico_config=self._pico_config(recipe),
@@ -223,7 +223,7 @@ class Framework:
 
     def make_bundle(self, target, name=None):
         """Write a new analysis bundle at `target` from this recipe: recipe.yml, the recipe's own files (every file
-        of its bundle, at the same relative paths), copies of the module configs and Configs/ templates its stages
+        of its bundle, at the same relative paths), copies of the Configs/ templates and channel setups its stages
         use (next to recipe.yml) with the recipe pointing at them, and steps/example.py.
         name: the new recipe's name (default: the bundle directory's name). Returns the copied config paths.
         Raises BundleError if `target` exists."""
@@ -232,7 +232,7 @@ class Framework:
             stage = self._stage_for(stage_spec.id)
             for option, value, resolved, where in path_rows(stage_spec.spec, self.recipe.bundle_dir):
                 found = (resolved if where == 'template' else
-                         stage.config_file(value) if where == 'module' and hasattr(stage, 'config_file') else None)
+                         stage.config_file(value) if where == 'channel' and hasattr(stage, 'config_file') else None)
                 if found and os.path.isfile(found):
                     sources[(stage_spec.id, option, value)] = (stage.group, found)
         data = self.recipe.to_dict()
@@ -479,7 +479,7 @@ class Framework:
 @dataclass(frozen=True)
 class StagePlan:
     """plan() of one stage: the stage's own plan object (production: a JobPlan), or None with a note.
-    stage: the stage id; paths: (option, value as written, resolved path, 'bundle'|'template'|'module'|'absolute');
+    stage: the stage id; paths: (option, value as written, resolved path, 'bundle'|'template'|'channel'|'absolute' (bundle.where));
     sources: input slot -> the manifest summary of the other run's stage directory it names (those read)."""
     stage:   str
     plan:    object

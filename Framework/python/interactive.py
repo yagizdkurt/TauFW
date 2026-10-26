@@ -24,7 +24,7 @@ from pathlib import Path
 from TauFW.Framework.defaults import (ANALYSES_DIR, CONFIGS_DIR, DEFAULT_RUN_ROOT, RECIPE_NAME, RUN_RECORD_NAME,
                                       STAGES_DIR_NAME)
 from TauFW.Framework.run_record import RunRecord, RunState
-from TauFW.Framework.recipe import Recipe, read_recipe, run_root_dir
+from TauFW.Framework.recipe import Recipe, read_recipe
 from TauFW.Framework.validation import check_recipe
 from TauFW.Framework.framework import Framework
 from TauFW.Framework.reporting import SilentReporter
@@ -117,7 +117,7 @@ class _Operations:
             if value is None:
                 value = self._run_root_of(path)
             if value:
-                roots.append(Path(run_root_dir(value)))
+                roots.append(Path(value))
         return list(dict.fromkeys(root.resolve() if root.is_absolute() else self.launch_dir / root
                                   for root in roots))
 
