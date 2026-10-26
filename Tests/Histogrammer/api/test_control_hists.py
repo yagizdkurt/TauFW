@@ -248,6 +248,8 @@ class ControlHistsTests(unittest.TestCase):
         histogrammer.read_branches = lambda path: None
         histogrammer.find_module = lambda m: True
         self.assertEqual(histogrammer.branch_problems(request), ())
+        empty = os.path.join(self.base, "tuples", "2025", "DY", "DYto2Mu_Bin-MLL-10to50_mumu.root")
+        self.assertIsNone(branches.tuple_branches(empty))  # with ROOT: TFile.Open raises OSError, not a crash
 
     def test_default_module_lookup(self):  # BUGS L13: find_spec raises for an imported module without __spec__
         imported = types.ModuleType("taufw_test_imported")

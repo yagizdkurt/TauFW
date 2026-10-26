@@ -70,7 +70,10 @@ def tuple_branches(path):
     import ROOT
   except ImportError:
     return None
-  file = ROOT.TFile.Open(path)
+  try:
+    file = ROOT.TFile.Open(path)
+  except OSError:  # PyROOT 6.30 raises instead of returning a null file
+    return None
   if not file or file.IsZombie():
     return None
   try:
