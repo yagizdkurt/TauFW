@@ -8,6 +8,7 @@ sys.path.append("../../Histogrammer/") # for config.samples (Plotter/ until CL ย
 from config.samples_v12 import *
 from TauFW.Utilities.Drawing import LOG as PLOG
 from TauFW.Histogrammer.shapes.inputs import createinputs, plotinputs, preparesysts
+from TauFW.Histogrammer.sample.tupledir import script_default_tuples # LEGACY: picodir without --tuples (CL ยง37)
 
 
 def main(args):
@@ -37,7 +38,8 @@ def main(args):
       # GET SAMPLESET
       join      = ['VV','TT','ST']
       sname     = "$PICODIR/$SAMPLE_$CHANNEL$TAG.root"
-      sampleset = getsampleset(channel,era,fname=sname,join=join,split=[],table=False,tag=tag, parallel=parallel)
+      sampleset = getsampleset(channel,era,fname=sname,join=join,split=[],table=False,tag=tag, parallel=parallel,
+                                tuples=script_default_tuples())
       
       if channel=='mumu':
         

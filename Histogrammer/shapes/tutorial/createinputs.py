@@ -7,6 +7,7 @@ sys.path.append("../../Histogrammer/tutorial") # for config.samples (Plotter/ un
 from config.samples import *
 from TauFW.Utilities.Drawing import LOG as PLOG
 from TauFW.Histogrammer.shapes.inputs import createinputs, plotinputs, preparesysts
+from TauFW.Histogrammer.sample.tupledir import script_default_tuples # LEGACY: picodir without --tuples (CL §37)
 
 
 def main(args):
@@ -35,7 +36,7 @@ def main(args):
       sname     = "$PICODIR/$SAMPLE_$CHANNEL$TAG.root"
       rmsf      = [ ] if 'mumu' in channel else ['idweight_2','ltfweight_2']
       sampleset = getsampleset(channel,era,fname=sname,join=join,split=[],table=False,
-                               rmsf=rmsf,dyweight='zptweight')
+                               rmsf=rmsf,dyweight='zptweight',tuples=script_default_tuples())
       
       if 'mumu' in channel:
         

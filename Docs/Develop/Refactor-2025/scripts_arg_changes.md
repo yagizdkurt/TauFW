@@ -108,9 +108,9 @@ same directory.
 
 | Script / function | Option | Default (unchanged behaviour) | Status |
 |---|---|---|---|
-| `Plotter/python/sample/utils.py` `getsampleset` | `tuples=PATTERN` (keyword) | `$PICODIR` of the PicoProducer configuration (`getconfig()['picodir']`) | done |
-| `Plotter/plot.py` | `--tuples PATTERN` | same (passes `tuples=None`) | done |
-| `Fitter/TauES/createinputsTES.py` | `--tuples PATTERN` | same | done |
+| `Histogrammer/python/sample/utils.py` `getsampleset` (was `Plotter/...`) | `tuples=PATTERN` (keyword) | none since CL §37: `$PICODIR` without it is an error (was `getconfig()['picodir']`) | done |
+| `Histogrammer/fillhists.py` (was `Plotter/plot.py`) | `--tuples PATTERN` | `picodir` of the PicoProducer configuration, `TauFW.Histogrammer.sample.tupledir` (LEGACY, CL §37) | done |
+| `Histogrammer/shapes/TauES/createinputsTES.py` (was `Fitter/TauES/`) | `--tuples PATTERN` | same | done |
 
 - `PATTERN` is a directory pattern with `$ERA` and `$GROUP`, e.g.
   `--tuples '/eos/cms/store/group/phys_tau/TauFW/pico2024/TES_variations/$ERA/$GROUP'` (single quotes: the shell

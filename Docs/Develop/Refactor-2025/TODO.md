@@ -170,9 +170,19 @@ Items marked **(verify)** may already be done; check before working on them.
       Tests/BBB/baselines/` shows only those keys; `bbb check` passes. A real production run (e.g.
       `example_mutau_short`) shows `sumw` and `kind` in `stages/production/manifest.json`, `sumw` equal to
       `cutflow->GetBinContent(17)` of that tuple.
-- [ ] **Script tuple default locked (CL §37 D0), before any D1 code is pulled:** at the commit with the new case,
-      `python3 Tests/run.py bbb check --case histogrammer.tes_inputs` passes (the shared run changed nothing), then
-      `python3 Tests/run.py bbb lock --replace` and `python3 Tests/run.py bbb diff`: `PASS`, every case `same`,
+- [ ] **Histogrammer takes the tuples (CL §37 D1):** `python3 Tests/run.py bbb check`: all 24 pass, **no re-lock**
+      (`histogrammer.tes_inputs_picodir` = the script default, `plotter.sample_model` = `tuples` passed on).
+      `python3 Tests/run.py checks` (the `LibraryTests` of `test_tupledir.py` run with ROOT; `check_import_boundaries`:
+      Histogrammer -> PicoProducer 1 / 1 / 1, totals 20 / 19 / 17, only the known debt);
+      `python3 Tests/run.py normal --case <the testTupleLocation case>` (or the whole `normal`).
+      By hand in `Histogrammer/`: `python3 fillhists.py -c mutau -y 2025 --hists --no-draw -V m_vis` without
+      `--tuples` reads the same files as before (your `config.json` `picodir`); with `TAUFW_PICO_CONFIG=/no/such.json`
+      one error line naming `--tuples`.
+- [x] **Script tuple default locked (CL §37 D0), done 2026-10-26** (`bbb diff`: PASS, 23 same, 1 added).
+      Before any D1 code is pulled: at the commit with the new case
+      (`bbb check` refuses to run while the case list differs from the lock, so the lock comes first),
+      `python3 Tests/run.py bbb lock --replace` and `python3 Tests/run.py bbb diff`: `PASS`, every case `same`
+      (`histogrammer.tes_inputs` too: the shared run changed nothing),
       `histogrammer.tes_inputs_picodir` `ADDED`; `git status Tests/BBB/baselines/` shows only the new file and
       `manifest.json`. Optional: the two shape files are equal (`histogrammer.tes_inputs_picodir.json` and
       `histogrammer.tes_inputs.json` have the same `files`).
@@ -557,6 +567,13 @@ Other limitations ([Analyses/README.md](../../../Analyses/README.md) "Current li
       LEGACY stubs at the old script paths (`Fitter/TauES/createinputsTES.py`,
       `Fitter/{ETauFR,HighPT,paper,tutorial}/createinputs.py`; they print the new command and exit with 2) and their
       test `Tests/Histogrammer/compat/test_legacy_shape_scripts.py`.
+- [ ] **Backward compatibility to delete at the migration point (CL §37, plan 23):** the scripts' tuple default
+      `Histogrammer/python/sample/tupledir.py` (`picodir` of `$TAUFW_PICO_CONFIG` / `PicoProducer/config/config.json`)
+      and its call in `fillhists.py`, `createinputsTES.py`, `plot_postfit.py`, `plot_postfit_shift.py`, `plot_v10.py`,
+      `shapes/{ETauFR,HighPT,paper,tutorial}/createinputs.py`, `tutorial/plot.py` (then `--tuples` required, or the
+      scripts without the option go to Legacy); `$TAUFW_PICO_CONFIG` in `PicoProducer/python/settings/store.py`
+      (no Framework user after CL §37 D3). Open with K6: `getmcsample`'s `getconfig` (the last Histogrammer ->
+      PicoProducer import).
 - [ ] **At the migration point, after S4 (CL §21):** `fillhists.py` still draws by default (commands typed by hand
       keep their result, user rule of S4); then drawing leaves it (`--hists --no-draw` becomes the default, the
       legacy `plot.py` texts show the two commands). Remove `stages.RETIRED` (the messages for `plots` and

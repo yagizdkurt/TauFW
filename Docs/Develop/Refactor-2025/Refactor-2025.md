@@ -1334,8 +1334,8 @@ Decisions of the user (2026-10-26):
 ## 37. Inputs are given, never found
 
 **Date:** 2026-10-26
-**Status:** in progress. Step D0 (the old default locked) written, its lock on lxplus in TODO §1 "Script tuple
-default locked (CL §37 D0)"; D1-D3 next.
+**Status:** in progress. D0 done (locked on lxplus 2026-10-26: 23 cases `same`, the new one `ADDED`). D1 done on
+Windows (unit tests), lxplus check in TODO §1 "Histogrammer takes the tuples (CL §37 D1)". D2, D3, D4 next.
 **Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#37-inputs-are-given-never-found)
 
 **Details:** `LocalR/architecture/23-given-inputs-plan.md` (ModuleIsolationFinalizations §3 D; decisions of the
@@ -1352,3 +1352,22 @@ migration point.
   `$TAUFW_PICO_CONFIG` whose only key is `picodir` (the same pattern). Both cases share `_tes_inputs_run`; the
   existing case is unchanged except that the script no longer inherits a `$TAUFW_PICO_CONFIG` of the caller (with
   `--tuples` it was never read). Locked on lxplus with the code before D1, so D1 must pass it without a re-lock.
+- **D1, the Histogrammer library takes the tuples.** `TauFW.Histogrammer.sample.utils.getsampleset` no longer imports
+  PicoProducer: a file pattern with `$PICODIR` and no `tuples=` is a `ValueError` ("no tuple pattern ... give
+  tuples=..."). The scripts keep their old default through a new LEGACY helper,
+  `TauFW.Histogrammer.sample.tupledir.script_default_tuples()`: `picodir` of `$TAUFW_PICO_CONFIG`, else
+  `PicoProducer/config/config.json`, read as JSON (no PicoProducer import; decisions K1, K2). Called, only when no
+  `--tuples` is given, by `fillhists.py`, `shapes/TauES/createinputsTES.py`, and (which have no `--tuples`)
+  `plot_postfit.py`, `plot_postfit_shift.py`, `plot_v10.py`, `shapes/{ETauFR,HighPT,paper,tutorial}/createinputs.py`,
+  `tutorial/plot.py`. Behaviour of the scripts is unchanged except when there is no configuration file or no
+  `picodir` in it: before, `getconfig` used its built-in default directory (usually without tuples, so every sample
+  "Did not find ..."); now one error naming `--tuples`. The backup `config.json.bkp` is not read.
+  Before / after, a command typed by hand: `python3 fillhists.py -c mutau -y 2025` reads the same files; a user's own
+  `getsampleset(..., fname="$PICODIR/...")` without `tuples=` now raises.
+  Not changed (K6 open): `getmcsample` keeps its `getconfig` call, so Histogrammer -> PicoProducer is 1 / 1 / 1 (was
+  2 / 1 / 1; totals 20 / 19 / 17), its allowlist reason says so. Not adapted, already not runnable: `Fitter/Zpt`
+  (its `config/samples.py` is Python 2), `Fitter/MuTauFR/createinputs.py` (broken import); the integration demos
+  `Tests/Plotter/plotPico.py`, `WstarplotPico.py` (byte-locked relocated copies, `Tests/migration.json`) now need
+  a `tuples=` and raise without it.
+  The APIs still set `$TAUFW_PICO_CONFIG` for a request without tuples (D2 removes it); the helper reads it, so that
+  path keeps working until then.

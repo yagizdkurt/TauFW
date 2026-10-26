@@ -12,6 +12,7 @@ from TauFW.Utilities.Drawing import LOG as PLOG
 from TauFW.common.tools.file import ensuredir
 from TauFW.Histogrammer.shapes.inputs import createinputs, plotinputs
 from TauFW.Histogrammer.shapes.rebinning import rebinning
+from TauFW.Histogrammer.sample.tupledir import script_default_tuples # LEGACY: picodir without --tuples (CL §37)
 import yaml
 import time
 
@@ -82,7 +83,7 @@ def main(args):
       
     # GET SAMPLESET
     sname     = setup["samples"]["filename"]
-    sampleset = getsampleset(channel,era,fname=sname,join=setup["samples"]["join"],split=[],table=False,rmsf=setup["samples"].get("removeSFs",[]),addsf=setup["samples"].get("addSFs",[]),tuples=args.tuples,samples=args.samples)
+    sampleset = getsampleset(channel,era,fname=sname,join=setup["samples"]["join"],split=[],table=False,rmsf=setup["samples"].get("removeSFs",[]),addsf=setup["samples"].get("addSFs",[]),tuples=args.tuples or script_default_tuples(),samples=args.samples)
 
     # Potentially split up samples in several processes
     if "split" in setup["samples"]:

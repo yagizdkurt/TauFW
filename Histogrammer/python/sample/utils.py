@@ -32,17 +32,15 @@ def getsampleset(datasample,expsamples,sigsamples=[ ],**kwargs):
   url        = kwargs.pop('url',        ""    ) # XRootD url
   tag        = kwargs.pop('tag',        ""    ) # extra tag for file name
   tuples     = kwargs.pop('tuples',     None  ) # directory pattern of the tuples, e.g. /eos/.../$ERA/$GROUP,
-                                                # instead of $PICODIR of the PicoProducer configuration (--tuples)
+                                                # put in for $PICODIR (scripts: --tuples)
   
   if not fpattern:
     fpattern = "$PICODIR/$SAMPLE_$CHANNEL$TAG.root"
   if '$PICODIR' in fpattern:
-    picodir = tuples
-    if not picodir: # the PicoProducer configuration's
-      from TauFW.PicoProducer.settings import getconfig
-      CONFIG   = getconfig(verb=0)
-      picodir  = CONFIG['picodir']
-    fpattern = repkey(fpattern,PICODIR=picodir)
+    if not tuples: # given, never found (CL §37): the scripts' old default is sample/tupledir.py
+      LOG.throw(ValueError,"getsampleset: no tuple pattern for $PICODIR in %r: give tuples='/path/$ERA/$GROUP' "
+                           "(scripts: --tuples)"%(fpattern))
+    fpattern = repkey(fpattern,PICODIR=tuples)
   if url:
     fpattern = "%s/%s"%(fpattern,url)
   LOG.verb("getsampleset: fpattern=%r"%(fpattern),level=1)

@@ -1,5 +1,7 @@
 """getsampleset(tuples=...): the directory of the tuples comes from the caller (plot.py and createinputsTES.py
---tuples), not from $PICODIR of the PicoProducer configuration. Real ROOT, tiny local tuples."""
+--tuples), not from $PICODIR of the PicoProducer configuration. Without it the library refuses $PICODIR (CL §37); the
+scripts' old default is TauFW.Histogrammer.sample.tupledir. Real ROOT, tiny local tuples."""
+import json
 from array import array
 import os
 import tempfile
@@ -8,6 +10,7 @@ from unittest import mock
 
 import ROOT
 from TauFW.Plotter.sample.utils import getsampleset
+from TauFW.Histogrammer.sample.tupledir import ENVVAR, script_default_tuples
 
 TUPLES = ('2025/DY/DYJets_mumu.root', '2025/DY/DYJets_mumu_TES0p950.root',
           '2025/Data/SingleMuon_Run2025C_mumu.root', '2025/Data/SingleMuon_Run2025D_mumu.root')
@@ -62,10 +65,18 @@ class TupleLocationTests(unittest.TestCase):
         shifted = self.sampleset(tuples=self.pattern).shift('DY', "_TES0p950")
         self.assertEqual([s.filename for s in shifted.expsamples], [self.path('2025/DY/DYJets_mumu_TES0p950.root')])
 
-    def test_default_reads_picodir_of_the_configuration(self):
-        with mock.patch('TauFW.PicoProducer.settings.getconfig', return_value={'picodir': self.pattern}) as getconfig:
-            sampleset = self.sampleset()
-        getconfig.assert_called_once_with(verb=0)
+    def test_no_tuples_is_refused(self):
+        with mock.patch('TauFW.PicoProducer.settings.getconfig') as getconfig:
+            with self.assertRaises(ValueError):
+                self.sampleset()
+        getconfig.assert_not_called()  # given, never found (CL §37)
+
+    def test_script_default_reads_picodir_of_the_configuration(self):
+        config = os.path.join(self.root, 'pico.json')
+        with open(config, 'w') as stream:
+            json.dump({'picodir': self.pattern}, stream)
+        with mock.patch.dict(os.environ, {ENVVAR: config}):
+            sampleset = self.sampleset(tuples=script_default_tuples())
         self.check_files(sampleset)
 
 

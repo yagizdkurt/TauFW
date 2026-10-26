@@ -10,6 +10,7 @@
 #   ./plot_v10.py -y 2018 -c mutau --serial
 from config.samples_v12 import *
 from TauFW.Histogrammer.spec.string import filtervars
+from TauFW.Histogrammer.sample.tupledir import script_default_tuples # LEGACY: picodir without --tuples (CL §37)
 from TauFW.Utilities.Drawing import LOG as PLOG
 from TauFW.Utilities.Drawing.Plot import Plot, deletehist
 import TauFW.Utilities.Drawing.SampleStyle as STYLE
@@ -243,7 +244,8 @@ def main(args):
       
         split  = ['DY','ST','TT'] 
 
-        sampleset = getsampleset(setup['channel'],era,fname=fname,rmsf=rmsfs,addsf=addsfs,split=split)
+        sampleset = getsampleset(setup['channel'],era,fname=fname,rmsf=rmsfs,addsf=addsfs,split=split,
+                                 tuples=script_default_tuples())
        
         print("split = ", split)
         print(">>>>>>>sampleset")

@@ -580,8 +580,18 @@ raises `OSError` on an unreadable file, which crashed the branch preflight of CL
 
 **Change:** [CL §37](Refactor-2025.md#37-inputs-are-given-never-found)
 
-**Status:** D0 written on Windows; the lock on lxplus open (TODO §1).
+**Status:** D0 locked on lxplus 2026-10-26 (`bbb lock --replace`, `bbb diff`: PASS, 23 same, 1 added). D1 on
+Windows; lxplus open (TODO §1).
 
 - D0: `python Tests/run.py bbb list` lists `histogrammer.tes_inputs_picodir`; `python Tests/run.py checks` on
   Windows 14/16 (the known two). The case needs ROOT: locked on lxplus with the whole suite (`bbb lock --replace`,
   then `bbb diff`: every other case `same`, this one `ADDED`).
+- D1: `Tests/Histogrammer/sample_model/test_tupledir.py` (new, in `unit.histogrammer.sample_model`): the env
+  variable before the default file, the default path is `PicoProducer/config/config.json`, a missing or unreadable
+  file and a missing/empty/non-string `picodir` are errors naming `--tuples`, PicoProducer is not imported (the test
+  checkout has no `TauFW.PicoProducer`); with ROOT, the core refuses `$PICODIR` without tuples.
+  `Tests/Plotter/testTupleLocation.py` (normal, ROOT): `test_default_reads_picodir_of_the_configuration` became
+  `test_no_tuples_is_refused` (no `getconfig` call) and `test_script_default_reads_picodir_of_the_configuration`
+  (the helper with `$TAUFW_PICO_CONFIG` gives the same files). `check_import_boundaries`: Histogrammer ->
+  PicoProducer 1 / 1 / 1, totals 20 / 19 / 17, 0 new pairs. Windows `checks` 14/16 (the known two).
+  The script default itself: BBB `histogrammer.tes_inputs_picodir` on lxplus, without re-lock.

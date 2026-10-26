@@ -11,6 +11,7 @@
 
 from config.samples_v12 import *
 from TauFW.Histogrammer.spec.string import filtervars
+from TauFW.Histogrammer.sample.tupledir import script_default_tuples # LEGACY: picodir without --tuples (CL §37)
 from TauFW.Utilities.Drawing import LOG as PLOG
 from TauFW.Utilities.Drawing.Plot import Plot, deletehist
 import os
@@ -259,7 +260,8 @@ def main(args):
       addsfs = [ ] #"getTauIDSF(dm_2,genmatch_2)"]
       rmsfs  = [ ] if (setup['channel']=='mumu' or not notauidsf) else ['idweight_2','ltfweight_2'] # remove tau ID SFs
       split  = ['DY'] if 'tau' in setup['channel'] else [ ] # split these backgrounds into tau components
-      sampleset = getsampleset(setup['channel'],era,fname=fname,rmsf=rmsfs,addsf=addsfs,split=split)
+      sampleset = getsampleset(setup['channel'],era,fname=fname,rmsf=rmsfs,addsf=addsfs,split=split,
+                               tuples=script_default_tuples())
       plot(sampleset,setup,parallel=parallel,tag=tag,extratext=extratext,outdir=outdir,era=era,
            varfilter=varfilter,selfilter=selfilter,fraction=fraction,pdf=pdf)
       #sampleset.close()

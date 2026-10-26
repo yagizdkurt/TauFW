@@ -18,6 +18,7 @@ from TauFW.Histogrammer.spec.string import filtervars
 from TauFW.Utilities.Drawing import LOG as PLOG
 from TauFW.Histogrammer.controlhists import stack_entry, write_control_hists, normalisation_lumi # --hists (CL §21, S3)
 import TauFW.Histogrammer.sample.utils as GLOB # the cme of the normalisation (setera), for --hists (CL §26)
+from TauFW.Histogrammer.sample.tupledir import script_default_tuples # LEGACY: picodir without --tuples (CL §37)
 import yaml
 SETUPS = os.path.join(os.path.dirname(os.path.abspath(__file__)),"..","Configs","Histogrammer","setups") # channel setups (CL §20)
 
@@ -145,7 +146,7 @@ def main(args):
   pdf       = args.pdf
   outdir    = "plots/$ERA"
   fname     = "$PICODIR/$SAMPLE_$CHANNEL$TAG.root"
-  tuples    = args.tuples # None: $PICODIR of the PicoProducer configuration
+  tuples    = args.tuples # None: picodir of the PicoProducer configuration (script_default_tuples)
   samples   = args.samples # sample model files, one per era; None: the tables of config/samples_v15.py
   
   # LOOP over configs / channels
@@ -163,8 +164,8 @@ def main(args):
       addsfs = [ ] #"getTauIDSF(dm_2,genmatch_2)"]
       rmsfs  = [ ] if (setup['channel']=='mumu' or not notauidsf) else ['idweight_2','ltfweight_2'] # remove tau ID SFs
       split  = ['DY'] if 'tau' in setup['channel'] else [ ] # split these backgrounds into tau components
-      sampleset = getsampleset(setup['channel'],era,fname=fname,rmsf=rmsfs,addsf=addsfs,split=split,tuples=tuples,
-                               samples=samples)
+      sampleset = getsampleset(setup['channel'],era,fname=fname,rmsf=rmsfs,addsf=addsfs,split=split,
+                               tuples=tuples or script_default_tuples(),samples=samples)
       plot(sampleset,setup,parallel=parallel,tag=tag,extratext=extratext,outdir=outdir,era=era,
            varfilter=varfilter,selfilter=selfilter,fraction=fraction,pdf=pdf,histfile=histfile,draw=args.draw)
       #sampleset.close()

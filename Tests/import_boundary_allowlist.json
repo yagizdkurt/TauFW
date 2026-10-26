@@ -33,7 +33,7 @@
     {
       "file": "Histogrammer/python/sample/utils.py",
       "module": "TauFW.PicoProducer.settings",
-      "reason": "Sample helpers read PicoProducer configuration to locate tuples (A03); the Plotter module became the Histogrammer (CL 24).",
+      "reason": "Only getmcsample still reads the PicoProducer configuration to locate tuples (A03; getsampleset takes the tuples since CL 37, plan 23 K6 open).",
       "roadmap_step": "3"
     },
     {

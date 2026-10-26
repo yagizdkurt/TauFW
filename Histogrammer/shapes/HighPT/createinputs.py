@@ -9,6 +9,7 @@ from config.samples_HighPT import *
 from TauFW.Utilities.Drawing import LOG as PLOG 
 from TauFW.common.tools.file import ensuredir
 from TauFW.Histogrammer.shapes.inputs import createinputs, plotinputs, preparesysts
+from TauFW.Histogrammer.sample.tupledir import script_default_tuples # LEGACY: picodir without --tuples (CL §37)
 
 
 def main(args):
@@ -33,7 +34,7 @@ def main(args):
       # GET SAMPLESET
       join      = ['Other']
       sname     = "$PICODIR/$SAMPLE_$CHANNEL$TAG.root"
-      sampleset = getsampleset(channel,era,fname=sname)
+      sampleset = getsampleset(channel,era,fname=sname,tuples=script_default_tuples())
         
       # RENAME (HTT convention)
       sampleset.datasample.name = 'data_obs'
