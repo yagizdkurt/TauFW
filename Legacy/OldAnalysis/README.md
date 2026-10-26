@@ -2,7 +2,7 @@
 
 Known defects are tracked in [Legacy/Bugs.md](../Bugs.md#one-off-analysis-archives).
 
-For future additions and retirements, follow the [legacy code policy](../../docs/LegacyCode.md).
+For future additions and retirements, follow the [legacy code policy](../../Docs/Develop/LegacyCode.md).
 
 Archived on **2026-10-13** as `LegacyAnalyses/`, then moved to `Legacy/OldAnalysis/` on **2026-10-14**. This directory holds 33 one-off or retired analysis files whose relocation has no identified executable consumer in this checkout. These files are reference material; moving them does not certify that they run.
 
@@ -93,4 +93,4 @@ This is a path example, not a successful runtime check. Existing defects and ext
 
 ## Validation
 
-All 33 archived files have one banner and one inventory entry, at a flat year-group path. Removing each banner reproduces its source before this regrouping (with the earlier example banner removed). Python AST comparisons pass for all 30 parseable Python files; takeZmu retains its existing indentation error. Both ROOT macros preserve their full original source beneath C++ comment banners. Old component directories are gone, current documentation links are updated, and no moved entries remain in docs/Refactor-2025/Legacy.md. No ROOT/CMSSW analysis jobs or broad test suite were run.
+All 33 archived files have one banner and one inventory entry, at a flat year-group path. Removing each banner reproduces its source before this regrouping (with the earlier example banner removed). Python AST comparisons pass for all 30 parseable Python files; takeZmu retains its existing indentation error. Both ROOT macros preserve their full original source beneath C++ comment banners. Old component directories are gone, current documentation links are updated, and no moved entries remain in Docs/Develop/Refactor-2025/Legacy.md. No ROOT/CMSSW analysis jobs or broad test suite were run.

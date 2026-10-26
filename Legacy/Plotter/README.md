@@ -3,7 +3,7 @@
 Known defects are tracked in [Legacy/Bugs.md](../Bugs.md#plotter-archives).
 
 These files are **unmaintained**. They were archived in `Plotter/Legacy/` on 2026-10-13 during the Plotter cleanup
-(`Refactor-2025`, see [docs/Refactor-2025.md](../../docs/Refactor-2025/Refactor-2025.md#9-plotter-cleanup-legacy-area))
+(`Refactor-2025`, see [Docs/Develop/Refactor-2025/Refactor-2025.md](../../Docs/Develop/Refactor-2025/Refactor-2025.md#9-plotter-cleanup-legacy-area))
 instead of being deleted, so their code stays easy to find. Their Git history follows them
 (`git log --follow <file>`). Scripts, configurations, Python modules and macros
 are consolidated in this root archive as of 2026-10-14.
@@ -28,12 +28,12 @@ Notes:
 - **Scripts may not run from here.** They assume the working directory is `Plotter/` (`from config.samples... import`,
   `loadmacro("python/macros/...")`, `-c config/setup_*.yml`). Several were already broken before the move (see below).
 - **To revive a file,** move it back to its original location, check its imports, and record the change in
-  `docs/Refactor-2025.md`. For new plots, start from `Plotter/plot.py` with `config/samples_v15.py`.
+  `Docs/Develop/Refactor-2025/Refactor-2025.md`. For new plots, start from `Plotter/plot.py` with `config/samples_v15.py`.
 
 | Legacy path | Last change | Reason |
 |---|---|---|
-| `plot_CMSPODAS23.py`, `config/samples_v10.py`, `config/setup_mutau_PODAS.yml` | 2023-10-13 | CMS PO&DAS 2023 school (UL2018, NanoAOD v10); linked from `docs/CMSPODAS23` |
-| `plots_and_histograms_CMSDAS2020.py` | 2023-06-20 | CMSDAS 2020 school exercise (2017/2018); linked from `docs/CMSDAS2020` |
+| `plot_CMSPODAS23.py`, `config/samples_v10.py`, `config/setup_mutau_PODAS.yml` | 2023-10-13 | CMS PO&DAS 2023 school (UL2018, NanoAOD v10); linked from `Docs/Extra/CMSPODAS23` |
+| `plots_and_histograms_CMSDAS2020.py` | 2023-06-20 | CMSDAS 2020 school exercise (2017/2018); linked from `Docs/Extra/CMSDAS2020` |
 | `utils/tmux.sh` | 2020-07-18 | Personal shell helper, unrelated to plotting |
 | `config/samples_Summer24.py` | 2026-03-11 | Unused variant of `samples_v12.py` |
 | `config/samples_Summer24v15.py` | 2026-03-11 | Unused predecessor of `samples_v15.py` (no 2026 / 2526 eras) |
@@ -54,7 +54,7 @@ fake-rate JSONs and pico inputs. Its personal AFS configuration paths and implic
 helper imports still need review before reuse; relocation does not repair them.
 
 **Kept in place** although they look old, because something still uses them:
-`config/samples.py` (Fitter `MuTauFR`, `paper`; `docs/CMSDAS2020`), `config/samples_HighPT.py` (Fitter `HighPT`),
+`config/samples.py` (Fitter `MuTauFR`, `paper`; `Docs/Extra/CMSDAS2020`), `config/samples_HighPT.py` (Fitter `HighPT`),
 `config/samples_v12.py` (Fitter `ETauFR`) with `plot_v10.py` and `plot_postfit*.py` (`Fitter/TauES_ID/README.md`),
 `python/corrections/{pileup,topptweight,tauIDSF}.C`, `python/macros/{loadHist,utils}.C` (`Tests/Plotter/testMacros.py`),
 `python/macros/Unroll.cxx` (BBB, Fitter `Zpt`), and `config/setup_tautau.yml` (the only tautau setup).

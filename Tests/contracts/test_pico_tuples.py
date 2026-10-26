@@ -1,4 +1,4 @@
-"""Contract: pico tuples (docs/contracts/pico-tuples.md), without ROOT. Both sides are read as text: the PicoProducer's
+"""Contract: pico tuples (Docs/Develop/contracts/pico-tuples.md), without ROOT. Both sides are read as text: the PicoProducer's
 tree producers, channel modules and merge step, the Histogrammer's Sample and stitching code, and the configs that
 name branches (Configs/ and the bundle copies in Analyses/). Nothing is imported from either module.
 
@@ -68,7 +68,7 @@ ANALYSIS_ADDON = dict(
      ("idisoweight_2_2025", (MUON, ('mumu',)))])
 ADDON_ERAS = ('2025', '2026', '2526')  # the sample model eras that read the campaign's tuples
 
-# Branches the configs read that their channel's tuples do not have, documented in docs/contracts/pico-tuples.md
+# Branches the configs read that their channel's tuples do not have, documented in Docs/Develop/contracts/pico-tuples.md
 # ("Known debt"): (config file names, the same in Configs/ and in bundle copies), channels, branches. Remove a row
 # when the config is fixed.
 OLD_ERAS = ('v15_2022_preEE.yml', 'v15_2022_postEE.yml', 'v15_2023C.yml', 'v15_2023D.yml', 'v15_2024.yml')

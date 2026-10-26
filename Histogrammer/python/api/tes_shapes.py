@@ -1,7 +1,7 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """TESShapes: the public API for the input histograms (shapes) of the combined tau energy scale (TES) + tau ID fit.
 Until CL §22 (H3) this was the shapes half of the Fitter API (TauFW.Fitter.api.TauESID); the fit stays there and
-reads the files by the contract docs/contracts/tes-shapes.md (the two modules never import each other).
+reads the files by the contract Docs/Develop/contracts/tes-shapes.md (the two modules never import each other).
 
 shapes/TauES/createinputsTES.py fills them. This API runs it as a separate process, one run per era, working point
 pair and config, in the order of Fitter/run_inputs.sh and with its arguments, and checks that it wrote the shape
@@ -274,7 +274,7 @@ def _missing_variations(config, era, setup, model, tuples, maxshow):
 
 def _shape_files(setup, era, jet_wp, ele_wp):
     """(observable, path) of the shape files createinputsTES.py writes for one config (createinputsTES.py:238; the
-    rule of docs/contracts/tes-shapes.md), relative to its working directory."""
+    rule of Docs/Develop/contracts/tes-shapes.md), relative to its working directory."""
     chshort = setup.get('channel', '').replace('tau', 't').replace('mu', 'm')
     tag = "13TeV" + setup.get('tag', '')
     files = []

@@ -8,7 +8,7 @@ arguments, from the same working directory, so relative paths keep working) and 
 
     python3 plot.py -y 2025 -c mutau      ->  LEGACY message with: python3 fillhists.py -y 2025 -c mutau
 
-Deleted at the migration point (docs/Refactor-2025/TODO.md §8); see Histogrammer/README.md.
+Deleted at the migration point (Docs/Develop/Refactor-2025/TODO.md §8); see Histogrammer/README.md.
 """
 import os
 import shlex

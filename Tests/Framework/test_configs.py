@@ -27,7 +27,7 @@ READERS = {
 
 
 def read_tes_id(path):
-    """A TES / tau ID channel config with the keys its two readers take without a default (docs/contracts/
+    """A TES / tau ID channel config with the keys its two readers take without a default (Docs/Develop/contracts/
     tes-shapes.md; CL §22 D1): createinputsTES.py (channel, baselineCuts, samples.filename/join/data, observables
     with binning and fitRegions in regions, processes; regions with definition and title; TES variations and shape
     systematics with their fields) and the fit scripts (channel, tag, observables, processes, systematics)."""

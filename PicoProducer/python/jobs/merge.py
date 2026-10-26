@@ -51,7 +51,7 @@ MERGE_ACTIONS = ('hadd', 'haddclean', 'clean') # pico.py subcommands handled her
 TUPLE_LAYOUT  = "$ERA/$GROUP" # below a directory the caller gives (JobRequest.tupledir), the merged tuples go to
                               # <tupledir>/<era>/<group>/<sample>_<channel><tag>.root
 SUMW_BIN      = 17            # cutflow bin of the sum of genWeight with nTrueInt>0 ('weight_no0PU'): the MC
-                              # normalisation the Histogrammer reads (Sample.binsumw; docs/contracts/pico-tuples.md)
+                              # normalisation the Histogrammer reads (Sample.binsumw; Docs/Develop/contracts/pico-tuples.md)
 
 
 # ===== Pipeline =====

@@ -5,7 +5,7 @@ The fit is still done by the existing scripts. This API runs them as separate pr
 shell scripts that analysts use, and checks what they produce. Without an output directory (request.outdir) they
 run in Fitter/ with exactly the arguments of the shell scripts. With one (the TauFW Framework gives
 <run_dir>/stages/<id>/) they run in <outdir>/<era>/: the scripts and configs are then given as absolute paths, the
-shapes come from request.shapes_dirs, and the few options listed in docs/Refactor-2025/scripts_arg_changes.md keep
+shapes come from request.shapes_dirs, and the few options listed in Docs/Develop/Refactor-2025/scripts_arg_changes.md keep
 every output inside the output directory:
 
     FitRequest    ─▶ plan_fit()    ─▶ fit()           = Fitter/run_workflow_zmm.sh (option 3: 2D scan of tes and
@@ -14,7 +14,7 @@ every output inside the output directory:
 
 The shapes (input histograms) are not made here since CL §22 (H3): another module writes them (by hand
 Fitter/run_inputs.sh, in the Framework the shapes stage), and the fit reads them by the file contract
-docs/contracts/tes-shapes.md (the INPUTS tree and the file names that preflight_fit() looks for).
+Docs/Develop/contracts/tes-shapes.md (the INPUTS tree and the file names that preflight_fit() looks for).
 
 Each command must exit with 0 AND write its expected outputs (see TauFW.Utilities.Process): the scripts call combine
 through os.system and ignore its exit code, so a zero exit code alone proves nothing. A run stops at the first
@@ -54,7 +54,7 @@ __all__ = ['TauESID']
 # ================================= CONSTANTS =================================
 
 
-INPUTS = 'input_pt_less_region'      # shape tree (docs/contracts/tes-shapes.md); the later scripts hard-code these names
+INPUTS = 'input_pt_less_region'      # shape tree (Docs/Develop/contracts/tes-shapes.md); the later scripts hard-code these names
 OUTPUTS = 'output_pt_less_region'    # datacards and fit results
 POSTFIT = 'postfit_pt_less_region'   # post-fit shapes
 PLOTS = 'plots_pt_less_region'       # scan plots

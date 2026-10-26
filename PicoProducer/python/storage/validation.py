@@ -61,7 +61,7 @@ def isvalid(fname,hname='cutflow',bin=1):
   
 
 def cutflow_bin(fname,bin,hname='cutflow'):
-  """The content of one bin of a pico tuple's cutflow histogram (docs/contracts/pico-tuples.md), or None if the file
+  """The content of one bin of a pico tuple's cutflow histogram (Docs/Develop/contracts/pico-tuples.md), or None if the file
   or the histogram cannot be read. Reads only that histogram."""
   try:
     file = TFile.Open(fname,'READ')

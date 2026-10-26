@@ -4,7 +4,7 @@ The module is intended to evaluate the ETau Fake Rate by using `combine` and `Co
 
 ## Installation
 
-See [the README.md in the parent directory](../../../../#taufw).
+See [the README.md in the parent directory](../../README.md#taufw).
 
 ## Usage 
 The workflow is divided into three different steps: create inputs, create datacards and perform the fit.

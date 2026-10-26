@@ -3,7 +3,7 @@
 plots, filled but not drawn). Until CL §21 (S4) this API was ControlPlots and its script also drew the plots.
 
 Histogrammer/fillhists.py fills them; with --hists --no-draw it only writes them to a control-histogram file
-(contract taufw.control_histograms, docs/contracts/control-histograms.md), which the Plotter draws (its API
+(contract taufw.control_histograms, Docs/Develop/contracts/control-histograms.md), which the Plotter draws (its API
 TauFW.Plotter.api.ControlPlots runs Plotter/draw.py). This API runs fillhists.py as a separate process, one run per
 (config, era), with the arguments a user would type, and checks that it wrote the file. fillhists.py runs in the
 request's output directory (outdir; the TauFW Framework gives <run_dir>/stages/<id>/), or in Histogrammer/ if there
@@ -16,7 +16,7 @@ is none:
     sample_names(), samples_problems(), sample_file_problems(): the sample model files (no ROOT; also used by the
     Framework for the shapes stage and to compare with what production makes)
     branch_problems(): the tuple files that lack a branch the setup or the sample model reads (ROOT, file headers;
-    docs/contracts/pico-tuples.md)
+    Docs/Develop/contracts/pico-tuples.md)
 
 Inputs:  pico tuples in the request's tuple pattern (--tuples), or else found by fillhists.py through $PICODIR
          of the request's PicoProducer config (passed to fillhists.py as $TAUFW_PICO_CONFIG; default

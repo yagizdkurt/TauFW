@@ -2,10 +2,10 @@
 
 ## Installation :gear:
 
-See [the README.md in the parent directory](../../../#taufw).
+See [the README.md in the parent directory](../../README.md#taufw).
 
 ## Creating NTuples :card_index_dividers:
-The first step is to produce the NTuples via PicoProducer tool. See [the README.md in the parent directory](../../../PicoProducer).
+The first step is to produce the NTuples via PicoProducer tool. See [the README.md in the parent directory](../../PicoProducer/README.md).
 ## Creating inputs :bookmark_tabs:
 Input root files containing all the shape systematic variation for samples defined in the config file are created using the [createinputsTES.py](https://github.com/saswatinandan/TauFW/blob/master/Fitter/TauES/createinputsTES.py). These root files are saved in the directory defined [here](https://github.com/saswatinandan/TauFW/blob/master/Fitter/TauES/createinputsTES.py#L38). New directories are created for each wp of against electron and against jet and corresponding root files are stored within these directories. They contain one TDirectory for each `"pt regions"` defined in the config file (.yml). For each region, there is a list of TH1D corresponding to each `"process"` defined in the config file (ex: ZTT). For each shape systematics, there is also two additionnal TH1D corresponding to the Up and Down variation of the process (ex: ZTT_shapedy_Up). For the TES there is a list of additional TH1D corresponding to the variations (defined by `"TESvariations"` in the config file) of the process by TES correction. 
 
@@ -106,7 +106,7 @@ Above command will produce the root files in the direcory `tau_sf/*_SF_dm_DeepTa
 
 ### Fit of TES and ID SF by DM 
 
-1. Create the NTuples : See [the README.md in the parent directory](../../../PicoProducer).
+1. Create the NTuples : See [the README.md in the parent directory](../../PicoProducer/README.md).
 
 2. Use `/config/Default_FitSetupTES_mutau_DM_mt65pt_lessptregion.yml`
 

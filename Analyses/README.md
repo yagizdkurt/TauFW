@@ -371,7 +371,7 @@ copied.
 channels, storage paths, and batch defaults; recipes select and override job
 settings rather than defining those catalogs themselves. See the
 [PicoProducer documentation](../PicoProducer/README.md) and
-[public API](../docs/PicoProducer/API.md). A bundle may carry its own copy:
+[public API](../Docs/Manual/PicoProducer/API.md). A bundle may carry its own copy:
 
 ```yaml
 pico:
@@ -513,7 +513,7 @@ The first half of the control plots. Runs `Histogrammer/fillhists.py --hists --n
 `Plotter/plot.py`, changelog §21) locally, once per config and era, through
 `TauFW.Histogrammer.api.ControlHists`: it fills the data/MC stacks of every variable and selection and writes
 them, with what the drawing needs, to one control-histogram file
-([contract](../docs/contracts/control-histograms.md)); it draws nothing. The `controlplots` stage draws them.
+([contract](../Docs/Develop/contracts/control-histograms.md)); it draws nothing. The `controlplots` stage draws them.
 
 | Option | Default | Meaning |
 | --- | --- | --- |
@@ -569,7 +569,7 @@ channel, directory, the number of plots it made), the same form as the former `p
 Creates the input shapes for the combined TES + tau ID fit. It wraps the
 `Fitter/run_inputs.sh` workflow via `TauFW.Histogrammer.api.TESShapes.make_shapes` (the Fitter API's until changelog
 §22 H3), running `Histogrammer/shapes/TauES/createinputsTES.py` locally for every era, jet WP, electron WP, and
-config. The `fit` stage reads the files by the contract [docs/contracts/tes-shapes.md](../docs/contracts/tes-shapes.md).
+config. The `fit` stage reads the files by the contract [Docs/Develop/contracts/tes-shapes.md](../Docs/Develop/contracts/tes-shapes.md).
 
 | Option | Default | Meaning |
 | --- | --- | --- |
@@ -623,7 +623,7 @@ era in their names; everything the fit writes is there, including `tau_sf/`
 and the combined `data/tau/TauCorrections_<era>_with_uncorrelated_systs.json`.
 Copying the correction files to their final place is not done by the
 Framework. The few script options this needs are listed in
-[docs/Refactor-2025/scripts_arg_changes.md](../docs/Refactor-2025/scripts_arg_changes.md).
+[Docs/Develop/Refactor-2025/scripts_arg_changes.md](../Docs/Develop/Refactor-2025/scripts_arg_changes.md).
 
 ### `python`
 
@@ -750,7 +750,7 @@ can exceed the WP lists in this recipe.
 
 Set up the Linux CMS/CMSSW environment first (see
 [installation](../README.md#installation) and
-[FastSetup](../docs/FastSetup.md)). After `cmsenv` and `scram b`, `taufw.py`
+[FastSetup](../Docs/Manual/FastSetup.md)). After `cmsenv` and `scram b`, `taufw.py`
 is available on `PATH`; from the repository root you can also use
 `python3 taufw.py`. Fits require ROOT, the Combine tools, and CombineHarvester
 for the fit step. Local-stage preflight reports missing prerequisites.

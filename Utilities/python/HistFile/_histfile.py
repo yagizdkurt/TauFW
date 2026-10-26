@@ -6,7 +6,7 @@
 
 Two modules that must not import each other exchange histograms through such a file: the Histogrammer writes the
 histograms it filled, the Plotter reads and draws them (changelog §21). Both import only this format. What the
-metadata *means* is their contract (docs/contracts/control-histograms.md); this module only stores it, unchanged.
+metadata *means* is their contract (Docs/Develop/contracts/control-histograms.md); this module only stores it, unchanged.
 
 Format 1:
 

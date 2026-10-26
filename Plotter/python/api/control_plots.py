@@ -11,7 +11,7 @@ it wrote plots. draw.py runs in the request's output directory (outdir; the TauF
                     CommandPlan  RunReport (one plots artifact per file)
     preflight(): what is missing in the environment (empty: ready)
 
-Inputs:  control-histogram files (contract taufw.control_histograms, docs/contracts/control-histograms.md).
+Inputs:  control-histogram files (contract taufw.control_histograms, Docs/Develop/contracts/control-histograms.md).
 Outputs: <outdir>/plots/<era>/<variable>_<channel short>-<selection>-<era><tag>.png (and .pdf with -p), named by
          TauFW.Plotter.controlplots.plot_name like fillhists.py names its own plots, and one log file per command in
          the caller's log directory.

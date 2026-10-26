@@ -4,7 +4,7 @@ Known defects are tracked in [Legacy/Bugs.md](../Bugs.md#fitter-archives).
 
 This folder holds Fitter scripts that are broken, superseded, or no longer used by any workflow.
 They were archived in `Fitter/Legacy/` on 2026-10-13 instead of being deleted, then moved here on 2026-10-14 (see
-[docs/Refactor-2025.md](../../docs/Refactor-2025/Refactor-2025.md#8-fitter-cleanup-legacy-area)). Each file keeps its original
+[Docs/Develop/Refactor-2025/Refactor-2025.md](../../Docs/Develop/Refactor-2025/Refactor-2025.md#8-fitter-cleanup-legacy-area)). Each file keeps its original
 path relative to `Fitter/`, so `Legacy/Fitter/TauES/doTES.sh` was `Fitter/TauES/doTES.sh`.
 
 **These files are not maintained.** Many did not run even before the move. Relative paths, `#include`s and

@@ -10,7 +10,7 @@ and exits with status 2.
     cd Fitter/ETauFR; python3 createinputs.py -y 2018 ...
         ->  LEGACY message with: python3 ../../Histogrammer/shapes/ETauFR/createinputs.py -y 2018 ...
 
-Deleted at the migration point (docs/Refactor-2025/TODO.md §8); see Histogrammer/README.md.
+Deleted at the migration point (Docs/Develop/Refactor-2025/TODO.md §8); see Histogrammer/README.md.
 """
 import os
 import shlex

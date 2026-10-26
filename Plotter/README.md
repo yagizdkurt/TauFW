@@ -1,6 +1,6 @@
 # TauFW Plotter
 
-> **Being rebuilt (October 2026, changelog §21 of [Refactor-2025.md](../docs/Refactor-2025/Refactor-2025.md)).**
+> **Being rebuilt (October 2026, changelog §21 of [Refactor-2025.md](../Docs/Develop/Refactor-2025/Refactor-2025.md)).**
 > The module that was called Plotter until now is the [Histogrammer](../Histogrammer/README.md): it fills
 > histograms from pico tuples. This directory is the new, small Plotter that only **draws**. Since step S3 it draws
 > control plots from a histogram file, since S4 also as the Framework's `controlplots` stage (through its API,
@@ -23,7 +23,7 @@ python3 fillhists.py -y 2025 -c mutau --hists     # its usual plots, and hists/2
 python3 ../Plotter/draw.py hists/2025/mutau.root -o drawn/2025    # the same plots, from the file
 ```
 
-- **Input:** a control-histogram file ([contract](../docs/contracts/control-histograms.md)): per selection and
+- **Input:** a control-histogram file ([contract](../Docs/Develop/contracts/control-histograms.md)): per selection and
   variable the data, the expected processes in stack order and the signals (already coloured and titled), plus the
   17 drawing settings of the variable (axis title, ranges, log scale, legend position, ...).
 - **Output:** the plots, drawn with the shared drawing library (`TauFW.Utilities.Drawing`: `Stack`, `CMSStyle`).
@@ -77,7 +77,7 @@ plotter.make(request, logdir='logs')   # RunReport: ok, one log per command, one
 | `plot.py` | LEGACY: prints the command that replaces it (`Histogrammer/fillhists.py`, same options) and exits; nothing runs |
 | `python/sample/*.py`, `python/plot/*.py`, `python/methods/QCD_OSSS.py` | BACKWARD COMPATIBILITY: the 13 old module names, each an alias of its new module in the Histogrammer |
 
-The legacy command and the aliases are deleted at the migration point ([TODO.md](../docs/Refactor-2025/TODO.md)
+The legacy command and the aliases are deleted at the migration point ([TODO.md](../Docs/Develop/Refactor-2025/TODO.md)
 §8). Old scripts keep working until then; new code uses the new names. How to update a script:
 [Histogrammer/README.md](../Histogrammer/README.md) ("Old names").
 
@@ -117,7 +117,7 @@ The new Plotter is meant as the example of how a TauFW module is written after t
 2. **Inputs and outputs are explicit:** the command and the functions get the histogram file and the output
    directory; nothing is looked up in another module's configuration or directory.
 3. **The data it reads is a written contract**, versioned, and checked when the file is opened
-   ([control histograms](../docs/contracts/control-histograms.md)).
+   ([control histograms](../Docs/Develop/contracts/control-histograms.md)).
 4. **Every public function says what it reads, what it writes and what it returns**; behaviour that is kept on
    purpose (compatibility) is marked as such and has an end.
 5. **Byte-identical output is proven, not assumed:** the BBB case `plotter.stack` locks what `plot.py` drew, and the

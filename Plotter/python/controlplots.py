@@ -2,7 +2,7 @@
 """Control plots drawn from a control-histogram file of the Histogrammer (changelog §21, S3).
 
 The Plotter does not fill histograms: it reads the file that `Histogrammer/fillhists.py --hists` wrote
-(docs/contracts/control-histograms.md) and draws each stack with the shared drawing library, exactly as
+(Docs/Develop/contracts/control-histograms.md) and draws each stack with the shared drawing library, exactly as
 fillhists.py (the former Plotter/plot.py) draws it from memory:
 
     read_control_hists(path)                       ─▶ ControlHists (channel, era, tag, entries)
@@ -39,7 +39,7 @@ __all__ = ['read_control_hists', 'draw_control_plots', 'make_stack', 'draw_stack
 # ================================= CONTRACT ==================================
 
 
-CONTRACT = "taufw.control_histograms"  # the file this module reads (docs/contracts/control-histograms.md)
+CONTRACT = "taufw.control_histograms"  # the file this module reads (Docs/Develop/contracts/control-histograms.md)
 VERSION  = 2                           # the version of the contract it understands (2: lumi, cme; CL §26)
 
 # The attributes of a variable that the drawing code reads (TauFW.Utilities.Drawing Plot.__init__); the file

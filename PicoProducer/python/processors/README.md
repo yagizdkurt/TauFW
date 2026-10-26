@@ -1,7 +1,7 @@
 # PicoProducer/python/processors (deprecated)
 
 `processors/` was renamed to [`workers/`](../workers) on 2026-10-13 (PicoProducer cleanup Part 5, see
-[docs/Refactor-2025.md](../../../docs/Refactor-2025.md#a3-processors-renamed-to-workers)). This directory is a
+[Docs/Develop/Refactor-2025/Refactor-2025.md](../../../Docs/Develop/Refactor-2025/Refactor-2025.md#a3-processors-renamed-to-workers)). This directory is a
 **temporary compatibility layer** so code and job lists from before the rename keep working. It contains no worker
 code: everything here forwards to `workers/` and prints a deprecation warning.
 
@@ -55,5 +55,5 @@ To find remaining uses, turn the warnings into errors: `python3 -W error::Future
 ## Removal
 
 Delete this directory after all job lists from before 2026-10-13 have finished or been resubmitted, and record the
-removal in `docs/Refactor-2025.md`. The tests in
+removal in `Docs/Develop/Refactor-2025/Refactor-2025.md`. The tests in
 [`Tests/PicoProducer/compat/`](../../../Tests/PicoProducer/compat) go with it.

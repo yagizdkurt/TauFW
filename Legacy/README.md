@@ -26,6 +26,6 @@ The maintained `TauFW.*` packages still require the usual TauFW/CMSSW setup.
 The old `TauFW.*.legacy` imports are retired. The standalone muon scale-factor
 comparison adds its checkout root before importing the archived class.
 
-See the [legacy code policy](../docs/LegacyCode.md), the
-[component inventory](../docs/Refactor-2025/Legacy.md), and each archive README
+See the [legacy code policy](../Docs/Develop/LegacyCode.md), the
+[component inventory](../Docs/Develop/Refactor-2025/Legacy.md), and each archive README
 for retirement reasons and replacements.

@@ -2,7 +2,7 @@
 
 ## Installation
 
-See [the README.md in the parent directory](../../../#taufw).
+See [the README.md in the parent directory](../README.md#taufw).
 
 ## Workflows
 
@@ -23,7 +23,7 @@ script in `Fitter/`, and checks that every command wrote its expected outputs (t
 [Framework/README.md](../Framework/README.md)). The shapes it reads are made by `run_inputs.sh` (in `Fitter/`) or the
 Framework's `shapes` stage, whose API is the Histogrammer's `TESShapes` since changelog §22 H3 (before, `TauESID`
 also had `plan_shapes`/`make_shapes`/`preflight_shapes` and `ShapesRequest`; no old name is kept). The two sides
-share only the file contract [docs/contracts/tes-shapes.md](../docs/contracts/tes-shapes.md).
+share only the file contract [Docs/Develop/contracts/tes-shapes.md](../Docs/Develop/contracts/tes-shapes.md).
 
 ```python
 from TauFW.Fitter.api import TauESID, FitRequest
@@ -35,7 +35,7 @@ fitter.preflight_fit(fit)       # problems (no cmsenv, combine missing, no shape
 fitter.fit(fit, logdir='logs')  # the run_workflow_zmm.sh steps; artifacts carry the fitted tes and tid_SF values
 ```
 
-Bugs found and fixed on this path: [docs/Fitter/BUGS.md](../docs/Fitter/BUGS.md).
+Bugs found and fixed on this path: [Docs/Develop/Fitter/BUGS.md](../Docs/Develop/Fitter/BUGS.md).
 
 ## Legacy
 

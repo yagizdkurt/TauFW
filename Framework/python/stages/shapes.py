@@ -4,7 +4,7 @@ TESShapes (the Fitter API's until CL §22 H3). It was called `histograms` until 
 after what it makes, and the control histograms of the Histogrammer are another stage (controlhists).
 
 It runs what Fitter/run_inputs.sh runs: Histogrammer/shapes/TauES/createinputsTES.py for every era, working point
-pair and config. The fit stage reads the files by the contract docs/contracts/tes-shapes.md.
+pair and config. The fit stage reads the files by the contract Docs/Develop/contracts/tes-shapes.md.
 
     inputs:   tuples: pico tuples, given to createinputsTES.py as --tuples <pattern>: those of the production
               stage the slot names (the pattern on its artifacts), or {external: <pattern>}; with null (old

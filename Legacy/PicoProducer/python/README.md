@@ -16,7 +16,7 @@ No archive owner is recorded; original author comments are retained in each file
   `analysis.ModuleTauPair` and `analysis.utils`), and the legacy copies will not be updated.
 - **Not runnable through `pico.py`.** Its channel loader only finds modules under `analysis/`.
 - **To revive a file,** move it back next to the maintained code, update its imports, add a BBB case, and
-  record the change in `docs/Refactor-2025.md`.
+  record the change in `Docs/Develop/Refactor-2025/Refactor-2025.md`.
 
 The originals were under `PicoProducer/python/` (`PicoProducer/scripts/` for `pico2.sh`).
 The production shell commands assume an activated PicoProducer environment and
@@ -44,7 +44,7 @@ Each source banner records its campaign evidence and retirement reason. The
 tracked inventory excludes local generated caches and `nanoV10branch.txt`, an
 ignored branch-list companion preserved during this relocation.
 
-The tutorial module `analysis/CMSDAS2020/` was **not** moved, because `docs/CMSDAS2020/` still links to it.
+The tutorial module `analysis/CMSDAS2020/` was **not** moved, because `Docs/Extra/CMSDAS2020/` still links to it.
 
 ## One-off analysis archive
 

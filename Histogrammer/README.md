@@ -7,7 +7,7 @@ weights, normalisation `lumi*xsec/sumw`, joining, stitching, genmatch splitting)
 (`Variable`, `Selection`), the RDataFrame filling and the data-driven methods (QCD from same-sign events).
 
 Until October 2026 this module was called **Plotter** (changelog §21 of
-[Refactor-2025.md](../docs/Refactor-2025/Refactor-2025.md)). After the drawing code moved to
+[Refactor-2025.md](../Docs/Develop/Refactor-2025/Refactor-2025.md)). After the drawing code moved to
 `TauFW.Utilities.Drawing` (§18), almost everything left in it produced histograms, so it was renamed. A new, small
 [Plotter](../Plotter/README.md) is being extracted that only draws, from histogram files written here.
 For instructions on the physics side, the [Plotter wiki page](https://github.com/cms-tau-pog/TauFW/wiki/Plotter) still
@@ -20,7 +20,7 @@ modules and macros under `Legacy/Plotter/python/`.
 
 | Path | What |
 |---|---|
-| `fillhists.py` | fills the histograms of a channel setup and era (formerly `Plotter/plot.py`, same options); by default it also draws the control plots, exactly as `plot.py` did; with `--hists` it also writes the filled histograms to `hists/<era>/<channel><tag>.root` for `Plotter/draw.py` ([contract](../docs/contracts/control-histograms.md)); with `--hists --no-draw` it only writes the file (the Framework's `controlhists` stage) |
+| `fillhists.py` | fills the histograms of a channel setup and era (formerly `Plotter/plot.py`, same options); by default it also draws the control plots, exactly as `plot.py` did; with `--hists` it also writes the filled histograms to `hists/<era>/<channel><tag>.root` for `Plotter/draw.py` ([contract](../Docs/Develop/contracts/control-histograms.md)); with `--hists --no-draw` it only writes the file (the Framework's `controlhists` stage) |
 | `plot.py` | LEGACY: prints the `fillhists.py` command to use instead and exits (nothing runs) |
 | `plot_postfit.py`, `plot_postfit_shift.py`, `plot_v10.py`, `tutorial/` | older fill-and-draw variants, unchanged (their future is decided in step S3 of the plan) |
 | `config/samples*.py` | sample lists as Python code (`samples_v15.py` is backward compatibility for runs without sample model files) |
@@ -28,7 +28,7 @@ modules and macros under `Legacy/Plotter/python/`.
 | `python/spec/` | what to fill: `Variable`, `Selection`, `Context` (contextual binning and titles), `string` (selection strings) |
 | `python/methods/` | data-driven methods added to `SampleSet` by name (`QCD_OSSS`) |
 | `python/macros/`, `python/corrections/` | ROOT macros loaded by path (e.g. `mapDecayModes.C`) |
-| `shapes/TauES/createinputsTES.py` | the input shapes of the combined TES + tau ID fit (moved from `Fitter/TauES/` in changelog §22, unchanged): run from `Fitter/` by `Fitter/run_inputs*.sh` (`python3 ../Histogrammer/shapes/TauES/createinputsTES.py ...`), so the shapes land in `Fitter/input_pt_less_region/` where the fit reads them; the file format is [docs/contracts/tes-shapes.md](../docs/contracts/tes-shapes.md) |
+| `shapes/TauES/createinputsTES.py` | the input shapes of the combined TES + tau ID fit (moved from `Fitter/TauES/` in changelog §22, unchanged): run from `Fitter/` by `Fitter/run_inputs*.sh` (`python3 ../Histogrammer/shapes/TauES/createinputsTES.py ...`), so the shapes land in `Fitter/input_pt_less_region/` where the fit reads them; the file format is [Docs/Develop/contracts/tes-shapes.md](../Docs/Develop/contracts/tes-shapes.md) |
 | `shapes/{ETauFR,HighPT,paper,tutorial}/createinputs.py` | the input shapes of the other Fitter measurements (moved from `Fitter/<Variant>/`, unchanged): run them from `Fitter/<Variant>/` as before (`python3 ../../Histogrammer/shapes/<Variant>/createinputs.py ...`); their `config` paths are relative to that directory |
 | `python/shapes/` | `TauFW.Histogrammer.shapes.inputs` (`createinputs`, `plotinputs`, ...: the shape writer, formerly `TauFW.Fitter.plot.datacard`) and `.rebinning` |
 | `python/controlhists.py` | `TauFW.Histogrammer.controlhists`: `stack_entry` (copies of a stack's histograms as filled, with the drawing attributes) and `write_control_hists` (`--hists`) |
@@ -51,7 +51,7 @@ modules and macros under `Legacy/Plotter/python/`.
 
 The old module names still work: each is an alias of the new module (the same module object, so `setera` through
 either name changes the same era and luminosity). They are deleted at the migration point
-([TODO.md](../docs/Refactor-2025/TODO.md) §8); new code uses the new names. Updating a script:
+([TODO.md](../Docs/Develop/Refactor-2025/TODO.md) §8); new code uses the new names. Updating a script:
 
 ```bash
 sed -i -e 's/TauFW\.Plotter\.plot\.MultiDraw/TauFW.Histogrammer.sample.MultiDraw/g' \
@@ -85,7 +85,7 @@ era; `fillhists.py --samples`) instead of the tables of `config/samples_v15.py`.
 order and with the arguments of `Fitter/run_inputs.sh`, run in the request's output directory (`outdir`, required:
 the Framework gives `<run_dir>/stages/<id>/`; by hand, `Fitter/run_inputs.sh` writes the shapes into `Fitter/` where
 the fit scripts read them). It checks that each command wrote its shape files, one per observable, named by the
-contract [docs/contracts/tes-shapes.md](../docs/contracts/tes-shapes.md). The Framework uses it for its `shapes`
+contract [Docs/Develop/contracts/tes-shapes.md](../Docs/Develop/contracts/tes-shapes.md). The Framework uses it for its `shapes`
 stage. It was the shapes half of the Fitter API (`TauESID`) until changelog §22 H3.
 
 ```python
@@ -99,4 +99,4 @@ shapes.preflight_shapes(request)  # problems (no cmsenv, no ROOT, missing config
 shapes.make_shapes(request, logdir='logs')   # RunReport: ok, one log per command, one shapes artifact per file
 ```
 
-Bugs found and fixed on this path: [docs/Histogrammer/BUGS.md](../docs/Histogrammer/BUGS.md).
+Bugs found and fixed on this path: [Docs/Develop/Histogrammer/BUGS.md](../Docs/Develop/Histogrammer/BUGS.md).

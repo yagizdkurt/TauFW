@@ -273,7 +273,7 @@ of the stage) and in the reader's manifest.
   `run.json` holds the requests, summaries and artifacts.
 - Artifacts of the production stage are PicoProducer `TupleArtifact`s with the stage's `pattern` added: `kind`
   (`tuples`), `path`, `sample`, `group`, `era`, `channel`, `tag`, `dtype`, `nevents`, `sumw`, `tree`, `cutflow`
-  (fields: [docs/contracts/pico-tuples.md](../docs/contracts/pico-tuples.md#production-record)). The controlhists and
+  (fields: [Docs/Develop/contracts/pico-tuples.md](../Docs/Develop/contracts/pico-tuples.md#production-record)). The controlhists and
   shapes stages read only artifacts of kind `tuples`; a production run from before CL §36 (no `kind`), named with
   `{path: ...}`, is refused with a message.
 

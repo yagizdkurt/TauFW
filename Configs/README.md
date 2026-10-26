@@ -13,7 +13,7 @@ Configs/
   Histogrammer/setups/  the channel setups of fillhists.py (histogrammer.setup_<channel>)
   Fitter/tes_id/        the channel configs of the TES + tau ID fit (fitter.tes_id_*, changelog §22): read by
                         createinputsTES.py (Histogrammer) and the fit scripts (Fitter); the keys of each file are
-                        grouped under banners by reader, see docs/contracts/tes-shapes.md
+                        grouped under banners by reader, see Docs/Develop/contracts/tes-shapes.md
 ```
 
 The config directories inside the modules (`PicoProducer/config/`, ...) are the modules' **internal** settings:

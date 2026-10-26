@@ -10,7 +10,7 @@ and exits with status 2.
     cd Fitter; python3 TauES/createinputsTES.py -y 2025 ...
         ->  LEGACY message with: python3 ../Histogrammer/shapes/TauES/createinputsTES.py -y 2025 ...
 
-Deleted at the migration point (docs/Refactor-2025/TODO.md §8); see Histogrammer/README.md.
+Deleted at the migration point (Docs/Develop/Refactor-2025/TODO.md §8); see Histogrammer/README.md.
 """
 import os
 import shlex

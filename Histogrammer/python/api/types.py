@@ -10,7 +10,7 @@
 Artifacts (JSON-ready dicts):
   control histograms: {kind: 'control_histograms', era, config, channel, tag, file}
   shapes:             {kind: 'shapes', path, era, channel, config, jet_wp, ele_wp, observable}
-                      (one file per observable, docs/contracts/tes-shapes.md)
+                      (one file per observable, Docs/Develop/contracts/tes-shapes.md)
 
 Public API: the records above.
 """

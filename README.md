@@ -28,11 +28,11 @@ source setup.sh
 ```
 
 Setup activates the environment and opens the TauFW interactive menu.
-See the [FastSetup documentation](docs/FastSetup.md) for requirements and options.
+See the [FastSetup documentation](Docs/Manual/FastSetup.md) for requirements and options.
 
 ### Manual
 
-See the [manual installation guide](docs/ManualInstallation.md) for step-by-step
+See the [manual installation guide](Docs/Manual/ManualInstallation.md) for step-by-step
 CMSSW, TauFW, and optional dependency setup.
 
 ## Running a pipeline
@@ -50,8 +50,8 @@ starting, or continuing a pipeline.
 ## Contributing responsibly
 
 Before pushing changes or opening a pull request, read the
-[mandatory merge request rules](docs/Rules.md) and
-[legacy code policy](docs/LegacyCode.md). Take responsibility for the code you
+[mandatory merge request rules](Docs/Develop/Rules.md) and
+[legacy code policy](Docs/Develop/LegacyCode.md). Take responsibility for the code you
 introduce: document its purpose, check its dependencies, and archive completed
 one-off work in the appropriate data-year folder. Include the required legacy
 banner and update the inventory; leave clear context instead of unexplained

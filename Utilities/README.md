@@ -34,7 +34,7 @@ or analysis packages until verification is requested.
 FastSetup calls `python/Installer/setup_tools.py` directly before and after the
 checkout moves, so these helpers work before `cmsenv` or `scram b`. Bash retains
 the shell environment, Git downloads, installation sequencing and recovery state.
-See [FastSetup](../docs/FastSetup.md#installer-and-menu-organization) for details.
+See [FastSetup](../Docs/Manual/FastSetup.md#installer-and-menu-organization) for details.
 
 ## Terminal I/O
 
@@ -296,7 +296,7 @@ Moved verbatim from there in October 2026 (changelog section 21); the Histogramm
 | `cleanbool(string)` | Collapses doubled `&&`/`\|\|` to `&&` and strips outer `&&`. |
 | `getselstr(selection)` | `selection.selection` for a Histogrammer `Selection`, else the argument itself. |
 
-Known latent bugs, kept as they were (Histogrammer [BUGS](../docs/Histogrammer/BUGS.md) L05-L07): `joinweights` with a weight
+Known latent bugs, kept as they were (Histogrammer [BUGS](../Docs/Develop/Histogrammer/BUGS.md) L05-L07): `joinweights` with a weight
 `0` raises `TypeError` while formatting its warning; `replacepattern` with several patterns applies only the last;
 `joincuts` does not bracket a cut like `(x)||y`, so `&&` binds first.
 
@@ -318,7 +318,7 @@ plot.saveas("plots/m_vis.png", "plots/m_vis.pdf")
 The drawing code of the Plotter, moved here in October 2026 (changelog section 18) so that every module can draw
 without importing the Plotter. It moved **as it was**: the drawn canvases, styles and printed output are the same,
 checked by the BBB case `drawing.canvas`. Modernizing it (style, splitting `Plot.py`) is listed in
-[TODO.md](../docs/Refactor-2025/TODO.md).
+[TODO.md](../Docs/Develop/Refactor-2025/TODO.md).
 
 | Module | Contents | Was |
 |---|---|---|
@@ -354,7 +354,7 @@ every histogram under its own name with all its attributes. Order comes from the
 Writing checks everything first (unique paths and names, plain-JSON metadata) and leaves ROOT's current directory as
 it was; reading returns copies detached from the file. ROOT is imported only to write or read. The Histogrammer
 writes its filled histograms with it and the Plotter reads them (changelog §21, S3); what the metadata means is
-their contract, [docs/contracts/control-histograms.md](../docs/contracts/control-histograms.md).
+their contract, [Docs/Develop/contracts/control-histograms.md](../Docs/Develop/contracts/control-histograms.md).
 
 ## Inventory and validation
 

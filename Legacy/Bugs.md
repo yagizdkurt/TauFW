@@ -1,8 +1,8 @@
 # Legacy bug register
 
 Consolidated on **2026-10-14** from existing bug registers, legacy READMEs,
-[component inventory](../docs/Refactor-2025/Legacy.md),
-[analysis inventory](OldAnalysis/README.md), [refactor TODOs](../docs/Refactor-2025/TODO.md),
+[component inventory](../Docs/Develop/Refactor-2025/Legacy.md),
+[analysis inventory](OldAnalysis/README.md), [refactor TODOs](../Docs/Develop/Refactor-2025/TODO.md),
 test documentation and the local cleanup audit. This consolidation inspected documentation only;
 it did not search implementation code for bugs or verify runtime behavior.
 
@@ -11,9 +11,9 @@ broken demonstration/test scripts. Existing IDs and recorded fix status are pres
 Rows without an earlier ID use `LEG-*` identifiers assigned for this register.
 Archiving is not a fix; repair these paths if they are revived.
 
-Bugs in maintained code remain in the [PicoProducer](../docs/PicoProducer/BUGS.md),
-[Plotter](../docs/Plotter/BUGS.md) and [Fitter](../docs/Fitter/BUGS.md) registers and
-[refactor TODOs](../docs/Refactor-2025/TODO.md). Being old, unused, latent, or outside
+Bugs in maintained code remain in the [PicoProducer](../Docs/Develop/PicoProducer/BUGS.md),
+[Plotter](../Docs/Develop/Histogrammer/BUGS.md) and [Fitter](../Docs/Develop/Fitter/BUGS.md) registers and
+[refactor TODOs](../Docs/Develop/Refactor-2025/TODO.md). Being old, unused, latent, or outside
 the main Framework workflow alone does not make a defect a legacy bug. Historical
 change-log records and archive retirement reasons remain in their original documents.
 
@@ -61,12 +61,12 @@ Severity and BBB coverage retain the source register's definitions.
 
 The archived A01 callers originate from the same 2020 commits as the maintained
 callers. `9411be0` (2023-10-19) added `era` with a default; `877e636` (2024-02-20)
-made it required. See the [maintained A01 history](../docs/PicoProducer/BUGS.md#analysis-modules-and-writers).
+made it required. See the [maintained A01 history](../Docs/Develop/PicoProducer/BUGS.md#analysis-modules-and-writers).
 
 ## Fitter archives
 
 Sources: [Fitter archive README](Fitter/README.md) and
-[component inventory](../docs/Refactor-2025/Legacy.md). All entries remain unfixed.
+[component inventory](../Docs/Develop/Refactor-2025/Legacy.md). All entries remain unfixed.
 Paths are relative to `Legacy/Fitter/`.
 
 | ID | Location | Recorded defect | Replacement |
@@ -83,7 +83,7 @@ Paths are relative to `Legacy/Fitter/`.
 
 Sources: [Plotter archive README](Plotter/README.md),
 [JetToTauFR README](../Legacy/Plotter/python/corrections/JetToTauFR/README.md),
-[component inventory](../docs/Refactor-2025/Legacy.md) and the local cleanup audit
+[component inventory](../Docs/Develop/Refactor-2025/Legacy.md) and the local cleanup audit
 (`LocalR/CodebaseCleanupAudit.md`, historical paths). All entries remain unfixed.
 
 | ID | Location (repository-relative) | Recorded defect or limitation | Recorded workaround |

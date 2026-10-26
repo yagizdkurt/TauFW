@@ -2,7 +2,7 @@
 
 ## Installation
 
-See [the README.md in the parent directory](../../../#taufw).
+See [the README.md in the parent directory](../../README.md#taufw).
 
 ## General comments:
 

@@ -5,7 +5,7 @@ Sample catalogs used to start with
   from TauFW.PicoProducer.storage.Sample import MC as M, Data as D
 New catalogs should use
   from TauFW.PicoProducer.datasets import MC as M, Data as D
-This is the only compatibility shim of the PicoProducer restructuring; see docs/Refactor-2025.md.
+This is the only compatibility shim of the PicoProducer restructuring; see Docs/Develop/Refactor-2025/Refactor-2025.md.
 `Embdedded` is the old, misspelled name of `Embedded` (BUGS S13), kept here for old catalogs only.
 """
 from TauFW.PicoProducer.datasets.sample import Sample, Data, MC, Embedded

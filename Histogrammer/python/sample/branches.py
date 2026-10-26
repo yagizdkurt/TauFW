@@ -1,6 +1,6 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Branches: the pico tuple branches a channel setup and a sample model read, against the branches of the tuple files
-(docs/contracts/pico-tuples.md). Used by the preflights of ControlHists and TESShapes, so that a missing branch stops
+(Docs/Develop/contracts/pico-tuples.md). Used by the preflights of ControlHists and TESShapes, so that a missing branch stops
 a run before it starts instead of an RDataFrame error hours into it.
 
     setup_branches(setup)                       ─▶ names in the cuts (ROOT-free)

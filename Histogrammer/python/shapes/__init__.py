@@ -4,5 +4,5 @@
                                           (Fitter/python/plot/datacard.py until CL §22)
     TauFW.Histogrammer.shapes.rebinning   rebinning (Fitter/python/plot/rebinning.py until CL §22)
 
-Used by Histogrammer/shapes/<Variant>/createinputs*.py. The file format the fit reads: docs/contracts/tes-shapes.md.
+Used by Histogrammer/shapes/<Variant>/createinputs*.py. The file format the fit reads: Docs/Develop/contracts/tes-shapes.md.
 """

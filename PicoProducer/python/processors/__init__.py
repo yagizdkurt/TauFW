@@ -14,7 +14,7 @@ What is kept working (see README.md in this directory):
     lists written before the rename still run.
 
 Every use prints a FutureWarning (shown by default, unlike DeprecationWarning) naming the replacement.
-Deprecated since 2026-10-13; see docs/Refactor-2025.md, section 10 A3, for when it will be removed.
+Deprecated since 2026-10-13; see Docs/Develop/Refactor-2025/Refactor-2025.md, section 10 A3, for when it will be removed.
 """
 import warnings
 from TauFW.PicoProducer.workers import * # noqa: F401,F403  (re-export; workers has no __all__)

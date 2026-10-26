@@ -9,7 +9,7 @@
 *.root
 # ignore pngs for plots etc but not in the docs
 *.png
-!docs/**/*.png
+!Docs/Extra/**/*.png
 *.json
 core.*
 __init__.py

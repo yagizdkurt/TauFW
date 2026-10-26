@@ -7,7 +7,7 @@
 stack_entry() copies the histograms of a Stack as they were filled (Stack.draw changes them: the data histogram
 becomes a graph, variable bins are divided by their width) and takes the drawing attributes of the variable in the
 context of the selection. write_control_hists() writes them with TauFW.Utilities.HistFile. The file is the
-contract docs/contracts/control-histograms.md ("taufw.control_histograms", version 2):
+contract Docs/Develop/contracts/control-histograms.md ("taufw.control_histograms", version 2):
 
     file meta:   {contract, version, channel, era, lumi, cme, tag}   lumi, cme: of the normalisation (version 2, CL §26)
     entry:       path '<selection filename>/<variable filename>', in the order the stacks were made
@@ -24,7 +24,7 @@ from TauFW.Utilities.HistFile import HistFileEntry, write_histfile
 __all__ = ['stack_entry', 'write_control_hists', 'drawing_attributes', 'normalisation_lumi', 'CONTRACT', 'VERSION',
            'DRAWING_ATTRIBUTES']
 
-CONTRACT = "taufw.control_histograms"  # what the file is (docs/contracts/control-histograms.md)
+CONTRACT = "taufw.control_histograms"  # what the file is (Docs/Develop/contracts/control-histograms.md)
 VERSION  = 2                           # raised when the meaning of the file's content changes (2: lumi, cme)
 
 # What the drawing code reads from a variable (TauFW.Utilities.Drawing Plot.__init__, Plot.py:89-106).

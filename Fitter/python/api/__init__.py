@@ -9,7 +9,7 @@
     report  = fitter.fit(request, logdir='logs')                 # fitted values in report.artifacts
 
 The shapes it reads are made by Fitter/run_inputs.sh (or the Framework's shapes stage), by the file contract
-docs/contracts/tes-shapes.md (the shapes API left the Fitter in CL §22 H3).
+Docs/Develop/contracts/tes-shapes.md (the shapes API left the Fitter in CL §22 H3).
 
 Public API:
   TauESID                                    the facade (api/tes_id.py)

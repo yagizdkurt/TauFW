@@ -166,7 +166,7 @@ class LocalStage(Stage):
         return patterns[0], ()
 
     def tuple_artifacts(self, context, slot='tuples'):
-        """The artifacts of kind 'tuples' (TauFW.PicoProducer.api TupleArtifact, docs/contracts/pico-tuples.md) of
+        """The artifacts of kind 'tuples' (TauFW.PicoProducer.api TupleArtifact, Docs/Develop/contracts/pico-tuples.md) of
         the stage connected to a tuples slot."""
         return context.input_artifacts(slot, kind=self.inputs[slot])
 

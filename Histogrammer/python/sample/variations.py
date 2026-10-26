@@ -5,7 +5,7 @@ A TES point and a shape systematic with `sampleAppend` make a shifted copy of th
 (SampleSet.shift -> Sample.appendfilename): every sample of a matched process reads
 <sample>_<channel><filetag>.root next to its nominal tuple, e.g. DYto2Tau_Bin-MLL-50to120_mutau_TES0p950.root.
 The file is opened only when the shifted set is made, after the nominal histograms (hours into a run), so a missing
-one fails late (docs/contracts/tes-shapes.md, "Variation tuples"). This module names the files beforehand, for the
+one fails late (Docs/Develop/contracts/tes-shapes.md, "Variation tuples"). This module names the files beforehand, for the
 preflight of TauFW.Histogrammer.api.TESShapes.
 
     variations(setup, model, era) ─▶ (Variation(tag, label, samples), ...)   in the order the script shifts

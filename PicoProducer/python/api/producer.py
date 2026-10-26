@@ -14,7 +14,7 @@ Pipeline (one production stage):
 
 Side effects of each call are listed in its docstring. Calls that touch files run inside the PicoProducer
 directory (all configured paths are relative to it): the working directory is changed for the duration of the
-call and always restored. That makes the API not thread-safe; see docs/PicoProducer/API.md.
+call and always restored. That makes the API not thread-safe; see Docs/Manual/PicoProducer/API.md.
 
 Inputs:  a configuration (config/config.json, another JSON file, a dict or a Config), JobRequests.
 Outputs: job directories, job lists and job configs (output/...), batch jobs, merged tuples in storage (picodir
