@@ -580,8 +580,9 @@ raises `OSError` on an unreadable file, which crashed the branch preflight of CL
 
 **Change:** [CL §37](Refactor-2025.md#37-inputs-are-given-never-found)
 
-**Status:** D0 locked on lxplus 2026-10-26 (`bbb lock --replace`, `bbb diff`: PASS, 23 same, 1 added). D1 on
-Windows; lxplus open (TODO §1).
+**Status:** D0 locked on lxplus 2026-10-26 (`bbb lock --replace`, `bbb diff`: PASS, 23 same, 1 added). D1 on lxplus953
+2026-10-26: `bbb check` 24/24 without re-lock, `checks` 14/16 (known boundary debt, Histogrammer -> PicoProducer 1 / 1 /
+1; one flaky stop test of `unit.utilities`, TODO §7), `normal` 30/30; the `fillhists.py` commands by hand open.
 
 - D0: `python Tests/run.py bbb list` lists `histogrammer.tes_inputs_picodir`; `python Tests/run.py checks` on
   Windows 14/16 (the known two). The case needs ROOT: locked on lxplus with the whole suite (`bbb lock --replace`,

@@ -1334,8 +1334,9 @@ Decisions of the user (2026-10-26):
 ## 37. Inputs are given, never found
 
 **Date:** 2026-10-26
-**Status:** in progress. D0 done (locked on lxplus 2026-10-26: 23 cases `same`, the new one `ADDED`). D1 done on
-Windows (unit tests), lxplus check in TODO §1 "Histogrammer takes the tuples (CL §37 D1)". D2, D3, D4 next.
+**Status:** in progress. D0 done (locked on lxplus 2026-10-26: 23 cases `same`, the new one `ADDED`). D1 done, checked
+on lxplus 2026-10-26 (BBB 24/24 without re-lock; the `fillhists.py` commands by hand left in TODO §1). D2, D3, D4
+next.
 **Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#37-inputs-are-given-never-found)
 
 **Details:** `LocalR/architecture/23-given-inputs-plan.md` (ModuleIsolationFinalizations §3 D; decisions of the

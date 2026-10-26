@@ -170,7 +170,10 @@ Items marked **(verify)** may already be done; check before working on them.
       Tests/BBB/baselines/` shows only those keys; `bbb check` passes. A real production run (e.g.
       `example_mutau_short`) shows `sumw` and `kind` in `stages/production/manifest.json`, `sumw` equal to
       `cutflow->GetBinContent(17)` of that tuple.
-- [ ] **Histogrammer takes the tuples (CL §37 D1):** `python3 Tests/run.py bbb check`: all 24 pass, **no re-lock**
+- [ ] **Histogrammer takes the tuples (CL §37 D1):** 2026-10-26 on lxplus953: `bbb check` 24/24 (no re-lock),
+      `checks` 14/16 (`check_import_boundaries` known debt with Histogrammer -> PicoProducer 1 / 1 / 1, totals 20 / 19 /
+      17, 0 new pairs; `unit.utilities` the flaky stop test, §7), `normal` 30/30 (`plotter.tuple_location` included).
+      Left: the two `fillhists.py` commands by hand below. Original item: `python3 Tests/run.py bbb check`: all 24 pass, **no re-lock**
       (`histogrammer.tes_inputs_picodir` = the script default, `plotter.sample_model` = `tuples` passed on).
       `python3 Tests/run.py checks` (the `LibraryTests` of `test_tupledir.py` run with ROOT; `check_import_boundaries`:
       Histogrammer -> PicoProducer 1 / 1 / 1, totals 20 / 19 / 17, only the known debt);
@@ -525,6 +528,11 @@ Other limitations ([Analyses/README.md](../../../Analyses/README.md) "Current li
 - Excluded broken cases `pico.sample` and `plotter.rdataframe`: defects and recorded evidence moved to
   [Docs/Develop/Bugs.md#legacy](../Bugs.md#legacy-excluded-broken-test-and-demonstration-scripts).
 - [ ] `Tests/PicoProducer/testSFs.py` still imports the legacy `MuonSFs_ROOT`. Nice to have.
+- [ ] **Flaky `RealStopTests.test_a_run_stop_is_a_keyboardinterrupt_in_the_command`** (`Tests/Utilities/test_operations.py`,
+      failed once on lxplus953 2026-10-26 inside `checks`, CL §37 D1 run; nothing of `Utilities` changed there): the test
+      cancels after a fixed `time.sleep(1.0)`; if the child interpreter has not reached its `try:` yet (slow start on a
+      loaded node or AFS), the SIGINT comes before the handler, no marker is written. Fix: wait for a "ready" file the
+      child writes inside `try:` before cancelling (as a test change only).
 - [ ] BBB `histogrammer.tes_inputs` (CL §22): `ZL`/`TTL`, so the content of the LTF shape systematics, are zero in every
       region (no opposite-sign fixture event with `genmatch_2` 1-4 passes the baseline); the LTF variation files are
       read, their filled content is not covered (user decision 2026-10-18: accepted; real data covered it in step 2 H4,
