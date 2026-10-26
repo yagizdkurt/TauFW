@@ -162,7 +162,8 @@ Items marked **(verify)** may already be done; check before working on them.
 - [ ] **Start and Esc speed on lxplus (CL §33):** in the menu, Start a new run opens the recipe list at once (the
       first time after a `Configs/` change a little slower); Esc leaves every screen at once; arrow keys still work
       (also over a slow SSH connection: an arrow key must not act as Esc). FastSetup's checklist: Esc at once.
-- [ ] **Production record on lxplus (CL §36):** `python3 Tests/run.py bbb check`: only `framework.production`
+- [x] **Production record on lxplus (CL §36), done 2026-10-26** (BBB re-locked as below, only that case; the real
+      production run is left to the next production of `example_mutau_short`): `python3 Tests/run.py bbb check`: only `framework.production`
       differs, and only in its two tuple records of `run.json` ("done"): `"sumw"` and `"kind": "tuples"` added
       (`sumw` = cutflow bin 17 of the merged fixture tuple); `pico.merge` and every other case pass. If so, and
       approved: `python3 Tests/run.py bbb lock --replace --case framework.production`; `git diff

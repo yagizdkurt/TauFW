@@ -557,7 +557,12 @@ removed). Open: BBB, two nodes, Ctrl-C (TODO §1 "Run lock and safe stop on lxpl
 
 **Change:** [CL §36](Refactor-2025.md#36-the-production-record-kind-and-sum-of-weights-on-the-tuple-artifacts)
 
-**Status:** unit tests on Windows; lxplus check and re-lock open (TODO §1 "Production record on lxplus").
+**Status:** passed on lxplus 2026-10-26: `checks` 15/16 (the known `check_import_boundaries`, 0 new pairs); `bbb
+check` failed only `framework.production` with `kind`/`sumw` extra in its two tuple records; `bbb lock --replace
+--case framework.production` (approved) changed only `framework.production.json` and its hash in `manifest.json`
+(`sumw` 18.5 for both tuples = their cutflow bin 17). The first `checks` run found that PyROOT 6.30 `TFile.Open`
+raises `OSError` on an unreadable file, which crashed the branch preflight of CL §35 (`unit.histogrammer.api`
+`test_sample_files`); `branches.tuple_branches` now returns None for it (test added).
 
 - `Tests/contracts/test_pico_tuples.py` `ProductionRecordTests` (2 new tests, 11 in the file): `TupleArtifact.kind`
   = `tuples` = the production stage's `outputs` = the planned record = the `tuples` slot of `controlhists` and

@@ -1287,8 +1287,9 @@ muon SF branches added afterwards by two scripts in `Legacy/OldAnalysis` (analys
 ## 36. The production record: kind and sum of weights on the tuple artifacts
 
 **Date:** 2026-10-26
-**Status:** done on Windows (unit tests); lxplus check and the approved re-lock of `framework.production` in TODO §1
-"Production record on lxplus"
+**Status:** done; checked on lxplus 2026-10-26 (`checks` 15/16, the known `check_import_boundaries`; `bbb check`
+differed only in `framework.production` by `kind`/`sumw` of its two tuple records; re-locked with the user's approval,
+`sumw` = 18.5 = bin 17 of the merged fixture tuples, no other baseline changed)
 **Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#36-the-production-record-kind-and-sum-of-weights-on-the-tuple-artifacts)
 
 **Details:** `LocalR/architecture/22-data-contracts-plan.md` (C3, decision K4; user decisions 2026-10-26 below),
