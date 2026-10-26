@@ -81,17 +81,17 @@ Completed TODO points, kept under their original headings and in their original 
 
 ## 4. Open bugs
 
-**PicoProducer** ([BUGS.md](../PicoProducer/BUGS.md)), planned for Part 6 (§5 below), none fixed yet:
+**PicoProducer** ([Bugs.md](../Bugs.md#picoproducer)), planned for Part 6 (§5 below), none fixed yet:
 
-**Fitter** ([BUGS.md](../Fitter/BUGS.md)), registered only, options 4–6 of the workflow:
+**Fitter** ([Bugs.md](../Bugs.md#fitter)), registered only, options 4–6 of the workflow:
 
 - [x] F25: fixed ROOT detection when ROOT is already imported. (CL §16)
 
-**Histogrammer** (the former Plotter, CL §21; [BUGS.md](../Histogrammer/BUGS.md)):
+**Histogrammer** (the former Plotter, CL §21; [Bugs.md](../Bugs.md#histogrammer)):
 
 - [x] L13: fixed ROOT detection for production + plots planning and advancement. (CL §16)
 
-**Framework** ([BUGS.md](../Framework/BUGS.md)), registered only:
+**Framework** ([Bugs.md](../Bugs.md#framework)), registered only:
 
 - [x] K03: `tuples` inputs now select the production stage outputs. (CL §16 step 6)
 - [x] K06: `taufw.py plan`/`start` with a recipe path that does not exist ends with a traceback, not one line (`taufw.py check` reports it). Fixed 2026-10-18 (`Recipe.load`).

@@ -296,7 +296,7 @@ Moved verbatim from there in October 2026 (changelog section 21); the Histogramm
 | `cleanbool(string)` | Collapses doubled `&&`/`\|\|` to `&&` and strips outer `&&`. |
 | `getselstr(selection)` | `selection.selection` for a Histogrammer `Selection`, else the argument itself. |
 
-Known latent bugs, kept as they were (Histogrammer [BUGS](../Docs/Develop/Histogrammer/BUGS.md) L05-L07): `joinweights` with a weight
+Known latent bugs, kept as they were (Histogrammer [BUGS](../Docs/Develop/Bugs.md#histogrammer) L05-L07): `joinweights` with a weight
 `0` raises `TypeError` while formatting its warning; `replacepattern` with several patterns applies only the last;
 `joincuts` does not bracket a cut like `(x)||y`, so `&&` binds first.
 

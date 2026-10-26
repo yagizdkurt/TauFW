@@ -5,7 +5,7 @@ Submits one array job per task list with `qsub -t 1-N`; the template batch/templ
 line $SGE_TASK_ID of the task list. Job states come from `qstat`, which does not show task arguments, so
 status checks look the task up in the task list by its index (as for SLURM).
 
-NOTE: rewritten in 2026 (BUGS.md S01): the previous class was a copy of the HTCondor adapter named
+NOTE: rewritten in 2026 (Docs/Develop/Bugs.md#picoproducer S01): the previous class was a copy of the HTCondor adapter named
 `HTCondor`, so `getbatch('SGE')` always failed. This implementation has not been run on an SGE site.
 
 Public API:

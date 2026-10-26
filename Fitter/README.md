@@ -35,7 +35,7 @@ fitter.preflight_fit(fit)       # problems (no cmsenv, combine missing, no shape
 fitter.fit(fit, logdir='logs')  # the run_workflow_zmm.sh steps; artifacts carry the fitted tes and tid_SF values
 ```
 
-Bugs found and fixed on this path: [Docs/Develop/Fitter/BUGS.md](../Docs/Develop/Fitter/BUGS.md).
+Bugs found and fixed on this path: [Docs/Develop/Bugs.md#fitter](../Docs/Develop/Bugs.md#fitter).
 
 ## Legacy
 

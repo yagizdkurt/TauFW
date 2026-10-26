@@ -297,7 +297,7 @@ The CLI parser still exposes `list/get/set/rm/write/channel/era`, `run/submit/re
 
 ### 6.1 Options, resubmission and job splitting
 
-Source: [worker_command.py](../../../PicoProducer/python/jobs/worker_command.py), [planner.py](../../../PicoProducer/python/jobs/planner.py), [chunking.py](../../../PicoProducer/python/jobs/chunking.py), [PicoProducer bug register](../PicoProducer/BUGS.md), and the earlier [jobs/workers audit](JobsWorkersAudit.md).
+Source: [worker_command.py](../../../PicoProducer/python/jobs/worker_command.py), [planner.py](../../../PicoProducer/python/jobs/planner.py), [chunking.py](../../../PicoProducer/python/jobs/chunking.py), [PicoProducer bug register](../Bugs.md#picoproducer), and the earlier [jobs/workers audit](JobsWorkersAudit.md).
 
 | Change | Before | Current behavior | User consequence |
 |---|---|---|---|
@@ -398,7 +398,7 @@ Control-histogram metadata now records the normalization luminosity/energy; redr
 
 ### 7.3 Known problems that compatibility does not resolve
 
-Source and [Histogrammer BUGS](../Histogrammer/BUGS.md) still identify:
+Source and [Histogrammer BUGS](../Bugs.md#histogrammer) still identify:
 
 | Area | Existing limitation |
 |---|---|
@@ -543,7 +543,7 @@ Explicit archive imports use `Legacy.<Component>.python.*`, with the checkout ro
 
 Archived methods are not automatically discovered by the active Histogrammer `method=` loader. A Python monkey-patch module may need explicit import and dependency repair. Unchanged code can still contain a personal AFS path, a Python 2 dependency or a CWD-relative sibling import. Moving it does not make its workflow runnable in the reference Python 3 environment.
 
-Detailed reasons/replacements are in [Legacy inventory](Legacy.md), [root archive README](../../../Legacy/README.md), [archive bugs](../../../Legacy/Bugs.md) and the component READMEs. The archive is reference material, not a general old-API compatibility layer.
+Detailed reasons/replacements are in [Legacy inventory](Legacy.md), [root archive README](../../../Legacy/README.md), [archive bugs](../Bugs.md#legacy) and the component READMEs. The archive is reference material, not a general old-API compatibility layer.
 
 ### 10.2 Old standalone paths with no mapped current implementation
 
@@ -662,7 +662,7 @@ The highest-priority user communication is a short migration notice containing t
 | [Inventory generator](dependencies/audit_compatibility.py) | Reproduce the three CSVs from Git |
 | [Changelog](Refactor-2025.md) / [validation record](ValidationAndTests.md) | Intent, intermediate references, approved output changes and earlier execution evidence |
 | [Script options](scripts_arg_changes.md) / [jobs/workers audit](JobsWorkersAudit.md) | Detailed path/default and resubmission consequences |
-| [PicoProducer bugs](../PicoProducer/BUGS.md), [Histogrammer bugs](../Histogrammer/BUGS.md), [Fitter bugs](../Fitter/BUGS.md) | Fixed versus retained defects and expected output impact |
+| [PicoProducer bugs](../Bugs.md#picoproducer), [Histogrammer bugs](../Bugs.md#histogrammer), [Fitter bugs](../Bugs.md#fitter) | Fixed versus retained defects and expected output impact |
 | [Tests guide](../../../Tests/README.md) / [test relocation manifest](../../../Tests/migration.json) | Test semantics, runtime requirements and original test locations |
-| [Legacy inventory](Legacy.md) / [Legacy bugs](../../../Legacy/Bugs.md) | Retired workflows, dependencies and alternatives |
+| [Legacy inventory](Legacy.md) / [Legacy bugs](../Bugs.md#legacy) | Retired workflows, dependencies and alternatives |
 | [Open work](TODO.md) | Remaining validation and migration-point removals; not evidence that those changes already happened |

@@ -99,4 +99,4 @@ shapes.preflight_shapes(request)  # problems (no cmsenv, no ROOT, missing config
 shapes.make_shapes(request, logdir='logs')   # RunReport: ok, one log per command, one shapes artifact per file
 ```
 
-Bugs found and fixed on this path: [Docs/Develop/Histogrammer/BUGS.md](../Docs/Develop/Histogrammer/BUGS.md).
+Bugs found and fixed on this path: [Docs/Develop/Bugs.md#histogrammer](../Docs/Develop/Bugs.md#histogrammer).

@@ -200,7 +200,7 @@ duck typing; `Plot` no longer re-exports `Variable`/`Var`.
 
 `getselstr`, `joinweights`, `joincuts`, `replacepattern` and `cleanbool` moved unchanged from Plotter's `string.py`
 to `TauFW.Utilities.Expressions` (no ROOT import), so Fitter can build cuts without Plotter. `string.py` re-exports
-them; pico-specific helpers stay there. Existing defects L05–L07 remain in [Histogrammer BUGS](../Histogrammer/BUGS.md).
+them; pico-specific helpers stay there. Existing defects L05–L07 remain in [Histogrammer BUGS](../Bugs.md#histogrammer).
 
 ### Fitter imports drawing helpers from their own home
 
@@ -214,7 +214,7 @@ Plotter because it updates both CMS text and sample normalization globals; the o
 
 **Date:** 2026-10-12
 **Details:** [Tests/README.md](../../../Tests/README.md#picoproducer-command-cases-black-box),
-[Docs/Develop/PicoProducer/BUGS.md](../PicoProducer/BUGS.md)
+[Docs/Develop/Bugs.md#picoproducer](../Bugs.md#picoproducer)
 **Tests/Validation:** [ValidationAndTests.md:60](ValidationAndTests.md#5-picoproducer-cleanup-command-level-bbb-tests-and-bug-register)
 
 ### What changed
@@ -231,7 +231,7 @@ Protect command workflows during module moves; earlier baselines covered only lo
 ## 6. PicoProducer cleanup: settings, datasets, storage, batch and jobs packages
 
 **Date:** 2026-10-12
-**Details:** [Docs/Develop/PicoProducer/BUGS.md](../PicoProducer/BUGS.md)
+**Details:** [Docs/Develop/Bugs.md#picoproducer](../Bugs.md#picoproducer)
 **Tests/Validation:** [ValidationAndTests.md:74](ValidationAndTests.md#6-picoproducer-cleanup-settings-datasets-storage-batch-and-jobs-packages)
 
 ### A. Restructuring (no behavior change)
@@ -255,7 +255,7 @@ Fixed: S01 (SGE array submission), S02–S15 (batch lookup, adapter construction
 storage commands and merges, sample type detection, event totals, `Embedded` spelling with `Embdedded` kept as an
 alias), P16 (private config attributes), P17 (fresh-install eras), P18 (`getconfig(write=False)`: only the CLI
 rewrites the config). **Won't fix:** S16 (NAF users select `pico.py set batch HTCondor_NAF`). Details and output
-impact per bug: [BUGS.md](../PicoProducer/BUGS.md).
+impact per bug: [Bugs.md](../Bugs.md#picoproducer).
 
 ### File-name correction
 
@@ -267,7 +267,7 @@ Do case-only renames on Linux with `git mv`, or verify tracked spelling on Windo
 ## 7. PicoProducer cleanup: job pipelines
 
 **Date:** 2026-10-13
-**Details:** [Docs/Develop/PicoProducer/BUGS.md](../PicoProducer/BUGS.md), [API](../../Manual/PicoProducer/API.md)
+**Details:** [Docs/Develop/Bugs.md#picoproducer](../Bugs.md#picoproducer), [API](../../Manual/PicoProducer/API.md)
 **Tests/Validation:** [ValidationAndTests.md:87](ValidationAndTests.md#7-picoproducer-cleanup-job-pipelines)
 
 ### A. Job pipelines
@@ -296,7 +296,7 @@ unless forced.
 
 **Date:** 2026-10-13
 **Details:** [API](../../Manual/PicoProducer/API.md), [I/O contract](../../Manual/PicoProducer/IO.md),
-[bugs](../PicoProducer/BUGS.md)
+[bugs](../Bugs.md#picoproducer)
 **Tests/Validation:** [ValidationAndTests.md:104](ValidationAndTests.md#8-picoproducer-cleanup-public-api-command-line-workers)
 
 ### A. API, CLI and workers
@@ -354,7 +354,7 @@ PicoProducer, Plotter and Fitter commands.
 ## 10. Framework: plots, histograms and fit stages
 
 **Date:** 2026-10-13
-**Details:** [Framework](../../../Framework/README.md), [Fitter bugs](../Fitter/BUGS.md), [Histogrammer (former Plotter) bugs](../Histogrammer/BUGS.md)
+**Details:** [Framework](../../../Framework/README.md), [Fitter bugs](../Bugs.md#fitter), [Histogrammer (former Plotter) bugs](../Bugs.md#histogrammer)
 **Tests/Validation:** [ValidationAndTests.md:121](ValidationAndTests.md#10-framework-plots-histograms-and-fit-stages)
 
 Connected control plots and the combined TES+TauID workflow through public APIs wrapping existing scripts.
@@ -653,7 +653,7 @@ with §20.
 **Date:** 2026-10-17
 **Tests/Validation:** [ValidationAndTests.md:215](ValidationAndTests.md#20-sample-lists-as-data-the-sample-model)
 
-**Details:** [scripts_arg_changes.md](scripts_arg_changes.md) "Sample model files", [Histogrammer BUGS](../Histogrammer/BUGS.md) L14-L16
+**Details:** [scripts_arg_changes.md](scripts_arg_changes.md) "Sample model files", [Histogrammer BUGS](../Bugs.md#histogrammer) L14-L16
 
 The recipe must say which samples an analysis reads; until now `Plotter/config/samples_v15.py` decided it out of sight
 (MC cross sections, data datasets, weights, stitching, joining and splitting, per era). Its samples became templates
@@ -716,7 +716,7 @@ Outside the compatibility aliases, Plotter imports only Utilities; Histogrammer 
 | `Plotter/plot.py` | `Histogrammer/fillhists.py` |
 | `python/plot/` (`Variable`, `Selection`, `Context`, `string`) | `python/spec/` |
 | `MultiDraw.py` / `.cxx` | `python/sample/` |
-| `docs/Plotter/BUGS.md` | `Docs/Develop/Histogrammer/BUGS.md` (same IDs) |
+| `docs/Plotter/BUGS.md` | `Docs/Develop/Bugs.md#histogrammer` (same IDs) |
 
 Only imports, module/path references and command help changed in the moved code. Framework uses the Histogrammer
 API.
@@ -844,7 +844,7 @@ and `FitSetup_mumu.yml` from `Fitter/TauES/config/` to `Configs/Fitter/tes_id/`.
 - Shapes configs must be bundle files, `Configs/` templates or absolute paths. Other module-relative paths fail
   recipe validation with migration advice. Fit configs still accept paths relative to `Fitter/`.
 
-Registered, not fixed: [Histogrammer BUGS](../Histogrammer/BUGS.md) L18–L24 and [Fitter BUGS](../Fitter/BUGS.md) F26.
+Registered, not fixed: [Histogrammer BUGS](../Bugs.md#histogrammer) L18–L24 and [Fitter BUGS](../Bugs.md#fitter) F26.
 The five legacy stubs and `stages.MOVED_CONFIGS` remain until the migration point (TODO §8).
 
 ## 23. Variation tuples in the shapes preflight

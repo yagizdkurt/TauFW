@@ -99,7 +99,7 @@ existing prompt crash.
 - **Module options, BBB re-locked:** P08 (precedence channel < sample < user `-E`), P09 (resubmission does not grow
   the options), P10 (no default `-m -1` for local runs). `pico.run` and `pico.jobs` were re-locked on lxplus; they
   differ only in option order, the removed `-m -1` and the verbose labels `chopts`/`useropts`
-  ([exact differences](../PicoProducer/BUGS.md#p08-p09-p10-module-options-and-run--m)).
+  ([exact differences](../Bugs.md#picoproducer-p08-p09-p10-module-options-and-run--m)).
 
 ## 8. PicoProducer cleanup: public API, command line, workers
 

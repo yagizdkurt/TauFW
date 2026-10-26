@@ -1,6 +1,6 @@
 # Legacy archive
 
-Known defects are tracked in [Legacy/Bugs.md](Bugs.md).
+Known defects are tracked in [Docs/Develop/Bugs.md#legacy](../Docs/Develop/Bugs.md#legacy).
 
 Historical scripts and workflows were consolidated here on **2026-10-14**.
 

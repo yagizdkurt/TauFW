@@ -1,6 +1,6 @@
 # Legacy/Plotter
 
-Known defects are tracked in [Legacy/Bugs.md](../Bugs.md#plotter-archives).
+Known defects are tracked in [Docs/Develop/Bugs.md#legacy](../../Docs/Develop/Bugs.md#legacy-plotter-archives).
 
 These files are **unmaintained**. They were archived in `Plotter/Legacy/` on 2026-10-13 during the Plotter cleanup
 (`Refactor-2025`, see [Docs/Develop/Refactor-2025/Refactor-2025.md](../../Docs/Develop/Refactor-2025/Refactor-2025.md#9-plotter-cleanup-legacy-area))

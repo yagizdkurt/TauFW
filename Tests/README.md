@@ -308,7 +308,7 @@ cleanup. They import no PicoProducer internals. Workspace paths are written as
 `$WS`, and script locations inside `PicoProducer/python` are reduced to
 `<pico>/<file name>`. So restructuring the package keeps the baselines, while a
 changed command line, option, file name or output does not. Known bugs whose
-behavior these baselines record are listed in `Docs/Develop/PicoProducer/BUGS.md`.
+behavior these baselines record are listed in `Docs/Develop/Bugs.md#picoproducer`.
 
 ## Small validation commands
 

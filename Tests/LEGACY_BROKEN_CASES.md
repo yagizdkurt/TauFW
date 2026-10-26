@@ -2,7 +2,7 @@
 
 The defect descriptions, original evidence and validation limits for `pico.sample`
 and `plotter.rdataframe` have moved to
-[Legacy/Bugs.md](../Legacy/Bugs.md#excluded-broken-test-and-demonstration-scripts).
+[Docs/Develop/Bugs.md#legacy](../Docs/Develop/Bugs.md#legacy-excluded-broken-test-and-demonstration-scripts).
 They concern demonstration/test scripts, not established defects in production classes.
 
 [inventory.json](inventory.json) retains the case classifications and exclusion reasons.

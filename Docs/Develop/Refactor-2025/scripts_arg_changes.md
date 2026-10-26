@@ -21,7 +21,7 @@ the scripts. There are no links or copies.
   default the script behaves exactly as before, so the shell scripts (`run_inputs.sh`, `run_workflow_zmm.sh`) and
   standalone use do not change. When the option is given, the old derivation is not used at all.
 - These are refactorings, not bug fixes. The bugs they make harmless are referenced by ID
-  ([Fitter BUGS](../Fitter/BUGS.md), [Histogrammer BUGS](../Histogrammer/BUGS.md) (the former Plotter BUGS)); `# BUGS <ID>` comments mark only real fixes.
+  ([Fitter BUGS](../Bugs.md#fitter), [Histogrammer BUGS](../Bugs.md#histogrammer) (the former Plotter BUGS)); `# BUGS <ID>` comments mark only real fixes.
 
 ## New options
 
@@ -175,7 +175,7 @@ migration point (TODO §8). Options, defaults and outputs of every script are un
 | `sys.path.append(".../Plotter")` + `from config.samples* import *` | `.../Histogrammer` (the 6 Fitter `createinputs*.py` are updated) | none |
 | `Plotter/python/macros/*.C`, `Unroll.cxx`, `python/corrections/*.C` | `Histogrammer/python/...` (`Fitter/Zpt` updated) | none |
 | `$CMSSW_BASE/src/TauFW/Plotter/data/ff_HighPT/` (written and read by `Fitter/HighPT`) | `.../Histogrammer/data/ff_HighPT/` | none |
-| `docs/Plotter/BUGS.md` | `Docs/Develop/Histogrammer/BUGS.md` (same IDs) | none |
+| `docs/Plotter/BUGS.md` | `Docs/Develop/Bugs.md#histogrammer` (same IDs) | none |
 
 ### Configs (S2)
 

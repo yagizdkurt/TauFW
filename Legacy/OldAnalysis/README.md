@@ -1,6 +1,6 @@
 # Legacy analysis archive
 
-Known defects are tracked in [Legacy/Bugs.md](../Bugs.md#one-off-analysis-archives).
+Known defects are tracked in [Docs/Develop/Bugs.md#legacy](../../Docs/Develop/Bugs.md#legacy-one-off-analysis-archives).
 
 For future additions and retirements, follow the [legacy code policy](../../Docs/Develop/LegacyCode.md).
 
@@ -39,7 +39,7 @@ cd Plotter
 PYTHONPATH=".:${PYTHONPATH}" python3 ../Legacy/OldAnalysis/2016-2018/plot_differential.py --help
 ```
 
-This is a path example, not a successful runtime check. Existing defects and external-payload constraints are recorded in [Legacy/Bugs.md](../Bugs.md#one-off-analysis-archives). The tuple/cutflow repair scripts modify ROOT files when run, so they were not executed during this cleanup.
+This is a path example, not a successful runtime check. Existing defects and external-payload constraints are recorded in [Docs/Develop/Bugs.md#legacy](../../Docs/Develop/Bugs.md#legacy-one-off-analysis-archives). The tuple/cutflow repair scripts modify ROOT files when run, so they were not executed during this cleanup.
 
 ## File inventory
 

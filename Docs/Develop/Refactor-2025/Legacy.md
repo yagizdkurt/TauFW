@@ -24,7 +24,7 @@ PicoProducer files were archived on 2026-10-12; Fitter and Plotter files on 2026
 README files and `__init__.py` explain or organize the archive; they were not retired analysis implementations.
 
 Known defects and corrections to older bug descriptions are consolidated in
-[Legacy/Bugs.md](../../../Legacy/Bugs.md), including the malformed merge command LEG-F02.
+[Docs/Develop/Bugs.md#legacy](../Bugs.md#legacy), including the malformed merge command LEG-F02.
 `Tests/PicoProducer/testSFs.py` explicitly imports the archived ROOT-based muon scale-factor class.
 
 ## Legacy/Fitter — 27 files
@@ -71,7 +71,7 @@ Paths in this table are relative to `Legacy/Fitter/python/`.
 
 ## Legacy/PicoProducer/python — 16 files
 
-Paths in this table are relative to `Legacy/PicoProducer/python/`. Legacy bug identifiers refer to [Legacy/Bugs.md](../../../Legacy/Bugs.md#picoproducer).
+Paths in this table are relative to `Legacy/PicoProducer/python/`. Legacy bug identifiers refer to [Docs/Develop/Bugs.md#legacy](../Bugs.md#legacy-picoproducer).
 
 | File | What it does | Why it is in legacy / current alternative |
 | --- | --- | --- |

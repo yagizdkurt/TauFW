@@ -190,7 +190,7 @@ Items marked **(verify)** may already be done; check before working on them.
       again (same and another lxplus node) shows them; S stops them within seconds (no left-over worker). Log out
       while a run is going, log in: "Tests (Lost)" after at most two minutes (or the run finished, if lxplus let it
       live). S on the screen asks first, and stops.
-- [ ] SGE adapter (S01) has never run on an SGE site; nice to have. ([PicoProducer BUGS](../PicoProducer/BUGS.md) S01)
+- [ ] SGE adapter (S01) has never run on an SGE site; nice to have. ([PicoProducer BUGS](../Bugs.md#picoproducer) S01)
 
 ## 2. Moving `common/python/tools/` into `TauFW.Utilities`
 
@@ -270,25 +270,25 @@ Each changes logs, so do each in its own commit, with a BBB re-lock where a base
 
 ## 4. Open bugs
 
-**PicoProducer** ([BUGS.md](../PicoProducer/BUGS.md)), planned for Part 6 (§5 below), none fixed yet:
+**PicoProducer** ([Bugs.md](../Bugs.md#picoproducer)), planned for Part 6 (§5 below), none fixed yet:
 
 - [ ] Analysis modules: A01, A02, A03, A04, A05, A06, A07, A08 (cosmetic), A09, A10, A12 (latent), A14.
 - [ ] Corrections: C01, C02 (cosmetic), C03, C04, C05, C06, C07, C08, C09 (latent), C11 (layering), C12, C13 (latent).
 - [ ] **Blocking for Part 6:** a `pico.channel_tau_pair` BBB case based on `ModuleTauPair` (larger synthetic NanoAOD
       plus jsonpog/TauIDSFs payloads). Every A/C fix must be checked against it.
 - Legacy-only entries A11, A13, C10, W03 and the archived A01 copies moved to
-  [Legacy/Bugs.md](../../../Legacy/Bugs.md#picoproducer). Won't fix in maintained code: P15, S16, W01.
+  [Docs/Develop/Bugs.md#legacy](../Bugs.md#legacy-picoproducer). Won't fix in maintained code: P15, S16, W01.
 - [ ] S17: `Sample.loadjson` drops `store`, so private-storage samples with short paths warn "DAS path ... has wrong
       format" on every `status`/resubmit (message only; seen on lxplus, CL §16).
 
-**Fitter** ([BUGS.md](../Fitter/BUGS.md)), registered only, options 4–6 of the workflow:
+**Fitter** ([Bugs.md](../Bugs.md#fitter)), registered only, options 4–6 of the workflow:
 
 - [ ] F08: `merge_datacards_regions` called with 7 arguments, takes 6 (crash).
 - [ ] F09: `hasattr` on a dict is always false, so the Zmm card is never added (latent).
 - [ ] F10: the combined card is written to `output_{era}/` (wrong).
 - [ ] F26: option 6 reads `tidRegions`, the configs have `tid_SFRegions` (latent; CL §22).
 
-**Histogrammer** (the former Plotter, CL §21; [BUGS.md](../Histogrammer/BUGS.md)):
+**Histogrammer** (the former Plotter, CL §21; [Bugs.md](../Bugs.md#histogrammer)):
 
 - [ ] L02: `fname=` vs `file=` (`config/samples_v15.py:285` vs `python/sample/utils.py:29`); needs a test with tuples.
 - [ ] L03: `sumhists` adds to an undefined `sighist` (now `Utilities/python/Drawing/hist_tools.py`); the fix changes
@@ -306,7 +306,7 @@ Each changes logs, so do each in its own commit, with a BBB re-lock where a base
       plots only), the control-plot names repeat the tag (cosmetic).
 - [ ] L12: `getmcsample` ignores its `pico=` keyword (`python/sample/utils.py:119-120`; no callers, latent).
 
-**Framework** ([BUGS.md](../Framework/BUGS.md)), registered only:
+**Framework** ([Bugs.md](../Bugs.md#framework)), registered only:
 
 - [ ] K01: a moved or copied run reads the artifacts of its `DONE` stages at the old location (latent).
 - [ ] K02: a crash between `manifest.json` and `run.json` leaves the stage `NEW` with a non-empty output directory
@@ -318,7 +318,7 @@ Each changes logs, so do each in its own commit, with a BBB re-lock where a base
 
 **Jobs/workers audit follow-ups** ([JobsWorkersAudit.md](JobsWorkersAudit.md) §7; none needed for correctness):
 
-- [ ] Add D1–D4 to the "Output impact" column of P09, P06, P22, P19 in PicoProducer BUGS.md.
+- [ ] Add D1–D4 to the "Output impact" column of P09, P06, P22, P19 in PicoProducer Bugs.md.
 - [ ] D1: should resubmit warn when the channel options differ from the job config?
 - [ ] D4: clearer message for `haddclean -f` / `hadd -r -f`.
 - [ ] D5: old log tag `storage.utils.getstorage` in `PicoProducer/python/storage/factory.py:51`.
@@ -331,7 +331,7 @@ Parts 1–5 are done (CL §5–§8; the Part 2 changelog section was removed).
 
 - [ ] **Part 6, `analysis/` and `corrections/`** (blocked by the tau-pair BBB case): split `analysis/utils.py` into
       `helpers/`; channels and writers into folders; one path per tool (the archived A13 leak is tracked in
-      [Legacy/Bugs.md](../../../Legacy/Bugs.md#picoproducer)); the maintained A and C bugs; move `hasbit` so corrections no longer import analysis (C11); last, and only if BBB stays
+      [Docs/Develop/Bugs.md#legacy](../Bugs.md#legacy-picoproducer)); the maintained A and C bugs; move `hasbit` so corrections no longer import analysis (C11); last, and only if BBB stays
       identical, pass writer schema options instead of a live module object.
 - [ ] **Part 7, callers and docs:** Plotter/Fitter/Tau_Trigger_SF imports, READMEs, shell scripts,
       `config_example.json`, the TauES_ID helper scripts; a migration guide for users' `config.json` (old to new
@@ -442,7 +442,7 @@ Next-work proposals (not designed in detail yet):
       expanded where `taufw.py` runs, with a warning), `{external: <pattern>}` (absolute only, nothing expanded) and,
       from R4, `{path: <stage directory>}` (absolute only for now, decided 2026-10-17; relative to the recipe's
       directory was the first plan). The absolute test also differs: `_is_absolute` (posixpath or os.path) in
-      `recipe.py`, `os.path.isabs` elsewhere ([Framework BUGS](../Framework/BUGS.md) K05). Decide one rule (what is
+      `recipe.py`, `os.path.isabs` elsewhere ([Framework BUGS](../Bugs.md#framework) K05). Decide one rule (what is
       relative to what, what is expanded, where it is checked), apply it to every path key and document it in
       `Analyses/README.md` "Paths and configuration".
 - [ ] **Production job files in the run.** The merged tuples are in `stages/<id>/` (CL §16), but the job configs, logs
@@ -507,7 +507,7 @@ Other limitations ([Analyses/README.md](../../../Analyses/README.md) "Current li
 ## 7. Tests
 
 - Excluded broken cases `pico.sample` and `plotter.rdataframe`: defects and recorded evidence moved to
-  [Legacy/Bugs.md](../../../Legacy/Bugs.md#excluded-broken-test-and-demonstration-scripts).
+  [Docs/Develop/Bugs.md#legacy](../Bugs.md#legacy-excluded-broken-test-and-demonstration-scripts).
 - [ ] `Tests/PicoProducer/testSFs.py` still imports the legacy `MuonSFs_ROOT`. Nice to have.
 - [ ] BBB `histogrammer.tes_inputs` (CL §22): `ZL`/`TTL`, so the content of the LTF shape systematics, are zero in every
       region (no opposite-sign fixture event with `genmatch_2` 1-4 passes the baseline); the LTF variation files are
@@ -579,7 +579,7 @@ Other limitations ([Analyses/README.md](../../../Analyses/README.md) "Current li
 - [ ] Use Utilities (`FileIO`, `CLI`) at the I/O sites listed in [IOInventory.md](../../../Utilities/IOInventory.md);
       today only the Framework, the Fitter/Plotter APIs and three PicoProducer files use them.
 - Archived defects and external-payload constraints are tracked in
-  [Legacy/Bugs.md](../../../Legacy/Bugs.md#one-off-analysis-archives); fix only if revived
+  [Docs/Develop/Bugs.md#legacy](../Bugs.md#legacy-one-off-analysis-archives); fix only if revived
   ([LegacyCode.md](../LegacyCode.md)).
 
 ## 9. Docs
