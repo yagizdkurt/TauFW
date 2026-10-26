@@ -1330,3 +1330,25 @@ Decisions of the user (2026-10-26):
 - **BBB** `framework.production` records `run.json` after the merge: its two tuple records gain `"sumw"` and
   `"kind": "tuples"`; nothing else should change (the tuple files, the plan and status output, the other cases).
   Re-lock of this case only, to be approved by the user after `bbb check` on lxplus shows exactly this difference.
+
+## 37. Inputs are given, never found
+
+**Date:** 2026-10-26
+**Status:** in progress. Step D0 (the old default locked) written, its lock on lxplus in TODO §1 "Script tuple
+default locked (CL §37 D0)"; D1-D3 next.
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#37-inputs-are-given-never-found)
+
+**Details:** `LocalR/architecture/23-given-inputs-plan.md` (ModuleIsolationFinalizations §3 D; decisions of the
+user 2026-10-26: K1-K5, K7 as proposed, K6 postponed, K8 the path rule of D4)
+
+The Histogrammer still finds its tuples itself when it is not given them: `getsampleset` reads `picodir` of the
+PicoProducer configuration (A03), and the APIs set `$TAUFW_PICO_CONFIG` for it. The steps of this section remove
+that from the library, the APIs and the recipes; the scripts keep the old default (opt-in rule) until the
+migration point.
+
+- **D0, the old default locked first.** No BBB case ran a script without `--tuples`. New case
+  `histogrammer.tes_inputs_picodir` (`Tests/BBB/cases.py`): the fixture of `histogrammer.tes_inputs`, run through
+  `createinputsTES.py` without `--tuples`, the tuples found through a PicoProducer configuration in
+  `$TAUFW_PICO_CONFIG` whose only key is `picodir` (the same pattern). Both cases share `_tes_inputs_run`; the
+  existing case is unchanged except that the script no longer inherits a `$TAUFW_PICO_CONFIG` of the caller (with
+  `--tuples` it was never read). Locked on lxplus with the code before D1, so D1 must pass it without a re-lock.

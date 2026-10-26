@@ -261,6 +261,9 @@ fingerprinted, so changing the fixtures invalidates the lock. Coverage includes:
   `_tes_inputs_script()`, the one line that changes when the script moves. To try
   the case alone before a lock: `python3 Tests/support/launch.py bbb
   histogrammer.tes_inputs <empty dir> <empty dir>/result.json`.
+- The scripts' old tuple default (`histogrammer.tes_inputs_picodir`, changelog §37 D0): the same run without
+  `--tuples`, the tuples found through `picodir` of a PicoProducer configuration in `$TAUFW_PICO_CONFIG`; locked
+  before the Histogrammer stopped importing PicoProducer, so the script default (plan 23 D1) must give the same files.
 
 Snapshots preserve object/key names and classes, key cycles, directory structure,
 histogram axes/labels, contents/errors/statistics, branch types/order, aliases,

@@ -575,3 +575,13 @@ raises `OSError` on an unreadable file, which crashed the branch preflight of CL
 - `cutflow_bin` and the merge read need ROOT: checked on lxplus by BBB `framework.production` (the `sumw` of its two
   merged tuples in `run.json`) and `pico.merge` (unchanged: the merge's files).
 - `python Tests/run.py checks` on Windows: 14/16 (the known two: `check_import_boundaries` known debt, `check_root`).
+
+## 37. Inputs are given, never found
+
+**Change:** [CL §37](Refactor-2025.md#37-inputs-are-given-never-found)
+
+**Status:** D0 written on Windows; the lock on lxplus open (TODO §1).
+
+- D0: `python Tests/run.py bbb list` lists `histogrammer.tes_inputs_picodir`; `python Tests/run.py checks` on
+  Windows 14/16 (the known two). The case needs ROOT: locked on lxplus with the whole suite (`bbb lock --replace`,
+  then `bbb diff`: every other case `same`, this one `ADDED`).

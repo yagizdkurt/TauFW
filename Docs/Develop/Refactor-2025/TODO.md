@@ -170,6 +170,12 @@ Items marked **(verify)** may already be done; check before working on them.
       Tests/BBB/baselines/` shows only those keys; `bbb check` passes. A real production run (e.g.
       `example_mutau_short`) shows `sumw` and `kind` in `stages/production/manifest.json`, `sumw` equal to
       `cutflow->GetBinContent(17)` of that tuple.
+- [ ] **Script tuple default locked (CL §37 D0), before any D1 code is pulled:** at the commit with the new case,
+      `python3 Tests/run.py bbb check --case histogrammer.tes_inputs` passes (the shared run changed nothing), then
+      `python3 Tests/run.py bbb lock --replace` and `python3 Tests/run.py bbb diff`: `PASS`, every case `same`,
+      `histogrammer.tes_inputs_picodir` `ADDED`; `git status Tests/BBB/baselines/` shows only the new file and
+      `manifest.json`. Optional: the two shape files are equal (`histogrammer.tes_inputs_picodir.json` and
+      `histogrammer.tes_inputs.json` have the same `files`).
 - [ ] **Pico tuple contract on lxplus (CL §35):** `python3 taufw.py plan Analyses/tes_id_2025` shows no branch
       problem and takes at most a few seconds longer (the preflight reads the tuple headers); with a copy of
       `setup_mumu.yml` whose baseline names `no_such_branch`, the controlhists preflight names it.

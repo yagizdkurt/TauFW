@@ -665,6 +665,21 @@ def histogrammer_tes_inputs(workspace):
     config: shape file, rebinned file and the names of the control plots. Run in its own interpreter (it sets the
     era globals, sys.path and sys.modules['config'], and writes into its working directory), serially (-s: the
     multithreaded fill differs in the last bits between runs)."""
+    return _tes_inputs_run(workspace, picodir=False)
+
+
+def histogrammer_tes_inputs_picodir(workspace):
+    """histogrammer.tes_inputs without --tuples: the script finds the tuples through picodir of the PicoProducer
+    configuration in $TAUFW_PICO_CONFIG (the scripts' old default, plan 23 D0; locked before the Histogrammer stopped
+    importing PicoProducer). The same fixture, so the same files as histogrammer.tes_inputs."""
+    return _tes_inputs_run(workspace, picodir=True)
+
+
+def _tes_inputs_run(workspace, picodir):
+    """The run of the two createinputsTES.py cases: the tuples given with --tuples, or (picodir) through a
+    PicoProducer configuration whose picodir is the same pattern."""
+    import json
+    import os
     import subprocess
     import sys
     from support.fixtures import write_tree
@@ -686,11 +701,21 @@ def histogrammer_tes_inputs(workspace):
     (base / "tes_mutau.yml").write_text(_TES_CONFIG, encoding="utf-8")
     (base / "samples_2025.yml").write_text(_TES_SAMPLES, encoding="utf-8")
     entry = Path(__file__).resolve().parent / "pico_entry.py"  # a fresh interpreter with the test mirror attached
+    pattern = str(base / "tuples" / "$ERA" / "$GROUP")
+    env = dict(os.environ)
+    env.pop("TAUFW_PICO_CONFIG", None)  # never the caller's configuration
+    if picodir:
+        config = base / "pico.json"  # only picodir; the PicoProducer fills the other keys with its defaults
+        config.write_text(json.dumps({"picodir": pattern}), encoding="utf-8")
+        env["TAUFW_PICO_CONFIG"] = str(config)
+        tuples = []
+    else:
+        tuples = ["--tuples", pattern]
     command = [sys.executable, "-B", str(entry), str(Path.cwd()), str(_tes_inputs_script()),
                "-y", "2025", "-c", "tes_mutau.yml", "-s", "-O", "out", "-j", "Medium", "-e", "VVLoose",
-               "--tuples", str(base / "tuples" / "$ERA" / "$GROUP"), "--samples", "samples_2025.yml"]
+               *tuples, "--samples", "samples_2025.yml"]
     result = subprocess.run(command, cwd=str(base), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                            universal_newlines=True)
+                            universal_newlines=True, env=env)
     sys.stdout.write(result.stdout)  # in the case log only; the snapshot holds files, never this text
     if result.returncode:
         raise RuntimeError("createinputsTES.py failed (exit %s); see the case log" % (result.returncode))
@@ -1050,5 +1075,6 @@ CASES = {
     "fitter.shapes": {"run": fitter_shapes, "dependencies": ROOT_DEPS, "description": "Nominal/systematic shape naming and negative-bin sanitation"},
     "fitter.rebin": {"run": fitter_rebin, "dependencies": ROOT_DEPS, "description": "Adaptive rebinning and non-ZTT background subtraction"},
     "histogrammer.tes_inputs": {"run": histogrammer_tes_inputs, "dependencies": ROOT_DEPS, "description": "createinputsTES.py end to end: config, sample model, splits, TES and shape variations (files and weights), QCD, shape file, rebinning, control-plot names"},
+    "histogrammer.tes_inputs_picodir": {"run": histogrammer_tes_inputs_picodir, "dependencies": ROOT_DEPS, "description": "histogrammer.tes_inputs without --tuples: the tuples through picodir of the PicoProducer configuration ($TAUFW_PICO_CONFIG), the scripts' old default"},
     "drawing.canvas": {"run": drawing_canvas, "dependencies": ROOT_DEPS, "description": "Drawn canvases, styles, histogram helpers, labels and verbose output of the drawing code"}
 }
