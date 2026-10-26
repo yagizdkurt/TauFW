@@ -599,8 +599,7 @@ job files are outside the run, and a run has one `pico.config`; TODO §6). Stage
 ## 18. Menu and UI
 
 **Dates:** 2026-10-17 to 2026-10-18
-**Status:** the test screen and the operations behind the menu are in use; the run screens exist only in the UI
-preview until the run lock lands (TODO §6 "Menu as a program").
+**Status:** done
 **Tests/Validation:** [ValidationAndTests.md:194](ValidationAndTests.md#18-menu-and-ui)
 
 The menu works like a program: a long operation (tests now, runs later) never prints into the terminal or blocks the
@@ -882,8 +881,6 @@ after the nominal histograms; a missing one failed hours into a run (`Sample.app
 **Date:** 2026-10-19
 **Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#24-review-of-the-tes_id_2025-bundle-fit-result-comparison-result-files-in-the-summary)
 
-**Details:** TODO §1 "Framework, TES/ID bundle"
-
 A review of `Analyses/tes_id_2025` as the way to run the TES + tau ID measurement today. The bundle is complete,
 not a placeholder: its copies of the five configs are the `Configs/` templates byte for byte, and `plan` gives the
 commands of `run_inputs.sh` (VTight/Tight, mutau and mumu) and of `run_workflow_zmm.sh` for that point (13 fit
@@ -996,7 +993,7 @@ fixed "109 fb^-1" for an era missing from the table, and the samples took their 
 ## 28. One advance per run, a safe stop, the command log in the progress events
 
 **Date:** 2026-10-21
-**Status:** done on Windows (unit tests); lxplus check in TODO §1 "Run lock and safe stop on lxplus"
+**Status:** done
 **Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#28-one-advance-per-run-a-safe-stop-the-command-log-in-the-progress-events)
 
 Part 1 of the run wiring of the menu (TODO §6 "Menu as a program"): what the menu needs from the Framework before
@@ -1033,7 +1030,7 @@ Start/Continue can run behind it. The CLI keeps its commands and its output; two
 ## 29. Start and Continue run behind the menu
 
 **Date:** 2026-10-21
-**Status:** done on Windows (unit tests); lxplus check in TODO §1 "Runs behind the menu on lxplus"
+**Status:** done
 **Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#29-start-and-continue-run-behind-the-menu)
 
 The wiring of the run screens (TODO §6 "Menu as a program", parts 4a-4c); decisions of the user, 2026-10-21. Before:
@@ -1082,7 +1079,7 @@ behind the menu (CL §18), like the tests, and the run screen follows them.
 ## 30. Plan and status run behind the menu, their output on a screen
 
 **Date:** 2026-10-21
-**Status:** done on Windows (unit tests); lxplus check in TODO §1 "Plan and status behind the menu on lxplus"
+**Status:** done
 **Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#30-plan-and-status-run-behind-the-menu-their-output-on-a-screen)
 
 TODO §6 "Menu as a program", step (3); decisions of the user, 2026-10-21: the plain output in a scrollable screen
@@ -1114,7 +1111,7 @@ operations behind the menu, like the tests and runs (CL §18), and a screen show
 ## 31. The main menu draws without voms-proxy-info and without re-reading ended operations
 
 **Date:** 2026-10-21
-**Status:** done on Windows (unit tests); lxplus check in TODO §1 "Menu speed on lxplus"
+**Status:** done
 **Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#31-the-main-menu-draws-without-voms-proxy-info-and-without-re-reading-ended-operations)
 
 TODO §6 "Menu as a program", menu speed (user, 2026-10-21: approach A and B). Before: every main-menu draw (each
@@ -1146,7 +1143,7 @@ lines).
 ## 32. One curses session for the menu, panels over the screen, the grid password in the menu
 
 **Date:** 2026-10-21
-**Status:** done on Windows (unit tests); lxplus check in TODO §1 "One curses session on lxplus"
+**Status:** done
 **Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#32-one-curses-session-for-the-menu-panels-over-the-screen-the-grid-password-in-the-menu)
 
 TODO §6 "Menu as a program", step (4); decisions of the user, 2026-10-21: the grid certificate password in a field
@@ -1192,7 +1189,7 @@ drawn.
 ## 33. Start a new run and Esc answer at once
 
 **Date:** 2026-10-22
-**Status:** done on Windows (unit tests); lxplus check in TODO §1 "Start and Esc speed on lxplus"
+**Status:** done
 **Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#33-start-a-new-run-and-esc-answer-at-once)
 
 Found by the user after CL §32: "Start a new run" took long to open, and Esc was slow on every screen.
@@ -1210,7 +1207,7 @@ Found by the user after CL §32: "Start a new run" took long to open, and Esc wa
 ## 34. Start and Continue/Inspect read their lists ahead, and open at once
 
 **Date:** 2026-10-22
-**Status:** done on Windows (unit tests); lxplus check in TODO §1 "Lists read ahead on lxplus"
+**Status:** done
 **Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#34-start-and-continueinspect-read-their-lists-ahead-and-open-at-once)
 
 After CL §33 the first Start of a menu still read every recipe's check before the list opened, and Continue/Inspect
@@ -1244,7 +1241,7 @@ start, and a list opens at once with the rows that are still read marked), Conti
 ## 35. The pico tuple contract (PicoProducer -> Histogrammer)
 
 **Date:** 2026-10-26
-**Status:** done on Windows (unit tests); lxplus check in TODO §1 "Pico tuple contract on lxplus"
+**Status:** done
 **Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#35-the-pico-tuple-contract-picoproducer---histogrammer)
 
 **Details:** `LocalR/architecture/22-data-contracts-plan.md` (C2, decisions K5; 2026-10-26: a first version now,
@@ -1287,9 +1284,7 @@ muon SF branches added afterwards by two scripts in `Legacy/OldAnalysis` (analys
 ## 36. The production record: kind and sum of weights on the tuple artifacts
 
 **Date:** 2026-10-26
-**Status:** done; checked on lxplus 2026-10-26 (`checks` 15/16, the known `check_import_boundaries`; `bbb check`
-differed only in `framework.production` by `kind`/`sumw` of its two tuple records; re-locked with the user's approval,
-`sumw` = 18.5 = bin 17 of the merged fixture tuples, no other baseline changed)
+**Status:** done
 **Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#36-the-production-record-kind-and-sum-of-weights-on-the-tuple-artifacts)
 
 **Details:** `LocalR/architecture/22-data-contracts-plan.md` (C3, decision K4; user decisions 2026-10-26 below),
@@ -1334,11 +1329,7 @@ Decisions of the user (2026-10-26):
 ## 37. Inputs are given, never found
 
 **Date:** 2026-10-26
-**Status:** in progress. D0 done (locked on lxplus 2026-10-26: 23 cases `same`, the new one `ADDED`). D1 done, checked
-on lxplus 2026-10-26 (BBB 24/24 without re-lock; `fillhists.py` by hand with and without a configuration). D2 and D3 done (lxplus 2026-10-26: checks
-15/16, the known boundary debt only; BBB 24/24 without re-lock; `taufw.py check` of the four `Analyses/` recipes as
-before; `plan` without `TAUFW_PICO_CONFIG`, with `--tuples`, "PicoProducer config:" only with production). D4, the
-path rule of plan 23, is CL §38.
+**Status:** done
 **Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#37-inputs-are-given-never-found)
 
 **Details:** `LocalR/architecture/23-given-inputs-plan.md` (ModuleIsolationFinalizations §3 D; decisions of the
@@ -1409,7 +1400,7 @@ migration point.
 ## 38. One rule for the paths in a recipe
 
 **Date:** 2026-10-27
-**Status:** done on Windows (unit tests); lxplus check in TODO §1 "One path rule in recipes (CL §38)".
+**Status:** done
 **Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#38-one-rule-for-the-paths-in-a-recipe)
 
 **Details:** `LocalR/architecture/23-given-inputs-plan.md` §4 (step D4 of "inputs are given, never found",

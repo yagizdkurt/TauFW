@@ -127,9 +127,6 @@ F07 (rebinned output location): confirmed on lxplus 2026-10-17.
 **Validation:** offline tests cover command parity, failures and stale outputs. BBB `framework.production` was
 re-locked; the other 18 cases were unchanged. Local script stages are outside BBB coverage.
 
-**Still open:** a full VTight/Tight `taufw.py start` run of `Analyses/tes_id_2025` compared with the shell drivers
-in a clean copy (TODO §1). The fit part on the same shapes was compared in §15.
-
 ## 11. Framework: analysis bundles and Python steps
 
 **Change:** [CL §11](Refactor-2025.md#11-framework-analysis-bundles-and-python-steps)
@@ -162,8 +159,6 @@ changes for the record schema.
 
 **Change:** [CL §15](Refactor-2025.md#15-framework-plotter-and-fitter-outputs-in-the-run-directory)
 
-**Status:** checked on lxplus 2026-10-15
-
 **Validation:** unit tests cover output isolation and preflight. On lxplus, plots match and `bbb check` is 20/20
 unchanged. VTight/Tight fit parameters and corrections match exactly on the same shapes; Framework shapes match
 the baseline up to 1e-13 (multithreaded RDataFrame). Separate shapes + fit runs can differ by a grid step in fitted
@@ -172,8 +167,6 @@ POIs (TODO §6).
 ## 16. Framework: tuples as an input, production writes into the run, run_root
 
 **Change:** [CL §16](Refactor-2025.md#16-framework-tuples-as-an-input-production-writes-into-the-run-run_root)
-
-**Status:** done; the end-to-end production check passed on lxplus
 
 **Validation (lxplus):** external tuples give the same plots as §15; an unwritable run root stops before work starts.
 An end-to-end production + plots run merges tuples into its stage directory and reads them there. BBB
@@ -184,8 +177,6 @@ PicoProducer S17 and Framework K07 were registered, not fixed.
 
 **Change:** [CL §17](Refactor-2025.md#17-framework-inputs-from-another-runs-stage-directory-repeated-stages)
 
-**Status:** checked on lxplus
-
 **Validation:** unit tests cover manifests, provenance and repeated stages. On lxplus, a fit using another run's
 shapes reproduces §15's parameter/correction files exactly and matches its ROOT contents, leaving the source unchanged.
 Repeated plots stages write separately; cross-run tuple plans and invalid-source rejection pass. BBB
@@ -195,19 +186,15 @@ Repeated plots stages write separately; cross-run tuple plans and invalid-source
 
 **Change:** [CL §18](Refactor-2025.md#18-menu-and-ui)
 
-**Pending:** lxplus checks: TODO §1.
-
 Without `$TAUFW_EVENTS`, terminal output and `run.log` were checked byte for byte and are unchanged.
 
 Checked: unit tests for the supervisor (exit codes, heartbeat, stop, kill, every state), the events and the screens;
 end to end, a test run behind the menu, followed from a second menu. Process groups, signals and curses on a real
-terminal: TODO §1.
+terminal: on lxplus.
 
 ## 19. Configs: config templates with an id, a version and a lock
 
 **Change:** [CL §19](Refactor-2025.md#19-configs-config-templates-with-an-id-a-version-and-a-lock)
-
-**Status:** done; nothing to check on lxplus (no ROOT, no BBB case)
 
 - **Tests:** `Tests/Framework/test_configs.py` (no ROOT); two tests read the checkout's `Configs/`: the lock must be up
   to date, and every template must be readable by its module's reader (`READERS`).
@@ -215,8 +202,6 @@ terminal: TODO §1.
 ## 20. Sample lists as data: the sample model
 
 **Change:** [CL §20](Refactor-2025.md#20-sample-lists-as-data-the-sample-model)
-
-**Status:** verified on lxplus 2026-10-17 (details in TODO §1)
 
 - **Recorder and BBB case:** `Tests/Plotter/sample_model/recorder.py` records every call of a sample-set function
   (8 eras × 6 channels × 7 caller options = 336 cases). BBB case `plotter.sample_model` was locked on lxplus with the
@@ -233,8 +218,6 @@ RDataFrame noise; `data_obs` bit-identical); `plan` of `example_mutau_long` list
 ## 21. Plotter becomes Histogrammer; a clean Plotter is extracted
 
 **Change:** [CL §21](Refactor-2025.md#21-plotter-becomes-histogrammer-a-clean-plotter-is-extracted)
-
-**Status:** done; S0–S4 checked on lxplus.
 
 **Coupling:** 30 / 28 / 26 after the rename, including 13 compatibility aliases; 0 new pairs. The rename itself
 removed no cross-stage import. Outside the aliases, Plotter imports only Utilities; Histogrammer and Plotter
@@ -269,8 +252,6 @@ Files with/without drawing agree within multithreaded-fill noise (~1e-13); the s
 ## 22. TES shapes leave the Fitter for the Histogrammer
 
 **Change:** [CL §22](Refactor-2025.md#22-tes-shapes-leave-the-fitter-for-the-histogrammer)
-
-**Status:** done; H0–H4 checked on lxplus.
 
 **Coupling:** 30 / 28 / 26 before, 25 / 23 / 21 after H1; 0 new pairs. Fitter → Histogrammer drops from 6 to 1
 (`Fitter/MuTauFR/createinputs.py`, D11). Fitter's Python API no longer names Histogrammer paths; stages share
@@ -311,8 +292,6 @@ tuples, configs and samples. `Tests/tools/compare_shapefiles.py` compares file n
 
 **Change:** [CL §23](Refactor-2025.md#23-variation-tuples-in-the-shapes-preflight)
 
-**Status:** done; checked on lxplus 2026-10-19.
-
 - `Tests/tools/check_variation_files.py` (lxplus, ROOT): builds the real `SampleSet` as the script does, makes every
   shifted set with `Sample.setnevents` switched off (no variation file opened) and compares the file names with the
   preflight's: SAME or the files only one side names.
@@ -335,8 +314,6 @@ tuples, configs and samples. `Tests/tools/compare_shapefiles.py` compares file n
 
 **Change:** [CL §24](Refactor-2025.md#24-review-of-the-tes_id_2025-bundle-fit-result-comparison-result-files-in-the-summary)
 
-**Status:** Windows checks done; the lxplus run is TODO §1 "Framework, TES/ID bundle".
-
 - `Tests/tools/test_compare_fitresults.py` (7 tests): parameters by name, the tolerance per kind (a difference of
   exactly one grid step is equal), JSON trees, the result-file lists, nothing to compare is a failure.
 - `taufw.py check` and `plan` of `tes_id_2025` (Windows, test bootstrap): the same commands as before; the bundle's
@@ -348,8 +325,6 @@ tuples, configs and samples. `Tests/tools/compare_shapefiles.py` compares file n
 
 **Change:** [CL §25](Refactor-2025.md#25-postfit-scripts-set-the-era-through-cmsstyle-no-plotter-import)
 
-**Status:** done; checked on lxplus 2026-10-19 (TODO §1, CL §25-§27 item).
-
 - `python Tests/check_import_boundaries.py -q`: 21 / 19 / 17, 0 new pairs, no stale allowlist entry (Fitter ->
   Plotter 5 / 4 / 3).
 - BBB `drawing.canvas` (locked 2026-10-14) covers `setCMSEra` and its texts; the old `setera` path is compared by
@@ -358,8 +333,6 @@ tuples, configs and samples. `Tests/tools/compare_shapefiles.py` compares file n
 ## 26. The luminosity of the normalisation in the sample model and the control-histogram file
 
 **Change:** [CL §26](Refactor-2025.md#26-the-luminosity-of-the-normalisation-in-the-sample-model-and-the-control-histogram-file)
-
-**Status:** done; checked on lxplus 2026-10-19 (TODO §1, CL §25-§27 item).
 
 - `Tests/Histogrammer/sample_model/test_sample_model.py`: the call-equality grid (old `samples_v15.py` against the
   model) passes once the model's `lumi=` is checked to equal the table lookup and removed
@@ -374,8 +347,6 @@ tuples, configs and samples. `Tests/tools/compare_shapefiles.py` compares file n
 ## 27. The fit plots show the luminosity of the normalisation; explicit lumi on the samples
 
 **Change:** [CL §27](Refactor-2025.md#27-the-fit-plots-show-the-luminosity-of-the-normalisation-explicit-lumi-on-the-samples)
-
-**Status:** done; checked on lxplus 2026-10-19 (TODO §1, CL §25-§27 item).
 
 - `Tests/Histogrammer/api/test_tes_shapes.py` `test_artifacts_carry_the_normalisation`: lumi/cme of the sample file,
   `None` without one or with an unreadable one.
@@ -401,10 +372,6 @@ re-captures the whole suite: 22 same, 1 changed): 658 `lumi` fields added, each 
 
 **Change:** [CL §28](Refactor-2025.md#28-one-advance-per-run-a-safe-stop-the-command-log-in-the-progress-events)
 
-**Status:** unit tests on Windows; on lxplus983 (2026-10-21) `Tests/run.py all` and the lock checks with a fake
-lock file on a DONE run (refused, hint, `--take-lock`, taken at once for a dead process of this machine, file
-removed). Open: BBB, two nodes, Ctrl-C (TODO §1 "Run lock and safe stop on lxplus").
-
 - `Tests/Framework/test_run_lock.py`: held and removed; a second lock refused; a live lock of another machine never
   taken (also with take); a lost one only with take; a lock of this machine whose process is gone taken at once; a
   half-written lock goes by the file time; the heartbeat renews `t`; `check()` after a takeover. `Framework.advance`
@@ -421,8 +388,6 @@ removed). Open: BBB, two nodes, Ctrl-C (TODO §1 "Run lock and safe stop on lxpl
 
 **Change:** [CL §29](Refactor-2025.md#29-start-and-continue-run-behind-the-menu)
 
-**Status:** unit tests on Windows; lxplus check open (TODO §1 "Runs behind the menu on lxplus").
-
 - `Tests/Utilities/test_menu.py`: Start and Continue start runs (never `execute`), an ended advance is marked seen,
   Continue on an advancing run opens it, Advance once, the lock screen (live: back; lost elsewhere: take over with
   `take_lock`; lost here: no screen), the grid proxy check (back, renew, renew failed), the main menu run line (one
@@ -437,8 +402,6 @@ removed). Open: BBB, two nodes, Ctrl-C (TODO §1 "Run lock and safe stop on lxpl
 ## 30. Plan and status run behind the menu, their output on a screen
 
 **Change:** [CL §30](Refactor-2025.md#30-plan-and-status-run-behind-the-menu-their-output-on-a-screen)
-
-**Status:** unit tests on Windows; lxplus check open (TODO §1 "Plan and status behind the menu on lxplus").
 
 - `Tests/Utilities/test_operation_screen.py` `test_a_command_screen_shows_its_output_and_leaving_stops_it`: only the
   output is drawn; Esc while it runs stops and leaves, S stops without a question, R only once it ended
@@ -458,8 +421,6 @@ removed). Open: BBB, two nodes, Ctrl-C (TODO §1 "Run lock and safe stop on lxpl
 
 **Change:** [CL §31](Refactor-2025.md#31-the-main-menu-draws-without-voms-proxy-info-and-without-re-reading-ended-operations)
 
-**Status:** unit tests on Windows; lxplus check open (TODO §1 "Menu speed on lxplus").
-
 - `Tests/Framework/test_interactive.py` `test_grid_proxy_answer_is_kept_until_it_expires_or_the_proxy_file_changes`:
   the first draw asks `voms-proxy-info`, the next do not; valid until `PROXY_MARGIN` s before the end, then asked
   again; an invalid answer kept while the file is the same; a changed or removed proxy file asks again; `fresh`
@@ -478,8 +439,6 @@ removed). Open: BBB, two nodes, Ctrl-C (TODO §1 "Run lock and safe stop on lxpl
 ## 32. One curses session for the menu, panels over the screen, the grid password in the menu
 
 **Change:** [CL §32](Refactor-2025.md#32-one-curses-session-for-the-menu-panels-over-the-screen-the-grid-password-in-the-menu)
-
-**Status:** unit tests on Windows; lxplus check open (TODO §1 "One curses session on lxplus").
 
 - `Tests/Utilities/test_menu.py`: `test_one_session_for_every_screen_and_errors_in_a_panel` (two screens and an
   error in one `curses.wrapper`, nothing printed, the "Error" panel; outside a session `unreadable_run` opens its
@@ -504,8 +463,6 @@ removed). Open: BBB, two nodes, Ctrl-C (TODO §1 "Run lock and safe stop on lxpl
 
 **Change:** [CL §33](Refactor-2025.md#33-start-a-new-run-and-esc-answer-at-once)
 
-**Status:** unit tests on Windows; lxplus check open (TODO §1 "Start and Esc speed on lxplus").
-
 - `Tests/Framework/test_configs.py` `test_the_scan_is_kept_while_configs_is_unchanged`: two `copy_warnings`, one
   scan; a changed template and a new template scan again (the warning follows the new version); a FileIO given by
   the caller always scans.
@@ -518,8 +475,6 @@ removed). Open: BBB, two nodes, Ctrl-C (TODO §1 "Run lock and safe stop on lxpl
 ## 34. Start and Continue/Inspect read their lists ahead, and open at once
 
 **Change:** [CL §34](Refactor-2025.md#34-start-and-continueinspect-read-their-lists-ahead-and-open-at-once)
-
-**Status:** unit tests on Windows; lxplus check open (TODO §1 "Lists read ahead on lxplus").
 
 - `Tests/Utilities/test_menu.py`: `test_prefetch_runs_each_key_once_and_in_order` (without a thread: at once, a job
   that adds one, an error dropped; with the thread: a key queued once while it runs, the order, `wait`);
@@ -539,8 +494,6 @@ removed). Open: BBB, two nodes, Ctrl-C (TODO §1 "Run lock and safe stop on lxpl
 
 **Change:** [CL §35](Refactor-2025.md#35-the-pico-tuple-contract-picoproducer---histogrammer)
 
-**Status:** unit tests on Windows; lxplus check open (TODO §1 "Pico tuple contract on lxplus").
-
 - `Tests/contracts/test_pico_tuples.py` (9 tests): `NamesTests` (tree, cutflow, file name on both sides),
   `CutflowTests` (Histogrammer bins, stitching bins, every channel module's bins, the cuts of
   `ModuleTauPair.fillhists`), `BranchTests` (channel -> tree producer, add-on against the scripts, configs against
@@ -557,12 +510,10 @@ removed). Open: BBB, two nodes, Ctrl-C (TODO §1 "Run lock and safe stop on lxpl
 
 **Change:** [CL §36](Refactor-2025.md#36-the-production-record-kind-and-sum-of-weights-on-the-tuple-artifacts)
 
-**Status:** passed on lxplus 2026-10-26: `checks` 15/16 (the known `check_import_boundaries`, 0 new pairs); `bbb
-check` failed only `framework.production` with `kind`/`sumw` extra in its two tuple records; `bbb lock --replace
---case framework.production` (approved) changed only `framework.production.json` and its hash in `manifest.json`
-(`sumw` 18.5 for both tuples = their cutflow bin 17). The first `checks` run found that PyROOT 6.30 `TFile.Open`
-raises `OSError` on an unreadable file, which crashed the branch preflight of CL §35 (`unit.histogrammer.api`
-`test_sample_files`); `branches.tuple_branches` now returns None for it (test added).
+- BBB: `framework.production` re-locked with the user's approval, only that case (`kind`/`sumw` added to its two tuple
+  records; `sumw` 18.5 for both tuples = their cutflow bin 17).
+- PyROOT 6.30 `TFile.Open` raises `OSError` on an unreadable file, which crashed the branch preflight of CL §35
+  (`unit.histogrammer.api` `test_sample_files`); `branches.tuple_branches` now returns None for it (test added).
 
 - `Tests/contracts/test_pico_tuples.py` `ProductionRecordTests` (2 new tests, 11 in the file): `TupleArtifact.kind`
   = `tuples` = the production stage's `outputs` = the planned record = the `tuples` slot of `controlhists` and
@@ -579,17 +530,6 @@ raises `OSError` on an unreadable file, which crashed the branch preflight of CL
 ## 37. Inputs are given, never found
 
 **Change:** [CL §37](Refactor-2025.md#37-inputs-are-given-never-found)
-
-**Status:** D0 locked on lxplus 2026-10-26 (`bbb lock --replace`, `bbb diff`: PASS, 23 same, 1 added). D1 on lxplus953
-2026-10-26: `bbb check` 24/24 without re-lock, `checks` 14/16 (known boundary debt, Histogrammer -> PicoProducer 1 / 1 /
-1; one flaky stop test of `unit.utilities`, TODO §7), `normal` 30/30; by hand `fillhists.py` without `--tuples` read the tuples of `config.json`, a missing
-`$TAUFW_PICO_CONFIG` file gave the error naming `--tuples`. D2 on lxplus953 2026-10-26: `checks` 15/16 (the known
-boundary debt only), `bbb check` 24/24 without re-lock; the two `plan` commands open (TODO §1). D3 (and the D2 `plan`
-commands) on lxplus 2026-10-26: `checks` 15/16 (the known boundary debt only, 20 / 19 / 17, 0 new pairs), `bbb check`
-24/24 without re-lock; `taufw.py check`: `example_mutau_short`, `example_mutau_long`, `tes_id_2025` no problems,
-`example_broken` its four; `plan tes_id_2025`: no `TAUFW_PICO_CONFIG=`, every hists/shapes command with `--tuples`, no
-"PicoProducer config:" line; `plan example_mutau_long`: the line, and the hists command with `--tuples
-'<run_dir>/stages/production/$ERA/$GROUP'`.
 
 - D0: `python Tests/run.py bbb list` lists `histogrammer.tes_inputs_picodir`; `python Tests/run.py checks` on
   Windows 14/16 (the known two). The case needs ROOT: locked on lxplus with the whole suite (`bbb lock --replace`,
@@ -628,8 +568,6 @@ commands) on lxplus 2026-10-26: `checks` 15/16 (the known boundary debt only, 20
 ## 38. One rule for the paths in a recipe
 
 **Change:** [CL §38](Refactor-2025.md#38-one-rule-for-the-paths-in-a-recipe)
-
-**Status:** Windows (unit tests); lxplus open (TODO §1 "One path rule in recipes (CL §38)").
 
 - `Tests/Framework/test_bundle.py`: `test_path_rule` (was `test_bundle_module_absolute`: `missing` for a Fitter file
   and a directory, `channel` only where the option takes one, `outside` for `../`, `/afs/...` absolute on Windows),
