@@ -51,6 +51,10 @@ Items marked **(verify)** may already be done; check before working on them.
 
 The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go here until they are run.
 
+- [ ] **`getmcsample` out of the library (CL §39):** `python3 Tests/run.py checks` (`check_import_boundaries`: no
+      Histogrammer -> PicoProducer row, totals 19 / 18 / 16) and `python3 Tests/run.py bbb check` 24/24 without
+      re-lock. With `cmsenv`: `python3 -c "import TauFW.Histogrammer.sample.utils, TauFW.Plotter.sample.utils"`.
+
 ## 2. Moving `common/python/tools/` into `TauFW.Utilities`
 
 Done: `parallel`, `LoadingBar` (§4), `math` (§4), `Table` (§4). Rules for the rest:
@@ -163,7 +167,7 @@ Each changes logs, so do each in its own commit, with a BBB re-lock where a base
 - [ ] L22-L24 (`rebinning.py`, `createinputsTES.py`; CL §22): `rebinning` stops on a region without a bin under 30 %
       relative error (crash, sparse regions), its error accumulation grows instead of shrinking (wrong, rebinned
       plots only), the control-plot names repeat the tag (cosmetic).
-- [ ] L12: `getmcsample` ignores its `pico=` keyword (`python/sample/utils.py:119-120`; no callers, latent).
+- [x] L12: closed in CL §39 (`getmcsample` left the library; the Legacy copies drop the two lines).
 
 **Framework** ([Bugs.md](../Bugs.md#framework)), registered only:
 
@@ -419,8 +423,8 @@ Other limitations ([Analyses/README.md](../../../Analyses/README.md) "Current li
       and its call in `fillhists.py`, `createinputsTES.py`, `plot_postfit.py`, `plot_postfit_shift.py`, `plot_v10.py`,
       `shapes/{ETauFR,HighPT,paper,tutorial}/createinputs.py`, `tutorial/plot.py` (then `--tuples` required, or the
       scripts without the option go to Legacy); `$TAUFW_PICO_CONFIG` in `PicoProducer/python/settings/store.py`
-      (no Framework user after CL §37 D3). Open with K6: `getmcsample`'s `getconfig` (the last Histogrammer ->
-      PicoProducer import).
+      (no Framework user after CL §37 D3). `getmcsample` is no longer in the library (CL §39): its copies in
+      `Legacy/OldAnalysis/2016-2018/plot_compare.py` and `Legacy/OldAnalysis/2018/plot_stitching.py` go with them.
 - [ ] **May go with the old TauES scripts at the migration point (CL §38):** `Fitter/TauES/config/defaultFitSetupTES_mutau.yml`
       and `defaultFitSetup_mumu.yml`. They are only the `-c` defaults of the old standalone scripts (`makeTESfit.py`,
       `plotParabola_TES.py`, `plotPostFitScan_TES.py`, `checkShapes_TES.py`, `harvestDatacards_*`, and the README

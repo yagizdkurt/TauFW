@@ -19,7 +19,35 @@ import TauFW.Utilities.Drawing.Plot as _Plot
 from TauFW.Utilities.Drawing.Plot import Plot, deletehist
 from TauFW.Utilities.Drawing import LOG as PLOG
 from TauFW.Plotter.sample.utils import LOG, STYLE, ensuredir, ensurelist, setera,\
-                                       Sel, Var, MC, SampleSet, getmcsample, stitch
+                                       Sel, Var, MC, SampleSet, stitch
+
+
+def getmcsample(group,sample,title,xsec,channel,era,tag="",verb=0,**kwargs):
+  """Helper function to create MC sample.
+  E.g.: getmcsample('DY',"DYJetsToLL_M-50","DYJetsToLL",1.,channel,era,verb=1),
+  Copy of TauFW.Histogrammer.sample.utils.getmcsample, moved here when it left the library (Refactor-2025
+  changelog section 39): only the Legacy analyses used it, and it reads $PICODIR from the PicoProducer
+  configuration, which the library no longer does. The two lines that read and then cleared the 'pico' keyword
+  (Histogrammer BUGS L12) were dropped; nothing else changed."""
+  from TauFW.common.tools.utils import repkey
+  fname   = kwargs.get('fname', "$PICODIR/$SAMPLE_$CHANNEL$TAG.root" ) # file name pattern of pico files
+  user    = kwargs.get('user',   "" )
+  picodir = ""
+  if '$USER' in fname and not user:
+    import getpass
+    user = getpass.getuser()
+  if '$PICODIR' in fname and not picodir:
+    from TauFW.PicoProducer.settings import getconfig
+    CONFIG  = getconfig(verb=0)
+    picodir = CONFIG['picodir']
+  fname_ = repkey(fname,PICODIR=picodir,USER=user,ERA=era,GROUP=group,SAMPLE=sample,CHANNEL=channel,TAG=tag)
+  if not os.path.isfile(fname_):
+    print(">>> Did not find %r"%(fname_))
+  name = sample+tag
+  if verb>=1:
+    print(">>> getmcsample: %s, %s, %s"%(name,sample,fname_))
+  sample = MC(name,title,fname_,xsec,**kwargs)
+  return sample
 
 
 def getbaseline(channel):

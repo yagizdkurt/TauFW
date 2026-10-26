@@ -31,12 +31,6 @@
       "roadmap_step": "4"
     },
     {
-      "file": "Histogrammer/python/sample/utils.py",
-      "module": "TauFW.PicoProducer.settings",
-      "reason": "Only getmcsample still reads the PicoProducer configuration to locate tuples (A03; getsampleset takes the tuples since CL 37, plan 23 K6 open).",
-      "roadmap_step": "3"
-    },
-    {
       "file": "Plotter/python/methods/QCD_OSSS.py",
       "module": "TauFW.Histogrammer.methods.QCD_OSSS",
       "reason": "Backward-compatibility alias of the old Plotter module name (CL 24); the clean Plotter imports no stage.",

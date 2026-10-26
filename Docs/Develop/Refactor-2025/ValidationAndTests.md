@@ -582,3 +582,14 @@ re-captures the whole suite: 22 same, 1 changed): 658 `lumi` fields added, each 
   (a missing step file is a `RecipeError`). `Tests/Fitter/api/test_tes_id.py`: no `config_file`.
   `check_recipe` of the four `Analyses/` recipes: as before (`tes_id_2025` only the EOS directory on Windows,
   `example_broken` four problems, the fourth with the new wording). Framework 209 pass.
+
+## 39. `getmcsample` moves into the two Legacy analyses that use it
+
+**Change:** [CL §39](Refactor-2025.md#39-getmcsample-moves-into-the-two-legacy-analyses-that-use-it)
+
+- Callers: `grep -rIil getmcsample` over every file of the repository, `mcsample` variants, the star imports of
+  `TauFW.Histogrammer.sample.utils` (`Sample.py`, `SampleSet.py`: no call through them) and `git log --all -S
+  getmcsample`: only the two Legacy scripts.
+- `python -m py_compile` of `Histogrammer/python/sample/utils.py` and both Legacy scripts (they need Run 2 tuples
+  and are not run). `check_import_boundaries`: no Histogrammer -> PicoProducer row, totals 19 / 18 / 16, 0 new
+  pairs. `python Tests/run.py checks` on Windows 14/16 (the known two).

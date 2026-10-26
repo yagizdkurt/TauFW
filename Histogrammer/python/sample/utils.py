@@ -112,31 +112,6 @@ def getsampleset(datasample,expsamples,sigsamples=[ ],**kwargs):
   return sampleset
   
 
-def getmcsample(group,sample,title,xsec,channel,era,tag="",verb=0,**kwargs):
-  """Helper function to create MC sample.
-  E.g.: getmcsample('DY',"DYJetsToLL_M-50","DYJetsToLL",1.,channel,era,verb=1),"""
-  #LOG.header("getmcsamples")
-  fname   = kwargs.get('fname', "$PICODIR/$SAMPLE_$CHANNEL$TAG.root" ) # file name pattern of pico files
-  user    = kwargs.get('user',   "" )
-  picodir = kwargs.get('pico',   "" )
-  picodir = ""
-  if '$USER' in fname and not user:
-    import getpass
-    user = getpass.getuser()
-  if '$PICODIR' in fname and not picodir:
-    from TauFW.PicoProducer.settings import getconfig
-    CONFIG  = getconfig(verb=0)
-    picodir = CONFIG['picodir']
-  fname_ = repkey(fname,PICODIR=picodir,USER=user,ERA=era,GROUP=group,SAMPLE=sample,CHANNEL=channel,TAG=tag)
-  if not os.path.isfile(fname_):
-    print(">>> Did not find %r"%(fname_))
-  name = sample+tag
-  if verb>=1:
-    print(">>> getmcsample: %s, %s, %s"%(name,sample,fname_))
-  sample = MC(name,title,fname_,xsec,**kwargs)
-  return sample
-  
-
 def setera(era_,lumi_=None,**kwargs):
   """Set global era and integrated luminosity for Samples and CMSStyle."""
   global era, lumi, cme

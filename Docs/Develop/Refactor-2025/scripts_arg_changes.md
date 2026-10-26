@@ -122,7 +122,7 @@ same directory.
   `$TAG`, e.g. `$DAS`, which only PicoProducer fills (`TauFW.Utilities.Process.tuple_pattern_problems`).
 - Not through `fname` / the YAML `samples.filename`: those are ignored today (Plotter BUGS L02), and stay so.
 - Every sample config that passes `**kwargs` on to `getsampleset` (`samples_v15.py`, `samples.py`, ...) supports
-  the keyword without a change. `getmcsample` (L12) is not changed.
+  the keyword without a change. `getmcsample` (L12) left the library in CL §39 (copies in its two Legacy callers).
 - Test: `Tests/Plotter/testTupleLocation.py` (ROOT; tiny local tuples: MC, merged data glob, a variation, and the
   default through a mocked configuration).
 

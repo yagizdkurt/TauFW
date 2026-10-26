@@ -371,7 +371,7 @@ The changed-definition review found these additional distinctions:
 | `Variable.getnametitle` | Normalizes an empty/false tag to `""`, including `None`, before formatting; this changes edge-case failure/name behavior |
 | `Sample.__init__`, `SampleSet.printtable` | Internal state imports point to Histogrammer; the old alias and new name share that state |
 | `Sample.appendfilename` | Calls renamed `relative_difference`; the existing repeated sum-of-weights comparison is retained |
-| Generic `getsampleset` / `getmcsample` | Updated config imports; the explicit `tuples` override exists on `getsampleset`. The old `getmcsample(pico=...)` defect remains |
+| Generic `getsampleset` / `getmcsample` | Updated config imports; the explicit `tuples` override exists on `getsampleset`. `getmcsample` left the library (CL §39): copies in the two Legacy analyses that call it, without the `pico=` defect |
 | `HistSet`/`HistDict.display`, histogram/graph diagnostic tables | Use `CLI.table` and renamed print methods; covered formatting is intended to stay the same |
 | `Stack.draw(ratio=...)` | Nonzero integer ratio values now imply one lower panel unless explicitly overridden, fixing bad `ratio=2/3` behavior |
 | `gethistratio` | Accepts a graph denominator by building a histogram representation; formerly failing graph-denominator calls can succeed |
