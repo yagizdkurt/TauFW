@@ -1272,8 +1272,14 @@ muon SF branches added afterwards by two scripts in `Legacy/OldAnalysis` (analys
   campaign eras' etau/ee/emu weights read the muon SF add-on (also before 2025, where no tuple has them);
   `setup_tautau.yml` reads `idMedium_1/_2`; `setup_etau_inclusive.yml` reads PNet branches `TreeProducerETau` does not
   write; `ModuleETau`, `ModuleTauTau`, `ModuleEMu` declare no bins 18-23 but are filled them for DY files.
+- **Preflight on the files** (`Histogrammer/python/sample/branches.py`, `ControlHists.branch_problems`,
+  `TESShapes.branch_problems`, both in their preflight; constructor option `read_branches`): with a tuple pattern,
+  sample files and ROOT, every existing nominal tuple file's branch list (header only) against what the setup and the
+  sample model read (MC: cuts, split cuts, weight and extra weight, without `removeSFs` and the SFs of `-r`; data:
+  cuts). A missing branch stops `plan`/`start` instead of failing hours into a run. Without ROOT (Windows) nothing is
+  checked; a file that cannot be read is left to the other checks.
 - **Write-up** moved to `docs/issues/2025-tuple-weight-branches.md` (the TODO link pointed there) and rewritten with
   the answer; five points stay open (`_v3`, the MC pileup profile, which files, electron channels, older eras).
 - `Legacy/OldAnalysis/2025-2026/add_pileup_weights.py`: banner and inventory row say 2024 MC (was "2025 MC").
 - Not covered yet: the variables defined in Python (`fillhists.py`, plotting scripts), weights given on the command
-  line, a check that the variation tuples have every branch of the MC weight.
+  line, the branches of the variation tuples.

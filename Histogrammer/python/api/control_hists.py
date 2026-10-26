@@ -15,6 +15,8 @@ is none:
     preflight(): what is missing in the environment (empty: ready)
     sample_names(), samples_problems(), sample_file_problems(): the sample model files (no ROOT; also used by the
     Framework for the shapes stage and to compare with what production makes)
+    branch_problems(): the tuple files that lack a branch the setup or the sample model reads (ROOT, file headers;
+    docs/contracts/pico-tuples.md)
 
 Inputs:  pico tuples in the request's tuple pattern (--tuples), or else found by fillhists.py through $PICODIR
          of the request's PicoProducer config (passed to fillhists.py as $TAUFW_PICO_CONFIG; default
@@ -34,6 +36,7 @@ Public API:
   sample_names(files, era, channel)                 (MC sample names, data pattern) of a channel
   samples_problems(files, eras)                     unreadable files, an era without exactly one file
   sample_file_problems(files, eras, channels, tuples)   tuple files of the requested samples that are missing
+  branch_problems(request)                          tuple files that lack a branch the configs read
 """
 import glob
 import importlib.util
@@ -44,11 +47,13 @@ from TauFW.Utilities.Process import (Command, CommandPlan, ProcessRunner, RunRep
                                      tuple_pattern_problems)
 from TauFW.Histogrammer.api.types import HistsRequest
 from TauFW.Histogrammer.sample import model as sample_model
+from TauFW.Histogrammer.sample.branches import branch_problems, tuple_branches
 
 __all__ = ['ControlHists']
 
 SCRIPT = 'fillhists.py'                    # the script this API runs (Plotter/plot.py until CL §21)
 SETUPS = ('Configs', 'Histogrammer', 'setups')  # the channel setups, next to Histogrammer/ (config templates, Configs/README.md)
+TAU_ID_SFS = ('idweight_2', 'ltfweight_2')     # what fillhists.py -r takes out of the weight (not for mumu)
 
 
 class ControlHists:
@@ -99,7 +104,7 @@ class ControlHists:
     def preflight(self, request):
         """What is missing to fill: CMSSW, ROOT, the tuple pattern's keys or else the PicoProducer config, the
         channel setups, the sample model files and (with both a tuple pattern and sample files) the tuple files of
-        the requested samples."""
+        the requested samples and their branches."""
         problems = []
         if 'CMSSW_BASE' not in os.environ:
             problems.append("CMSSW_BASE is not set (run cmsenv first)")
@@ -120,6 +125,7 @@ class ControlHists:
             if request.tuples and not sample_problems and '<' not in request.tuples:  # not a plan's placeholder
                 channels = [artifact['channel'] for artifact in self.plan(request).artifacts]
                 problems.extend(self.sample_file_problems(request.samples, request.eras, channels, request.tuples))
+                problems.extend(self.branch_problems(request))
         return tuple(problems)
 
     # =========================================================================
@@ -168,6 +174,28 @@ class ControlHists:
             return ()
         shown = ", ".join(missing[:maxshow]) + (", ..." if len(missing) > maxshow else "")
         return ("%d tuple file(s) of the requested samples not found: %s" % (len(missing), shown),)
+
+    def branch_problems(self, request):
+        """The tuple files of the requested samples that exist but lack a branch the channel setup or the sample
+        model reads (TauFW.Histogrammer.sample.branches; one problem per config, era and set of missing branches).
+        Only with a tuple pattern (not a plan's placeholder), sample files and ROOT; a setup or sample file that
+        cannot be read is left to the other checks."""
+        if not request.tuples or not request.samples or '<' in request.tuples or not self.find_module('ROOT'):
+            return ()
+        problems = []
+        for config in request.configs:
+            setup = self._setup(_setup_file(config), [])
+            if not setup or not setup.get('channel'):
+                continue
+            removed = TAU_ID_SFS if request.notauidsf and setup['channel'] != 'mumu' else ()
+            for era in request.eras:
+                try:
+                    model = sample_model.pick(request.samples, era)
+                except sample_model.SampleModelError:
+                    continue
+                problems.extend(branch_problems(setup, model, era, request.tuples, removed=removed,
+                                                read=self.read_branches, config=config))
+        return tuple(problems)
 
     def request(self, **fields):
         """A HistsRequest (unknown fields are an error), so callers need not import the records."""
@@ -235,18 +263,21 @@ class ControlHists:
     # =========================================================================
     # ============================= CONSTRUCTION ==============================
 
-    def __init__(self, basedir=None, runner=None, read_yaml=None, python=None, find_module=None):
+    def __init__(self, basedir=None, runner=None, read_yaml=None, python=None, find_module=None,
+                 read_branches=None):
         """basedir:     the Histogrammer directory (default: $CMSSW_BASE/src/TauFW/Histogrammer, else this checkout)
         runner:      a TauFW.Utilities.Process.ProcessRunner (tests pass one with a fake execute)
         read_yaml:   path -> dict (default: TauFW.Utilities.FIO.FileIO().read_yaml)
         python:      the Python of fillhists.py (default: this one, sys.executable)
         find_module: module lookup (default: importlib)
+        read_branches: tuple file -> set of branch names, or None (default: branches.tuple_branches, ROOT)
         Construction reads nothing and runs nothing."""
         self.basedir = os.path.abspath(basedir or _default_basedir())
         self.runner = runner or ProcessRunner()
         self.read_yaml = read_yaml or _read_yaml
         self.python = python or sys.executable
         self.find_module = find_module or _module_exists
+        self.read_branches = read_branches or tuple_branches
 
     def __repr__(self):
         return "<ControlHists(basedir=%r)>" % (self.basedir)

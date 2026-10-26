@@ -205,6 +205,50 @@ class ControlHistsTests(unittest.TestCase):
         self.assertEqual(len(problems), 1)
         self.assertIn(names[0], problems[0])
 
+    def test_branch_problems(self):  # CL §35: the tuple files' branches against what the setup and weights read
+        from TauFW.Histogrammer.sample import branches, model
+        samples = (os.path.join(str(checkout.REPO), "Configs", "Histogrammer", "samples", "v15_2025.yml"),)
+        tuples = os.path.join(self.base, "tuples", "$ERA", "$GROUP")
+        sample_model = model.pick(samples, "2025")
+        for row in sample_model.mc + ({"group": "Data", "name": "Muon0_Run2025C"},):
+            for channel in ("mumu", "mutau"):
+                directory = os.path.join(self.base, "tuples", "2025", row["group"])
+                os.makedirs(directory, exist_ok=True)
+                open(os.path.join(directory, "%s_%s.root" % (row["name"], channel)), "w").close()
+        everything = set().union(*(branches.names(w) for w in sample_model.weights.values()),
+                                 *(branches.names(w) for w in sample_model.extraweights.values()))
+        for channel in ("mumu", "mutau"):
+            with open(os.path.join(self.setups, "setup_%s.yml" % channel)) as stream:
+                everything |= branches.setup_branches(__import__("yaml").safe_load(stream))
+        lacking = {"DYto2Mu_Bin-MLL-10to50_mumu.root": {"idisoweight_2_2025"},
+                   "Muon0_Run2025C_mumu.root": {"m_ll"},
+                   "DYto2Tau_Bin-MLL-50to120_mutau.root": {"idweight_2"}}
+        reads = []
+        histogrammer = ControlHists(basedir=self.histogrammer_dir, find_module=lambda m: True,
+                                    read_branches=lambda path: reads.append(path) or
+                                    everything - lacking.get(os.path.basename(path), set()))
+        request = HistsRequest(eras=["2025"], configs=["mumu", "mutau"], samples=samples, tuples=tuples)
+        problems = histogrammer.branch_problems(request)
+        self.assertEqual(len(problems), 3)
+        self.assertIn("1 tuple file(s) of mumu, era 2025, lack branch(es) the config reads: idisoweight_2_2025 "
+                      "(DYto2Mu_Bin-MLL-10to50_mumu.root)", problems[0])
+        self.assertIn("m_ll (Muon0_Run2025C_mumu.root)", problems[1])  # data: the cuts only
+        self.assertIn("idweight_2 (DYto2Tau_Bin-MLL-50to120_mutau.root)", problems[2])
+        self.assertEqual(len(reads), 2*(len(sample_model.mc)+1))
+        # -r takes the tau ID SFs out of the weight (not for mumu); no ROOT, a placeholder or no samples: no check
+        self.assertEqual(len(histogrammer.branch_problems(HistsRequest(eras=["2025"], configs=["mutau"],
+                                                                       samples=samples, tuples=tuples,
+                                                                       notauidsf=True))), 0)
+        for other in (HistsRequest(eras=["2025"], configs=["mumu"], samples=samples, tuples="<run>/$ERA/$GROUP"),
+                      HistsRequest(eras=["2025"], configs=["mumu"], tuples=tuples)):
+            self.assertEqual(histogrammer.branch_problems(other), ())
+        histogrammer.find_module = lambda m: m != "ROOT"
+        self.assertEqual(histogrammer.branch_problems(request), ())
+        # a file that cannot be read is left to the other checks
+        histogrammer.read_branches = lambda path: None
+        histogrammer.find_module = lambda m: True
+        self.assertEqual(histogrammer.branch_problems(request), ())
+
     def test_default_module_lookup(self):  # BUGS L13: find_spec raises for an imported module without __spec__
         imported = types.ModuleType("taufw_test_imported")
         imported.__spec__ = None  # like CMSSW's ROOT once PicoProducer imported it

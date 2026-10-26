@@ -163,4 +163,9 @@ declare them). The test lists them in `MODULES_WITHOUT_STITCH_BINS`.
 - every branch of the configs above (`Configs/` and `Analyses/*/`) against the tree producer, the add-on and the
   known debt; the add-on list against the branch names in the two scripts.
 
-On lxplus the real files are read by the BBB cases and the runs; this test only compares the code and the configs.
+The files themselves are checked before a run: the preflights of `ControlHists` and `TESShapes` (the `controlhists`
+and `shapes` stages, `plan`/`start`) read the branch list of every existing nominal tuple file of the requested
+samples (ROOT, the header only; `TauFW.Histogrammer.sample.branches`) and report the files that lack a branch the
+setup or the sample model reads, one problem per config, era and set of missing branches. Only with a tuple pattern,
+sample files and ROOT; the MC files are checked against the cuts (with the split cuts) and their weight (without
+`removeSFs` and the SFs `-r` removes), the data files against the cuts. Not read: the variation tuples.

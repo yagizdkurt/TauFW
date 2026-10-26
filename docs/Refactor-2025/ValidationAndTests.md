@@ -545,6 +545,10 @@ removed). Open: BBB, two nodes, Ctrl-C (TODO §1 "Run lock and safe stop on lxpl
   `CutflowTests` (Histogrammer bins, stitching bins, every channel module's bins, the cuts of
   `ModuleTauPair.fillhists`), `BranchTests` (channel -> tree producer, add-on against the scripts, configs against
   the producers).
+- `Tests/Histogrammer/api/test_control_hists.py` `test_branch_problems` (fake reader: a missing weight branch in
+  one MC file, a missing cut alias in a data file, `-r`, no check without ROOT/samples/real pattern, an unreadable
+  file); `test_tes_shapes.py` `test_branches_of_the_nominal_tuples` (removeSFs not needed, DY/TT extra weights,
+  `$VSJET` -> the tagger's discriminant, split cuts only for MC).
 - Mutations (by hand, not kept): `weight_no0PU` at bin 18 fails the Histogrammer and the module test; an unknown
   branch in every config, a stale `KNOWN_DEBT` row, an add-on branch removed from the list each fail.
 - `python Tests/run.py checks` on Windows: 14/16 (the known two: `check_import_boundaries` known debt, `check_root`).

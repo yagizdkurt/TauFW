@@ -39,7 +39,8 @@ class TESShapesTestCase(unittest.TestCase):
         self.write = True
         self.calls = []
         self.shapes = TESShapes(basedir=self.histogrammer_dir, python="python3",
-                                runner=ProcessRunner(execute=self.execute), find_module=lambda m: m in self.modules)
+                                runner=ProcessRunner(execute=self.execute), find_module=lambda m: m in self.modules,
+                                read_branches=lambda path: None)  # the branch check: its own test
         self.script = os.path.join(self.histogrammer_dir, "shapes", "TauES", "createinputsTES.py")
         self.paths = {"script": self.script, "tt": os.path.normpath(os.path.join(self.histogrammer_dir, TT)),
                       "mm": os.path.normpath(os.path.join(self.histogrammer_dir, MM))}
@@ -231,6 +232,32 @@ class ShapesVariationTests(TESShapesTestCase):  # §3 A: the variation tuples be
         self.assertIn("_TES1p050: 9, _JTF0p900: 15)", problem)
         self.assertTrue(problem.endswith(", ..."), problem)
         self.assertEqual(problem.count(".root"), 5)
+
+    def test_branches_of_the_nominal_tuples(self):  # CL §35: removeSFs not needed, $VSJET and split cuts read
+        from TauFW.Histogrammer.sample import branches
+        for row in sample_model.load_sample_model(self.samples[0]).mc:
+            open(os.path.join(self.base, "pico", "2025", row['group'], "%s_mutau.root" % (row['name'])), "w").close()
+        read = []
+        self.shapes.read_branches = lambda path: read.append(path) or (
+            {"genmatch_2", "m_vis", "dm_2", "pt_2"} if "_mutau" in path else None)
+        problems = self.shapes.branch_problems(self.request(tuples=self.tuples, samples=self.samples))
+        self.assertEqual(len(read), len(sample_model.load_sample_model(self.samples[0]).mc))  # mumu: no files
+        self.assertEqual(len(problems), 3)  # DY (+ zptweight_nnlo), TT (+ ttptweight), the others
+        self.assertEqual(sum(int(p.split()[0]) for p in problems), len(read))
+        text = " ".join(problems)
+        self.assertNotIn("idweight_2,", text)  # the config's removeSFs
+        for name in ("idDeepTau2018v2p5VSjet_2", "puweight_2025_69p2_v3", "zptweight_nnlo", "ttptweight",
+                     "ltfweight_2"):
+            self.assertIn(name, text)
+        self.assertTrue(problems[0].startswith("9 tuple file(s) of %s, era 2025" % (TT)), problems[0])
+        preflight = self.shapes.preflight_shapes(self.request(tuples=self.tuples, samples=self.samples))
+        self.assertTrue(set(problems) <= set(preflight))
+        with open(os.path.join(str(checkout.REPO), "Configs", "Fitter", "tes_id", "config_coarse_PNet.yml")) as stream:
+            pnet = __import__("yaml").safe_load(stream)
+        self.assertIn("rawPNetVSjet_2", branches.setup_branches(pnet))  # put in at $VSJET
+        self.assertNotIn("VSJET", branches.setup_branches(pnet))
+        self.assertIn("genmatch_2", branches.setup_branches(pnet))
+        self.assertNotIn("genmatch_2", branches.setup_branches(pnet, mc=False))
 
     def test_not_checked(self):  # as the nominal tuples: no pattern, a plan's placeholder, no sample files
         for path in self.files:

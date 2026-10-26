@@ -12,7 +12,8 @@ same script from Fitter/, where the fit scripts look for the shapes:
     ShapesRequest ─▶ plan_shapes() ─▶ make_shapes()   = python3 shapes/TauES/createinputsTES.py -y ERA -c CONFIG
                      CommandPlan      RunReport                                               -j JET -e ELE [options]
                                       (one shapes artifact per shape file)
-    preflight_shapes(): what is missing in the environment (empty: ready), with the variation tuples
+    preflight_shapes(): what is missing in the environment (empty: ready), with the variation tuples and the
+    branches of the nominal tuples (branch_problems)
 
 Each command must exit with 0 AND write its expected files (see TauFW.Utilities.Process). A run stops at the first
 command that fails.
@@ -45,6 +46,7 @@ from TauFW.Utilities.Process import (Command, CommandPlan, ProcessRunner, RunRep
 from TauFW.Histogrammer.api.types import ShapesRequest
 from TauFW.Histogrammer.api.control_hists import _default_basedir, _module_exists, _pico_env, _read_yaml, _tuple_file
 from TauFW.Histogrammer.sample import model as sample_model
+from TauFW.Histogrammer.sample.branches import branch_problems, tuple_branches
 from TauFW.Histogrammer.sample.variations import variations
 
 __all__ = ['TESShapes']
@@ -111,6 +113,7 @@ class TESShapes:
         problems.extend("sample file %s not found" % (path) for path in request.samples if not os.path.isfile(path))
         problems.extend(output_dir_problems(request.outdir, source, tuples=request.tuples))
         problems.extend(self.variation_problems(request))
+        problems.extend(self.branch_problems(request))
         return tuple(problems)
 
     def variation_problems(self, request, maxshow=5):
@@ -131,6 +134,26 @@ class TESShapes:
                 except sample_model.SampleModelError:
                     continue
                 problems.extend(_missing_variations(config, era, setup, model, request.tuples, maxshow))
+        return tuple(problems)
+
+    def branch_problems(self, request):
+        """The nominal tuple files that exist but lack a branch the config or the sample model reads
+        (TauFW.Histogrammer.sample.branches; the config's removeSFs are not needed). Only with a tuple pattern (not a
+        plan's placeholder), sample files and ROOT; the variation tuples are not read."""
+        if not request.tuples or not request.samples or '<' in request.tuples or not self.find_module('ROOT'):
+            return ()
+        problems = []
+        for config in request.configs:
+            setup = self._setup(config, [])
+            if not setup or not setup.get('channel'):
+                continue
+            for era in request.eras:
+                try:
+                    model = sample_model.pick(request.samples, era)
+                except sample_model.SampleModelError:
+                    continue
+                problems.extend(branch_problems(setup, model, era, request.tuples, read=self.read_branches,
+                                                config=config))
         return tuple(problems)
 
     def shapes_request(self, **fields):
@@ -204,18 +227,21 @@ class TESShapes:
     # =========================================================================
     # ============================= CONSTRUCTION ==============================
 
-    def __init__(self, basedir=None, runner=None, read_yaml=None, python=None, find_module=None):
+    def __init__(self, basedir=None, runner=None, read_yaml=None, python=None, find_module=None,
+                 read_branches=None):
         """basedir:     the Histogrammer directory (default: $CMSSW_BASE/src/TauFW/Histogrammer, else this checkout)
         runner:      a TauFW.Utilities.Process.ProcessRunner (tests pass one with a fake execute)
         read_yaml:   path -> dict (default: TauFW.Utilities.FIO.FileIO().read_yaml)
         python:      the Python of createinputsTES.py (default: this one, sys.executable)
         find_module: module lookup (default: importlib)
+        read_branches: tuple file -> set of branch names, or None (default: branches.tuple_branches, ROOT)
         Construction reads nothing and runs nothing."""
         self.basedir = os.path.abspath(basedir or _default_basedir())
         self.runner = runner or ProcessRunner()
         self.read_yaml = read_yaml or _read_yaml
         self.python = python or sys.executable
         self.find_module = find_module or _module_exists
+        self.read_branches = read_branches or tuple_branches
 
     def __repr__(self):
         return "<TESShapes(basedir=%r)>" % (self.basedir)

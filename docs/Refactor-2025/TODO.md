@@ -162,7 +162,10 @@ Items marked **(verify)** may already be done; check before working on them.
 - [ ] **Start and Esc speed on lxplus (CL §33):** in the menu, Start a new run opens the recipe list at once (the
       first time after a `Configs/` change a little slower); Esc leaves every screen at once; arrow keys still work
       (also over a slow SSH connection: an arrow key must not act as Esc). FastSetup's checklist: Esc at once.
-- [ ] **Pico tuple contract on lxplus (CL §35):** `python3 Tests/run.py checks --case unit.contracts` passes; the
+- [ ] **Pico tuple contract on lxplus (CL §35):** `python3 taufw.py plan Analyses/tes_id_2025` shows no branch
+      problem and takes at most a few seconds longer (the preflight reads the tuple headers); with a copy of
+      `setup_mumu.yml` whose baseline names `no_such_branch`, the controlhists preflight names it.
+      `python3 Tests/run.py checks --case unit.contracts` passes; the
       weight branches of one mumu and one etau tuple of the campaign (`.../pico2024/TES_variations/2025/DY/`, branch
       names containing `weight`) answer the issue's open points 3-4 (`idisoweight_2_2025` in mumu? muon SFs in
       etau?).
