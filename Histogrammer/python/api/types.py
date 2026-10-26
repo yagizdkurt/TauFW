@@ -31,8 +31,8 @@ class HistsRequest:
     configs: channel names (Configs/Histogrammer/setups/setup_<channel>.yml) or .yml files (relative to Histogrammer/, or
     absolute).
     variables, selections: -V and -S filters (glob patterns); empty: all.
-    tuples: the directory pattern of the tuples (with $ERA, $GROUP), given as --tuples; then the
-    PicoProducer configuration is not used. None: the script reads $PICODIR of pico_config (None: its default).
+    tuples: the directory pattern of the tuples (with $ERA, $GROUP), given as --tuples; required (given, never
+    found: CL §37; the PicoProducer configuration is never read).
     samples: sample model files, one per era (Configs/Histogrammer/samples/v15_<era>.yml or a copy), given as
     --samples; empty: the tables of config/samples_v15.py.
     outdir: the directory the script runs in and writes hists/<era>/ to (None: Histogrammer/, as a user runs it)."""
@@ -44,8 +44,7 @@ class HistsRequest:
     notauidsf:  bool = False             # -r: remove the DeepTau ID scale factors
     tag:        str = ""                 # -t: extra tag of the output files
     timeout:    Optional[float] = None   # seconds per command
-    tuples:     Optional[str] = None     # --tuples of the commands
-    pico_config: Optional[str] = None    # $TAUFW_PICO_CONFIG of the commands (without tuples)
+    tuples:     Optional[str] = None     # --tuples of the commands (required)
     outdir:     Optional[str] = None     # working directory of the script (None: Histogrammer/)
     samples:    Tuple[str, ...] = ()     # --samples of the commands
 
@@ -55,6 +54,7 @@ class HistsRequest:
         for name in ('eras', 'configs'):
             if not getattr(self, name):
                 raise ValueError("HistsRequest: %s must not be empty" % (name))
+        _require_tuples('HistsRequest', self.tuples)
 
 
 @dataclass(frozen=True)
@@ -63,8 +63,7 @@ class ShapesRequest:
     Fitter's ShapesRequest until CL §22 H3).
     configs: config files, relative to Histogrammer/ or absolute (the mutau fit config and the mumu control-region
     config, e.g. the templates in Configs/Fitter/tes_id/). tuples: the directory pattern of the tuples (with $ERA,
-    $GROUP), given to createinputsTES.py as --tuples; then the PicoProducer configuration is not used. pico_config:
-    the PicoProducer configuration the script reads $PICODIR from without tuples (None: its default).
+    $GROUP), given to createinputsTES.py as --tuples; required (CL §37).
     outdir: the directory the script runs in and writes input_pt_less_region/ to; required (the Framework gives
     <run_dir>/stages/<id>/; by hand, Fitter/run_inputs.sh writes the shapes into Fitter/).
     samples: sample model files, one per era (Configs/Histogrammer/samples/v15_<era>.yml or a copy), given to
@@ -75,8 +74,7 @@ class ShapesRequest:
     ele_wps: Tuple[str, ...]
     serial:  bool = False             # createinputsTES.py -s: no parallel histogramming
     timeout: Optional[float] = None   # seconds per command
-    tuples:  Optional[str] = None     # --tuples of the commands
-    pico_config: Optional[str] = None # $TAUFW_PICO_CONFIG of the commands (without tuples)
+    tuples:  Optional[str] = None     # --tuples of the commands (required)
     outdir:  Optional[str] = None     # working directory of the script (required)
     samples: Tuple[str, ...] = ()     # --samples of the commands
 
@@ -86,6 +84,7 @@ class ShapesRequest:
             if not getattr(self, name):
                 raise ValueError("ShapesRequest: %s must not be empty" % (name))
         object.__setattr__(self, 'samples', _strings(self.samples))
+        _require_tuples('ShapesRequest', self.tuples)
         if self.outdir is None:  # the Histogrammer never writes into another module's directory (CL §22 H3, E1)
             raise ValueError("ShapesRequest: outdir is required (the Framework gives <run_dir>/stages/<id>/; by "
                              "hand, Fitter/run_inputs.sh makes the shapes in Fitter/)")
@@ -93,6 +92,13 @@ class ShapesRequest:
 
 # =============================================================================
 # ================================== HELPERS ==================================
+
+
+def _require_tuples(record, tuples):
+    """The tuples are given, never found (CL §37): a request without a tuple pattern is an error."""
+    if not isinstance(tuples, str) or not tuples:
+        raise ValueError("%s: tuples is required: the directory pattern of the pico tuples, e.g. "
+                         "/eos/.../$ERA/$GROUP (the PicoProducer configuration is no longer read, CL §37)" % (record))
 
 
 def _strings(values):

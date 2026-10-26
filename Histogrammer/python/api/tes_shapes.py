@@ -18,9 +18,7 @@ same script from Fitter/, where the fit scripts look for the shapes:
 Each command must exit with 0 AND write its expected files (see TauFW.Utilities.Process). A run stops at the first
 command that fails.
 
-Inputs:  pico tuples in the request's tuple pattern (--tuples), or else found by the script through $PICODIR of the
-         request's PicoProducer config (passed as $TAUFW_PICO_CONFIG; default PicoProducer/config/config.json);
-         the YAML configs (relative to Histogrammer/ or absolute; the templates are in Configs/Fitter/tes_id/); the
+Inputs:  pico tuples in the request's tuple pattern (--tuples; required, CL §37); the YAML configs (relative to Histogrammer/ or absolute; the templates are in Configs/Fitter/tes_id/); the
          sample model files (--samples; without them the tables of config/samples_v15.py). The TES points and the
          shape systematics with sampleAppend read variation tuples next to the nominal ones
          (<sample>_<channel>_TES0p950.root, ..._LTF1p030.root); with a tuple pattern and sample files the preflight
@@ -35,7 +33,6 @@ Public API:
   plan_shapes, make_shapes, preflight_shapes      pipelines
   shapes_request(**fields)                        a ShapesRequest
   config_file(config)                             a config as an absolute path
-  pico_config_source(request)                     where $PICODIR is read from (a request without tuples)
   variation_problems(request)                     the variation tuples the configs read that are missing
 """
 import os
@@ -44,7 +41,7 @@ import sys
 from TauFW.Utilities.Process import (Command, CommandPlan, ProcessRunner, RunReport, output_dir_problems,
                                      tuple_pattern_problems)
 from TauFW.Histogrammer.api.types import ShapesRequest
-from TauFW.Histogrammer.api.control_hists import _default_basedir, _module_exists, _pico_env, _read_yaml, _tuple_file
+from TauFW.Histogrammer.api.control_hists import _default_basedir, _module_exists, _read_yaml, _tuple_file
 from TauFW.Histogrammer.sample import model as sample_model
 from TauFW.Histogrammer.sample.branches import branch_problems, tuple_branches
 from TauFW.Histogrammer.sample.variations import variations
@@ -95,23 +92,18 @@ class TESShapes:
         return RunReport(results=report.results, total=report.total, artifacts=plan.artifacts if report.ok else ())
 
     def preflight_shapes(self, request):
-        """What is missing to make the shapes: CMSSW, ROOT, the tuple pattern's keys or else the PicoProducer
-        config, the config files, the sample model files (only that they exist: ControlHists.samples_problems reads
+        """What is missing to make the shapes: CMSSW, ROOT, the tuple pattern's keys, the config files, the sample model files (only that they exist: ControlHists.samples_problems reads
         them), the output directory, and the variation tuples (variation_problems)."""
         problems = []
         if 'CMSSW_BASE' not in os.environ:
             problems.append("CMSSW_BASE is not set (run cmsenv first)")
         if not self.find_module('ROOT'):
             problems.append("python cannot import ROOT")
-        source = None if request.tuples else self.pico_config_source(request)
-        if request.tuples:
-            problems.extend(tuple_pattern_problems(request.tuples))
-        elif not os.path.isfile(source):
-            problems.append("no PicoProducer configuration %s: the script reads $PICODIR from it" % (source))
+        problems.extend(tuple_pattern_problems(request.tuples))
         problems.extend("config %s not found in %s" % (config, self.basedir) for config in request.configs
                         if not os.path.isfile(self.config_file(config)))
         problems.extend("sample file %s not found" % (path) for path in request.samples if not os.path.isfile(path))
-        problems.extend(output_dir_problems(request.outdir, source, tuples=request.tuples))
+        problems.extend(output_dir_problems(request.outdir, tuples=request.tuples))
         problems.extend(self.variation_problems(request))
         problems.extend(self.branch_problems(request))
         return tuple(problems)
@@ -164,12 +156,6 @@ class TESShapes:
         """A config file (relative to Histogrammer/, or absolute), as an absolute path."""
         return self._path(config)
 
-    def pico_config_source(self, request=None):
-        """The PicoProducer configuration that the script reads $PICODIR from: the request's, else the default."""
-        if request is not None and request.pico_config:
-            return request.pico_config
-        return os.path.join(os.path.dirname(self.basedir), 'PicoProducer', 'config', 'config.json')
-
     # =========================================================================
     # =============================== COMMANDS ================================
 
@@ -179,8 +165,7 @@ class TESShapes:
                 '-e', ele_wp]
         if request.serial:
             argv.append('-s')
-        if request.tuples:
-            argv += ['--tuples', request.tuples]
+        argv += ['--tuples', request.tuples]
         if request.samples:
             argv += ['--samples'] + [os.path.abspath(path) for path in request.samples]
         files = _shape_files(setup, era, jet_wp, ele_wp) if setup is not None else []
@@ -190,8 +175,7 @@ class TESShapes:
                    'observable': observable, 'lumi': normalisation[0], 'cme': normalisation[1]}
                   for observable, path in files]
         command = Command("shapes %s %s %s %s" % (era, jet_wp, ele_wp, channel), tuple(argv), cwd,
-                          expects=tuple(path for _, path in files), timeout=request.timeout,
-                          env=_pico_env(request))
+                          expects=tuple(path for _, path in files), timeout=request.timeout)
         return command, shapes
 
     # =========================================================================

@@ -1335,8 +1335,8 @@ Decisions of the user (2026-10-26):
 
 **Date:** 2026-10-26
 **Status:** in progress. D0 done (locked on lxplus 2026-10-26: 23 cases `same`, the new one `ADDED`). D1 done, checked
-on lxplus 2026-10-26 (BBB 24/24 without re-lock; the `fillhists.py` commands by hand left in TODO §1). D2, D3, D4
-next.
+on lxplus 2026-10-26 (BBB 24/24 without re-lock; `fillhists.py` by hand with and without a configuration). D2 done on Windows (unit
+tests), lxplus check in TODO §1 "APIs take the tuples (CL §37 D2)". D3, D4 next.
 **Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#37-inputs-are-given-never-found)
 
 **Details:** `LocalR/architecture/23-given-inputs-plan.md` (ModuleIsolationFinalizations §3 D; decisions of the
@@ -1372,3 +1372,18 @@ migration point.
   a `tuples=` and raise without it.
   The APIs still set `$TAUFW_PICO_CONFIG` for a request without tuples (D2 removes it); the helper reads it, so that
   path keeps working until then.
+- **D2, the APIs take the tuples, never a PicoProducer configuration.** `HistsRequest` and `ShapesRequest`
+  (Histogrammer): `pico_config` removed (an unknown field, so `TypeError`), `tuples` required (`ValueError`
+  "tuples is required ..."); every command gets `--tuples`, none gets `$TAUFW_PICO_CONFIG`; the preflight no
+  longer looks for a PicoProducer configuration ("no PicoProducer configuration ..." is gone).
+  `ControlHists.pico_config_source`, `TESShapes.pico_config_source` and `_pico_env` removed. `FitRequest.pico_config`,
+  `TauESID.pico_config_source` and its `_pico_env` removed: the fit scripts never read it (finalizations B4, TODO §0
+  item 4). `TauFW.Utilities.Process.output_dir_problems(outdir, tuples=None)`: the `pico_config` parameter and the
+  relative-`picodir` check are gone. Framework: `controlhists`, `shapes`, `fit` no longer pass `pico_config`;
+  `LocalStage.tuples_pattern` gives the placeholder `<id>/$ERA/$GROUP` for a production input that has no
+  (planned) record yet, as in the sample comparison of a plan (`samples.py`), where the request used to be made with
+  `tuples=None`; the APIs do not check a `<...>` pattern. A tuples input `null` now gives a request without tuples,
+  which the API refuses (D3 makes it a recipe error with its own message).
+  Before / after (`taufw.py plan`, a fit command): `TAUFW_PICO_CONFIG=/run/bundle/pico.json python3
+  harvestDatacards_zmm.py ...` -> `python3 harvestDatacards_zmm.py ...`; a controlhists command with tuples is
+  unchanged.

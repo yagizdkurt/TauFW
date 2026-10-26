@@ -47,8 +47,7 @@ class ControlHistsStage(LocalStage):
 
     def request(self, spec, context):
         tuples = self.tuples_pattern(context)[0]
-        return self.api.request(tuples=tuples, pico_config=None if tuples else context.pico_config,
-                                outdir=self.output_dir(context), **spec.request_dict())
+        return self.api.request(tuples=tuples, outdir=self.output_dir(context), **spec.request_dict())
 
     def plan_commands(self, request):
         return self.api.plan(request)

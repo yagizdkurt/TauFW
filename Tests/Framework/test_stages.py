@@ -95,7 +95,7 @@ class PipelineTests(LocalStageTestCase):
         # hists and shapes read the production stage's tuples, through the pattern on its artifacts
         pattern = os.path.join(production_dir, "$ERA", "$GROUP")
         self.assertEqual(self.histogrammer.call("make")[0]["tuples"], pattern)
-        self.assertIsNone(self.histogrammer.call("make")[0]["pico_config"])
+        self.assertNotIn("pico_config", self.histogrammer.call("make")[0])  # CL §37
         self.assertEqual(self.tes_shapes.call("make_shapes")[0]["tuples"], pattern)
         self.assertEqual(record.stage("hists").last_status["tuples"], pattern)
         # the shapes stage records the production tuples as inputs, and its shape files as artifacts
@@ -297,7 +297,8 @@ class TupleInputTests(LocalStageTestCase):
         record = fw.start(run_root=os.path.join(self.root, "runs"))
         self.assertEqual([record.stage(s).state for s in ("hists", "shapes")], ["DONE", "DONE"])
         request = self.histogrammer.call("make")[0]
-        self.assertEqual((request["tuples"], request["pico_config"]), (pattern, None))
+        self.assertEqual(request["tuples"], pattern)
+        self.assertNotIn("pico_config", request)  # CL §37
         self.assertEqual(self.tes_shapes.call("make_shapes")[0]["tuples"], pattern)
         self.assertEqual(record.stage("hists").last_status["tuples"], pattern)
         self.assertNotIn("inputs", record.stage("hists").last_status)  # no tuple files are known
@@ -312,11 +313,11 @@ class TupleInputTests(LocalStageTestCase):
                          % (os.path.join(self.root, "missing"), pattern))
         self.assertNotIn("make", self.histogrammer.names())
 
-    def test_null_reads_the_pico_configuration(self):
+    def test_null_gives_no_tuples(self):  # CL §37 D2: no PicoProducer configuration either (D3: a recipe error)
         record = self.framework(HISTS).start(run_root=self.root)
         request = self.histogrammer.call("make")[0]
         self.assertIsNone(request["tuples"])
-        self.assertIn("pico_config", request)
+        self.assertNotIn("pico_config", request)
         self.assertNotIn("tuples", record.stage("hists").last_status)
 
     def test_plan_gives_the_planned_pattern(self):
@@ -331,7 +332,8 @@ class TupleInputTests(LocalStageTestCase):
         def context(*artifacts):
             return StageContext(inputs={"tuples": "production"}, upstream={"production": artifacts})
 
-        self.assertEqual(stage.tuples_pattern(context()), (None, ()))  # nothing planned yet
+        self.assertEqual(stage.tuples_pattern(context()), ("<production>/$ERA/$GROUP", ()))  # nothing planned yet
+        self.assertEqual(stage.tuples_pattern(StageContext()), (None, ()))  # no input
         # CL §36: records without a kind (made before) are refused; only kind 'tuples' is read
         self.assertEqual(stage.tuples_pattern(context({"pattern": "/p/$ERA", "path": "x"}))[1],
                          ("the tuples of stage 'production' were recorded before their records had a kind (CL §36); "
@@ -430,7 +432,7 @@ class PathInputTests(LocalStageTestCase):
         self.assertEqual(record.state, "DONE", record.stage("hists").message)
         pattern = os.path.join(source, "$ERA", "$GROUP")
         self.assertEqual(self.histogrammer.call("make")[0]["tuples"], pattern)
-        self.assertIsNone(self.histogrammer.call("make")[0]["pico_config"])
+        self.assertNotIn("pico_config", self.histogrammer.call("make")[0])  # CL §37
         self.assertEqual(record.stage("hists").last_status["tuples"], pattern)
         self.assertEqual(record.stage("hists").sources["tuples"]["stage"], "production")
 

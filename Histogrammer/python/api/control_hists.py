@@ -18,9 +18,7 @@ is none:
     branch_problems(): the tuple files that lack a branch the setup or the sample model reads (ROOT, file headers;
     Docs/Develop/contracts/pico-tuples.md)
 
-Inputs:  pico tuples in the request's tuple pattern (--tuples), or else found by fillhists.py through $PICODIR
-         of the request's PicoProducer config (passed to fillhists.py as $TAUFW_PICO_CONFIG; default
-         PicoProducer/config/config.json); the channel setups
+Inputs:  pico tuples in the request's tuple pattern (--tuples; required, CL §37); the channel setups
          Configs/Histogrammer/setups/setup_<channel>.yml (or any .yml, relative to Histogrammer/ or absolute); the sample model
          files (--samples; without them the tables of config/samples_v15.py).
 Outputs: <outdir>/hists/<era>/<channel><tag>.root, where <tag> is the setup's tag plus request.tag (without
@@ -32,7 +30,6 @@ Public API:
   plan, make, preflight         pipelines
   request(**fields)             a HistsRequest
   config_file(config)           the setup file of a channel name or .yml config
-  pico_config_source(request)   where $PICODIR is read from (a request without tuples)
   sample_names(files, era, channel)                 (MC sample names, data pattern) of a channel
   samples_problems(files, eras)                     unreadable files, an era without exactly one file
   sample_file_problems(files, eras, channels, tuples)   tuple files of the requested samples that are missing
@@ -102,23 +99,18 @@ class ControlHists:
         return RunReport(results=report.results, total=report.total, artifacts=plan.artifacts)
 
     def preflight(self, request):
-        """What is missing to fill: CMSSW, ROOT, the tuple pattern's keys or else the PicoProducer config, the
-        channel setups, the sample model files and (with both a tuple pattern and sample files) the tuple files of
+        """What is missing to fill: CMSSW, ROOT, the tuple pattern's keys, the channel setups, the sample model files and (with both a tuple pattern and sample files) the tuple files of
         the requested samples and their branches."""
         problems = []
         if 'CMSSW_BASE' not in os.environ:
             problems.append("CMSSW_BASE is not set (run cmsenv first)")
         if not self.find_module('ROOT'):
             problems.append("python cannot import ROOT")
-        source = None if request.tuples else self.pico_config_source(request)
-        if request.tuples:
-            problems.extend(tuple_pattern_problems(request.tuples))
-        elif not os.path.isfile(source):
-            problems.append("no PicoProducer configuration %s: %s reads $PICODIR from it" % (source, SCRIPT))
+        problems.extend(tuple_pattern_problems(request.tuples))
         problems.extend("channel setup %s not found" % (self.config_file(config))
                         for config in request.configs if not os.path.isfile(self.config_file(config)))
         if request.outdir is not None:
-            problems.extend(output_dir_problems(request.outdir, source, tuples=request.tuples))
+            problems.extend(output_dir_problems(request.outdir, tuples=request.tuples))
         if request.samples:
             sample_problems = self.samples_problems(request.samples, request.eras)
             problems.extend(sample_problems)
@@ -205,12 +197,6 @@ class ControlHists:
         """The channel setup file of a config (a channel name or a .yml file), as an absolute path."""
         return self._path(_setup_file(config))
 
-    def pico_config_source(self, request=None):
-        """The PicoProducer configuration that fillhists.py reads $PICODIR from: the request's, else the default."""
-        if request is not None and request.pico_config:
-            return request.pico_config
-        return os.path.join(os.path.dirname(self.basedir), 'PicoProducer', 'config', 'config.json')
-
     # =========================================================================
     # ================================ HELPERS ================================
 
@@ -230,15 +216,14 @@ class ControlHists:
         argv += [flag for flag, wanted in flags if wanted]
         if request.tag:
             argv += ['-t', request.tag]
-        if request.tuples:
-            argv += ['--tuples', request.tuples]
+        argv += ['--tuples', request.tuples]
         if request.samples:
             argv += ['--samples'] + [path if request.outdir is None else os.path.abspath(path)
                                      for path in request.samples]
         argv += ['--hists', '--no-draw']
         return Command("controlhists %s %s" % (channel, era), tuple(argv), cwd,
                        expects=(_hist_file(channel, era, tag),),
-                       timeout=request.timeout, env=_pico_env(request))
+                       timeout=request.timeout)
 
     def _cwd(self, request):
         """Where fillhists.py runs: the request's output directory as given (the Framework gives an absolute one, or the
@@ -291,15 +276,6 @@ def _setup_file(config):
     """fillhists.py's rule: a name without .yml is a channel, Configs/Histogrammer/setups/setup_<channel>.yml (relative to
     Histogrammer/; the setups are config templates since CL §20)."""
     return config if config.endswith('.yml') else os.path.join(os.pardir, *SETUPS, "setup_%s.yml" % (config))
-
-
-def _pico_env(request):
-    """$TAUFW_PICO_CONFIG for fillhists.py, if the request names a PicoProducer config (read by getconfig()) and no
-    tuple pattern; absolute with an output directory, since the script then runs elsewhere than the caller."""
-    if not request.pico_config or request.tuples:
-        return ()
-    return (('TAUFW_PICO_CONFIG', request.pico_config if request.outdir is None else
-             os.path.abspath(request.pico_config)),)
 
 
 def _tuple_file(tuples, era, group, sample, channel):

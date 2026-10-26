@@ -582,7 +582,8 @@ raises `OSError` on an unreadable file, which crashed the branch preflight of CL
 
 **Status:** D0 locked on lxplus 2026-10-26 (`bbb lock --replace`, `bbb diff`: PASS, 23 same, 1 added). D1 on lxplus953
 2026-10-26: `bbb check` 24/24 without re-lock, `checks` 14/16 (known boundary debt, Histogrammer -> PicoProducer 1 / 1 /
-1; one flaky stop test of `unit.utilities`, TODO §7), `normal` 30/30; the `fillhists.py` commands by hand open.
+1; one flaky stop test of `unit.utilities`, TODO §7), `normal` 30/30; by hand `fillhists.py` without `--tuples` read the tuples of `config.json`, a missing
+`$TAUFW_PICO_CONFIG` file gave the error naming `--tuples`. D2 on Windows; lxplus open (TODO §1).
 
 - D0: `python Tests/run.py bbb list` lists `histogrammer.tes_inputs_picodir`; `python Tests/run.py checks` on
   Windows 14/16 (the known two). The case needs ROOT: locked on lxplus with the whole suite (`bbb lock --replace`,
@@ -596,3 +597,12 @@ raises `OSError` on an unreadable file, which crashed the branch preflight of CL
   (the helper with `$TAUFW_PICO_CONFIG` gives the same files). `check_import_boundaries`: Histogrammer ->
   PicoProducer 1 / 1 / 1, totals 20 / 19 / 17, 0 new pairs. Windows `checks` 14/16 (the known two).
   The script default itself: BBB `histogrammer.tes_inputs_picodir` on lxplus, without re-lock.
+- D2: `Tests/Histogrammer/api/test_control_hists.py`, `test_tes_shapes.py`: every request names its tuples (a
+  `Request` helper / the `request()` default), the expected commands have `--tuples`, `env == ()` everywhere; a
+  request without tuples (None, "") is a `ValueError`, with `pico_config=` a `TypeError`; the picodir preflight
+  checks are gone (`test_absolute_setup`, `test_output_directory_problems`). `Tests/Fitter/api/test_tes_id.py`
+  `test_no_pico_config`. `Tests/Utilities/test_process.py` `OutputDirectoryTests`: the tuple pattern only,
+  `pico_config=` a `TypeError`. `Tests/Framework`: no `pico_config` in the fakes' requests; `test_pattern_problems`
+  the placeholder before production is planned; `test_null_gives_no_tuples` (D3 turns it into the recipe error).
+  Windows: Histogrammer API 30, Fitter API 15, Utilities 200, Framework 206 pass (`test_run_lock` heartbeat failed
+  once on a slow run, then three runs clean: timing, not this change); `checks` 14/16 (the known two).

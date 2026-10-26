@@ -69,7 +69,7 @@ class FitStage(LocalStage):
                              "to a shapes stage")
         return self.api.fit_request(points=points, config=spec.config, config_mumu=spec.config_mumu,
                                     steps=spec.steps, impacts=spec.impacts, timeout=spec.timeout,
-                                    pico_config=context.pico_config, outdir=self.output_dir(context),
+                                    outdir=self.output_dir(context),
                                     shapes_dirs=self.shapes_dirs(points, context),
                                     labels=self.labels(points, context))
 

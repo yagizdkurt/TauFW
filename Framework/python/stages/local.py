@@ -13,8 +13,9 @@ made. This base class does the part that is the same for all of them:
 
 A subclass sets `name` and `Spec`, and implements:
     request(spec, context)          -> the module request (raise ValueError if the stage cannot run); `spec` has
-                                       its path options resolved against the bundle already (bundle.py), and
-                                       context.pico_config is the run's PicoProducer config for the scripts
+                                       its path options resolved against the bundle already (bundle.py); the
+                                       scripts get their inputs from the request, never a PicoProducer config
+                                       (CL §37)
     plan_commands(request)          -> CommandPlan
     preflight(request, context)     -> tuple of problems (empty: ready)
     execute(request, logdir, progress) -> RunReport
@@ -139,7 +140,9 @@ class LocalStage(Stage):
         """(pattern or None, problems): where the stage's tuples are, as a directory pattern ($ERA, $GROUP).
           {external: <pattern>}  -> that pattern
           a production stage     -> the pattern recorded on its artifacts of kind 'tuples' (in a plan: the
-                                    planned one); none yet (not planned) -> None. Also another run's ({path:
+                                    planned one); none yet (not planned, e.g. the sample comparison of a
+                                    plan) -> the placeholder '<id>/$ERA/$GROUP', which the APIs do not check
+                                    (the request needs a pattern, CL §37). Also another run's ({path:
                                     ...}, its manifest's artifacts); artifacts without a kind (before CL §36)
                                     are a problem.
           null                   -> None (the scripts read $PICODIR of the PicoProducer configuration)"""
@@ -147,8 +150,10 @@ class LocalStage(Stage):
             return context.external[slot], ()
         stage_id = context.inputs.get(slot)
         artifacts = context.input_artifacts(slot)
-        if not stage_id or not artifacts:
+        if not stage_id:
             return None, ()
+        if not artifacts:
+            return "<%s>/$ERA/$GROUP" % (stage_id), ()
         if not any('kind' in artifact for artifact in artifacts):
             return None, ("the tuples of %s were recorded before their records had a kind (CL §36); start a new "
                           "run, or name them with {external: <pattern>}" % (context.input_name(slot)),)

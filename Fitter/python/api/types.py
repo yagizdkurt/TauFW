@@ -39,7 +39,7 @@ FIT_STEPS = ('fit', 'postfit', 'plots', 'corrections', 'summary')
 class FitRequest:
     """The fit: Fitter/run_workflow_zmm.sh for every (era, jet WP, electron WP) point.
     config: the mutau fit config; config_mumu: the mumu control-region config (both relative to Fitter/, or
-    absolute). pico_config: the PicoProducer configuration the scripts read $PICODIR from (None: its default).
+    absolute). The fit reads no tuples, so no PicoProducer configuration (its pico_config went in CL §37).
     outdir: the directory the fit writes to; the scripts of one era run in <outdir>/<era>/ (None: all in Fitter/).
     shapes_dirs: (era, jet WP, electron WP, directory) of the shape files of each point (absolute). Empty: every
     point reads Fitter/input_pt_less_region/... (the shapes made outside the Framework; with outdir, a temporary
@@ -51,7 +51,6 @@ class FitRequest:
     steps:       Tuple[str, ...] = FIT_STEPS
     impacts:     bool = True             # run the impacts in the postfit step (slow)
     timeout:     Optional[float] = None  # seconds per command
-    pico_config: Optional[str] = None    # $TAUFW_PICO_CONFIG of the commands
     outdir:      Optional[str] = None    # where the fit writes (None: Fitter/)
     shapes_dirs: Tuple[Tuple[str, str, str, str], ...] = ()  # (era, jet WP, electron WP, directory)
     labels:      Tuple[Tuple[str, Optional[float], Optional[float]], ...] = ()  # (era, lumi, cme) of the shapes'

@@ -116,7 +116,8 @@ same directory.
   `--tuples '/eos/cms/store/group/phys_tau/TauFW/pico2024/TES_variations/$ERA/$GROUP'` (single quotes: the shell
   must not expand the `$`).
 - With the option, the PicoProducer configuration is not read at all (no `TauFW.PicoProducer` import there).
-  The APIs then pass no `$TAUFW_PICO_CONFIG` and do not check the configuration; their preflight refuses a
+  Since CL §37 the APIs require it (`HistsRequest`, `ShapesRequest`: `tuples` required, no `pico_config`, no
+  `$TAUFW_PICO_CONFIG`); their preflight refuses a
   relative pattern (with an output directory) and `$KEYS` other than `$ERA`, `$GROUP`, `$SAMPLE`, `$CHANNEL`,
   `$TAG`, e.g. `$DAS`, which only PicoProducer fills (`TauFW.Utilities.Process.tuple_pattern_problems`).
 - Not through `fname` / the YAML `samples.filename`: those are ignored today (Plotter BUGS L02), and stay so.

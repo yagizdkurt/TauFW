@@ -5,13 +5,12 @@ The TauFW Framework runs the Histogrammer and Fitter scripts in a stage's output
 (<run_dir>/stages/<id>/). Before they start, the API checks:
   - the directory is empty: files left by an interrupted attempt would mix with the new ones (some scripts
     update ROOT files, others glob everything they find);
-  - where the tuples are is absolute: the tuple pattern given to the scripts (--tuples), or else the picodir of the
-    PicoProducer configuration; a relative one would be read relative to the output directory, not to where the
-    tuples are.
+  - the tuple pattern given to the scripts (--tuples) is absolute: a relative one would be read relative to the
+    output directory, not to where the tuples are. (Until CL §37 also the picodir of a PicoProducer configuration,
+    which the scripts no longer read when run by an API.)
 tuple_pattern_problems() checks a tuple pattern on its own: the scripts (the Histogrammer's getsampleset) fill only some
 $KEYS of it.
 """
-import json
 import os
 import posixpath
 import re
@@ -22,24 +21,17 @@ TUPLE_PATTERN_KEYS = ('ERA', 'GROUP', 'SAMPLE', 'CHANNEL', 'TAG')  # what the Hi
 KEYEXP = re.compile(r"\$([A-Za-z_]\w*)")
 
 
-def output_dir_problems(outdir, pico_config=None, tuples=None):
+def output_dir_problems(outdir, tuples=None):
     """The problems of running scripts in `outdir` (a list of messages; empty: none).
-    tuples: the tuple pattern the scripts are given (--tuples); then pico_config is not read.
-    pico_config: the PicoProducer configuration the scripts read $PICODIR from (None, or unreadable: not checked)."""
+    tuples: the tuple pattern the scripts are given (--tuples), or None (scripts that read no tuples)."""
     problems = []
     if os.path.isdir(outdir) and os.listdir(outdir):
         problems.append("output directory %s is not empty (an interrupted attempt?): remove it, or start a new run"
                         % (outdir))
-    if tuples:
-        if not (_absolute(tuples, variable=False) or tuples.startswith('<')):  # $ERA/... would be relative;
-            # '<...>' is a placeholder of a plan before the run exists (e.g. '<run_dir>/stages/production/$ERA')
-            problems.append("tuple pattern %r is relative: the scripts would look for the tuples relative to %s"
-                            % (tuples, outdir))
-        return problems
-    picodir = _picodir(pico_config) if pico_config else None
-    if picodir and not _absolute(picodir):
-        problems.append("picodir %r of %s is relative: the scripts would look for the tuples relative to %s"
-                        % (picodir, pico_config, outdir))
+    if tuples and not (_absolute(tuples) or tuples.startswith('<')):  # $ERA/... would be relative;
+        # '<...>' is a placeholder of a plan before the run exists (e.g. '<run_dir>/stages/production/$ERA')
+        problems.append("tuple pattern %r is relative: the scripts would look for the tuples relative to %s"
+                        % (tuples, outdir))
     return problems
 
 
@@ -56,16 +48,6 @@ def tuple_pattern_problems(tuples):
             % (tuples, ', '.join('$' + key for key in unknown), ', $'.join(TUPLE_PATTERN_KEYS))]
 
 
-def _absolute(path, variable=True):
-    """Absolute on lxplus or here, a URL, or (variable) a $VARIABLE such as $PICODIR."""
-    return (posixpath.isabs(path) or os.path.isabs(path) or '://' in path
-            or (variable and path.startswith('$')))
-
-
-def _picodir(pico_config):
-    """The picodir of a PicoProducer configuration (JSON), or None if it cannot be read."""
-    try:
-        with open(pico_config) as stream:
-            return json.load(stream).get('picodir')
-    except (OSError, ValueError, AttributeError):
-        return None
+def _absolute(path):
+    """Absolute on lxplus or here, or a URL."""
+    return posixpath.isabs(path) or os.path.isabs(path) or '://' in path

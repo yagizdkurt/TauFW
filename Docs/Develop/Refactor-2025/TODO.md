@@ -15,8 +15,8 @@ Items marked **(verify)** may already be done; check before working on them.
 - **Left out of step 2 (plan 16 D7, user 2026-10-18: look at them when the refactor work is done):**
   (1) done in CL §25 (2026-10-19): the four postfit scripts call `CMSStyle.setCMSEra` (lxplus check in §1). (2) `Fitter/Zpt` (`compareZpt.py`, `Zpt/config/samples.py`, Python 2 parts): a
   Histogrammer-like measurement inside the Fitter. (3) A shape-contract module both sides read (step 3 of
-  `LocalR/architecture/13`; today the contract is a doc, `Docs/Develop/contracts/tes-shapes.md`). (4) `FitRequest.pico_config`:
-  the fit should not need a PicoProducer config once the shapes are made elsewhere. (5) `Fitter/MuTauFR/createinputs.py`
+  `LocalR/architecture/13`; today the contract is a doc, `Docs/Develop/contracts/tes-shapes.md`). (4) done in CL §37 D2:
+  `FitRequest.pico_config` removed (the fit reads no tuples). (5) `Fitter/MuTauFR/createinputs.py`
   (D11): broken import, repair or Legacy (workflow owner).
 - **2025 weight branches added after production (plan 22; group answer 2026-10-26):** the 2025/2026 analysis uses
   2024 MC; `puweight_2025_*`, `puweight_2026_69p2`, `puweight_2025_2026_69p2`, `trigweight_2025`,
@@ -170,10 +170,19 @@ Items marked **(verify)** may already be done; check before working on them.
       Tests/BBB/baselines/` shows only those keys; `bbb check` passes. A real production run (e.g.
       `example_mutau_short`) shows `sumw` and `kind` in `stages/production/manifest.json`, `sumw` equal to
       `cutflow->GetBinContent(17)` of that tuple.
-- [ ] **Histogrammer takes the tuples (CL §37 D1):** 2026-10-26 on lxplus953: `bbb check` 24/24 (no re-lock),
+- [ ] **APIs take the tuples (CL §37 D2):** `python3 Tests/run.py checks` (Histogrammer/Fitter API, Utilities,
+      Framework pass) and `bbb check` 24/24 without re-lock (BBB calls no API: nothing may change).
+      `python3 taufw.py plan Analyses/tes_id_2025`: the same commands as before, now without any
+      `TAUFW_PICO_CONFIG=` prefix (the fit's had one only when `pico.config` was set; this recipe has `null`), the
+      controlhists and shapes commands with `--tuples`; no "PicoProducer configuration" problem.
+      `python3 taufw.py plan Analyses/example_mutau_long` (production -> controlhists): the hists command has
+      `--tuples <run_dir>/stages/production/$ERA/$GROUP`.
+- [x] **Histogrammer takes the tuples (CL §37 D1), done 2026-10-26** on lxplus953: `bbb check` 24/24 (no re-lock),
       `checks` 14/16 (`check_import_boundaries` known debt with Histogrammer -> PicoProducer 1 / 1 / 1, totals 20 / 19 /
       17, 0 new pairs; `unit.utilities` the flaky stop test, §7), `normal` 30/30 (`plotter.tuple_location` included).
-      Left: the two `fillhists.py` commands by hand below. Original item: `python3 Tests/run.py bbb check`: all 24 pass, **no re-lock**
+      By hand: `fillhists.py -c mutau -y 2025 --hists --no-draw -V m_vis` without `--tuples` read the 2025 tuples of
+      `config.json` (sample table, 12 stacks to `hists/2025/mutau.root`); with `TAUFW_PICO_CONFIG=/no/such.json` the
+      `OSError` naming `--tuples` (a traceback, as the old `getconfig` `IOError` for a missing file). Original item: `python3 Tests/run.py bbb check`: all 24 pass, **no re-lock**
       (`histogrammer.tes_inputs_picodir` = the script default, `plotter.sample_model` = `tuples` passed on).
       `python3 Tests/run.py checks` (the `LibraryTests` of `test_tupledir.py` run with ROOT; `check_import_boundaries`:
       Histogrammer -> PicoProducer 1 / 1 / 1, totals 20 / 19 / 17, only the known debt);

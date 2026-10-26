@@ -391,7 +391,7 @@ the scripts the pattern as `--tuples <pattern>` (`fillhists.py`,
 `createinputsTES.py`): with `{tuples: <production id>}` the pattern on that
 stage's artifacts (in `plan`: `<run_dir>/stages/<id>/$ERA/$GROUP`), with
 `{tuples: {external: <pattern>}}` that pattern. The PicoProducer configuration
-is then not used for the tuples (no `$TAUFW_PICO_CONFIG` for these commands).
+is never used for the tuples (since CL §37 the commands get no `$TAUFW_PICO_CONFIG`).
 Before a stage runs, its preflight checks that the production tuple files exist,
 or that the directory of an external pattern exists. A production output tag
 does not reach the readers: they look for `<sample>_<channel>.root`.
@@ -451,11 +451,9 @@ sets (checked by `Tests/Histogrammer/sample_model`).
 - Without `samples:` the scripts use the tables of `samples_v15.py`, as before
   (kept for old recipes; nothing is compared).
 
-**`null` (old recipes):** the scripts find the tuples through `$PICODIR` of the
-run's PicoProducer configuration, passed to every command as
-`$TAUFW_PICO_CONFIG` (read by PicoProducer's `getconfig()` instead of
-`PicoProducer/config/config.json`). `plan` shows the variable in front of each
-command.
+**`null` (old recipes):** no longer read (CL §37): the tuples are given, never
+found through `$PICODIR` of the PicoProducer configuration. The stage cannot be
+planned; name a production stage, `{external: <pattern>}` or `{path: ...}`.
 
 ## Stage options
 

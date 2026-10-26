@@ -21,8 +21,7 @@ through os.system and ignore its exit code, so a zero exit code alone proves not
 command that fails.
 
 Inputs:  the shapes of every point (request.shapes_dirs, else Fitter/input_pt_less_region/againstjet_<J>/
-         againstelectron_<E>/); the YAML configs; the request's PicoProducer config (passed as $TAUFW_PICO_CONFIG;
-         default PicoProducer/config/config.json).
+         againstelectron_<E>/); the YAML configs. No tuples and no PicoProducer configuration (CL §37).
 Outputs: written by the scripts in <outdir>/<era>/; without an output directory in Fitter/ (shared by all runs):
            output_pt_less_region/..., postfit_pt_less_region/...         datacards, fits, post-fit shapes
            plots_pt_less_region/, output_plots/, Measurements/, impacts/  plots
@@ -34,7 +33,6 @@ Public API:
   plan_fit, fit, preflight_fit                                               pipelines
   fit_request(**fields)                                                      a FitRequest
   config_file(config)                                                        a config as an absolute path
-  pico_config_source(request)                                                where $PICODIR is read from
 """
 import glob
 import importlib.util
@@ -133,7 +131,7 @@ class TauESID:
                     problems.append("no shapes for %s %s/%s in %s (run the shapes stage first)"
                                     % (era, jet_wp, ele_wp, indir))
         if request.outdir is not None:
-            problems.extend(output_dir_problems(request.outdir, self.pico_config_source(request)))
+            problems.extend(output_dir_problems(request.outdir))
         return tuple(problems)
 
     def fit_request(self, **fields):
@@ -143,12 +141,6 @@ class TauESID:
     def config_file(self, config):
         """A config file (relative to Fitter/, or absolute), as an absolute path."""
         return self._path(config)
-
-    def pico_config_source(self, request=None):
-        """The PicoProducer configuration that the scripts read $PICODIR from: the request's, else the default."""
-        if request is not None and request.pico_config:
-            return request.pico_config
-        return os.path.join(os.path.dirname(self.basedir), 'PicoProducer', 'config', 'config.json')
 
     # =========================================================================
     # =============================== COMMANDS ================================
@@ -176,8 +168,7 @@ class TauESID:
         def add(step, label, argv, expects=()):
             if step in request.steps:
                 commands.append(Command("%s %s %s" % (step, label, point), tuple([self.python] + argv),
-                                        cwd, expects=tuple(expects), timeout=request.timeout,
-                                        env=_pico_env(request)))
+                                        cwd, expects=tuple(expects), timeout=request.timeout))
 
         # with an output directory, the cards and scan plots go where the shell script puts them relative to its
         # working directory, although the shapes are elsewhere (scripts_arg_changes.md)
@@ -227,7 +218,7 @@ class TauESID:
                   + (['--sf-dir', 'tau_sf', '--out', _combined_json(era)] if moved else []), (_combined_json(era),))]
         return [Command("summary %s %s" % (label, era),
                         tuple([self.python, self._script(request, argv[0])] + argv[1:]), self._era_dir(request, era),
-                        expects=tuple(expects), timeout=request.timeout, env=_pico_env(request))
+                        expects=tuple(expects), timeout=request.timeout)
                 for label, argv, expects in steps]
 
     # =========================================================================
@@ -337,15 +328,6 @@ class TauESID:
 
 # =============================================================================
 # ================================ FILE NAMES =================================
-
-
-def _pico_env(request):
-    """$TAUFW_PICO_CONFIG for the scripts, if the request names a PicoProducer config (read by getconfig());
-    absolute with an output directory, since the scripts then run elsewhere than the caller."""
-    if not request.pico_config:
-        return ()
-    return (('TAUFW_PICO_CONFIG', request.pico_config if request.outdir is None else
-             os.path.abspath(request.pico_config)),)
 
 
 def _wp_dir(tree, jet_wp, ele_wp):

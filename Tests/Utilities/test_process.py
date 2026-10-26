@@ -152,26 +152,19 @@ FORK = "fork" in get_all_start_methods() and get_start_method(allow_none=True) i
 class OutputDirectoryTests(unittest.TestCase):
     def test_problems(self):
         with tempfile.TemporaryDirectory() as directory:
-            outdir, pico = os.path.join(directory, "out"), os.path.join(directory, "pico.json")
+            outdir = os.path.join(directory, "out")
             self.assertEqual(output_dir_problems(outdir), [])  # not made yet: fine
             os.makedirs(outdir)
-            self.assertEqual(output_dir_problems(outdir, pico), [])  # empty; config unreadable: not checked
-            for picodir, relative in (("analysis/$ERA", True), ("/eos/user/x/$ERA", False), ("$PICODIR", False),
-                                      ("root://eosuser.cern.ch//eos/x", False)):
-                with open(pico, "w") as stream:
-                    stream.write('{"picodir": "%s"}' % (picodir))
-                self.assertEqual(bool(output_dir_problems(outdir, pico)), relative, picodir)
+            self.assertEqual(output_dir_problems(outdir), [])  # empty
             open(os.path.join(outdir, "left.root"), "w").close()
             self.assertIn("is not empty", output_dir_problems(outdir)[0])
             os.remove(os.path.join(outdir, "left.root"))
-            with open(pico, "w") as stream:
-                stream.write('{"picodir": "analysis/$ERA"}')  # relative, but not read with a tuple pattern
             for tuples, relative in (("/eos/x/$ERA/$GROUP", False), ("root://eosuser.cern.ch//eos/x", False),
                                      ("pico/$ERA/$GROUP", True), ("$ERA/$GROUP", True),
                                      ("<run_dir>/stages/production/$ERA/$GROUP", False)):  # a plan's placeholder
-                problems = output_dir_problems(outdir, pico, tuples=tuples)
-                self.assertEqual(bool(problems), relative, tuples)
-                self.assertFalse(any("picodir" in p for p in problems))
+                self.assertEqual(bool(output_dir_problems(outdir, tuples=tuples)), relative, tuples)
+            with self.assertRaises(TypeError):  # no PicoProducer configuration since CL §37
+                output_dir_problems(outdir, pico_config="/x/pico.json")
 
     def test_tuple_pattern_problems(self):
         self.assertEqual(tuple_pattern_problems("/eos/x/$ERA/$GROUP/$SAMPLE_$CHANNEL$TAG"), [])

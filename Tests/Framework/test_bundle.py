@@ -95,7 +95,7 @@ class PathRuleTests(BundleTestCase):
         tt = os.path.normpath(os.path.join(self.bundle, "tt.yml"))
         request = self.tes_shapes.call("plan_shapes")[0]
         self.assertEqual(request["configs"][0], tt)
-        self.assertEqual(request["pico_config"], plan.pico_config)
+        self.assertNotIn("pico_config", request)  # the APIs never get a PicoProducer configuration (CL §37)
         self.assertEqual(self.fitter.call("plan_fit")[0]["config"], tt)
         # the fit finds its points in the planned shapes of the same (resolved) configs
         self.assertEqual(self.fitter.call("plan_fit")[0]["points"], (("2025", "VTight", "Tight"),))
@@ -125,7 +125,7 @@ class RunSnapshotTests(BundleTestCase):
         self.assertEqual(record.stage("shapes").state, "DONE")
         request = self.tes_shapes.call("make_shapes")[0]
         self.assertEqual(request["configs"][0], os.path.join(copy, os.path.normpath("tt.yml")))
-        self.assertEqual(request["pico_config"], os.path.join(copy, "pico.json"))
+        self.assertNotIn("pico_config", request)  # CL §37
         with open(request["configs"][0]) as stream:
             self.assertEqual(stream.read(), "original tt.yml\n")
         # run.json keeps the recipe as written
@@ -149,7 +149,7 @@ class RunSnapshotTests(BundleTestCase):
         self.assertEqual(recipe.pico_config, os.path.normpath(pico))  # made absolute when loaded
         record = self.framework(recipe).start(run_root=os.path.join(self.root, "runs"))
         self.assertFalse([f for f in record.bundle["files"] if f.startswith("..")])
-        self.assertEqual(self.tes_shapes.call("make_shapes")[0]["pico_config"], os.path.normpath(pico))
+        self.assertNotIn("pico_config", self.tes_shapes.call("make_shapes")[0])  # CL §37
 
     def test_old_run_json_without_bundle(self):
         recipe = self.recipe(SHAPES)

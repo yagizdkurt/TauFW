@@ -24,6 +24,10 @@ RUN_INPUTS = [
 ]
 
 
+TUPLES = "/eos/tuples/$ERA/$GROUP"  # every request names its tuples (CL §37)
+TUPLES_ARG = " --tuples " + shlex.quote(TUPLES)
+
+
 class TESShapesTestCase(unittest.TestCase):
     def setUp(self):
         self.base = tempfile.mkdtemp(prefix="taufw-shapes-")
@@ -56,7 +60,7 @@ class TESShapesTestCase(unittest.TestCase):
 
     def request(self, **fields):
         return ShapesRequest(**dict(dict(eras=[2025], configs=[TT, MM], jet_wps=["VTight"], ele_wps=["Tight"],
-                                         outdir=self.outdir), **fields))
+                                         outdir=self.outdir, tuples=TUPLES), **fields))
 
     def lines(self, commands):
         return [command.shell() for command in commands]
@@ -68,18 +72,18 @@ class TESShapesTestCase(unittest.TestCase):
 class ShapesTests(TESShapesTestCase):
     def test_commands_equal_run_inputs(self):
         plan = self.shapes.plan_shapes(self.request())
-        self.assertEqual(self.lines(plan.commands), self.run_inputs())
+        self.assertEqual(self.lines(plan.commands), self.run_inputs(TUPLES_ARG))
         self.assertEqual({plan.cwd} | {c.cwd for c in plan.commands}, {self.outdir})
         self.assertEqual(plan.commands[0].expects, (IN + "/ztt_mt_tes_m_vis.inputs-2025-13TeV_mutau.root",))
         self.assertEqual(plan.commands[1].expects, (IN + "/ztt_mm_tes_m_vis.inputs-2025-13TeV_mumu.root",))
         self.assertEqual([(a["channel"], a["config"]) for a in plan.artifacts], [("mutau", TT), ("mumu", MM)])
         self.assertEqual(plan.notes, ())
         self.assertEqual(self.lines(self.shapes.plan_shapes(self.request(serial=True)).commands)[0],
-                         self.run_inputs(" -s")[0])
+                         self.run_inputs(" -s" + TUPLES_ARG)[0])
 
     def test_outdir_is_required(self):  # CL §22 H3, E1: the Histogrammer never writes into Fitter/
         with self.assertRaises(ValueError) as context:
-            ShapesRequest(eras=[2025], configs=[TT], jet_wps=["VTight"], ele_wps=["Tight"])
+            ShapesRequest(eras=[2025], configs=[TT], jet_wps=["VTight"], ele_wps=["Tight"], tuples=TUPLES)
         self.assertIn("outdir is required", str(context.exception))
         with self.assertRaises(TypeError):  # unknown fields are an error
             self.shapes.shapes_request(eras=[2025], configs=[TT], jet_wps=["VTight"], ele_wps=["Tight"],
@@ -93,9 +97,9 @@ class ShapesTests(TESShapesTestCase):
         self.assertEqual(len(plan.commands), 8)
 
     def test_make_shapes(self):
-        request = self.request(pico_config="pico.json")
+        request = self.request()
         plan = self.shapes.plan_shapes(request)
-        self.assertEqual(plan.commands[0].env, (("TAUFW_PICO_CONFIG", os.path.abspath("pico.json")),))
+        self.assertEqual(plan.commands[0].env, ())  # no $TAUFW_PICO_CONFIG (CL §37)
         self.planned = plan.commands
         logdir = os.path.join(self.base, "logs")
         report = self.shapes.make_shapes(request, logdir)  # makes outdir
@@ -143,21 +147,21 @@ class ShapesTests(TESShapesTestCase):
         self.modules = set()
         problems = " | ".join(self.shapes.preflight_shapes(self.request()))
         self.assertIn("python cannot import ROOT", problems)
-        self.assertIn("PicoProducer configuration", problems)  # no PicoProducer next to the temporary Histogrammer
-        request = self.request(pico_config="/run/bundle/pico.json")
-        self.assertIn("no PicoProducer configuration /run/bundle/pico.json",
-                      " ".join(self.shapes.preflight_shapes(request)))
-        self.assertTrue(all(c.env == (("TAUFW_PICO_CONFIG", os.path.abspath("/run/bundle/pico.json")),)
-                            for c in self.shapes.plan_shapes(request).commands))
-        self.assertEqual(self.shapes.plan_shapes(self.request()).commands[0].env, ())
+        self.assertNotIn("PicoProducer configuration", problems)  # never read (CL §37)
+        self.assertTrue(all(c.env == () for c in self.shapes.plan_shapes(self.request()).commands))
 
     def test_tuple_pattern(self):
         pattern = "/eos/cms/store/group/phys_tau/TauFW/pico2024/TES_variations/$ERA/$GROUP"
-        request = self.request(tuples=pattern, pico_config="/run/bundle/pico.json")
+        request = self.request(tuples=pattern)
         commands = self.shapes.plan_shapes(request).commands
         self.assertEqual(self.lines(commands), self.run_inputs(" --tuples '%s'" % (pattern)))
-        self.assertTrue(all(c.env == () for c in commands))  # the PicoProducer configuration is not used
-        self.assertNotIn("PicoProducer configuration", " ".join(self.shapes.preflight_shapes(request)))
+        self.assertTrue(all(c.env == () for c in commands))  # no PicoProducer configuration
+        for tuples in (None, ""):  # given, never found (CL §37)
+            with self.assertRaises(ValueError) as raised:
+                self.request(tuples=tuples)
+            self.assertIn("tuples is required", str(raised.exception))
+        with self.assertRaises(TypeError):  # the field is gone
+            self.request(pico_config="/run/bundle/pico.json")
         self.assertIn("has $DAS, which the scripts do not fill",
                       " ".join(self.shapes.preflight_shapes(self.request(tuples="/eos/x/$DAS"))))
         self.assertIn("tuple pattern 'pico/$ERA' is relative",
@@ -179,7 +183,7 @@ class ShapesSampleFilesTests(TESShapesTestCase):  # CL §20: sample model files,
     def test_samples_option(self):
         samples = (os.path.join(self.base, "v15_2025.yml"),)
         commands = self.shapes.plan_shapes(self.request(samples=samples)).commands
-        self.assertEqual(self.lines(commands), self.run_inputs(" --samples " + shlex.quote(samples[0])))
+        self.assertEqual(self.lines(commands), self.run_inputs(TUPLES_ARG + " --samples " + shlex.quote(samples[0])))
         self.assertNotIn("--samples", self.shapes.plan_shapes(self.request()).commands[0].argv)
         self.assertIn("sample file %s not found" % (samples[0]),
                       self.shapes.preflight_shapes(self.request(samples=samples)))
@@ -259,10 +263,9 @@ class ShapesVariationTests(TESShapesTestCase):  # §3 A: the variation tuples be
         self.assertIn("genmatch_2", branches.setup_branches(pnet))
         self.assertNotIn("genmatch_2", branches.setup_branches(pnet, mc=False))
 
-    def test_not_checked(self):  # as the nominal tuples: no pattern, a plan's placeholder, no sample files
+    def test_not_checked(self):  # as the nominal tuples: a plan's placeholder, no sample files (a pattern is required)
         for path in self.files:
             os.remove(path)
-        self.assertEqual(self.problems(tuples=None), ())
         self.assertEqual(self.problems(tuples="<run_dir>/stages/production/$ERA/$GROUP"), ())
         self.assertEqual(self.problems(samples=()), ())
         self.assertEqual(self.problems(samples=(os.path.join(self.base, "missing.yml"),)), ())  # its own problem

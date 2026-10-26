@@ -200,10 +200,10 @@ history, the state is unchanged, and the command fails; run `advance` again when
 
 Plots and shapes give their scripts the tuples their input names as `--tuples <pattern>`: the pattern on the
 artifacts of the production stage (`LocalStage.tuples_pattern`), or the recipe's `{external: <pattern>}`; preflight
-checks that the production tuple files, or the directory of the external pattern, exist. Only with `null` (old
-recipes), and for the fit and python steps, the run's PicoProducer configuration is passed as `$TAUFW_PICO_CONFIG`
-(PicoProducer's `getconfig()` reads it instead of `PicoProducer/config/config.json`); with `null` the scripts find the
-tuples through its `$PICODIR`.
+checks that the production tuple files, or the directory of the external pattern, exist. The module APIs never get
+the PicoProducer configuration (CL §37: no `pico_config` in their requests, no `$TAUFW_PICO_CONFIG`); a tuples input
+`null` gives no pattern, and the stage cannot be planned. Python steps still get the run's configuration as
+`$TAUFW_PICO_CONFIG` and `ctx.pico_config` (until CL §37 D3).
 
 ## Recipe reference
 

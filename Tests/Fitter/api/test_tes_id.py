@@ -171,12 +171,12 @@ class FitTests(TauESIDTestCase):
             self.assertFalse(lookup("taufw_test_missing.sub"))
             self.assertTrue(lookup("json"))
 
-    def test_pico_config_reaches_every_command(self):
-        fit = self.fitter.fit_request(points=[("2025", "VTight", "Tight")], config=TT, config_mumu=MM,
-                                      pico_config="/run/bundle/pico.json")
-        self.assertTrue(all(c.env == (("TAUFW_PICO_CONFIG", "/run/bundle/pico.json"),)
-                            for c in self.fitter.plan_fit(fit).commands))
-        self.assertEqual(self.fitter.plan_fit(self.fit_request()).commands[0].env, ())
+    def test_no_pico_config(self):  # the fit reads no tuples (CL §37, finalizations B4)
+        with self.assertRaises(TypeError):
+            self.fitter.fit_request(points=[("2025", "VTight", "Tight")], config=TT, config_mumu=MM,
+                                    pico_config="/run/bundle/pico.json")
+        self.assertTrue(all(c.env == () for c in self.fitter.plan_fit(self.fit_request()).commands))
+        self.assertFalse(hasattr(self.fitter, "pico_config_source"))
         self.assertEqual(self.fitter.config_file(TT), os.path.normpath(os.path.join(self.fitter_dir, TT)))
 
     def test_no_shapes_api(self):  # CL §22 H3: the shapes are the Histogrammer's; the Fitter names none of its paths

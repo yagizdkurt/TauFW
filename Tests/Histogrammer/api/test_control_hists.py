@@ -12,6 +12,14 @@ import checkout  # noqa: F401  (must precede TauFW imports)
 from TauFW.Histogrammer.api import ControlHists, HistsRequest
 from TauFW.Utilities.Process import ProcessRunner
 
+TUPLES = "/eos/tuples/$ERA/$GROUP"  # every request names its tuples (CL §37)
+
+
+def Request(**fields):
+    """A HistsRequest with the tuples of the tests unless given."""
+    fields.setdefault("tuples", TUPLES)
+    return HistsRequest(**fields)
+
 
 class ControlHistsTests(unittest.TestCase):
     def setUp(self):
@@ -42,22 +50,24 @@ class ControlHistsTests(unittest.TestCase):
         return 0
 
     def test_commands(self):
-        request = HistsRequest(eras=[2025], configs=["mutau", "mumu"], variables=["m_vis", "pt_*"], serial=True,
+        request = Request(eras=[2025], configs=["mutau", "mumu"], variables=["m_vis", "pt_*"], serial=True,
                                selections=["baseline"], tag="_v1", notauidsf=True)
         plan = self.histogrammer.plan(request)
         self.assertEqual([c.shell() for c in plan.commands], [
-            "python3 fillhists.py -y 2025 -c mutau -V m_vis 'pt_*' -S baseline -s -r -t _v1 --hists --no-draw",
-            "python3 fillhists.py -y 2025 -c mumu -V m_vis 'pt_*' -S baseline -s -r -t _v1 --hists --no-draw"])
+            "python3 fillhists.py -y 2025 -c mutau -V m_vis 'pt_*' -S baseline -s -r -t _v1 --tuples '%s' --hists "
+            "--no-draw" % (TUPLES),
+            "python3 fillhists.py -y 2025 -c mumu -V m_vis 'pt_*' -S baseline -s -r -t _v1 --tuples '%s' --hists "
+            "--no-draw" % (TUPLES)])
         self.assertEqual([c.label for c in plan.commands], ["controlhists mutau 2025", "controlhists mumu 2025"])
         self.assertEqual(plan.commands[0].cwd, self.histogrammer_dir)
         self.assertEqual(plan.commands[0].expects, ("hists/2025/mutau_v1.root",))
         self.assertEqual(plan.notes, ())
-        minimal = self.histogrammer.plan(HistsRequest(eras="2025"))
+        minimal = self.histogrammer.plan(Request(eras="2025"))
         self.assertEqual([c.shell() for c in minimal.commands],
-                         ["python3 fillhists.py -y 2025 -c mutau --hists --no-draw"])
+                         ["python3 fillhists.py -y 2025 -c mutau --tuples '%s' --hists --no-draw" % (TUPLES)])
 
     def test_make_lists_the_files(self):
-        report = self.histogrammer.make(HistsRequest(eras=["2025"], configs=["mutau", "mumu"]),
+        report = self.histogrammer.make(Request(eras=["2025"], configs=["mutau", "mumu"]),
                                    os.path.join(self.base, "logs"))
         self.assertTrue(report.ok)
         hists = os.path.join(self.histogrammer_dir, "hists", "2025")
@@ -69,12 +79,12 @@ class ControlHistsTests(unittest.TestCase):
 
     def test_no_file_is_a_failure(self):
         self.write = False
-        report = self.histogrammer.make(HistsRequest(eras=["2025"]), os.path.join(self.base, "logs"))
+        report = self.histogrammer.make(Request(eras=["2025"]), os.path.join(self.base, "logs"))
         self.assertFalse(report.ok)
         self.assertEqual(report.failed.missing, ("hists/2025/mutau.root",))
 
     def test_missing_setup(self):
-        request = HistsRequest(eras=["2025"], configs=["etau", "config/other.yml"])
+        request = Request(eras=["2025"], configs=["etau", "config/other.yml"])
         etau = os.path.join(self.setups, "setup_etau.yml")
         self.assertEqual(self.histogrammer.plan(request).notes,
                          ("channel setup %s not found" % (etau),
@@ -82,33 +92,29 @@ class ControlHistsTests(unittest.TestCase):
         problems = self.histogrammer.preflight(request)
         self.assertIn("channel setup %s not found" % (etau), problems)
 
-    def test_pico_config_and_absolute_setup(self):
+    def test_absolute_setup(self):
         setup = os.path.join(self.base, "bundle", "setup_mutau.yml")  # a setup outside Histogrammer/ (a bundle file)
         os.makedirs(os.path.dirname(setup))
         shutil.copy(os.path.join(self.setups, "setup_mutau.yml"), setup)
-        request = HistsRequest(eras=["2025"], configs=[setup], pico_config="/run/bundle/pico.json")
+        request = Request(eras=["2025"], configs=[setup])
         plan = self.histogrammer.plan(request)
         self.assertEqual(plan.notes, ())
-        self.assertEqual(plan.commands[0].env, (("TAUFW_PICO_CONFIG", "/run/bundle/pico.json"),))
+        self.assertEqual(plan.commands[0].env, ())  # no $TAUFW_PICO_CONFIG (CL §37)
         self.assertEqual(plan.artifacts[0]["channel"], "mutau")
-        self.assertEqual(self.histogrammer.pico_config_source(request), "/run/bundle/pico.json")
-        self.assertIn("no PicoProducer configuration /run/bundle/pico.json", " ".join(self.histogrammer.preflight(request)))
-        self.assertEqual(self.histogrammer.plan(HistsRequest(eras=["2025"])).commands[0].env, ())
         self.assertEqual(self.histogrammer.config_file("mutau"),
                          os.path.join(self.setups, "setup_mutau.yml"))
         self.assertEqual(self.histogrammer.config_file(setup), setup)
 
     def test_output_directory(self):
         outdir = os.path.join(self.base, "run", "stages", "hists")
-        pico = os.path.join(self.base, "pico.json")
-        request = HistsRequest(eras=["2025"], configs=["mutau", "mumu"], outdir=outdir, pico_config=pico)
+        request = Request(eras=["2025"], configs=["mutau", "mumu"], outdir=outdir)
         plan = self.histogrammer.plan(request)
         setup = os.path.join(self.setups, "setup_mutau.yml")
         self.assertEqual(plan.commands[0].argv,  # the script and the setup as absolute paths: it runs in outdir
                          ("python3", os.path.join(self.histogrammer_dir, "fillhists.py"), "-y", "2025", "-c", setup,
-                          "--hists", "--no-draw"))
+                          "--tuples", TUPLES, "--hists", "--no-draw"))
         self.assertEqual({plan.cwd} | {c.cwd for c in plan.commands}, {outdir})
-        self.assertEqual(plan.commands[0].env, (("TAUFW_PICO_CONFIG", pico),))
+        self.assertEqual(plan.commands[0].env, ())
         self.assertEqual(plan.artifacts[0]["file"], os.path.join(outdir, "hists", "2025", "mutau.root"))
         report = self.histogrammer.make(request, os.path.join(self.base, "logs"))  # makes outdir
         self.assertTrue(report.ok)
@@ -123,7 +129,7 @@ class ControlHistsTests(unittest.TestCase):
             text = stream.read()
         with open(setup, "w") as stream:
             stream.write(text.replace('tag: ""', 'tag: "_inc"'))
-        plan = self.histogrammer.plan(HistsRequest(eras=["2025"], tag="_v1"))
+        plan = self.histogrammer.plan(Request(eras=["2025"], tag="_v1"))
         self.assertEqual(plan.commands[0].expects, ("hists/2025/mutau_inc_v1.root",))
         self.assertEqual((plan.artifacts[0]["tag"], os.path.basename(plan.artifacts[0]["file"])),
                          ("_inc_v1", "mutau_inc_v1.root"))
@@ -131,53 +137,50 @@ class ControlHistsTests(unittest.TestCase):
     def test_same_file_names_note(self):  # BUGS L10
         other = os.path.join(self.setups, "setup_mutau_copy.yml")
         shutil.copy(os.path.join(self.setups, "setup_mutau.yml"), other)
-        notes = self.histogrammer.plan(HistsRequest(eras=["2025"], configs=["mutau", other, "mumu"])).notes
+        notes = self.histogrammer.plan(Request(eras=["2025"], configs=["mutau", other, "mumu"])).notes
         self.assertEqual(len(notes), 1)
         self.assertIn("configs mutau, %s write the same file names" % (other), notes[0])
 
     def test_output_directory_problems(self):
         outdir = os.path.join(self.base, "out")
-        pico = os.path.join(self.base, "pico.json")
-        with open(pico, "w") as stream:
-            stream.write('{"picodir": "analysis/$ERA/$GROUP"}')
-        request = HistsRequest(eras=["2025"], outdir=outdir, pico_config=pico)
-        problems = " ".join(self.histogrammer.preflight(request))
-        self.assertIn("picodir 'analysis/$ERA/$GROUP' of %s is relative" % (pico), problems)
-        self.assertNotIn("not empty", problems)
+        request = Request(eras=["2025"], outdir=outdir)
+        self.assertNotIn("not empty", " ".join(self.histogrammer.preflight(request)))
         os.makedirs(outdir)
         open(os.path.join(outdir, "leftover.root"), "w").close()  # an interrupted attempt
-        with open(pico, "w") as stream:
-            stream.write('{"picodir": "/eos/user/x/analysis/$ERA/$GROUP"}')
         problems = " ".join(self.histogrammer.preflight(request))
         self.assertIn("output directory %s is not empty" % (outdir), problems)
         self.assertNotIn("picodir", problems)
-        self.assertNotIn("not empty", " ".join(self.histogrammer.preflight(HistsRequest(eras=["2025"]))))
+        self.assertNotIn("not empty", " ".join(self.histogrammer.preflight(Request(eras=["2025"]))))
 
     def test_tuple_pattern(self):
         pattern = "/eos/cms/store/group/phys_tau/TauFW/pico2024/TES_variations/$ERA/$GROUP"
-        request = HistsRequest(eras=["2025"], tuples=pattern, pico_config="/run/bundle/pico.json",
-                               outdir=os.path.join(self.base, "out"))
+        request = Request(eras=["2025"], tuples=pattern, outdir=os.path.join(self.base, "out"))
         command = self.histogrammer.plan(request).commands[0]
         self.assertEqual(command.argv[-4:-2], ("--tuples", pattern))
-        self.assertEqual(command.env, ())  # the PicoProducer configuration is not used
+        self.assertEqual(command.env, ())  # no PicoProducer configuration
         with mock.patch.dict(os.environ, {"CMSSW_BASE": "/cmssw"}):  # only the tuple checks below
             self.assertEqual(self.histogrammer.preflight(request), ())  # nor checked
-            problems = self.histogrammer.preflight(HistsRequest(eras=["2025"], tuples="/eos/x/$ERA/$DAS"))
+            problems = self.histogrammer.preflight(Request(eras=["2025"], tuples="/eos/x/$ERA/$DAS"))
             self.assertEqual(problems, ("tuple pattern /eos/x/$ERA/$DAS has $DAS, which the scripts do not fill "
                                         "(they fill $ERA, $GROUP, $SAMPLE, $CHANNEL, $TAG)",))
-            problems = self.histogrammer.preflight(HistsRequest(eras=["2025"], tuples="pico/$ERA/$GROUP",
+            problems = self.histogrammer.preflight(Request(eras=["2025"], tuples="pico/$ERA/$GROUP",
                                                            outdir=os.path.join(self.base, "out")))
         self.assertEqual(problems, ("tuple pattern 'pico/$ERA/$GROUP' is relative: the scripts would look for the "
                                     "tuples relative to %s" % (os.path.join(self.base, "out")),))
-        self.assertNotIn("--tuples", self.histogrammer.plan(HistsRequest(eras=["2025"])).commands[0].argv)
+        for tuples in (None, ""):  # given, never found (CL §37)
+            with self.assertRaises(ValueError) as raised:
+                HistsRequest(eras=["2025"], tuples=tuples)
+            self.assertIn("tuples is required", str(raised.exception))
+        with self.assertRaises(TypeError):  # the field is gone
+            Request(eras=["2025"], pico_config="/run/bundle/pico.json")
 
     def test_sample_files(self):  # CL §20: sample model files, --samples
         templates = os.path.join(str(checkout.REPO), "Configs", "Histogrammer", "samples")
         samples = (os.path.join(templates, "v15_2025.yml"), os.path.join(templates, "v15_2024.yml"))
         outdir = os.path.join(self.base, "out")
-        command = self.histogrammer.plan(HistsRequest(eras=["2025"], samples=samples, outdir=outdir)).commands[0]
+        command = self.histogrammer.plan(Request(eras=["2025"], samples=samples, outdir=outdir)).commands[0]
         self.assertEqual(command.argv[-5:-2], ("--samples",) + samples)
-        self.assertNotIn("--samples", self.histogrammer.plan(HistsRequest(eras=["2025"])).commands[0].argv)
+        self.assertNotIn("--samples", self.histogrammer.plan(Request(eras=["2025"])).commands[0].argv)
         self.assertEqual(self.histogrammer.sample_names(samples, "2025", "mutau")[1], "Muon*Run2025*")
         self.assertEqual(self.histogrammer.samples_problems(samples, ["2025", "2024"]), ())
         problems = self.histogrammer.samples_problems(samples, ["2025", "2023C"])
@@ -200,7 +203,7 @@ class ControlHistsTests(unittest.TestCase):
         self.assertEqual(self.histogrammer.sample_file_problems(samples, ["2025"], ["mumu", "mumu"], tuples), ())
         os.remove(os.path.join(self.base, "tuples", "2025", "DY", "%s_mumu.root" % (names[0])))
         with mock.patch.dict(os.environ, {"CMSSW_BASE": "/cmssw"}):
-            problems = self.histogrammer.preflight(HistsRequest(eras=["2025"], configs=["mumu"], samples=samples,
+            problems = self.histogrammer.preflight(Request(eras=["2025"], configs=["mumu"], samples=samples,
                                                            tuples=tuples, outdir=outdir))
         self.assertEqual(len(problems), 1)
         self.assertIn(names[0], problems[0])
@@ -227,7 +230,7 @@ class ControlHistsTests(unittest.TestCase):
         histogrammer = ControlHists(basedir=self.histogrammer_dir, find_module=lambda m: True,
                                     read_branches=lambda path: reads.append(path) or
                                     everything - lacking.get(os.path.basename(path), set()))
-        request = HistsRequest(eras=["2025"], configs=["mumu", "mutau"], samples=samples, tuples=tuples)
+        request = Request(eras=["2025"], configs=["mumu", "mutau"], samples=samples, tuples=tuples)
         problems = histogrammer.branch_problems(request)
         self.assertEqual(len(problems), 3)
         self.assertIn("1 tuple file(s) of mumu, era 2025, lack branch(es) the config reads: idisoweight_2_2025 "
@@ -236,11 +239,11 @@ class ControlHistsTests(unittest.TestCase):
         self.assertIn("idweight_2 (DYto2Tau_Bin-MLL-50to120_mutau.root)", problems[2])
         self.assertEqual(len(reads), 2*(len(sample_model.mc)+1))
         # -r takes the tau ID SFs out of the weight (not for mumu); no ROOT, a placeholder or no samples: no check
-        self.assertEqual(len(histogrammer.branch_problems(HistsRequest(eras=["2025"], configs=["mutau"],
+        self.assertEqual(len(histogrammer.branch_problems(Request(eras=["2025"], configs=["mutau"],
                                                                        samples=samples, tuples=tuples,
                                                                        notauidsf=True))), 0)
-        for other in (HistsRequest(eras=["2025"], configs=["mumu"], samples=samples, tuples="<run>/$ERA/$GROUP"),
-                      HistsRequest(eras=["2025"], configs=["mumu"], tuples=tuples)):
+        for other in (Request(eras=["2025"], configs=["mumu"], samples=samples, tuples="<run>/$ERA/$GROUP"),
+                      Request(eras=["2025"], configs=["mumu"], tuples=tuples)):
             self.assertEqual(histogrammer.branch_problems(other), ())
         histogrammer.find_module = lambda m: m != "ROOT"
         self.assertEqual(histogrammer.branch_problems(request), ())
@@ -264,8 +267,8 @@ class ControlHistsTests(unittest.TestCase):
 
     def test_request_checks(self):
         with self.assertRaises(ValueError):
-            HistsRequest(eras=[])
-        self.assertEqual(self.histogrammer.request(eras=[2025]).eras, ("2025",))
+            Request(eras=[])
+        self.assertEqual(self.histogrammer.request(eras=[2025], tuples=TUPLES).eras, ("2025",))
         with self.assertRaises(TypeError):
             self.histogrammer.request(eras=[2025], variable=["x"])
         for option in ("fraction", "pdf", "text"):  # drawing options: the Plotter's PlotsRequest (CL §21 S4)
