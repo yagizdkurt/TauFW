@@ -60,6 +60,25 @@ class FakeOperation:
 
 class ScreenTests(unittest.TestCase):
     """Exercise actual screen key handling and wrapper lifetime with a fake terminal."""
+    def test_install_returns_to_the_same_menu_without_an_extra_prompt(self):
+        for outcome in (0, 130, ValueError("installer failed")):
+            with self.subTest(outcome=outcome):
+                keys = [1002] * 6 + [10] + ([10] if isinstance(outcome, Exception) else []) + [27]
+                curses, screen = self.curses(keys)
+                ui, operations = ConsoleUI(curses), idle_operations()
+                if isinstance(outcome, Exception):
+                    operations.install_components.side_effect = outcome
+                else:
+                    operations.install_components.return_value = outcome
+                with mock.patch("builtins.input") as enter:
+                    self.assertEqual(ui.session(MenuNavigation(ui, operations).run), 0)
+                operations.install_components.assert_called_once_with()
+                enter.assert_not_called()
+                curses.wrapper.assert_called_once()
+                curses.endwin.assert_called_once()
+                curses.reset_prog_mode.assert_called_once()
+                self.assertIn("> Install components", [call.args[2] for call in screen.addnstr.call_args_list])
+
     def test_user_config_action_passes_the_active_file_and_validator_to_the_editor(self):
         ui, operations = mock.Mock(), idle_operations()
         ui.main_menu.side_effect = ["user_config", "exit"]
@@ -498,7 +517,7 @@ class ScreenTests(unittest.TestCase):
         for installer in (False, True):
             with self.subTest(installer=installer):
                 curses, screen = self.curses([27])
-                screen.getmaxyx.return_value = (40, 80)
+                screen.getmaxyx.return_value = (41, 80)
                 ui = ConsoleUI(curses)
                 if installer:
                     ui.setup_checklist([("combine", "Combine")], ["combine"])
@@ -512,9 +531,9 @@ class ScreenTests(unittest.TestCase):
                 self.assertIn(welcome, drawn)
                 self.assertIn("Tau analysis framework", drawn[len(FULL) - 4])
                 self.assertIn("V0.0", drawn[len(FULL) - 3])
-                self.assertTrue(all(call.args[0] < 38 for call in calls[:-1]))
+                self.assertTrue(all(call.args[0] < 39 for call in calls[:-1]))
         from TauFW.Utilities.Menu.banner import BOXED
-        for dimensions in ((28, 80), (30, 80), (30, 65)):
+        for dimensions in ((29, 80), (30, 80), (30, 65)):
             with self.subTest(dimensions=dimensions):
                 curses, screen = self.curses([27])
                 screen.getmaxyx.return_value = dimensions
@@ -585,6 +604,13 @@ class ScreenTests(unittest.TestCase):
         curses.start_color.side_effect = RuntimeError("no colors")
         screen.getch.side_effect = [1002, 10]
         self.assertEqual(ui.setup_checklist([("first", "First")], ["first"]), ["first"])
+
+    def test_checklist_cancel_button_returns_without_starting(self):
+        for keys in ([1002, 1002, 10], [1001, 32]):
+            with self.subTest(keys=keys):
+                curses, screen = self.curses(keys)
+                self.assertIsNone(ConsoleUI(curses).setup_checklist([("first", "First")], ["first"]))
+                self.assertIn("[ Cancel ]", [call.args[2] for call in screen.addnstr.call_args_list])
 
     def test_checklist_can_share_an_existing_terminal_session(self):
         curses, screen = self.curses([1002, 10])
@@ -726,7 +752,7 @@ class ScreenTests(unittest.TestCase):
         ui = ConsoleUI(mock.Mock())
         cases = [
             (ui.main_menu, (), ["start", "continue", "inspect", "tests", "grid_certificate", "user_config",
-                                "help", "exit"]),
+                                "install", "help", "exit"]),
             (ui.tests_menu, (), ["all", "checks", "normal", "bbb", "environment", "preview", "back"]),
             (ui.test_family, ("Normal",), ["all", "choose", "back"]),
             (ui.confirm_recipe, ("example.yml",), ["start", "plan", "back"]),

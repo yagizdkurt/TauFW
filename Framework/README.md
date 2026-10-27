@@ -100,6 +100,9 @@ Use Up/Down to move, Enter to select, and Esc to go back or exit the main menu.
   menu reopens. A green tick means valid; yellow **Warning: Proxy Failed!** means
   missing, expired, or unable to check. Select it to create or renew a CMS proxy
   with your certificate password. Startup does not prompt for a password.
+- **Install components** opens the existing installer checklist and progress screen.
+  Choose optional components, then **Start install**, or use **Cancel** / Esc to return.
+  Closing the result screen returns to the main menu.
 - **Help** displays FAQ topics with explanations on the right; Page Up/Down
   scrolls the explanation.
 - **Exit** closes the menu. While something runs behind it (tests), it asks first: **C** stay, **S** stop it

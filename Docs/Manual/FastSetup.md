@@ -145,8 +145,12 @@ stale records run installation; older/manual installations therefore run the
 installer once. A retained original from a cross-filesystem copy also records
 the installed location, so sourcing its wrapper activates the installed copy.
 
-Use `source setup.sh --install` to reopen installation. Supplying any installer
-options also runs installation explicitly. `--help` only prints usage. Execute
+Choose **Install components** in the main menu to reopen the installer. The checklist
+offers **Start install** and **Cancel**; Cancel or Esc returns without starting installation.
+Closing the result screen returns to the main menu. The checklist starts with the usual
+defaults, not the previous selection; deselecting a component does not uninstall it.
+You can also use `source setup.sh --install`. Supplying any installer
+options runs installation explicitly. `--help` only prints usage. Execute
 neither `bash setup.sh` nor `./setup.sh`: sourcing is required to activate your
 current shell. The worker lives at `Utilities/FastSetup.sh` and must be run with
 Bash if used directly; direct execution cannot activate your parent terminal.

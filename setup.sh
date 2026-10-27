@@ -105,9 +105,6 @@ _taufw_setup_activate() { # RELEASE CHECKOUT CMS_SETUP ARCH [LOG_PATH]
   printf '\n'
   _taufw_setup_line heading 'Next session:'
   printf '  source %q\n' "$installed/setup.sh"
-  printf '\n'
-  _taufw_setup_line heading 'Change installed components:'
-  printf '  source setup.sh --install\n'
   if [[ -n ${5:-} ]]; then
     printf '\nInstallation log: %s\n' "$5"
   fi

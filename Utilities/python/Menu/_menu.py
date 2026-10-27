@@ -65,19 +65,21 @@ class ConsoleUI:
             return draw(self.screen)
         return self.curses.wrapper(draw)
 
-    def in_terminal(self, function):
+    def in_terminal(self, function, pause=True):
         """Run function() on the plain terminal (a program that asks there), then "Press Enter" and back to the
-        screen; outside a session it just runs."""
+        screen; pause=False returns immediately (a program with its own result screen). Outside a session it
+        just runs."""
         if self.screen is None:
             return function()
         self.curses.def_prog_mode()
         self.curses.endwin()
         try:
             result = function()
-            try:
-                input("\nPress Enter to return to the menu...")
-            except (KeyboardInterrupt, EOFError):
-                pass
+            if pause:
+                try:
+                    input("\nPress Enter to return to the menu...")
+                except (KeyboardInterrupt, EOFError):
+                    pass
             return result
         finally:
             self.curses.reset_prog_mode()
@@ -496,15 +498,17 @@ class ConsoleUI:
             while True:
                 screen.erase()
                 height, _ = screen.getmaxyx()
-                start = self._entry_header(screen, "Welcome to TauFW fast installer!", len(components) + 3)
+                start = self._entry_header(screen, "Welcome to TauFW fast installer!", len(components) + 4)
                 self._line(screen, start, 0, "Please choose which of these to install")
                 self._line(screen, start + 1, 0, "CMSSW setup and the TauFW build are always included.")
                 start += 3
                 rows = max(1, height - start - 2)
                 first = max(0, focus - rows + 1)
-                for index in range(first, min(len(components) + 1, first + rows)):
+                for index in range(first, min(len(components) + 2, first + rows)):
                     if index == len(components):
                         label, color = "[ Start install ]", 0
+                    elif index == len(components) + 1:
+                        label, color = "[ Cancel ]", 0
                     else:
                         component, label = components[index]
                         checked = component in enabled
@@ -516,12 +520,14 @@ class ConsoleUI:
                 screen.refresh()
                 key = screen.getch()
                 if key == self.curses.KEY_UP:
-                    focus = (focus - 1) % (len(components) + 1)
+                    focus = (focus - 1) % (len(components) + 2)
                 elif key == self.curses.KEY_DOWN:
-                    focus = (focus + 1) % (len(components) + 1)
+                    focus = (focus + 1) % (len(components) + 2)
                 elif key in (32, 10, 13, self.curses.KEY_ENTER):
                     if focus == len(components):
                         return [name for name, _ in components if name in enabled]
+                    if focus == len(components) + 1:
+                        return None
                     component = components[focus][0]
                     if component in enabled:
                         enabled.remove(component)
@@ -548,9 +554,10 @@ class ConsoleUI:
             text, role = self._operation_summary(tests)
             label = "Tests (%s)" % text
         choices = ["Start a new run", "Continue an existing run", "Inspect run status", label, certificate,
-                   "Modify User Config", "Help", "Exit"]
-        actions = ["start", "continue", "inspect", "tests", "grid_certificate", "user_config", "help", "exit"]
-        colors = [None, None, None, role, "good" if proxy_valid else "warning", None, None, None]
+                   "Modify User Config", "Install components", "Help", "Exit"]
+        actions = ["start", "continue", "inspect", "tests", "grid_certificate", "user_config", "install",
+                   "help", "exit"]
+        colors = [None, None, None, role, "good" if proxy_valid else "warning", None, None, None, None]
         descriptions = [
             "Choose an analysis recipe and review its pipeline before starting.",
             "Resume a saved run behind the menu: to the end, or one step.",
@@ -558,6 +565,7 @@ class ConsoleUI:
             "Run automated checks or choose individual tests.",
             "Create or renew your CMS grid proxy using your grid certificate password.",
             "Edit your personal settings; F2 saves after checking their values.",
+            "Open the installer to choose optional components and start installation.",
             "Browse workflow explanations and frequently asked questions.",
             "Close the menu and return to your terminal.",
         ]

@@ -26,6 +26,7 @@ menu, stop_operation(operation) stops one.
 User config callbacks: user_config_path() creates the file if missing and names
 it; validate_user_config(draft_path) checks a candidate file before the editor saves it.
 The independent Editor owns file editing and saving; navigation only opens it.
+install_components() opens the existing interactive installer on the terminal and returns when it closes.
 The Tests menu also opens the UI preview (ConsoleUI.preview(), made-up screens; no operations are used).
 Operations run behind the menu: leaving a screen or quitting never stops them (quitting warns first).
 While one runs, the main menu draws itself again every 2 s (ConsoleUI.main_menu(live=True)). An error is shown
@@ -355,11 +356,14 @@ class MenuNavigation:
     def user_config(self):
         self.ui.edit_file(self.operations.user_config_path(), self.operations.validate_user_config)
 
+    def install(self):
+        self.ui.in_terminal(self.operations.install_components, pause=False)
+
     def run(self):
         self._read_ahead()
         actions = {"start": self.start, "continue": self.continue_run, "run": self.follow_runs,
                    "runs": self.follow_runs, "inspect": self.inspect, "tests": self.tests,
-                   "grid_certificate": self.grid_certificate, "user_config": self.user_config,
+                   "grid_certificate": self.grid_certificate, "user_config": self.user_config, "install": self.install,
                    "help": self.ui.help}
         while True:
             try:

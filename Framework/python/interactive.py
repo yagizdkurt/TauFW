@@ -7,6 +7,7 @@ command runs behind the menu as taufw.py (OperationStore): start/advance
 (kind "run"), plan/status (kind "command", read only) and the tests; the
 menu's own process reads recipes, run.json, check_recipe and a dry plan. The
 User Config action creates a missing config and opens the independent Editor.
+Install components opens FastSetup on the terminal and returns to the menu when it closes.
 
 What Start and Continue list (a recipe's check, a run's row) is kept with the
 signature of the files it was read from (path, inode, mtime, size: a stat
@@ -72,6 +73,16 @@ class _Operations:
     def validate_user_config(draft_path):
         """Reuse the normal YAML/header/value checks; reviewed: false is allowed while editing."""
         return user_config.setting_problems(UserConfig.load(draft_path))
+
+    @staticmethod
+    def install_components():
+        """Reuse the installer's checklist and progress screen in this checkout's release area."""
+        script = CHECKOUT / "Utilities" / "FastSetup.sh"
+        result = subprocess.run(["bash", str(script)], cwd=str(CHECKOUT))
+        if result.returncode not in (0, 130):
+            raise RuntimeError("Installation failed (exit status %d). Reopen Install components to retry; "
+                               "see the installation log for details." % result.returncode)
+        return result.returncode
 
     # =========================================================================
     # =============================== DISCOVERY ===============================

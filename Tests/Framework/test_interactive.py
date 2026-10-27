@@ -70,6 +70,21 @@ STAGES = [SHAPES, FIT]
 
 
 class MenuTests(unittest.TestCase):
+    def test_install_opens_fastsetup_without_starting_another_main_menu(self):
+        operations = self.menu(FakeUI()).operations
+        for status in (0, 130, 7):
+            with self.subTest(status=status), \
+                    mock.patch.object(interactive.subprocess, "run",
+                                      return_value=SimpleNamespace(returncode=status)) as install:
+                if status == 7:
+                    with self.assertRaisesRegex(RuntimeError, "Installation failed.*7"):
+                        operations.install_components()
+                else:
+                    self.assertEqual(operations.install_components(), status)
+                install.assert_called_once_with(
+                    ["bash", str(interactive.CHECKOUT / "Utilities" / "FastSetup.sh")],
+                    cwd=str(interactive.CHECKOUT))
+
     def test_grid_proxy_check_is_quiet_and_handles_unavailable_tools(self):
         operations = self.menu(FakeUI()).operations
         for status, left, valid in ((0, "43190\n", True), (0, "30\n", False), (0, "0\n", False),
@@ -505,7 +520,7 @@ class MenuTests(unittest.TestCase):
 
     def test_interrupted_operation_returns_to_main_menu(self):
         self.record()
-        menu = self.menu(FakeUI([1, 0, 1, 7]))
+        menu = self.menu(FakeUI([1, 0, 1, 8]))
         menu.operations.advance_run = mock.Mock(side_effect=KeyboardInterrupt)
         self.assertEqual(menu.run(), 0)
         menu.operations.advance_run.assert_called_once()
