@@ -13,7 +13,12 @@ The states of one stage:
               ▲  │         │
               └──┴─────────┘ (resubmission)          FAILED, NOT_IMPLEMENTED: final
 
-    local stage (controlhists, controlplots, shapes, fit):  NEW ─▶ DONE or FAILED, in one advance() call
+    local stage (controlhists, controlplots, shapes, fit, python):  NEW ─▶ DONE or FAILED, in one advance() call
+                                                     FAILED ─▶ NEW only by a retry (taufw.py retry, CL §44)
+
+advance() never moves a FAILED stage. A retry is asked for explicitly: the Framework archives what the failed
+attempt left and sets the stage NEW again, for the stages with `retryable` (the local stages; production not yet,
+see Docs/Develop/Refactor-2025/TODO.md).
 
 A stage declares what it reads and makes: `inputs` maps each of its input slots to the kind of data the slot
 takes (the fit: {'shapes': 'shapes'}), `outputs` lists the kinds it makes (shapes: ('shapes',)). A recipe
@@ -178,6 +183,7 @@ class Stage:
     inputs = {}     # input slot -> kind of data it takes; None: any slot names, any kind (python steps)
     null_inputs = {}  # input slot -> what null means for it; the other slots must name an earlier stage
     outputs = ()    # kinds of data the stage makes; None: any kind (python steps)
+    retryable = False  # a FAILED stage may be set NEW again by taufw.py retry (CL §44): the local stages
 
     def plan(self, spec, context=None):
         raise StageNotImplemented(self.name)

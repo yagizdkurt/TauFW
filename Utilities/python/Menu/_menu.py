@@ -929,9 +929,27 @@ class ConsoleUI:
     def run_path(self, launch_dir):
         return self.prompt("Run directory (relative to %s)" % launch_dir)
 
-    def terminal_run_actions(self, state):
-        return self._action("Run is %s; it cannot advance." % state,
-                            ["Inspect status", "Back"], ["inspect", "back"])
+    def terminal_run_actions(self, state, retry=None):
+        """A run that cannot advance: "inspect", "back", or with retry (dict(stage, type, message, changed): its
+        failed stage can run again, CL §44) also "retry"."""
+        if not retry:
+            return self._action("Run is %s; it cannot advance." % state,
+                                ["Inspect status", "Back"], ["inspect", "back"])
+        stage, changed = retry["stage"], retry.get("changed")
+        if changed is None:
+            bundle = "Changes of the run's bundle copy are not known (a run without bundle hashes)."
+        elif changed:
+            bundle = "The run's bundle copy changed since the start: %s." % ", ".join(
+                "%s %s" % (path, change) for path, change in changed.items())
+        else:
+            bundle = "The run's bundle copy is as it started."
+        return self._action("Run failed at %s" % stage, ["Retry %s" % stage, "Inspect status", "Back"],
+                            ["retry", "inspect", "back"],
+                            descriptions=["Run %s again once its cause is fixed, then go on to the end; the finished "
+                                          "stages are kept. It failed with: %s. %s The failed attempt is kept in "
+                                          "logs/%s/attempt<N>/." % (stage, retry.get("message") or "?", bundle, stage),
+                                          "Show the saved state of every stage.",
+                                          "Choose another run."])
 
     def continue_actions(self, run_id):
         """"wait" (advance to the end), "advance" (one step) or "back"; both run behind the menu."""

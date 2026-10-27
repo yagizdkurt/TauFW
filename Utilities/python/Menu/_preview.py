@@ -581,6 +581,10 @@ SCENARIOS = [
     Scenario("Continue", "actions", lambda ui, directory: ui.continue_actions("tes_2025")),
     Scenario("Start / Continue", "grid proxy needed", lambda ui, directory: ui.grid_proxy_needed()),
     Scenario("Continue", "run that cannot advance", lambda ui, directory: ui.terminal_run_actions("DONE")),
+    Scenario("Continue", "failed run: retry its stage",
+             lambda ui, directory: ui.terminal_run_actions("FAILED", retry=dict(
+                 stage="sf_tauid", type="python", message="1 command(s) ran: sf_tauid: exit code 1",
+                 changed={"sf/tauid.json": "added"}))),
     Scenario("Start a run", "detailed plan (taufw.py plan behind the menu)", _command_output("plan")),
     Scenario("Inspect", "run status, HTCondor answers after 4 s", _command_output("status")),
     Scenario("Tests", "menu, last run failed",

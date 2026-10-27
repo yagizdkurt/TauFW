@@ -764,6 +764,45 @@ class ScreenTests(unittest.TestCase):
                 else:
                     operations.advance_run.assert_called_once_with(record, wait=True, take_lock=take)
 
+    def test_continue_on_a_failed_run_offers_its_retry(self):
+        """CL §44: a FAILED run whose stage can be retried: Retry runs it again behind the menu (to the end)."""
+        for action, retried, inspected in (("retry", True, False), ("inspect", False, True), ("back", False, False)):
+            with self.subTest(action=action):
+                ui, operations, record = self.runs_menu()
+                record.state = "FAILED"
+                operations.can_advance.return_value = False
+                info = dict(stage="sf_tauid", type="python", message="exit code 1", changed={"sf/tauid.json": "added"})
+                operations.retry_info.return_value = info
+                ui.terminal_run_actions.side_effect = [action, "back"]
+                ui.command_output.return_value = "back"
+                operations.retry_run.return_value = mock.Mock(running=False, data=dict(run_id="example"))
+                MenuNavigation(ui, operations).continue_run()
+                ui.terminal_run_actions.assert_any_call("FAILED", retry=info)
+                operations.retry_info.assert_called_with(record)
+                self.assertEqual(operations.retry_run.called, retried)
+                if retried:
+                    operations.retry_run.assert_called_once_with(record)
+                    ui.run_progress.assert_called_once_with("Run example", operations.retry_run.return_value)
+                self.assertEqual(operations.start_command.called, inspected)
+                operations.advance_run.assert_not_called()
+                ui.continue_actions.assert_not_called()
+
+    def test_the_retry_choice_says_what_it_does(self):
+        ui = ConsoleUI(mock.Mock())
+        for changed, words in (({"sf/tauid.json": "added"}, "changed since the start: sf/tauid.json added."),
+                               ({}, "is as it started."), (None, "are not known")):
+            with self.subTest(changed=changed):
+                with mock.patch.object(ui, "choose", side_effect=[0, 1, 2, None]) as choose:
+                    retry = dict(stage="sf_tauid", type="python", message="exit code 1", changed=changed)
+                    self.assertEqual([ui.terminal_run_actions("FAILED", retry=retry) for _ in range(4)],
+                                     ["retry", "inspect", "back", "back"])
+                self.assertEqual(choose.call_args.args[:2], ("Run failed at sf_tauid",
+                                                             ["Retry sf_tauid", "Inspect status", "Back"]))
+                description = choose.call_args.kwargs["descriptions"][0]
+                self.assertIn("It failed with: exit code 1.", description)
+                self.assertIn(words, description)
+                self.assertIn("logs/sf_tauid/attempt<N>/", description)
+
     def test_a_run_that_may_submit_needs_a_valid_grid_proxy(self):
         for answers, valid, started in ((["back"], [False], False), (["renew"], [False, True], True),
                                         (["renew", "back"], [False, False], False)):

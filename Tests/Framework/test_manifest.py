@@ -43,7 +43,7 @@ class ManifestTests(unittest.TestCase):
                                 "stage": "shapes", "description": "shapes", "inputs": {"tuples": {"external": "/eos/x/$ERA/$GROUP"}},
                                 "sources": {"tuples": {"path": "/a/stages/production"}},
                                 "stage_dir": self.directory, "finished": "2026-10-17 12:00:00",
-                                "artifacts": SHAPES})
+                                "bundle_changed": False, "artifacts": SHAPES})  # CL §44: a clean run
         stage_dir = read_stage_dir(self.directory)
         with open(path, "rb") as stream:
             sha256 = hashlib.sha256(stream.read()).hexdigest()

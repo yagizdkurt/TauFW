@@ -14,7 +14,12 @@
                                                           (controlhists, controlplots, shapes, fit, python: run locally);
                                                           refused while another advance of the run is working
                                                           (--take-lock: take over a lost one of another machine)
-  taufw.py status  RUN_DIR                                saved and live state of a run (read-only)
+  taufw.py retry   RUN_DIR [--wait [--poll S]] [--take-lock]
+                                                          a FAILED run: run its failed stage again (a local stage;
+                                                          the failed attempt is moved to logs/<id>/attempt<N>/),
+                                                          then continue like advance; the finished stages do not
+                                                          run again (CL §44)
+  taufw.py status RUN_DIR                                saved and live state of a run (read-only)
   taufw.py init    NAME [--from RECIPE] [--root DIR]      new analysis bundle Analyses/NAME/ (with copies of the
                                                           files of RECIPE's bundle and of the module configs it
                                                           uses, next to its recipe.yml)
@@ -47,7 +52,8 @@ import sys
 from argparse import ArgumentParser
 try:
     from TauFW.Framework import (Framework, Recipe, RecipeError, load_run, FrameworkReporter, EventReporter,
-                                 RunState, check_recipe, RunDirectoryError, RunLockError)
+                                 RunState, check_recipe, RunDirectoryError, RunLockError, RetryError)
+    from TauFW.Framework.framework import retryable_stage
     from TauFW.Framework.bundle import BundleError, make_bundle
     from TauFW.Framework.configs import LOCK_NAME, lock_changes, update
     from TauFW.Framework.defaults import (DEFAULT_RUN_ROOT, DEFAULT_POLL_SECONDS, ANALYSES_DIR, CONFIGS_DIR,
@@ -176,17 +182,18 @@ def cmd_start(args):
 
 
 def cmd_advance(args):
-    """Continue a run."""
+    """Continue a run (advance), or run its failed stage again and continue (retry)."""
     reporter = _reporter(args)
     record = load_run(args.run_dir)
     framework = Framework.from_record(record, reporter=reporter)
+    step = framework.retry if args.command == 'retry' else framework.advance
     try:
-        record = framework.advance(record, wait=args.wait, poll=args.poll, take_lock=args.take_lock)
+        record = step(record, wait=args.wait, poll=args.poll, take_lock=args.take_lock)
     except RunLockError as error:
-        reporter.warning("Cannot advance run %s: %s" % (record.run_id, error))
+        reporter.warning("Cannot %s run %s: %s" % (args.command, record.run_id, error))
         reporter.event('error', message=str(error))
         if error.lost:
-            reporter.message("Take it over with: taufw.py advance %s --take-lock" % (args.run_dir))
+            reporter.message("Take it over with: taufw.py %s %s --take-lock" % (args.command, args.run_dir))
         return 1
     return _finish(reporter, record)
 
@@ -374,10 +381,14 @@ def _finish(reporter, record):
     reporter.message("Run directory: %s" % (record.run_dir))
     if not RunState(record.state).finished:
         reporter.message("Continue with: taufw.py advance %s" % (record.run_dir))
+    elif retryable_stage(record):
+        reporter.message("Once the cause is fixed, run stage %s again with: taufw.py retry %s"
+                         % (retryable_stage(record)[0], record.run_dir))
     return 1 if record.state == RunState.FAILED else 0
 
 
-COMMANDS = {'check': cmd_check, 'plan': cmd_plan, 'start': cmd_start, 'advance': cmd_advance, 'status': cmd_status, 'init': cmd_init,
+COMMANDS = {'check': cmd_check, 'plan': cmd_plan, 'start': cmd_start, 'advance': cmd_advance, 'retry': cmd_advance,
+            'status': cmd_status, 'init': cmd_init,
             'configs': cmd_configs, 'userconfig': cmd_userconfig, 'version': cmd_version}
 
 
@@ -412,7 +423,12 @@ def build_parser():
     advance.add_argument('run_dir', help="run directory (with run.json)")
     advance.add_argument('--take-lock', dest='take_lock', action='store_true',
                          help="take over the lock of a lost advance of this run on another machine")
-    status = subparsers.add_parser('status', parents=[common], help="state of a run (read-only)")
+    retry = subparsers.add_parser('retry', parents=[common, waiter],
+                                  help="run the failed stage of a run again, then continue it")
+    retry.add_argument('run_dir', help="run directory (with run.json)")
+    retry.add_argument('--take-lock', dest='take_lock', action='store_true',
+                       help="take over the lock of a lost advance of this run on another machine")
+    status =subparsers.add_parser('status', parents=[common], help="state of a run (read-only)")
     status.add_argument('run_dir', help="run directory (with run.json)")
     init = subparsers.add_parser('init', parents=[common], help="new analysis bundle")
     init.add_argument('name', help="name of the bundle directory and of its recipe")
@@ -445,7 +461,8 @@ def main(argv=None):
     args.events = EventWriter(os.environ.pop(EVENTS_ENV, None))  # read once; the stages' commands never see it
     try:
         return COMMANDS[args.command](args)
-    except (RecipeError, RunDirectoryError, RunLockError, UserConfig.UserConfigError) as error:  # without a traceback
+    except (RecipeError, RunDirectoryError, RunLockError, RetryError,
+            UserConfig.UserConfigError) as error:  # without a traceback
         reporter = _reporter(args)
         reporter.warning(str(error))
         reporter.event('error', message=str(error))

@@ -10,9 +10,11 @@
 #   python3 taufw.py status  <run_root>/tes_id_2025_<time>      # the fitted values
 # The results: stages/fit_summary/summary.txt of the run (the table of the fitted values and the paths of the
 # correction files, e.g. stages/fit/2025/data/tau/TauCorrections_2025_with_uncorrelated_systs.json; copying them to
-# their final place is up to you). A failed stage fails the run (a failed run is final): start a new run, which can
-# reuse the finished stages of this one, e.g. the fit alone on its shapes with inputs: {shapes: {path:
-# <run_dir>/stages/shapes}} (Analyses/README.md, "Choosing fit working points and steps").
+# their final place is up to you). A failed stage stops the run: fix the cause (a bundle file: in the run's
+# bundle/ copy), then `python3 taufw.py retry <run_dir>` runs that stage again and goes on; the finished stages do
+# not run again (CL §44). Or start a new run, which can reuse the finished stages of this one, e.g. the fit alone on
+# its shapes with inputs: {shapes: {path: <run_dir>/stages/shapes}} (Analyses/README.md, "Choosing fit working
+# points and steps").
 # Everything this analysis reads is in this directory: the .yml configs next to this file replace the module
 # configs (whole files), steps/ holds its Python steps. Paths are relative to this directory. A run copies the
 # directory to taufw_runs/<run>/bundle/, so editing it later never changes a started run. Copy or send this

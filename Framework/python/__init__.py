@@ -9,12 +9,13 @@ recipe.
     record = fw.advance(record)           # later: check, resubmit or merge; then the local stages (controlhists, ...)
     print(fw.status(record))
 
-Command line: Framework/scripts/taufw.py (check, plan, start, advance, status, init). New here? Read Framework/README.md
+Command line: Framework/scripts/taufw.py (check, plan, start, advance, retry, status, init). New here? Read Framework/README.md
 first; analyses (recipe, configs, Python steps) live in Analyses/<name>/ (Analyses/README.md).
 
 Public API:
   Framework, load_run, RunPlan, RunSummary      the orchestrator (framework.py)
   RunDirectoryError                             a run root or run directory that cannot be written
+  RetryError                                    Framework.retry() cannot run the failed stage again (CL §44)
   Recipe, StageSpec, Issue, RecipeError         recipes (recipe.py)
   check_recipe, RecipeCheck                     every problem of a recipe file, files included (validation.py)
   RunRecord, RunState, StageRecord              run.json (run_record.py)
@@ -30,11 +31,12 @@ from TauFW.Framework.validation import check_recipe, RecipeCheck
 from TauFW.Framework.run_record import RunRecord, RunState, StageRecord
 from TauFW.Framework.stages import STAGES, StageState, StageOutcome
 from TauFW.Framework.reporting import Reporter, FrameworkReporter, SilentReporter, EventReporter
-from TauFW.Framework.framework import Framework, load_run, RunPlan, RunSummary, RunDirectoryError
+from TauFW.Framework.framework import Framework, load_run, RunPlan, RunSummary, RunDirectoryError, RetryError
 from TauFW.Framework.run_lock import RunLockError, read_lock
 from TauFW.Framework.version import current_version, VersionChecker
 
-__all__ = ['Framework', 'load_run', 'RunPlan', 'RunSummary', 'RunDirectoryError', 'RunLockError', 'read_lock',
+__all__ = ['Framework', 'load_run', 'RunPlan', 'RunSummary', 'RunDirectoryError', 'RetryError', 'RunLockError',
+           'read_lock',
            'Recipe', 'StageSpec', 'Issue', 'RecipeError',
            'check_recipe', 'RecipeCheck',
            'RunRecord', 'RunState', 'StageRecord', 'STAGES', 'StageState', 'StageOutcome',

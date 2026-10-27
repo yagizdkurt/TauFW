@@ -668,3 +668,43 @@ re-captures the whole suite: 22 same, 1 changed): 658 `lumi` fields added, each 
 - No Windows test: `fillhists.py` needs ROOT. The default path (no `qcd` key) is the line it was, so the BBB
   control-plot baselines stay valid.
 - Open on lxplus: [TODO.md](TODO.md) section 1 (a mumu setup with and without `qcd: false`).
+
+## 44. Retry of a failed local stage; the bundle copy is checked at every advance
+
+**Change:** [CL §44](Refactor-2025.md#44-retry-of-a-failed-local-stage-the-bundle-copy-is-checked-at-every-advance)
+
+New and changed unit tests (Windows, no ROOT; `python -m unittest` in `Tests/Framework` and `Tests/Utilities`):
+
+- `Tests/Framework/test_python_step.py` `RetryTests` (real python steps through `step_runner.py`):
+  - `test_retry_runs_the_failed_step_again_and_keeps_the_finished`: the CDTest case. A step fails without
+    `sf/tauid.json`; adding it to the source bundle changes nothing, and `advance` leaves the stage FAILED; with the
+    file in the run's bundle copy, `retry` makes the run DONE. The finished stage did not run again (same history,
+    same file time). `retries` = attempt 1, the failure message, `logs/need/attempt1`, `{sf/tauid.json: added}`. The
+    archive holds the failed log, `context.json` and `stage/partial.txt`; `stages/need/` holds only the new
+    manifest. One bundle warning; `bundle.changed` in run.json; manifests: `make` false, `need` and `after` true;
+    a never-retried stage has no `retries` key in run.json; a second retry of the DONE run raises `RetryError`.
+  - `test_every_retry_is_archived_on_its_own`: two retries without a fix give `attempt1/` and `attempt2/`, each
+    with its own log and output; `bundle_changed` `{}`; no warning.
+  - `test_a_bundle_change_is_warned_once_per_change`: `bundle.sha256` equals the copy at the start; edit, same,
+    edit back, remove, same: 3 warnings, `changed` = `changed`, `{}` ("changed and changed back"), `removed`.
+  - `test_a_run_without_bundle_hashes_is_not_checked`: run.json without `bundle.sha256`: the retry works,
+    `bundle_changed` is `null`, no warning, no `changed`.
+- `Tests/Framework/test_framework.py`: `test_failed_chunks_resubmit_until_max_tries` (a FAILED production stage:
+  `failed_stage`, `retryable_stage` None, `retry` raises "cannot be retried yet: start a new run", nothing called or
+  saved); `test_start_and_advance_map_to_the_framework` (`taufw.py retry` of a DONE run: exit 1 and one line);
+  `test_parser` (`retry RUN --wait --take-lock`).
+- `Tests/Framework/test_manifest.py`: the manifest has `bundle_changed: false`.
+- `Tests/Framework/test_interactive.py`: `test_terminal_runs_offer_inspection_without_advancing` (FAILED: "Run failed
+  at fit", Retry first); `test_retry_of_a_failed_run` (`taufw.py retry RUN --wait` behind the menu, its run screen).
+- `Tests/Utilities/test_menu.py`: `test_continue_on_a_failed_run_offers_its_retry` (retry, inspect, back),
+  `test_the_retry_choice_says_what_it_does` (the description with the failure and the bundle changes).
+- `Tests/Utilities/test_run_screen.py`: `test_failed_card_says_whether_the_stage_can_be_retried`.
+
+Results on Windows (2026-10-27): `Tests/Framework` 189 tests OK (test_python_step, test_framework, test_manifest,
+test_bundle, test_interactive, test_stages, test_run_lock, test_interrupts, test_validation); `Tests/Utilities`
+test_menu and test_run_screen 74 tests OK; the whole directories (`python -m unittest discover`): `Tests/Framework`
+242 OK, `Tests/Utilities` 241 OK (9 skipped). `python Tests/run.py checks`: 14 of 16 pass; `check_root` (no ROOT on
+Windows) and `check_import_boundaries` (known debt only, 0 new pairs) fail as before.
+
+BBB: not run on Windows. `framework.production` writes no `bundle.sha256` (no bundle files) and no `retries` (no
+retry), so its run.json snapshot is unchanged; to confirm on lxplus without re-lock: [TODO.md](TODO.md) section 1.

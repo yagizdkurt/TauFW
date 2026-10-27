@@ -13,6 +13,17 @@ A stage record's "name" is the stage's id. "sources" says which other runs' stag
 the stage (so a DONE or FAILED stage keeps what it read); {} for a stage without such inputs. "bundle" lists the
 bundle files copied to <run_dir>/bundle/ when the run started (empty for a run without bundle files).
 
+Retries and bundle changes (CL §44); these keys are only written when they have something to say:
+  stage "retries":  one entry per `taufw.py retry` of the stage: {time, attempt (1: the first failed attempt),
+                    message (why it failed), archive (where its logs and output were moved, relative to the run
+                    directory: logs/<id>/attempt<N>), bundle_changed (the bundle copy's changes since the start, as
+                    in "changed"; null: not known)}
+  bundle "sha256":  {relative path: sha256} of the bundle copy when the run started (only with bundle files)
+  bundle "changed": one entry per change of the bundle copy that an advance saw (it warns once per change):
+                    {time, files: {path: added|changed|removed} since the start, digest (bundle.hashes_digest)}. A
+                    run with this key is not clean: its stages did not all read the same bundle. The stages that
+                    became DONE after a change say so in their manifest (bundle_changed: true).
+
 Schema 3 (2026-10-17, R4): StageRecord.sources, and manifest format 2 (manifest.py). Schema 2 (2026-10-14):
 required stage ids and inputs in the recipe, the run directory with logs/<id>/ and stages/<id>/. Runs of another
 schema are refused when loaded (there is no conversion).
@@ -31,7 +42,7 @@ Public API:
   RunRecord.state      overall state of the run, a RunState
   RunState             NEW, RUNNING, WAITING, DONE, FAILED, BLOCKED
   StageRecord          one stage's state, attempt, request, sources, submissions, last status, artifacts,
-                       history
+                       history, retries
 """
 import os
 from dataclasses import dataclass, field, asdict
@@ -67,7 +78,8 @@ class RunState(str, Enum):
 
     @property
     def finished(self):
-        """True if advancing the run again cannot change it."""
+        """True if advancing the run again cannot change it (a FAILED run may still be retried: taufw.py retry,
+        CL §44)."""
         return self in (RunState.DONE, RunState.FAILED, RunState.BLOCKED)
 
     def __str__(self):
@@ -92,6 +104,7 @@ class StageRecord:
     last_status: Optional[dict] = None
     artifacts:   List[dict] = field(default_factory=list)
     history:     List[dict] = field(default_factory=list)
+    retries:     List[dict] = field(default_factory=list)
 
     def log(self, event, detail="", time=None):
         """Add an entry to the stage's history."""
@@ -197,6 +210,9 @@ class RunRecord:
     def to_dict(self):
         data = asdict(self)
         data.pop('run_dir')
+        for stage in data['stages']:  # a stage that was never retried is written as before CL §44
+            if not stage['retries']:
+                stage.pop('retries')
         return {key: data[key] for key in ('schema', 'run_id', 'created', 'updated', 'recipe', 'pico_config',
                                            'bundle', 'stages')}
 

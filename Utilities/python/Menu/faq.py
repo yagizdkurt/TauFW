@@ -49,8 +49,13 @@ FAQ = (
     ("Retries", 
      "Production waits until pending jobs finish before resubmitting "
      "failed or missing chunks. The recipe's max_tries defaults to three total "
-     "submissions, including the first. FAILED runs are terminal; Continue "
-     "does not reset the retry limit."),
+     "submissions, including the first; then the production stage FAILS and "
+     "the run is final (start a new run). A failed local stage (histograms, "
+     "plots, shapes, fit, python step) can run again: fix the cause, then "
+     "Continue offers Retry (taufw.py retry). The finished stages are kept, "
+     "the failed attempt is moved to logs/<id>/attempt<N>/, and run.json "
+     "records the retry. If the run's bundle copy was edited, every advance "
+     "warns once and run.json and the manifests say so (bundle_changed)."),
 
     ("Stages",
      "Production runs on the batch system through PicoProducer. Plots, "

@@ -485,14 +485,25 @@ class MenuTests(unittest.TestCase):
         self.assertEqual([argv for argv, _ in self.started], [["advance", record.run_dir]])
 
     def test_terminal_runs_offer_inspection_without_advancing(self):
-        for state in ("DONE", "FAILED", "NOT_IMPLEMENTED"):
+        for state, title in (("DONE", "DONE"), ("FAILED", "Run failed at fit"), ("NOT_IMPLEMENTED", "BLOCKED")):
             with self.subTest(state=state):
                 record = self.record(state=state)
-                ui = FakeUI([0, 0, 1, None])
+                retry = state == "FAILED"  # CL §44: a failed fit can be retried: Retry fit comes first
+                ui = FakeUI([0, 1, 2, None] if retry else [0, 0, 1, None])
                 self.menu(ui).continue_run()
-                self.assertIn(record.state, ui.screens[1][0])
+                self.assertIn(title, ui.screens[1][0])
                 self.assertEqual(ui.outputs, [("Run status: " + record.run_id, ["status", record.run_dir], True)])
         self.assertEqual([argv[0] for argv, _ in self.started], ["status"] * 3)  # never an advance
+
+    def test_retry_of_a_failed_run(self):
+        """CL §44: Continue on a FAILED run whose stage can be retried runs `taufw.py retry RUN --wait`."""
+        record = self.record(state="FAILED")
+        ui = FakeUI([0, 0])
+        self.menu(ui).continue_run()
+        self.assertEqual([argv for argv, _ in self.started], [["retry", record.run_dir, "--wait"]])
+        self.assertEqual(ui.screens[1][1][0], "Retry fit")
+        self.assertEqual(self.started[0][1]["data"]["stages"][1]["state"], "FAILED")
+        self.assertEqual(ui.screens[-1][0], "Run " + record.run_id)
 
     def test_inspect_refreshes_and_does_not_write(self):
         record = self.record()

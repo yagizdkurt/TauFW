@@ -117,6 +117,23 @@ class RunProgressTests(unittest.TestCase):
                 self.assertEqual(run.states[state][0], line)
                 self.assertNotIn("RUN", [stage["state"] for stage in run.items()])
 
+    def test_failed_card_says_whether_the_stage_can_be_retried(self):
+        """CL §44: a failed local stage is retried from Continue; a failed production stage ends the run."""
+        for stage, kind, then in (("plots", "plotter", "Fix the cause, then Continue offers Retry plots: the "
+                                                       "finished stages are kept."),
+                                  ("ntuples", "production", "A failed production stage is final: start a new run.")):
+            with self.subTest(kind=kind):
+                data = dict(DATA, stages=[dict(s, state="NEW") for s in DATA["stages"]])
+                run = RunProgress(data)
+                if stage == "plots":
+                    run.items()[0]["state"] = "DONE"
+                run.feed([event("stage_step", stage=stage, type=kind, state="NEW"),
+                          event("stage_state", T + 1, stage=stage, state="FAILED", message="no sf/tauid.json"),
+                          event("run_state", T + 1, run_id="tes_2025", state="FAILED")])
+                run.finish(1, state="FAILED")
+                self.assertEqual(run.card()[0], "Failed at %s" % stage)
+                self.assertEqual(run.card()[1][:2], [("no sf/tauid.json", "error"), (then, None)])
+
     def test_stopped_and_lost_cards_say_where(self):
         run = RunProgress(DATA)
         run.feed(plots())

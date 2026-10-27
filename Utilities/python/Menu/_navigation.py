@@ -18,8 +18,9 @@ files, validates values, or invokes commands. Grid callbacks are grid_proxy_vali
 None when voms-proxy-init cannot read the password from stdin, and renew_grid_proxy_in_terminal() (it asks on the
 plain terminal, ConsoleUI.in_terminal). Test callbacks are test_catalog(), start_tests(family, cases, title, expected), which
 returns the TauFW.Utilities.Process.Operation that the test screen follows, and tests_operation(), the last test
-run (or None). Run callbacks: start_run(recipe) and advance_run(record, wait, take_lock) start taufw.py behind the
-menu and return its Operation (kind "run"); run_operations() (the advances for the main menu), run_operation(run_dir)
+run (or None). Run callbacks: start_run(recipe), advance_run(record, wait, take_lock) and retry_run(record) (the
+failed stage of a FAILED run again, then to the end) start taufw.py behind the menu and return its Operation (kind
+"run"); retry_info(record) is what a retry would do (dict(stage, type, message, changed), or None: no retry); run_operations() (the advances for the main menu), run_operation(run_dir)
 (the advance of a run that runs now), run_advances(run_dirs) (for the run list), run_lock(run_dir) (its advance lock
 or None), mark_seen(operation), needs_grid_proxy(recipe=, record=). running_operations() lists what runs behind the
 menu, stop_operation(operation) stops one.
@@ -223,9 +224,13 @@ class MenuNavigation:
                     self._follow_run(advancing)
                     return
                 if not self.operations.can_advance(record):
-                    if self.ui.terminal_run_actions(record.state) == "inspect":
+                    action = self.ui.terminal_run_actions(record.state, retry=self.operations.retry_info(record))
+                    if action == "inspect":
                         self.inspect(record)
                         continue
+                    if action == "retry":  # a FAILED local stage: again, then to the end (CL §44)
+                        self._follow_run(self.operations.retry_run(record))
+                        return
                     break
                 take_lock = False
                 lock = self.operations.run_lock(record.run_dir)

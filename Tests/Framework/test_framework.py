@@ -13,7 +13,8 @@ from unittest import mock
 import checkout  # noqa: F401  (must precede TauFW imports)
 import fakes
 from TauFW.Framework import (Framework, Recipe, RecipeError, RunRecord, SilentReporter, StageState,
-                             RunDirectoryError, EventReporter, FrameworkReporter)
+                             RunDirectoryError, EventReporter, FrameworkReporter, RetryError)
+from TauFW.Framework.framework import failed_stage, retryable_stage
 from TauFW.Utilities.Process import EVENTS_ENV, EventReader, EventWriter
 from TauFW.Framework.stages import ProductionStage, StageOutcome, decide_next, Action
 from TauFW.Framework.stages.production import StatusCounts
@@ -101,6 +102,14 @@ class StateMachineTests(FrameworkTestCase):
         self.assertEqual([h["event"] for h in stage.history], ["submitted", "resubmitted", "failed"])
         record = fw.advance(record)  # terminal: nothing more is called
         self.assertEqual(pico.names(), ["plan", "submit", "status", "resubmit", "status"])
+        # CL §44: a FAILED production stage cannot be retried yet (TODO); nothing is moved or called
+        self.assertEqual((failed_stage(record), retryable_stage(record)), (("production", "production"), None))
+        with self.assertRaises(RetryError) as context:
+            fw.retry(record)
+        self.assertIn("Stage production (production) cannot be retried yet: start a new run", str(context.exception))
+        self.assertEqual((record.stage("production").state, record.stage("production").retries), ("FAILED", []))
+        self.assertEqual(pico.names(), ["plan", "submit", "status", "resubmit", "status"])
+        self.assertEqual(RunRecord.load(record.run_dir).stage("production").state, "FAILED")
 
     def test_complete_merges_and_records_artifacts(self):
         pico = fakes.FakePicoProducer(statuses=[fakes.complete("DY", "TT")])
@@ -589,6 +598,12 @@ class CommandLineTests(FrameworkTestCase):
             self.assertEqual(RunRecord.load(run_dir).state, "DONE")
             self.assertEqual(self.cli.main(["status", run_dir]), 0)
             self.assertEqual(self.cli.main(["plan", recipe]), 0)
+            reporter = SilentReporter()
+            self.cli.FrameworkReporter = lambda verbosity=0: reporter
+            self.assertEqual(self.cli.main(["retry", run_dir]), 1)  # CL §44: a DONE run has nothing to retry
+            self.assertEqual([t for k, t in reporter.messages if k == "warning"],
+                             ["Run %s has no failed stage (it is DONE): nothing to retry. Continue it with: "
+                              "taufw.py advance %s" % (os.path.basename(run_dir), run_dir)])
 
     def test_plan_and_start_of_a_missing_recipe_print_one_line(self):
         reporter = SilentReporter()
@@ -726,6 +741,8 @@ class CommandLineTests(FrameworkTestCase):
         self.assertEqual((args.local, args.maxevts), (True, 50))
         args = parser.parse_args(["advance", "runs/x"])
         self.assertEqual((args.run_dir, args.wait, args.poll), ("runs/x", False, 600))
+        args = parser.parse_args(["retry", "runs/x", "--wait", "--take-lock"])  # CL §44
+        self.assertEqual((args.command, args.run_dir, args.wait, args.take_lock), ("retry", "runs/x", True, True))
         with self.assertRaises(SystemExit):
             parser.parse_args([])
 

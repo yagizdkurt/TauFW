@@ -232,8 +232,21 @@ leaving it off is a good idea.
 
 - **A job keeps failing.** Look at its log under `PicoProducer/output/2022_postEE/mutau/<sample>/log/`. The most
   common cause is an expired grid proxy.
-- **The stage is `FAILED`.** A failed run is final, and editing the recipe won't revive it. Fix the cause, then start
-  a new run.
+- **The stage is `FAILED`.** For the production stage, the run is final, and editing the recipe won't revive it. Fix
+  the cause, then start a new run.
+
+  The later stages you'll meet in the next tutorials (histograms, plots, the fit, Python steps) are different: when
+  one of them fails, you can run just that stage again. Fix the cause first. If the fix is a file of your analysis,
+  put it into the run's own copy, `<run folder>/bundle/` (the run never reads your analysis folder again). Then
+  run:
+
+  ```bash
+  python3 taufw.py retry <run folder>
+  ```
+
+  In the menu, Continue on that run offers **Retry**. The stages that already finished don't run again. The failed
+  attempt's logs and files move to `logs/<stage>/attempt1/`, so you can still read them. If you changed the
+  `bundle/` copy, TauFW warns once and writes that down in `run.json`, so anyone reading the run later can see it.
 - **You pressed Ctrl+C.** That's fine. Your batch jobs keep running. Just run `advance` on the same run folder again.
 
 More in Troubleshooting *(coming soon)*.

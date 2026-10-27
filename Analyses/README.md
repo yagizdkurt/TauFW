@@ -903,10 +903,13 @@ prints the last 20 lines of its log.
 | `the tuples of stage 'production' do not record where they are` | The run's production finished before the Framework chose the tuples' place (CL §16). Start a new run, or name the tuples with `{external: <pattern>}`. |
 | `tuple directory ... not found` | The fixed part of an `{external: ...}` pattern does not exist on this machine (EOS not mounted, a typo). |
 | Exit code zero but the local stage fails | Read the command log for missing/stale expected outputs and nested ROOT/Combine failures. |
-| Editing YAML or a bundle file does not affect `advance` | The run uses the recipe stored in `run.json` and its bundle copy; start a new run to use edited settings. |
+| Editing YAML or a bundle file does not affect `advance` | The run uses the recipe stored in `run.json` and its bundle copy; start a new run to use edited settings. A file fixed in the run's `bundle/` copy is read by the stages that run after it (warned once, recorded in `run.json` `bundle.changed`; CL §44). |
+| A local stage is `FAILED` and Continue says it cannot advance | Fix the cause, then `taufw.py retry <run_dir>` (menu: Continue > Retry). The finished stages do not run again; the failed attempt is in `logs/<id>/attempt<N>/`. |
 
 Preflight problems leave a local stage `NEW`, so they can be fixed and retried
-in the same run. A command failure leaves it `FAILED`, which is terminal. An
+in the same run. A command failure leaves it `FAILED`: `advance` stops there;
+once the cause is fixed (a bundle file: in the run's `bundle/` copy),
+`taufw.py retry <run_dir>` runs the stage again and goes on (CL §44). An
 exception such as an unavailable scheduler is recorded without changing the
 stage state; retry `advance` after fixing the external problem. The CLI returns
 exit code 1 for a failed run; use status/messages to distinguish completion from

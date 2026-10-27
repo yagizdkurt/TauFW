@@ -3,7 +3,7 @@
 
     {"manifest": 2, "run_id": "...", "stage_id": "shapes", "stage": "shapes", "description": "...",
      "inputs": {...}, "sources": {...}, "stage_dir": "/abs/.../stages/shapes", "finished": "...",
-     "artifacts": [...]}
+     "bundle_changed": false, "artifacts": [...]}
 
 A manifest is a copy of the stage's record in run.json (run.json stays the source of truth), so that the directory
 describes itself: which stage of which run made it, from which inputs, and what it holds. Only a DONE stage has one.
@@ -14,6 +14,8 @@ recipe): the reader takes the artifacts from the manifest and never reads the ot
                 moved or copied (stage_dir is not where it is read) is refused: its artifacts would name the files
                 of the old place.
     sources:    the inputs read from other runs' stage directories: slot -> StageDir.summary() of the source.
+    bundle_changed: true if the run's bundle copy had been changed (since the run started) when this stage ran
+                (CL §44; see run.json bundle.changed). Manifests written before CL §44 do not have it.
 
 Format 2 (R4, CL §17). A manifest of another format is refused (there is no conversion).
 
@@ -21,7 +23,7 @@ Inputs:  a DONE stage's record (write); a stage directory (read).
 Outputs: manifest.json (write); a StageDir (read).
 
 Public API:
-  write_manifest(files, directory, run_id, stage_spec, sources, artifacts, finished)
+  write_manifest(files, directory, run_id, stage_spec, sources, artifacts, finished, bundle_changed)
   read_stage_dir(path) -> StageDir     raises ManifestError
   StageDir, ManifestError, MANIFEST_FORMAT
 """
@@ -74,15 +76,17 @@ class ManifestError(ValueError):
 # ================================= PIPELINES =================================
 
 
-def write_manifest(files, directory, run_id, stage_spec, sources, artifacts, finished):
+def write_manifest(files, directory, run_id, stage_spec, sources, artifacts, finished, bundle_changed=False):
     """Write <directory>/manifest.json of a DONE stage (format 2). directory: the stage's output directory
     (made if needed); stage_spec: its StageSpec; sources: slot -> StageDir.summary() of the inputs read from other
-    runs ({} if none). files: a TauFW.Utilities FileIO."""
+    runs ({} if none); bundle_changed: the run's bundle copy was changed before the stage ran (run.json
+    bundle.changed, CL §44). files: a TauFW.Utilities FileIO."""
     files.make_directory(directory)
     files.write_json(os.path.join(directory, MANIFEST_NAME), {
         'manifest': MANIFEST_FORMAT, 'run_id': run_id, 'stage_id': stage_spec.id, 'stage': stage_spec.stage,
         'description': stage_spec.description, 'inputs': stage_spec.inputs, 'sources': sources,
-        'stage_dir': os.path.abspath(directory), 'finished': finished, 'artifacts': artifacts}, overwrite=True)
+        'stage_dir': os.path.abspath(directory), 'finished': finished, 'bundle_changed': bool(bundle_changed),
+        'artifacts': artifacts}, overwrite=True)
 
 
 def read_stage_dir(path):

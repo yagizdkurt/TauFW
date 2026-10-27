@@ -41,27 +41,35 @@ Pipeline map:
                  while it works and waits; a second advance of the run is refused (RunLockError), also from another
                  machine, until the lock is released or lost (then taken over: see run_lock.py).
     bundle:      start() copies the bundle files the recipe uses to <run_dir>/bundle/; the run reads them from
-                 there, so later edits of the bundle never change a run (see bundle.py).
+                 there, so later edits of the bundle never change a run (see bundle.py). Every advance compares
+                 that copy with its start: a change is warned about once and recorded (run.json bundle.changed;
+                 the manifests of the stages that run after it: bundle_changed), CL §44.
+    retry:       a FAILED stage stops the run; advance() never moves it. retry() (taufw.py retry) archives
+                 what the failed attempt left (logs/<id>/attempt<N>/), sets the stage NEW and advances: the
+                 finished stages do not run again. Only the local stages can be retried (production: a new run).
     samples:     plan() and start() compare the samples a production stage makes with those its readers' sample
                  model files ask for (samples.py): plan() lists the problems, start() refuses them (RecipeError).
 
 Public API:
   Framework.from_recipe(recipe_or_path, reporter, pico, fitter, histogrammer, plotter, tes_shapes) /
   from_record(record, ...)
-  plan, start, advance, run, status           pipelines
+  plan, start, advance, retry, run, status    pipelines
   make_bundle(target)                         a new analysis bundle with copies of the module configs used
   load_run(run_dir)                           the RunRecord of a run directory
+  failed_stage(record), retryable_stage(record)   the FAILED stage of a run; the one retry() would run again
+  RetryError                                  retry() cannot run the failed stage again
   check_writable(directory, what)             write and remove a small file (RunDirectoryError if it fails)
   RunPlan, RunSummary, StageSummary           records (bottom of this file)
 """
-import os, json, time
+import os, json, re, shutil, time
 from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Mapping, Optional, Tuple
 from TauFW.Framework.defaults import (DEFAULT_RUN_ROOT, RUN_LOG_NAME, DEFAULT_POLL_SECONDS, BUNDLE_DIR_NAME,
                                       timestamp, default_file_io)
-from TauFW.Framework.bundle import path_rows, snapshot, make_bundle, source_files
+from TauFW.Framework.bundle import (path_rows, snapshot, make_bundle, source_files, bundle_hashes, bundle_changes,
+                                    hashes_digest)
 from TauFW.Framework.manifest import write_manifest, ManifestError
 from TauFW.Framework.recipe import Recipe, RecipeError, Issue
 from TauFW.Framework.samples import sample_issues
@@ -76,7 +84,8 @@ from TauFW.Framework.stages import (STAGES, StageState, StageContext, StageNotIm
                                     PythonStage)
 
 __all__ = ['Framework', 'RunPlan', 'StagePlan', 'RunSummary', 'StageSummary', 'load_run', 'check_writable',
-           'RunDirectoryError', 'RunLockError', 'RUN_LOG_NAME', 'DEFAULT_RUN_ROOT']
+           'failed_stage', 'retryable_stage', 'RunDirectoryError', 'RetryError', 'RunLockError', 'RUN_LOG_NAME',
+           'DEFAULT_RUN_ROOT']
 
 
 # =============================================================================
@@ -84,6 +93,9 @@ __all__ = ['Framework', 'RunPlan', 'StagePlan', 'RunSummary', 'StageSummary', 'l
 
 
 MAX_STEPS = 8  # most steps one stage may take in one advance() call (a safety net against a stage that never settles)
+ATTEMPT_DIR = 'attempt%d'              # logs/<id>/attempt<N>/: a failed attempt, moved there by a retry (CL §44)
+ATTEMPT_NAME = re.compile(r'attempt\d+$')
+ATTEMPT_STAGE_DIR = 'stage'            # logs/<id>/attempt<N>/stage/: what the attempt left in stages/<id>/
 
 
 class Framework:
@@ -92,6 +104,7 @@ class Framework:
     Pipelines:      plan(recipe=None)                         -> RunPlan     changes nothing
                     start(recipe=None, run_root=None)         -> RunRecord   new run directory, then advance()
                     advance(record, wait, poll, take_lock)    -> RunRecord   step the stages in order; saves run.json
+                    retry(record, wait, poll, take_lock)      -> RunRecord   the FAILED stage NEW again, then advance
                     run(recipe=None, run_root, wait, poll)    -> RunRecord   start(), then advance() while waiting
                     status(record)                            -> RunSummary  read-only: saved and live state
                     make_bundle(target, name)                 -> paths       new bundle from this recipe
@@ -175,8 +188,21 @@ class Framework:
         e.g. an expired AFS token), before any stage moves. The run's advance lock is held throughout
         (run_lock.py): RunLockError if another advance holds it; take_lock=True takes over a lost lock of another
         machine (a lost lock of this machine, whose process is gone, is always taken over).
+        Before the stages move, the run's bundle copy is compared with its start (_check_bundle, CL §44).
         Side effects: whatever the stages do (production: submit, resubmit, merge); run.json and run.log;
         <run_dir>/advance.lock while it runs."""
+        return self._locked(record, wait, poll, take_lock)
+
+    def retry(self, record, wait=False, poll=DEFAULT_POLL_SECONDS, take_lock=False):
+        """Run the FAILED stage of a run again, then go on like advance(): the finished stages do not run again.
+        What the failed attempt left (logs/<id>/ and stages/<id>/) is moved to logs/<id>/attempt<N>/ and the
+        attempt is recorded in the stage's `retries` (run.json), with the bundle copy's changes since the start.
+        Only a stage with `retryable` (the local stages) can be retried; RetryError otherwise, or if the run has no
+        failed stage. Lock, wait, poll and side effects as in advance() (CL §44)."""
+        return self._locked(record, wait, poll, take_lock, retry=True)
+
+    def _locked(self, record, wait, poll, take_lock, retry=False):
+        """advance() or retry(): check the run directory, take the run's advance lock, then work."""
         check_writable(record.run_dir, "run directory")
         with RunLock(record.run_dir, take=take_lock) as lock:
             if lock.taken is not None:
@@ -185,6 +211,9 @@ class Framework:
                        "no sign of life for %.0f s" % (taken.get('quiet', 0)))
                 self.reporter.warning("Took over the advance lock of pid %s on %s (since %s, %s)"
                                       % (taken.get('pid'), taken.get('host'), taken.get('since'), why))
+            if retry:
+                self.reporter.attach_log(os.path.join(record.run_dir, RUN_LOG_NAME))
+                self._retry_failed(record)
             return self._advance(record, wait, poll, lock)
 
     def _advance(self, record, wait, poll, lock):
@@ -192,6 +221,7 @@ class Framework:
         self.reporter.attach_log(os.path.join(record.run_dir, RUN_LOG_NAME))
         self.reporter.event('run', run_id=record.run_id, run_dir=record.run_dir)
         while True:
+            self._check_bundle(record)
             self._advance_stages(record, lock)
             record.save(self.files)
             self.reporter.message("Run %s: %s" % (record.run_id, record.state))
@@ -251,7 +281,8 @@ class Framework:
         A stage may take several steps in one call (for example MERGING -> DONE, then the next stage starts).
         For each stage, in order:
           - DONE:                     go on with the next stage.
-          - FAILED, NOT_IMPLEMENTED:  stop; this stage can never move again.
+          - FAILED, NOT_IMPLEMENTED:  stop; advance() never moves this stage again (retry() sets a FAILED local
+                                      stage NEW first, CL §44).
           - waiting for jobs:         take one step (a status check). If the stage still waits, stop: advance()
                                       must be called again later.
           - not ready (PreflightError): stop; the stage keeps its state, the reason is in its message and
@@ -346,7 +377,61 @@ class Framework:
         """<run_dir>/stages/<id>/manifest.json of a stage that is DONE (see manifest.py): which stage of which run
         made the directory, from which inputs, where it was written, and its artifacts."""
         write_manifest(self.files, StageContext(run_dir=record.run_dir).stage_dir(stage_spec.id), record.run_id,
-                       stage_spec, stage_record.sources, stage_record.artifacts, self._now())
+                       stage_spec, stage_record.sources, stage_record.artifacts, self._now(),
+                       bundle_changed=bool(record.bundle.get('changed')))
+
+    # =========================================================================
+    # ========================= RETRY AND BUNDLE CHECK ========================
+
+    def _retry_failed(self, record):
+        """retry(): set the FAILED stage of the run NEW again. What its failed attempt left is moved to
+        logs/<id>/attempt<N>/ (_archive_attempt) and the attempt is added to the stage's retries; its message,
+        artifacts and last status are cleared (the history keeps them). run.json is saved. Raises RetryError."""
+        failed = failed_stage(record)
+        if failed is None:
+            raise RetryError("Run %s has no failed stage (it is %s): nothing to retry. Continue it with: "
+                             "taufw.py advance %s" % (record.run_id, record.state, record.run_dir))
+        stage_id, name = failed
+        if not getattr(self._stage_for(stage_id), 'retryable', False):
+            raise RetryError("Stage %s (%s) cannot be retried yet: start a new run; it can reuse the finished stages "
+                             "of this one through {path: %s}" % (stage_id, name,
+                                                                 StageContext(run_dir=record.run_dir).stage_dir('<id>')))
+        stage_record = record.stage(stage_id)
+        attempt = len(stage_record.retries) + 1
+        context = StageContext(run_dir=record.run_dir, stage_id=stage_id)
+        archive = os.path.relpath(_archive_attempt(context.log_dir(), context.stage_dir(), attempt), record.run_dir)
+        start = record.bundle.get('sha256')
+        changed = (bundle_changes(start, bundle_hashes(os.path.join(record.run_dir, BUNDLE_DIR_NAME)))
+                   if start is not None else None)  # None: a run without bundle hashes
+        stage_record.retries.append({'time': self._now(), 'attempt': attempt, 'message': stage_record.message,
+                                     'archive': archive, 'bundle_changed': changed})
+        stage_record.state = StageState.NEW.value
+        stage_record.message = ""
+        stage_record.artifacts = []
+        stage_record.last_status = None
+        stage_record.log('retry', "failed attempt %d moved to %s" % (attempt, archive), time=self._now())
+        record.save(self.files)
+        self.reporter.message("Stage %s: retry; the failed attempt %d is in %s" % (stage_id, attempt, archive))
+        self.reporter.event('stage_state', stage=stage_id, state=StageState.NEW.value, message="retry")
+
+    def _check_bundle(self, record):
+        """Compare the run's bundle copy with its hashes from the start (run.json bundle.sha256). A change not seen
+        before is warned about once and added to bundle.changed: the run is not clean any more (run_record.py).
+        A run without hashes (no bundle files, or started before CL §44) is not checked."""
+        start = record.bundle.get('sha256')
+        if start is None:
+            return
+        now = bundle_hashes(os.path.join(record.run_dir, BUNDLE_DIR_NAME))
+        changed = record.bundle.get('changed', [])
+        digest = hashes_digest(now)
+        if digest == (changed[-1]['digest'] if changed else hashes_digest(start)):
+            return  # the same copy as at the start, or as at the last change: already said
+        files = bundle_changes(start, now)
+        record.bundle['changed'] = changed + [{'time': self._now(), 'files': files, 'digest': digest}]
+        record.save(self.files)
+        self.reporter.warning("The bundle copy of run %s is not the one it started with (%s): the stages that run "
+                              "from now on read it as it is; run.json says so (bundle.changed), and so do the "
+                              "manifests of those stages" % (record.run_id, _changes_text(files)))
 
     def _context(self, record, stage_spec):
         """The StageContext of one stage: the run directory, its inputs and the artifacts of those of its input
@@ -537,8 +622,27 @@ def load_run(run_dir):
     return RunRecord.load(run_dir)
 
 
+def failed_stage(record):
+    """(id, stage name) of the FAILED stage of a run (the first in recipe order), or None."""
+    for stage in record.recipe.get('stages', ()):
+        if record.stage(stage['id']).state == StageState.FAILED:
+            return stage['id'], stage['stage']
+    return None
+
+
+def retryable_stage(record):
+    """(id, stage name) of the FAILED stage that retry() would run again, or None: no failed stage, or one that
+    cannot be retried yet (production)."""
+    failed = failed_stage(record)
+    return failed if failed and getattr(STAGES.get(failed[1]), 'retryable', False) else None
+
+
 class RunDirectoryError(OSError):
     """The run root or run directory cannot be written (see check_writable)."""
+
+
+class RetryError(ValueError):
+    """retry() cannot run the failed stage again; the message says why."""
 
 
 def check_writable(directory, what):
@@ -591,6 +695,29 @@ def _read_sources(stage_spec):
         sources[slot] = source.summary()
         artifacts[path] = source.artifacts
     return sources, artifacts, problems
+
+
+def _archive_attempt(log_dir, stage_dir, attempt):
+    """Move what a failed attempt of a stage left to <log_dir>/attempt<N>/: the files of its log directory (not
+    the archives of earlier attempts) and its output directory, as stage/. The stage then starts again in an empty
+    output directory (the module APIs refuse a non-empty one). Returns the archive directory; RetryError if it
+    exists already."""
+    archive = os.path.join(log_dir, ATTEMPT_DIR % (attempt))
+    if os.path.exists(archive):
+        raise RetryError("%s exists already: the run's retries in run.json do not match its logs/ directory"
+                         % (archive))
+    os.makedirs(archive)
+    for name in sorted(os.listdir(log_dir)):
+        if not ATTEMPT_NAME.match(name):
+            shutil.move(os.path.join(log_dir, name), os.path.join(archive, name))
+    if os.path.isdir(stage_dir):
+        shutil.move(stage_dir, os.path.join(archive, ATTEMPT_STAGE_DIR))
+    return archive
+
+
+def _changes_text(files):
+    """'sf/tauid.json added, steps/x.py changed' (a bundle_changes()); a copy that is back to its start says so."""
+    return ", ".join("%s %s" % (path, change) for path, change in files.items()) or "changed and changed back"
 
 
 def _jsonable(value):

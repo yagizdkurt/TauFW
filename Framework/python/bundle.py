@@ -32,7 +32,9 @@ another module's files are. A run reads a template where it is; a bundle copy is
 copies the templates and channel setups a recipe names into the new bundle).
 
 When a run starts, the bundle is copied to <run_dir>/bundle/ (same relative paths), and the run reads it from
-there: like the recipe, a run never sees later edits. A bundle (a directory with recipe.yml) is copied whole, so a
+there: like the recipe, a run never sees later edits of the bundle. Its copy may still be edited (e.g. a missing
+file put there before a retry): snapshot() records the sha256 of every copied file, and every advance compares the
+copy with them (CL §44, framework.py). A bundle (a directory with recipe.yml) is copied whole, so a
 Python step can import the files next to it and read any bundle file (ctx.path); hidden files, __pycache__ and
 taufw_runs/ are left out, and a bundle above MAX_BUNDLE_BYTES is refused (keep data files outside the bundle). For
 a loose recipe file, only the files its options name are copied.
@@ -46,10 +48,15 @@ Public API:
   path_rows(spec, bundle_dir)       (option, value as written, resolved, where) of a spec's path options
   bundle_files(recipe)              the bundle-relative files a recipe's options name
   snapshot(recipe, target)          copy the bundle (or those files) to a run's bundle/ directory
-  is_bundle(directory)              True for a directory with a recipe.yml
+  bundle_hashes(directory), bundle_changes(before, after), hashes_digest(hashes)
+                                    the sha256 of a bundle copy's files, what changed between two of them, one
+                                    digest of them all (a run's bundle check, CL §44)
+  is_bundle(directory)            True for a directory with a recipe.yml
   make_bundle(recipe_dict, sources, target, files, extra)   a new bundle with copies of the templates and channel
                                     setups and of the source bundle's own files
 """
+import hashlib
+import json
 import os
 import posixpath
 import shutil
@@ -58,7 +65,8 @@ from dataclasses import replace
 from TauFW.Framework.defaults import CONFIGS_DIR, RECIPE_NAME, DEFAULT_RUN_ROOT
 
 __all__ = ['resolve', 'where', 'leaves_bundle', 'is_absolute', 'resolve_spec', 'path_rows', 'bundle_files', 'snapshot',
-           'is_bundle', 'make_bundle', 'source_files', 'BundleError', 'STEP_TEMPLATE', 'MAX_BUNDLE_BYTES']
+           'bundle_hashes', 'bundle_changes', 'hashes_digest', 'is_bundle', 'make_bundle', 'source_files',
+           'BundleError', 'STEP_TEMPLATE', 'MAX_BUNDLE_BYTES']
 
 
 # =============================================================================
@@ -171,7 +179,36 @@ def snapshot(recipe, target):
         destination = os.path.join(target, relative)
         os.makedirs(os.path.dirname(destination), exist_ok=True)
         shutil.copy2(os.path.join(recipe.bundle_dir, relative), destination)
-    return {'source': recipe.bundle_dir, 'files': list(files)}
+    record = {'source': recipe.bundle_dir, 'files': list(files)}
+    if files:  # what every advance compares the copy with (CL §44); without files there is nothing to compare
+        record['sha256'] = bundle_hashes(target)
+    return record
+
+
+def bundle_hashes(directory):
+    """{relative path: sha256} of every file of a run's bundle copy (the files a run would copy: no hidden files,
+    __pycache__ or run directories); {} if the directory does not exist."""
+    if not os.path.isdir(directory):
+        return {}
+    return {relative: _sha256(os.path.join(directory, relative)) for relative in _bundle_tree(directory)}
+
+
+def bundle_changes(before, after):
+    """{relative path: 'added', 'changed' or 'removed'} from one bundle_hashes() to another, sorted by path."""
+    changes = {}
+    for relative in sorted(set(before) | set(after)):
+        if relative not in before:
+            changes[relative] = 'added'
+        elif relative not in after:
+            changes[relative] = 'removed'
+        elif before[relative] != after[relative]:
+            changes[relative] = 'changed'
+    return changes
+
+
+def hashes_digest(hashes):
+    """One sha256 of a whole bundle_hashes(): equal digests, equal bundle copies."""
+    return hashlib.sha256(json.dumps(hashes, sort_keys=True).encode('utf-8')).hexdigest()
 
 
 def is_bundle(directory):
@@ -248,6 +285,14 @@ def _bundle_tree(directory):
         files.extend(os.path.relpath(os.path.join(parent, name), directory) for name in sorted(names)
                      if not name.startswith('.') and not name.endswith('.pyc'))
     return tuple(files)
+
+
+def _sha256(path):
+    digest = hashlib.sha256()
+    with open(path, 'rb') as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b''):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 def _copied(sources, copies, stage_id, option, value):

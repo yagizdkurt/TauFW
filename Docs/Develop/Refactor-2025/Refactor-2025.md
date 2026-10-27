@@ -1652,3 +1652,69 @@ exercise, redone as `Analyses/CDTest`, has none in the mumu channel (`qcd.method
   for such a setup. `Plotter/draw.py` draws what the file holds and needs no change.
 - **Unchanged:** the templates in `Configs/Histogrammer/setups/` (no key, so no re-lock), the API and the
   `controlhists` stage (the key is in the setup file they pass on), every BBB baseline.
+
+## 44. Retry of a failed local stage; the bundle copy is checked at every advance
+
+**Date:** 2026-10-27
+**Status:** done (lxplus check open: [TODO.md](TODO.md) section 1)
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#44-retry-of-a-failed-local-stage-the-bundle-copy-is-checked-at-every-advance)
+
+**Why:** a FAILED stage made the whole run final. In the CDTest run (13 stages), stage 6 (`sf_tauid`, a python
+step) failed because `sf/*.json` had not reached lxplus (the `*.json` rule of `.gitignore`). The file was put into
+the run's bundle copy, but Continue said "cannot continue", and the 5 finished stages (about 28 minutes) had to run
+again in a new run. No code, doc or changelog entry gave a reason for "final"; only the effect was written down
+(`stages/base.py`, `BackwardCompatibility.md` 9.3, CL §24). The workaround (a new run reusing finished stages through
+`{path: <run>/stages/<id>}`) does not help there: the later CDTest stages take no input from the earlier ones. A
+stage that is not ready (a `PreflightError`) already stays NEW and can be continued once fixed; the same missing file
+found while the step runs made the run final.
+
+**What changed:**
+
+- **`taufw.py retry RUN_DIR [--wait [--poll S]] [--take-lock]`** (`Framework.retry`): the FAILED stage is set NEW
+  again, then the run goes on like `advance`. The finished stages do not run again. `advance` and Continue are
+  unchanged: they never move a FAILED stage, so a retry is always asked for explicitly.
+  - Only the local stages (`controlhists`, `controlplots`, `shapes`, `fit`, `python`: `Stage.retryable`, set by
+    `LocalStage`) can be retried. A FAILED production stage is refused (`RetryError`: "cannot be retried yet: start
+    a new run"); its rule (back to WAITING with more tries, MERGING after a failed merge) is in [TODO.md](TODO.md)
+    section 6. NOT_IMPLEMENTED stays final.
+  - What the failed attempt left is moved, not deleted: `logs/<id>/*` -> `logs/<id>/attempt<N>/`, `stages/<id>/` ->
+    `logs/<id>/attempt<N>/stage/`. The retry starts in an empty output directory (the module APIs refuse a
+    non-empty one, `Utilities/python/Process/_outdir.py`). Every retry has its own `attempt<N>`; there is no limit.
+  - `run.json`: the stage's `retries` gets one entry per retry: `time`, `attempt`, `message` (why it failed),
+    `archive` (`logs/<id>/attempt<N>`), `bundle_changed` (the bundle copy's changes since the start; `null` for a
+    run without hashes). The stage's message, artifacts and last status are cleared; its history keeps them and
+    gets a `retry` event. A stage that was never retried has no `retries` key (run.json as before).
+  - `taufw.py advance`/`start` of a FAILED run name the command: "Once the cause is fixed, run stage X again with:
+    taufw.py retry RUN_DIR" (local stages only).
+- **The bundle copy is checked at every advance** (`Framework._check_bundle`, `bundle.bundle_hashes`):
+  - `start` records the sha256 of every file of `<run>/bundle/` (`run.json` `bundle.sha256`; only when the run has
+    bundle files, so a run without them, like the BBB production run, writes the same run.json as before).
+  - Every advance (also each poll of `--wait`, and a retry) hashes the copy again. A change that was not seen yet
+    (added, changed or removed files) is warned about once and added to `bundle.changed`: `{time, files: {path:
+    added|changed|removed} since the start, digest}`. The same copy again: no warning. Another change: one more
+    entry. A copy changed back to its start is one more entry with `files: {}` (the stages in between read the
+    other version).
+  - A run with `bundle.changed` is not clean. Each stage manifest says whether the copy had changed when the stage
+    ran: `manifest.json` `bundle_changed: true|false` (written for every DONE stage from now on; manifests of
+    earlier runs do not have it; the manifest format stays 2).
+  - Runs started before this change (no `bundle.sha256`) are not checked; their retries record `bundle_changed:
+    null`. All runs will be new runs at the release, so there is no migration.
+- **Menu:** Continue on a FAILED run whose stage can be retried shows "Run failed at <stage>" with `Retry <stage>`
+  (first), `Inspect status`, `Back`. Retry's description gives the failure, the bundle copy's changes and where the
+  failed attempt goes. Retry runs `taufw.py retry RUN_DIR --wait` behind the menu, like "Advance to the end"
+  (`_Operations.retry_run`, `retry_info`). A FAILED production run keeps the old dialog. The run screen's result card
+  says "Fix the cause, then Continue offers Retry <stage>: the finished stages are kept." (production: "A failed
+  production stage is final: start a new run."). The FAQ "Retries" entry says the same.
+- **Docs:** `Docs/Manual/2-Tutorials/01-FirstProduction.md` (a FAILED stage), `BackwardCompatibility.md` 9.3, the
+  comment of `Analyses/tes_id_2025/recipe.yml`.
+
+**Decisions (with the user, 2026-10-27):** an explicit retry (b), not Continue resetting the stage (a) and not only a
+"new run from this run" helper (c); local stages first, production later (TODO); the bundle check at every advance,
+warned once per change, with a key in run.json and in the manifests; failed attempts archived in
+`logs/<id>/attempt<N>/`; no retry limit; no hashes, no check for older runs. The preflight check of the files a
+python step needs (`requires:`, so a missing file keeps the step NEW before it runs) is in [TODO.md](TODO.md)
+section 6.
+
+**Unchanged:** `StageState.terminal`, `RunState.finished` and `advance()` (a FAILED stage still stops the run), the
+production stage and its `max_tries`, the run.json schema (3) and the manifest format (2), every BBB baseline
+(`framework.production` has no bundle files and no retry, so its run.json is the same).

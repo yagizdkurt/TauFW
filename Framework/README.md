@@ -143,6 +143,7 @@ taufw.py start   Analyses/example_mutau_short                  # creates taufw_r
 taufw.py advance taufw_runs/mutau_2022_postEE_short_20261013-120000  # check; resubmit failed chunks; merge when complete
 taufw.py status  taufw_runs/mutau_2022_postEE_short_20261013-120000  # recorded and live state (read-only)
 taufw.py advance taufw_runs/... --wait --poll 900              # keep advancing every 15 minutes until done
+taufw.py retry   taufw_runs/...                                # a FAILED local stage again (cause fixed), then go on
 taufw.py plan    Analyses/tes_id_2025                          # the commands of the hists, plots, shapes, fit and python steps
 taufw.py init    my_tes --from Analyses/tes_id_2025            # new bundle Analyses/my_tes/: a copy of its files
 ```
@@ -237,6 +238,7 @@ The local stages (`controlhists`, `controlplots`, `shapes`, `fit`, `python`) tak
 | preflight finds a problem (no `cmsenv`, ROOT or `combine` missing, a config file missing, no shapes for the fit; a python step's file or function missing) | the stage stays `NEW`; the problem is its message and in its history; fix it and run `advance` again |
 | every command exits with 0 **and** writes its expected outputs | `DONE`, with the artifacts |
 | a command exits with another code, or does not write an expected output | `FAILED`; the message names the command, the exit code or the missing output, and the log; the last 20 log lines are printed |
+| the stage is `FAILED` and its cause is fixed | `taufw.py retry <run dir>` (menu: Continue > Retry): the failed attempt moves to `logs/<stage id>/attempt<N>/`, the stage is `NEW` again, then the run goes on like `advance`; the finished stages do not run again; `run.json` records the retry in the stage's `retries` (CL §44) |
 
 Each command's output goes to `<run dir>/logs/<stage id>/NN_<label>.log`, and `run.json` lists every command with its exit
 code and duration (`last_status.commands`). The expected outputs must be written by the command itself (modified
@@ -248,7 +250,13 @@ A stage that is not implemented yet (none at the moment) reports `NOT_IMPLEMENTE
 
 Run states (`RunState`): `NEW`, `RUNNING` (e.g. a local stage is not ready yet), `WAITING` (a stage waits for jobs),
 `DONE`, `FAILED` (a stage failed), `BLOCKED` (stopped at a stage that is not implemented). `DONE`, `FAILED` and
-`BLOCKED` are final: advancing again changes nothing. `taufw.py` exits with 1 if the run failed.
+`BLOCKED` are final: advancing again changes nothing (a `FAILED` local stage can be retried, above; a `FAILED`
+production stage cannot yet). `taufw.py` exits with 1 if the run failed.
+
+The run's bundle copy (`<run dir>/bundle/`) is checked at every `advance` and `retry`: `start` records the sha256 of
+its files (`run.json` `bundle.sha256`), and a change (a file added, edited or removed, e.g. a fix before a retry) is
+warned about once and recorded in `bundle.changed`. Such a run is not clean: the manifests of the stages that ran
+after the change say `bundle_changed: true` (CL §44).
 
 If a stage raises an error (for example, the batch system cannot be reached), the error is recorded in the stage's
 history, the state is unchanged, and the command fails; run `advance` again when the problem is solved.
@@ -360,7 +368,7 @@ of the stage) and in the reader's manifest.
 
 | File | Contents |
 |---|---|
-| `python/framework.py` | `Framework`: `plan`, `start`, `advance`, `run`, `status`, `make_bundle`; stage dispatch; construction (`from_recipe`, `from_record`) |
+| `python/framework.py` | `Framework`: `plan`, `start`, `advance`, `retry`, `run`, `status`, `make_bundle`; stage dispatch; construction (`from_recipe`, `from_record`) |
 | `python/recipe.py` | `Recipe`, `StageSpec`, `Issue`, `RecipeError`: load and validate recipes (a bundle directory or a file): structure, stage ids, inputs (stage ids, `{path}`, `{external}`), at most one production; every problem at once |
 | `python/validation.py` | `check_recipe`, `RecipeCheck`: everything `recipe.py` checks plus the files a recipe names (and the stage directories of `{path}` inputs, `read_source`), without raising (`taufw.py check`, the menu) |
 | `python/manifest.py` | `write_manifest`, `read_stage_dir`, `StageDir`, `ManifestError`: the stage manifests (format 2) |

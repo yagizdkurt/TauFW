@@ -51,6 +51,14 @@ Items marked **(verify)** may already be done; check before working on them.
 
 The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go here until they are run.
 
+- [ ] **Retry of a failed stage (CL §44):** a CDTest run whose `sf_tauid` fails (rename `sf/` in the run's bundle
+      copy before it runs, or start with it missing); put the file back into `<run>/bundle/`; menu > Continue >
+      the run shows "Run failed at sf_tauid" with `Retry sf_tauid` and the bundle change; Retry runs it and the later
+      stages, and `hists`, `plots`, `tagger_roc*`, `sf_nominal` do not run again. Check `logs/sf_tauid/attempt1/`
+      (log and `stage/`), `run.json` (`retries`, `bundle.changed`), the manifests (`bundle_changed`: false for the
+      first five, true from `sf_tauid` on), one warning in `run.log`. `python3 taufw.py retry <run>` of a DONE run:
+      one line, exit 1. `python3 Tests/run.py bbb check` 24/24 without re-lock (`framework.production`).
+
 - [ ] **No QCD for a setup (CL §43):** `python3 taufw.py start Analyses/CDTest`: the mumu file
       `stages/hists/hists/2024/mumu.root` has no QCD histogram in `exp` and its plots no QCD entry; mutau keeps QCD.
       `cd Histogrammer; ./fillhists.py -y 2024 -c mumu --tuples <pattern> -S baseline -V m_vis` (template, no key)
@@ -236,6 +244,24 @@ Parts 1–5 are done (CL §5–§8; the Part 2 changelog section was removed).
 
 ## 6. Framework
 
+- [ ] **Retry of a FAILED production stage (CL §44 left it out).** `taufw.py retry` refuses it today ("start a new
+      run"). Going back to NEW would submit every sample again (`ProductionStage._submit`), so production needs its
+      own rule, e.g. a `Stage.retry_state(stage_record)` hook: `max_tries` reached -> WAITING with `max_tries` more
+      tries (recorded in `retries`, so the limit is raised in the open; the next advance resubmits only the failed
+      chunks); a merged tuple that failed validation -> MERGING (merge again, maybe with `merge.force`); "no samples
+      match the request" -> still refused (the recipe in run.json is fixed, it would fail the same way). Then the
+      menu's grid-proxy check applies to a retry too (`needs_grid_proxy` counts a FAILED production stage as
+      finished), and the FAQ "Retries" text and the run card change.
+- [ ] **Files a python step needs, checked before it runs (option (d) of the CL §44 discussion).** A python step
+      that opens a file the bundle lacks fails while it runs (FAILED; CL §44 makes it retryable). A recipe option such
+      as `requires: [sf/*.json]` (bundle-relative patterns), checked in `PythonStage.preflight`, would keep the step
+      NEW with "not ready: sf/tauid.json not found" before anything runs, and Continue would work once the file is
+      there. Also show the patterns in `plan`.
+- [ ] **Bundle check, small follow-ups (CL §44).** (1) A python step runs in the bundle copy: a step that writes a
+      file there (instead of `ctx.stage_dir`) shows up as a bundle change ("added"). Decide whether to say so in the
+      warning, or run the steps elsewhere. (2) A reader of another run's stage (`{path: ...}`) records the source's
+      `manifest_sha256` but not its `bundle_changed`: add it to `StageDir.summary()` if the readers should see it.
+      (3) `taufw.py status` does not show `bundle.changed` or `retries` yet.
 - [ ] **`RUNNING` means "half done", not "an advance works on it" (user, 2026-10-27; menu workaround CL §42).**
       `RunRecord.state` (`Framework/python/run_record.py`) is computed from the stage states only, and `RUNNING` is
       its last rule: everything that is not FAILED, all DONE, WAITING, BLOCKED or all NEW. So a run whose advance

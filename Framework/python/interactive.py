@@ -3,7 +3,7 @@
 
 Discovery, path resolution, record access, validation, and CLI dispatch belong
 here. Presentation and screen transitions live in TauFW.Utilities.Menu. Every
-command runs behind the menu as taufw.py (OperationStore): start/advance
+command runs behind the menu as taufw.py (OperationStore): start/advance/retry
 (kind "run"), plan/status (kind "command", read only) and the tests; the
 menu's own process reads recipes, run.json, check_recipe and a dry plan. The
 User Config action creates a missing config and opens the independent Editor.
@@ -23,12 +23,13 @@ import sys
 import time
 from pathlib import Path
 
-from TauFW.Framework.defaults import (ANALYSES_DIR, CONFIGS_DIR, DEFAULT_RUN_ROOT, RECIPE_NAME, RUN_RECORD_NAME,
-                                      STAGES_DIR_NAME)
+from TauFW.Framework.defaults import (ANALYSES_DIR, BUNDLE_DIR_NAME, CONFIGS_DIR, DEFAULT_RUN_ROOT, RECIPE_NAME,
+                                      RUN_RECORD_NAME, STAGES_DIR_NAME)
 from TauFW.Framework.run_record import RunRecord, RunState
 from TauFW.Framework.recipe import Recipe, read_recipe
 from TauFW.Framework.validation import check_recipe
-from TauFW.Framework.framework import Framework
+from TauFW.Framework.bundle import bundle_changes, bundle_hashes
+from TauFW.Framework.framework import Framework, retryable_stage
 from TauFW.Framework.reporting import SilentReporter
 from TauFW.Framework.run_lock import read_lock
 from TauFW.Framework.version import VersionChecker
@@ -350,9 +351,31 @@ class _Operations:
     def advance_run(self, record, wait=True, take_lock=False):
         """`taufw.py advance RUN_DIR` behind the menu, with --wait (to the end) or once; take_lock: take over
         the lock of a lost advance (--take-lock). The earlier advances of the run count as seen."""
+        argv = ["advance", record.run_dir] + (["--wait"] if wait else []) + (["--take-lock"] if take_lock else [])
+        return self._run_of(record, argv)
+
+    def retry_run(self, record):
+        """`taufw.py retry RUN_DIR --wait` behind the menu: the failed stage again, then to the end (CL §44)."""
+        return self._run_of(record, ["retry", record.run_dir, "--wait"])
+
+    @staticmethod
+    def retry_info(record):
+        """What the menu shows before a retry of a FAILED run, as plain data: dict(stage, type, message, changed),
+        changed: the bundle copy's changes since the start ({path: added|changed|removed}; None: not known), or
+        None if the run has no stage that can be retried (no failed stage, or a production stage)."""
+        found = retryable_stage(record)
+        if found is None:
+            return None
+        start = record.bundle.get("sha256")
+        changed = (bundle_changes(start, bundle_hashes(os.path.join(record.run_dir, BUNDLE_DIR_NAME)))
+                   if start is not None else None)
+        return dict(stage=found[0], type=found[1], message=record.stage(found[0]).message, changed=changed)
+
+    def _run_of(self, record, argv):
+        """taufw.py argv (advance or retry) of a run behind the menu, with the run's stages as run.json has them.
+        The earlier advances of the run count as seen."""
         for operation in self._run_operations_of(record.run_dir):
             operation.mark_seen()
-        argv = ["advance", record.run_dir] + (["--wait"] if wait else []) + (["--take-lock"] if take_lock else [])
         stages = []
         for stage in record.recipe.get("stages", ()):
             saved = record.stage(stage.get("id"))
