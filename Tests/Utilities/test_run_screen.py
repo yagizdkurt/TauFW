@@ -191,20 +191,29 @@ class RunLabelTests(unittest.TestCase):
         self.assertEqual(run_summary(stopping), ("Stopping", "warning"))
 
     def test_main_menu_run_line(self):
+        # found by its label, not its place: the menu order may change
+        def run_row(choices):
+            return next((index for index, choice in enumerate(choices) if choice.startswith("Run")), None)
+
+        def run_line():
+            choices = choose.call_args.args[1]
+            row = run_row(choices)
+            return choices[row], choose.call_args.kwargs["row_colors"][row]
+
         ui = ConsoleUI(mock.Mock())
-        with mock.patch.object(ui, "choose", return_value=2) as choose:
-            self.assertEqual(ui.main_menu(runs=[self.advance("failed")]), "run")
-            self.assertEqual(choose.call_args.args[1][2], "Run tes_2025 (Failed at plots)")
-            self.assertEqual(choose.call_args.kwargs["row_colors"][2], "error")
-            self.assertEqual(choose.call_args.args[1][4], "Tests")  # the other lines move down
-            self.assertEqual(ui.main_menu(runs=[self.advance("jobs", ago=8.0), self.advance("complete")]), "runs")
-            self.assertEqual(choose.call_args.args[1][2], "Runs (1 active, 1 ended)")
-            self.assertEqual(choose.call_args.kwargs["row_colors"][2], "waiting")
-            ui.main_menu(runs=[self.advance(ago=1.0), self.advance("lost")])
-            self.assertEqual((choose.call_args.args[1][2], choose.call_args.kwargs["row_colors"][2]),
-                             ("Runs (1 active, 1 ended)", "error"))
+        with mock.patch.object(ui, "choose", side_effect=lambda title, choices, **_: run_row(choices) or 0) as choose:
             ui.main_menu()
-            self.assertEqual(len(choose.call_args.args[1]), 7)  # no run: no line
+            plain = choose.call_args.args[1]
+            self.assertIsNone(run_row(plain))  # no run: no line
+            self.assertEqual(ui.main_menu(runs=[self.advance("failed")]), "run")
+            self.assertEqual(run_line(), ("Run tes_2025 (Failed at plots)", "error"))
+            choices = list(choose.call_args.args[1])
+            del choices[run_row(choices)]
+            self.assertEqual(choices, plain)  # the other lines keep their order
+            self.assertEqual(ui.main_menu(runs=[self.advance("jobs", ago=8.0), self.advance("complete")]), "runs")
+            self.assertEqual(run_line(), ("Runs (1 active, 1 ended)", "waiting"))
+            ui.main_menu(runs=[self.advance(ago=1.0), self.advance("lost")])
+            self.assertEqual(run_line(), ("Runs (1 active, 1 ended)", "error"))
 
     def test_runs_chooser_and_the_run_list_marks_an_advance(self):
         operations = [self.advance(ago=14.0), self.advance("failed", run_id="mutau_2024")]
