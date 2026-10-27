@@ -301,8 +301,9 @@ class Framework:
         state is not changed) and raised again. A PreflightError (environment not ready, or an input from another
         run that cannot be read) also becomes the stage's message. The sources of the step are recorded first."""
         stage = self._stage_for(stage_spec.id)
-        if stage_record.request is None and hasattr(stage_spec.spec, 'request_dict'):
-            stage_record.request = stage_spec.spec.request_dict()  # save the request once, for run.json
+        if stage_record.request is None and hasattr(stage_spec.spec, 'request_dict'):  # saved once, for run.json:
+            fields = getattr(stage, 'request_fields', None)  # production: with the user config's defaults
+            stage_record.request = fields(stage_spec.spec) if fields else stage_spec.spec.request_dict()
         self.reporter.header("Stage %s (%s)" % (stage_spec.id, stage_record.state))
         self.reporter.event('stage_step', stage=stage_spec.id, type=stage_spec.stage, state=stage_record.state)
         try:

@@ -1594,7 +1594,10 @@ settings: the first would not move the directories made from it, the second is n
     memory, through the new `PicoProducer.from_config(..., overrides=)`.
   - `queue`, `batchopts`, `ncores`: request defaults of the production stage (`ProductionStage(pico, settings)`),
     used when the recipe leaves the option unset. `ProductionSpec.ncores` defaults to `None` (was 4); with neither,
-    the field is left out and the JobRequest default (4) applies, as before.
+    `DEFAULT_NCORES` (4), as before. `ProductionStage.request_fields(spec)` gives these fields, and the stage's
+    `request` in `run.json` is now this effective request, not only the recipe's options (first BBB check on lxplus
+    showed `request.ncores: int -> None` while it recorded `request_dict()`; with the effective fields the record of a
+    run without user config settings is the same as before, so no re-lock).
 - **Shown and recorded:** `plan` prints `PicoProducer config: <path>; from your user config: <dotted keys>`;
   `run.json` gets `pico_config.user_config = {path, settings}`, only when a setting was used (a run without
   settings writes what it wrote before).

@@ -78,10 +78,10 @@ class ProductionSettingsTests(UserSettingsTestCase):
         request = stage.request(Recipe.from_dict(recipe).stages[0].spec)
         self.assertEqual((request['queue'], request['ncores']), ("espresso", 2))
 
-    def test_without_ncores_anywhere_picoproducer_keeps_its_default(self):
+    def test_without_ncores_anywhere_the_default_is_used(self):
         spec = Recipe.from_dict(json.loads(json.dumps(RECIPE))).stages[0].spec
         request = ProductionStage(fakes.FakePicoProducer()).request(spec)
-        self.assertNotIn('ncores', request)  # JobRequest's default, 4
+        self.assertEqual(request['ncores'], 4)  # as before CL §41 (and in run.json: BBB framework.production)
         self.assertIsNone(request['queue'])
 
     def test_a_wrong_production_setting_stops_where_it_is_used(self):
@@ -100,11 +100,15 @@ class ProductionSettingsTests(UserSettingsTestCase):
                          {'path': self.path, 'settings': list(user_settings.production_settings().used)})
         submitted = [request for name, request in pico.calls if name == "submit"][0]
         self.assertEqual((submitted['queue'], submitted['ncores']), ("workday", 8))
+        recorded = record.stage("production").request  # run.json: what was used, not only the recipe
+        self.assertEqual((recorded['queue'], recorded['ncores']), ("workday", 8))
 
     def test_without_settings_the_run_record_is_unchanged(self):
         self.user_config(HEADER)
         record = self.framework(fakes.FakePicoProducer(statuses=[fakes.pending("DY")])).start(run_root=self.root)
         self.assertNotIn('user_config', record.pico_config)
+        self.assertEqual((record.stage("production").request['ncores'], record.stage("production").request['queue']),
+                         (4, None))
 
 
 class RunRootTests(UserSettingsTestCase):

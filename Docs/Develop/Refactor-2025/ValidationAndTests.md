@@ -638,6 +638,10 @@ re-captures the whole suite: 22 same, 1 changed): 658 `lumi` fields added, each 
   warnings, `check_recipe` problem for a production recipe only, `plan` lines, `plan` ends in one line on a wrong
   setting.
 - `Tests/Framework/checkout.py`: a neutral user config for the whole directory.
+- lxplus 2026-10-27: `taufw.py userconfig` and `plan Analyses/example_mutau_short` as expected; the first
+  `bbb check` failed `framework.production` (`stages[0].request.ncores: int -> NoneType`, run.json recorded the
+  recipe's options); fixed by recording the effective request (`request_fields`), tested in `test_user_settings.py`
+  (`ncores` 4 without settings, 8 from the user config, in the request and in run.json).
 - Windows: Tests/Utilities 212 OK, Tests/Framework 224 OK, Tests/Setup 61 OK; `py_compile` of
   `PicoProducer/python/api/producer.py`; `check_import_boundaries`: no new pair.
 - Not run on Windows (needs PicoProducer): `from_config(overrides=)` with a real configuration; on lxplus

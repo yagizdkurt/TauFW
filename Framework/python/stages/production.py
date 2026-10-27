@@ -200,20 +200,24 @@ class ProductionStage(Stage):
     # ============================= CONSTRUCTION ==============================
 
     def request(self, spec, context=None, **overrides):
-        """The PicoProducer request (JobRequest) built from the recipe options, with optional overrides. A field the
+        """The PicoProducer request (JobRequest) built from request_fields(), with optional overrides. With a run
+        (context.run_dir), the tuples go to the stage's directory (tupledir, absolute)."""
+        fields = dict(self.request_fields(spec), **overrides)
+        if context is not None and context.run_dir:
+            fields['tupledir'] = os.path.abspath(context.stage_dir())
+        return self.pico.request(**fields)
+
+    def request_fields(self, spec):
+        """The request fields of the recipe options (what run.json records as the stage's request): a field the
         recipe leaves unset (None: queue, batchopts, ncores) takes the stage's default (the user config,
-        user_settings.py), else PicoProducer's. With a run (context.run_dir), the tuples go to the stage's
-        directory (tupledir, absolute)."""
+        user_settings.py); ncores in neither is DEFAULT_NCORES."""
         fields = spec.request_dict()
         for field_name, value in self.defaults.items():
             if fields.get(field_name) is None:
                 fields[field_name] = value
-        if fields.get('ncores') is None:  # in neither the recipe nor the user config: PicoProducer's default (4)
-            del fields['ncores']
-        fields.update(overrides)
-        if context is not None and context.run_dir:
-            fields['tupledir'] = os.path.abspath(context.stage_dir())
-        return self.pico.request(**fields)
+        if fields.get('ncores') is None:
+            fields['ncores'] = DEFAULT_NCORES
+        return fields
 
     def __init__(self, pico, settings=None):
         """settings: the user config's settings of the stage (user_settings.ProductionSettings): its defaults are
@@ -225,6 +229,9 @@ class ProductionStage(Stage):
 
 # =============================================================================
 # ============================== RECIPE OPTIONS ===============================
+
+
+DEFAULT_NCORES = 4  # files checked at once (JobRequest.ncores), without ncores in the recipe or the user config
 
 
 @dataclass(frozen=True)
@@ -265,7 +272,7 @@ class ProductionSpec:
     checkdas:     bool = False
     checkevts:    bool = True
     checkexpevts: Optional[bool] = None
-    ncores:       Optional[int] = None     # None: the user config's production.ncores, else 4 (PicoProducer)
+    ncores:       Optional[int] = None     # None: the user config's production.ncores, else DEFAULT_NCORES
     verbosity:    int = 0
     max_tries:    int = 3
     merge:        MergeSpec = field(default_factory=MergeSpec)
