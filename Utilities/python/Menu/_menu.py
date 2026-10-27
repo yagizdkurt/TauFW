@@ -414,12 +414,14 @@ class ConsoleUI:
                     self._header(screen, title, badge=badge)
                     start = 3
                 else:
-                    start = self._entry_header(screen, welcome,
-                                               len(choices) + len(separators) + 3 + bool(notice))
+                    start = self._entry_header(screen, welcome, len(choices) + len(separators) + 3)
                 if notice:
                     text, role = notice
-                    self._line(screen, start - 1, 1, text, color=self.styles.get(role, 0))
-                    start += 1
+                    if welcome is not None:
+                        self._line(screen, start - 2, len(welcome) + 2, text, color=self.styles.get(role, 0))
+                    else:
+                        self._line(screen, start - 1, 1, text, color=self.styles.get(role, 0))
+                        start += 1
                 top, left, rows, columns = self._panel(screen, start, 1,
                                                       height - start - 3, width - 2, "Menu")
                 show_description = descriptions and rows >= len(choices) + len(separators) + 3

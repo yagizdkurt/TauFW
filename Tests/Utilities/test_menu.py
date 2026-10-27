@@ -246,7 +246,8 @@ class ScreenTests(unittest.TestCase):
                 ui, screen, frames = self.rendered_terminal([27], size)
                 with mock.patch.object(ui, 'colors_enabled', return_value=False):
                     self.assertEqual(ui.main_menu(version=view), 'exit')
-                self.assertIn('New version available: 1.2.3', '\n'.join(frames[0]))
+                self.assertTrue(any('Welcome to TauFW!' in line and 'New version available: 1.2.3' in line
+                                    for line in frames[0]))
         ui = ConsoleUI(mock.Mock())
         with mock.patch.object(ui, 'choose', return_value=0) as choose:
             self.assertEqual(ui.main_menu(version=view), 'start')
