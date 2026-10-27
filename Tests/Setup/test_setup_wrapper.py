@@ -138,7 +138,9 @@ source ./setup.sh || exit
         self.assertEqual(result.stdout.count("Installation log:"), 1)
         self.assertNotIn("Change installed components:", result.stdout)
         self.assertNotIn("source setup.sh --install", result.stdout)
-        self.assertIn("Next session:", result.stdout)
+        self.assertNotIn("Next session:", result.stdout)
+        self.assertNotIn("Working directory:", result.stdout)
+        self.assertNotIn("CMSSW_14_1_0_pre4 |", result.stdout)
         self.assertNotIn("\x1b[", result.stdout)
         self.assertNotIn("?", result.stdout)
 

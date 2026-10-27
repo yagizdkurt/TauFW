@@ -101,10 +101,6 @@ _taufw_setup_activate() { # RELEASE CHECKOUT CMS_SETUP ARCH [LOG_PATH]
   fi
   printf '\n'
   _taufw_setup_line success 'TauFW environment active'
-  printf '\n%s | %s\nWorking directory: %s\n' "${release##*/}" "$arch" "$installed"
-  printf '\n'
-  _taufw_setup_line heading 'Next session:'
-  printf '  source %q\n' "$installed/setup.sh"
   if [[ -n ${5:-} ]]; then
     printf '\nInstallation log: %s\n' "$5"
   fi

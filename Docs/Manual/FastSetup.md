@@ -118,7 +118,7 @@ screen. After you close a successful result screen, the sourced wrapper activate
 CMSSW in your terminal and enters the installed `src/TauFW` checkout. The
 result screen reports components verified this run and those not selected;
 without standalone NanoAODTools, the CMSSW version is used. After dismissal,
-the terminal confirms activation and shows the next-session command and retained
+the terminal confirms activation and, when installation ran, shows the retained
 installation log path. Warnings and retained-original notices remain visible.
 
 At the end of activation, setup opens the TauFW menu

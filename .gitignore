@@ -71,3 +71,7 @@ Tests/**/__pycache__/
 Tests/.artifacts/
 !Tests/**/*.json
 !Tests/Plotter/DYJetsToLL_M-50_mumu.root
+
+# A test that I used
+long-ex
+long-ex/**
