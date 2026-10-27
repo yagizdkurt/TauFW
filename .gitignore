@@ -13,6 +13,7 @@ core.*
 *.root
 *.png
 *.json
+!Framework/python/_internal/version.json
 
 # Python package initializers and exceptions.
 __init__.py

@@ -159,6 +159,55 @@ record = Framework.from_record(record).advance(record)
 print(record.state, record.stage('production').artifacts)
 ```
 
+## TauFW versions and update notices
+
+`python/_internal/version.json` is the single source of the installed TauFW
+version. Its `update_manifest_url` currently reads the same file from
+`yagizdkurt/TauFW`, branch `Refactor-2025`, on GitHub. To change the repository,
+branch, or hosting service, change that HTTPS raw-JSON URL in the manifest;
+GitLab raw-file URLs work with the same checker. The remote file's source URL
+is never followed recursively. Publish the manifest together with the code it
+describes; pushing code without changing the version produces no new notice.
+
+TauFW uses its own **X.Y.Z** version policy:
+
+| Number | Meaning |
+| --- | --- |
+| X | Incompatible changes. |
+| Y | Compatible, stable changes. |
+| Z | Beta/nonstable changes within that major/minor version. |
+
+Only the first two numbers determine whether to announce a newer version.
+`1.1.0` to `1.1.1` produces no notice; `1.1.0` to `1.2.3` does, and shows
+the complete `1.2.3` version even though its last number is nonzero. Versions
+are compared numerically, so `0.10.0` is newer than `0.9.9`. This policy is
+distinct from Semantic Versioning's patch-release meaning. It does not change
+the separate run schema, stage manifest format, or config template versions.
+
+The main menu reads local metadata immediately and checks remotely in a
+Framework-owned daemon thread. A passive notice appears when a newer version
+is found; there is no update button, code download, or automatic checkout
+change. Results are cached per user under `$XDG_CACHE_HOME/taufw/` (default
+`~/.cache/taufw/`) for 24 hours; failed checks retry after one hour. Returning
+to the menu starts a due check; an untouched idle menu does not poll forever.
+Unreachable sources or invalid manifests show **Version check unavailable**
+without blocking analyses. Previously known updates are retained and labeled
+when a recheck fails or the cached answer is stale. A readonly cache only
+disables persistence. The HTTPS request has a three-second socket timeout and
+a 64 KiB response limit; opening or leaving the menu never waits for it.
+
+```bash
+taufw.py version                   # installed version only; no network or cache writes
+taufw.py version --check           # explicitly refresh the remote manifest; no code download
+export TAUFW_NO_VERSION_CHECK=1    # disable remote checks, including version --check
+```
+
+Importing the Framework and running `check`, `plan`, `start`, `advance`, or
+`status` does not trigger a version request. Python callers can use
+`TauFW.Framework.current_version()` or `VersionChecker().check()` explicitly.
+The first published manifest must be pushed before its remote check can
+succeed; until then a missing remote file is an ordinary unavailable check.
+
 ## Run model
 
 The run is **stepwise**. `start` and `advance` move the run as far as they can, save `run.json` and return; they

@@ -21,6 +21,7 @@ def idle_operations():
     operations.tests_operation.return_value = None
     operations.running_operations.return_value = []
     operations.run_operations.return_value = []
+    operations.version_status.return_value = None
     operations.run_operation.return_value = None
     operations.run_advances.side_effect = lambda run_dirs: [None] * len(run_dirs)
     operations.run_lock.return_value = None
@@ -175,8 +176,8 @@ class ScreenTests(unittest.TestCase):
                     operations.renew_grid_proxy.return_value = outcome
                 self.assertEqual(MenuNavigation(ui, operations).run(), 0)
                 self.assertEqual(ui.main_menu.call_args_list,
-                                 [mock.call(proxy_valid=False, tests=None, runs=[], live=False),
-                                  mock.call(proxy_valid=valid, tests=None, runs=[], live=False)])
+                                 [mock.call(proxy_valid=False, tests=None, runs=[], live=False, version=None),
+                                  mock.call(proxy_valid=valid, tests=None, runs=[], live=False, version=None)])
                 operations.renew_grid_proxy.assert_called_once_with("secret")
                 ui.notice.assert_called_once()  # "Renewing..." while voms-proxy-init works
                 if isinstance(outcome, tuple) and outcome[0] is None:
@@ -217,6 +218,46 @@ class ScreenTests(unittest.TestCase):
         self.assertEqual(ui.main_menu(), "inspect")  # the selected line stayed through the redraws
         curses, screen = self.curses([-1, 10])
         self.assertEqual(ConsoleUI(curses).main_menu(), "start")  # not live: no key is no answer
+
+    def test_version_check_refreshes_an_idle_menu_without_changing_the_selected_action(self):
+        ui, operations = mock.Mock(), idle_operations()
+        checking = dict(installed='0.1.0', latest=None, status='checking', checking=True,
+                        available=False, error=None, stale=False)
+        available = dict(checking, latest='0.2.3', status='available', checking=False, available=True)
+        operations.version_status.side_effect = [checking, available]
+        ui.main_menu.side_effect = ['refresh', 'exit']
+        self.assertEqual(MenuNavigation(ui, operations).run(), 0)
+        self.assertEqual([call.kwargs['live'] for call in ui.main_menu.call_args_list], [True, False])
+        self.assertIs(ui.main_menu.call_args.kwargs['version'], available)
+
+        curses, screen = self.curses([1002, -1, 10])
+        ui = ConsoleUI(curses)
+        self.assertEqual(ui.main_menu(version=checking, live=True), 'refresh')
+        self.assertEqual(ui.main_menu(version=available), 'continue')
+        drawn = [call.args[2] for call in screen.addnstr.call_args_list]
+        self.assertIn('TauFW V0.1.0', drawn)
+        self.assertIn('New version available: 0.2.3 (installed: 0.1.0)', drawn)
+
+    def test_version_notice_is_passive_and_readable_at_small_sizes_without_color(self):
+        view = dict(installed='1.1.0', latest='1.2.3', status='available', checking=False,
+                    available=True, error=None, stale=False)
+        for size in ((12, 64), (24, 80), (55, 100)):
+            with self.subTest(size=size):
+                ui, screen, frames = self.rendered_terminal([27], size)
+                with mock.patch.object(ui, 'colors_enabled', return_value=False):
+                    self.assertEqual(ui.main_menu(version=view), 'exit')
+                self.assertIn('New version available: 1.2.3', '\n'.join(frames[0]))
+        ui = ConsoleUI(mock.Mock())
+        with mock.patch.object(ui, 'choose', return_value=0) as choose:
+            self.assertEqual(ui.main_menu(version=view), 'start')
+        self.assertFalse(any('update' in choice.lower() for choice in choose.call_args.args[1]))
+        for changes, expected in ((dict(available=False, status='unavailable', error='offline'),
+                                   'Version check unavailable'),
+                                  (dict(stale=True, status='unavailable', error='offline'),
+                                   'last known; check unavailable')):
+            with mock.patch.object(ui, 'choose', return_value=None) as choose:
+                ui.main_menu(version=dict(view, **changes))
+            self.assertIn(expected, choose.call_args.kwargs['notice'][0])
 
     def test_rows_still_read_say_so_and_the_list_draws_again(self):
         curses, screen = self.curses([1002, -1, 10])

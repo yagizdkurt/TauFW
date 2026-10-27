@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "project": "TauFW",
+  "version": "0.1.0",
+  "update_manifest_url": "https://raw.githubusercontent.com/yagizdkurt/TauFW/Refactor-2025/Framework/python/_internal/version.json"
+}

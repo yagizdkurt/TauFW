@@ -110,8 +110,11 @@ wording, option labels, keyboard handling, and menu messages in
 `python/Menu/faq.py`. The pre-install FastSetup checklist launches through
 `python/Menu/setup_menu.py` and uses `ConsoleUI.setup_checklist()`; installation
 sequencing remains in Bash. Space/Enter toggles components and activates Start install.
-Shared ASCII branding and the current `V0.0` version live in
-`python/Menu/banner.py`. Entry screens show their welcome messages beneath the
+Shared ASCII branding lives in `python/Menu/banner.py`. The Framework supplies
+the actual release label through `ConsoleUI.set_version()` and plain version
+status to `main_menu(version=...)`; Utilities never reads a manifest or makes
+an HTTP request. Standalone installer/preview screens use the `V0.0` fallback.
+Entry screens show their welcome messages beneath the
 banner; smaller terminals use compact branding so controls remain visible.
 Change screen transitions, back behavior, refresh loops,
 and operation recovery in `python/Menu/_navigation.py`. Source section banners

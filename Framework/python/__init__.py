@@ -23,6 +23,7 @@ Public API:
                                                 (TauFW.Histogrammer.api, TauFW.Plotter.api, TauFW.Fitter.api)
   Reporter, FrameworkReporter, SilentReporter,  reporting (reporting.py); EventReporter also writes events for
   EventReporter                                 the menu's screens
+  current_version, VersionChecker                local release metadata and explicit/advisory update checks
 """
 from TauFW.Framework.recipe import Recipe, StageSpec, Issue, RecipeError
 from TauFW.Framework.validation import check_recipe, RecipeCheck
@@ -31,9 +32,10 @@ from TauFW.Framework.stages import STAGES, StageState, StageOutcome
 from TauFW.Framework.reporting import Reporter, FrameworkReporter, SilentReporter, EventReporter
 from TauFW.Framework.framework import Framework, load_run, RunPlan, RunSummary, RunDirectoryError
 from TauFW.Framework.run_lock import RunLockError, read_lock
+from TauFW.Framework.version import current_version, VersionChecker
 
 __all__ = ['Framework', 'load_run', 'RunPlan', 'RunSummary', 'RunDirectoryError', 'RunLockError', 'read_lock',
            'Recipe', 'StageSpec', 'Issue', 'RecipeError',
            'check_recipe', 'RecipeCheck',
            'RunRecord', 'RunState', 'StageRecord', 'STAGES', 'StageState', 'StageOutcome',
-           'Reporter', 'FrameworkReporter', 'SilentReporter', 'EventReporter']
+           'Reporter', 'FrameworkReporter', 'SilentReporter', 'EventReporter', 'current_version', 'VersionChecker']

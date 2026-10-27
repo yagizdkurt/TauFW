@@ -23,6 +23,7 @@
                                                           templates and rewrite Configs/configs.lock
   taufw.py userconfig                                     your user config (Analyses/UserConfig.yaml, or
                                                           $TAUFW_USER_CONFIG): made if there is none, its state
+  taufw.py version [--check]                              installed version; optionally check the remote manifest
 
 RECIPE is an analysis bundle directory (Analyses/<name>, with recipe.yml) or a recipe file.
 
@@ -62,6 +63,34 @@ except ImportError as err:
 
 # =============================================================================
 # ================================= COMMANDS ==================================
+
+
+def cmd_version(args):
+    """Local metadata by default; explicit --check refreshes without downloading any code."""
+    from TauFW.Framework.version import current_version, VersionChecker
+    reporter = _reporter(args)
+    if not args.check:
+        try:
+            reporter.message('TauFW %s' % current_version())
+            return 0
+        except (OSError, ValueError) as error:
+            reporter.warning('Cannot read TauFW version: %s' % error)
+            return 1
+    result = VersionChecker().check()
+    reporter.message('TauFW %s' % result['installed'])
+    if result['status'] == 'disabled':
+        reporter.message('Version checks disabled by TAUFW_NO_VERSION_CHECK.')
+        return 0
+    if result['error']:
+        reporter.warning('Version check unavailable: %s' % result['error'])
+        if result['available']:
+            reporter.message('Last known newer version: %s' % result['latest'])
+        return 1
+    if result['available']:
+        reporter.message('New version available: %s' % result['latest'])
+    else:
+        reporter.message('No newer major/minor version published (remote: %s).' % result['latest'])
+    return 0
 
 
 def cmd_check(args):
@@ -349,7 +378,7 @@ def _finish(reporter, record):
 
 
 COMMANDS = {'check': cmd_check, 'plan': cmd_plan, 'start': cmd_start, 'advance': cmd_advance, 'status': cmd_status, 'init': cmd_init,
-            'configs': cmd_configs, 'userconfig': cmd_userconfig}
+            'configs': cmd_configs, 'userconfig': cmd_userconfig, 'version': cmd_version}
 
 
 # =============================================================================
@@ -397,6 +426,8 @@ def build_parser():
                               "templates and rewrite Configs/configs.lock")
     subparsers.add_parser('userconfig', parents=[common],
                           help="your user config: made if there is none, its path and state")
+    version = subparsers.add_parser('version', parents=[common], help="installed version; optionally check for updates")
+    version.add_argument('--check', action='store_true', help="refresh the remote version manifest (no code download)")
     return parser
 
 

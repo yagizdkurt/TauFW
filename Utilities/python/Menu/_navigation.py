@@ -27,6 +27,8 @@ User config callbacks: user_config_path() creates the file if missing and names
 it; validate_user_config(draft_path) checks a candidate file before the editor saves it.
 The independent Editor owns file editing and saving; navigation only opens it.
 install_components() opens the existing interactive installer on the terminal and returns when it closes.
+version_status() returns plain installed/latest/status/checking/available/stale data; only the caller checks
+versions. While it is checking, the main menu also uses its existing live refresh.
 The Tests menu also opens the UI preview (ConsoleUI.preview(), made-up screens; no operations are used).
 Operations run behind the menu: leaving a screen or quitting never stops them (quitting warns first).
 While one runs, the main menu draws itself again every 2 s (ConsoleUI.main_menu(live=True)). An error is shown
@@ -383,9 +385,11 @@ class MenuNavigation:
         while True:
             try:
                 tests, runs = self.operations.tests_operation(), self.operations.run_operations()
-                live = (tests is not None and tests.running) or any(operation.running for operation in runs)
+                version = self.operations.version_status()
+                live = ((tests is not None and tests.running) or any(operation.running for operation in runs)
+                        or bool(version and version['checking']))
                 action = self.ui.main_menu(proxy_valid=self.operations.grid_proxy_valid(), tests=tests, runs=runs,
-                                           live=live)
+                                           live=live, version=version)
                 if action == "refresh":
                     continue  # live: the new states
                 if action == "exit":

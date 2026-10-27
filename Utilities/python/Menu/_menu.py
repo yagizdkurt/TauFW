@@ -13,7 +13,7 @@ import sys
 import textwrap
 
 from .faq import FAQ
-from .banner import BADGE, BOXED, COMPACT, FULL, INTERACTIONS, VERSION, WIDTH
+from .banner import INTERACTIONS, VERSION, WIDTH, branding
 
 
 QUIT_WARNING = ("If you quit, they keep running, but only while this login session lasts. Logging out (closing "
@@ -48,6 +48,12 @@ class ConsoleUI:
         self.screen = None    # the screen of the session (session()), None outside it
         self._summaries = {}  # operation directory -> what its menu line keeps between draws (summary_model)
         self._main_action = None  # the main menu's line last selected: a live redraw keeps it
+        self.set_version(VERSION)
+
+    def set_version(self, version):
+        """Use caller-supplied display metadata without importing its package or reading its files."""
+        self.version = version
+        self._full_banner, self._boxed_banner, self._compact_banner, self._badge = branding(version)
 
     def session(self, function):
         """Run function() with every screen drawn in one curses session; return its result."""
@@ -186,14 +192,14 @@ class ConsoleUI:
     def _header(self, screen, title, badge=False):
         """badge: the framed TauFW wordmark on rows 0-2, the title beside it. Return the column of the title."""
         if not badge:
-            self._line(screen, 0, 1, "TauFW " + VERSION, color=self.styles["accent"])
+            self._line(screen, 0, 1, "TauFW " + self.version, color=self.styles["accent"])
             self._line(screen, 1, 1, title)
             return 1
-        for row, line in enumerate(BADGE):
+        for row, line in enumerate(self._badge):
             self._line(screen, row, 1, line, color=self.styles["accent"])
         self._line(screen, 1, 3, "TauFW", color=self.styles["brand"])
-        self._line(screen, 2, 3, VERSION, color=self.styles["version"])
-        column = len(BADGE[0]) + 3
+        self._line(screen, 2, 3, self.version, color=self.styles["version"])
+        column = len(self._badge[0]) + 3
         self._line(screen, 1, column, title)
         return column
 
@@ -349,14 +355,14 @@ class ConsoleUI:
     def _entry_header(self, screen, welcome, minimum_rows):
         """Reserve room for controls, using compact branding on smaller terminals."""
         height, width = screen.getmaxyx()
-        if width > WIDTH and height >= len(FULL) + minimum_rows + 5:
-            lines = FULL
-        elif width > len(BOXED[0]) and height >= len(BOXED) + minimum_rows + 5:
-            lines = BOXED
+        if width > WIDTH and height >= len(self._full_banner) + minimum_rows + 5:
+            lines = self._full_banner
+        elif width > len(self._boxed_banner[0]) and height >= len(self._boxed_banner) + minimum_rows + 5:
+            lines = self._boxed_banner
         else:
-            lines = COMPACT
+            lines = self._compact_banner
         if height < len(lines) + minimum_rows + 5:
-            lines = ("TauFW " + VERSION,)
+            lines = ("TauFW " + self.version,)
         color = 0
         interaction_colors = {}
         try:
@@ -370,7 +376,7 @@ class ConsoleUI:
                     pass
                 self.curses.init_pair(3, self.curses.COLOR_CYAN, background)
                 color = self.curses.color_pair(3)
-                if lines is FULL:
+                if lines is self._full_banner:
                     for role, pair, foreground, bold in (
                         ("higgs", 4, self.curses.COLOR_RED, True),
                         ("tau", 5, self.curses.COLOR_MAGENTA, True),
@@ -384,14 +390,14 @@ class ConsoleUI:
             interaction_colors = {}
         for row, line in enumerate(lines):
             self._line(screen, row, 0, line, color=color)
-        if lines is FULL and interaction_colors:
+        if lines is self._full_banner and interaction_colors:
             for row, column, text, role in INTERACTIONS:
                 self._line(screen, row, column, text, color=interaction_colors[role])
         self._line(screen, len(lines) + 1, 0, welcome)
         return len(lines) + 3
 
     def choose(self, title, choices, welcome=None, descriptions=None, row_colors=None, position=None, live=None,
-               separators=(), badge=False):
+               separators=(), badge=False, notice=None):
         """The index of the choice, or None (Esc). position: {"selected": index}, where the focus starts and was
         left. live: seconds; without a key by then, REFRESH (the caller draws it again with new labels)."""
         position = position if position is not None else {}
@@ -408,7 +414,12 @@ class ConsoleUI:
                     self._header(screen, title, badge=badge)
                     start = 3
                 else:
-                    start = self._entry_header(screen, welcome, len(choices) + len(separators) + 3)
+                    start = self._entry_header(screen, welcome,
+                                               len(choices) + len(separators) + 3 + bool(notice))
+                if notice:
+                    text, role = notice
+                    self._line(screen, start - 1, 1, text, color=self.styles.get(role, 0))
+                    start += 1
                 top, left, rows, columns = self._panel(screen, start, 1,
                                                       height - start - 3, width - 2, "Menu")
                 show_description = descriptions and rows >= len(choices) + len(separators) + 3
@@ -548,13 +559,25 @@ class ConsoleUI:
         selected = self.choose(title, choices, welcome=welcome, **layout)
         return back if selected is None else REFRESH if selected == REFRESH else actions[selected]
 
-    def main_menu(self, proxy_valid=False, tests=None, runs=(), live=False):
+    def main_menu(self, proxy_valid=False, tests=None, runs=(), live=False, version=None):
         """tests: the last test run (a TauFW.Utilities.Process.Operation) or None; its state is shown next to
         Tests ("Tests (Running 12/40)"). runs: the advances to show (Operations of kind "run": those behind the
         menu and those that ended unseen): one is a line of its own, "Run tes_2025 (3/5 plots)" (action "run"),
         more are "Runs (2 active)" (action "runs"). live: something runs behind the menu; without a key for
         LIVE_EVERY seconds the answer is REFRESH (the caller draws it again with the new states), the selected
-        line stays."""
+        line stays. version is plain caller-supplied metadata, shown without a selectable action."""
+        notice = None
+        if version:
+            self.set_version('V' + version['installed'])
+            if version['available']:
+                text = 'New version available: %s (installed: %s)' % (version['latest'], version['installed'])
+                if version['stale']:
+                    text += ' [last known; check unavailable]' if version['error'] else ' [last checked earlier]'
+                notice = (text, 'warning')
+            elif version['checking']:
+                notice = ('Checking for updates...', 'accent')
+            elif version['status'] == 'unavailable':
+                notice = ('Version check unavailable', 'warning')
         certificate = "Grid Certificate  " + ("\u2713" if proxy_valid else "Warning: Proxy Failed!")
         label, role = "Tests", None
         if tests is not None:
@@ -585,7 +608,7 @@ class ConsoleUI:
         position = dict(selected=actions.index(self._main_action) if self._main_action in actions else 0)
         answer = self._action("TauFW", choices, actions, back="exit", row_colors=colors, welcome="Welcome to TauFW!",
                               descriptions=descriptions, position=position, live=LIVE_EVERY if live else None,
-                              separators=(actions.index("grid_certificate"), actions.index("tests")))
+                              separators=(actions.index("grid_certificate"), actions.index("tests")), notice=notice)
         self._main_action = actions[position["selected"]]
         return answer
 
@@ -745,8 +768,8 @@ class ConsoleUI:
                 self._setup(screen)
                 styles = dict(self.styles, muted=getattr(self.curses, "A_DIM", 0),
                               active=self.styles["accent"] | self.curses.A_BOLD)
-                appearance = dict(styles=styles, banner=BADGE,
-                                  banner_spans=((1, 2, "TauFW", "brand"), (2, 2, VERSION, "version")))
+                appearance = dict(styles=styles, banner=self._badge,
+                                  banner_spans=((1, 2, "TauFW", "brand"), (2, 2, self.version, "version")))
                 return edit_file(screen, path, validate=validate, title="Modify User Config",
                                  appearance=appearance, curses_module=self.curses)
 

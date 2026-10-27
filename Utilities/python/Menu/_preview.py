@@ -548,6 +548,10 @@ def _test_run(kind, **options):
 
 SCENARIOS = [
     Scenario("Main menu", "idle", lambda ui, directory: ui.main_menu(proxy_valid=True)),
+    Scenario("Main menu", "new version available",
+             lambda ui, directory: ui.main_menu(proxy_valid=True, version=dict(
+                 installed="0.1.0", latest="0.2.3", status="available", checking=False,
+                 available=True, error=None, stale=False))),
     Scenario("Main menu", "tests running, no grid proxy",
              lambda ui, directory: ui.main_menu(tests=_tests(directory, ago=12.0))),
     Scenario("Start a run", "select a recipe", _recipes),

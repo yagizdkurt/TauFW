@@ -330,6 +330,10 @@ class MenuTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.recipes = self.root / "recipes"
         self.recipes.mkdir()
+        versions = mock.patch.object(interactive, 'VersionChecker')
+        self.versions = versions.start().return_value
+        self.versions.status.return_value = None  # unrelated menu tests never access the network or user cache
+        self.addCleanup(versions.stop)
         patcher = mock.patch("TauFW.Framework.interactive.Framework.from_recipe")
         self.framework = patcher.start()
         self.addCleanup(patcher.stop)
@@ -345,6 +349,13 @@ class MenuTests(unittest.TestCase):
 
     def menu(self, ui):
         return Menu(ui, self.root, self.recipes, self.root / "operations")
+
+    def test_version_adapter_passes_only_the_framework_checkers_presentation_data(self):
+        view = dict(installed='0.1.0', latest='0.2.3', status='available', checking=False,
+                    available=True, error=None, stale=False)
+        self.versions.status.return_value = view
+        self.assertIs(self.menu(FakeUI()).operations.version_status(), view)
+        self.versions.status.assert_called_once_with()
 
     def test_user_config_editor_opens_the_override_and_reuses_config_validation(self):
         from TauFW.Utilities.UserConfig import UserConfigError

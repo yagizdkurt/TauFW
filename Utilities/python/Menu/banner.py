@@ -1,5 +1,8 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-"""Shared TauFW entry branding. Update VERSION here until release metadata exists."""
+"""Shared TauFW entry branding; callers supply the release label through ConsoleUI.set_version().
+
+VERSION is the fallback for standalone installer/preview screens without a caller's metadata.
+"""
 
 VERSION = "V0.0"
 
@@ -83,3 +86,11 @@ def _badge(version):
 
 
 BADGE = _badge(VERSION)
+
+
+def branding(version):
+    """The same artwork with a caller-supplied version; framed rows keep their width and centering."""
+    def replace(lines):
+        return tuple(('*' + version.center(len(line) - 2) + '*') if line.strip('* ') == VERSION
+                     else version if line == VERSION else line for line in lines)
+    return replace(FULL), replace(BOXED), ('TauFW', 'Tau analysis framework', version), _badge(version)

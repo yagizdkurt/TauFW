@@ -31,6 +31,7 @@ from TauFW.Framework.validation import check_recipe
 from TauFW.Framework.framework import Framework
 from TauFW.Framework.reporting import SilentReporter
 from TauFW.Framework.run_lock import read_lock
+from TauFW.Framework.version import VersionChecker
 from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation, Prefetch
 from TauFW.Utilities import UserConfig
 from TauFW.Utilities.UserConfig import manage as user_config
@@ -57,6 +58,11 @@ class _Operations:
         self.store = OperationStore(operations_dir or OPERATIONS_DIR)
         self._proxy = None  # (valid, until, proxy file): the last answer of voms-proxy-info (grid_proxy_valid)
         self._kept = {}     # (what, path) -> (signature of its files, value): previews, run roots, run rows
+        self._versions = VersionChecker()  # metadata/cache only; HTTP starts when the menu asks for status
+
+    def version_status(self):
+        """Plain version data; a due network check runs behind the menu, never in the UI thread."""
+        return self._versions.status()
 
     def resolve_path(self, value):
         path = Path(value).expanduser()
