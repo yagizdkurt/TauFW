@@ -56,8 +56,10 @@ Pick **Start a new run**. Don't worry, it doesn't start anything until you confi
 On the left you'll see the recipes in `Analyses/`. On the right is the selected recipe's pipeline: its stages, top
 to bottom, in the order they'll run. Move up and down through the list and watch the right side change.
 
-One recipe, `example_broken`, is shown in red. That's on purpose. It's full of mistakes, so you can see what TauFW
-does with a broken recipe. Select it and the problems are listed above its stages.
+The examples have their own list: select **[Examples]**, just above Back. They live in `Analyses/Examples/`, so your
+own analyses don't get lost among them. One example, `broken`, is shown in red. That's on purpose. It's full of
+mistakes, so you can see what TauFW does with a broken recipe. Select it and the problems are listed above its
+stages.
 
 Press Esc until you're back in the main menu, then **Exit**.
 
@@ -92,13 +94,13 @@ Always run these from the TauFW folder, with `python3 taufw.py`.
 `check` reads a recipe and lists everything wrong with it, all at once. Try it on the broken example:
 
 ```console
-$ python3 taufw.py check Analyses/example_broken
+$ python3 taufw.py check Analyses/Examples/broken
 >>> Warning: run_root: not set: the runs go to taufw_runs/ in the directory taufw.py is started from, ...
 >>> Warning: Recipe example_broken: 4 problem(s)
 >>> Warning:   stages[0] (production): unknown option 'samplez' (known: batchopts, channels, checkdas, ...)
 >>> Warning:   stages[2] (python).file: steps/missing_check.py is not a file of the bundle (...), a Configs/ template or an absolute path: ...
 >>> Warning:   stages[1] (controlhists).inputs.tuples: no stage 'prodution' in the recipe
->>> Warning:   pico.config: file not found: .../Analyses/example_broken/missing_pico.json
+>>> Warning:   pico.config: file not found: .../Analyses/Examples/broken/missing_pico.json
 ```
 
 Each line tells you where the problem is and what's wrong. `stages[0]` is the first stage in the recipe, `stages[1]`
@@ -118,12 +120,12 @@ run.
 short example:
 
 ```console
-$ python3 taufw.py plan Analyses/example_mutau_short
+$ python3 taufw.py plan Analyses/Examples/mutau_short
 >>> === [production] 2022_postEE, mutau ===
 >>> DYto2L-4Jets_MLL-50
 >>> /DYto2L-4Jets_MLL-50
 ...
->>> Bundle: /afs/cern.ch/user/y/ydinckur/CMSSW_14_1_0_pre4/src/TauFW/Analyses/example_mutau_short
+>>> Bundle: /afs/cern.ch/user/y/ydinckur/CMSSW_14_1_0_pre4/src/TauFW/Analyses/Examples/mutau_short
 >>> Run root: /afs/cern.ch/user/y/ydinckur/CMSSW_14_1_0_pre4/src/TauFW/taufw_runs (default: no run_root in the recipe)
 >>> PicoProducer config: PicoProducer/config/config.json (default)
 >>> === Stage production (production) ===

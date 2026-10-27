@@ -1,4 +1,4 @@
-# CDTest: the CMSDAS 2026 tau long exercise in the new TauFW
+# cmsdas26_ztt: the CMSDAS 2026 tau long exercise in the new TauFW
 
 This is the Z → τ_μ τ_h cross-section exercise from CMSDAS 2026, redone as one recipe in the new framework. We
 wanted to see if the new TauFW can run a real analysis from start to end and give the same numbers. It does.
@@ -8,11 +8,11 @@ wanted to see if the new TauFW can run a real analysis from start to end and giv
 On lxplus, in a CMSSW area with Combine and CombineHarvester (the exercise's setup), from the TauFW root:
 
 ```sh
-python3 taufw.py start Analyses/CDTest     # or from the menu: python3 taufw.py
+python3 taufw.py start Analyses/Examples/cmsdas26_ztt     # or from the menu: python3 taufw.py
 ```
 
 It reads the pre-made 2024 tuples from EOS, so no production step is needed. The whole run takes about 1.5 hours.
-Results end up in `<run_root>/CDTest_<time>/stages/`, the fit results in `stages/xsec_fit/results.txt`.
+Results end up in `<run_root>/cmsdas26_ztt_<time>/stages/`, the fit results in `stages/xsec_fit/results.txt`.
 
 ## What it does
 

@@ -4,7 +4,7 @@
 Usage (after setting up the CMSSW environment):
     python3 taufw.py                                         # interactive menu
     python3 taufw.py --help                                  # available commands
-    python3 taufw.py plan Analyses/example_mutau_short       # preview a pipeline (an analysis bundle)
+    python3 taufw.py plan Analyses/Examples/mutau_short       # preview a pipeline (an analysis bundle)
 
 Commands and menu behavior live in Framework/scripts/taufw.py.
 This launcher forwards arguments and preserves the CLI's exit code.

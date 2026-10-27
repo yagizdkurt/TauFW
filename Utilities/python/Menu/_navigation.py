@@ -1,7 +1,8 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Menu navigation independent of Framework, files, and batch operations.
 
-The injected operations object supplies launch_dir, recipes(), resolve_path(value), load_run(path),
+The injected operations object supplies launch_dir, recipes(), examples() (the example analyses, listed apart
+under [Examples] of the recipe list), resolve_path(value), load_run(path),
 can_advance(record), prepare_review(path), and start_command(command, target), which starts a read-only command
 (`plan` of a recipe, `status` of a run directory) behind the menu and returns its Operation (kind "command"; its
 screen, ConsoleUI.command_output, stops it when it is left).
@@ -58,6 +59,7 @@ class MenuNavigation:
     def _read_ahead(self):
         """Read what Start and Continue/Inspect list, behind the main menu: every recipe's check, then every run."""
         self.prefetch.add("recipes", lambda: [self._ask_preview(path) for path in self.operations.recipes()])
+        self.prefetch.add("examples", lambda: [self._ask_preview(path) for path in self.operations.examples()])
         self.prefetch.add("runs", lambda: [self._ask_row(run_dir) for run_dir in self.operations.run_directories()])
 
     def _ask_preview(self, path):
@@ -88,9 +90,14 @@ class MenuNavigation:
     def start(self):
         """The recipe list opens at once: a recipe whose check is not read yet says "checking..." and the list
         draws itself again until every check came (read ahead from the menu's start, see _read_ahead)."""
+        self._pick_recipe()
+
+    def _pick_recipe(self, examples=False):
+        """The recipe list, or with examples the list of the example analyses ([Examples] of the recipe list, the
+        same screen without the create action). True once a run was started: back to the main menu."""
         position, created = {}, None
         while True:
-            recipes = self.operations.recipes()
+            recipes = self.operations.examples() if examples else self.operations.recipes()
             if created is not None:
                 for index, path in enumerate(recipes):
                     if path.resolve() == created.resolve():
@@ -106,11 +113,16 @@ class MenuNavigation:
             action, index = self.ui.select_recipe([p.name for p in recipes], preview=lambda i: previews[i],
                                                   broken=broken, warnings=warnings, checking=checking,
                                                   position=position, live=any(checking),
-                                                  drafts=[bool(view.get("draft")) for view in previews])
+                                                  drafts=[bool(view.get("draft")) for view in previews],
+                                                  **(dict(examples=True) if examples else {}))
             if action == "refresh":
                 continue  # a check came
             if action == "back":
-                return
+                return False
+            if action == "examples":
+                if self._pick_recipe(examples=True):
+                    return True
+                continue
             if action == "create":
                 created = self._create_analysis()
                 continue
@@ -131,7 +143,7 @@ class MenuNavigation:
                     continue
                 review = self.operations.prepare_review(path)
             except KeyboardInterrupt:
-                return
+                return False
             except Exception as error:
                 self.ui.operation_error(error)
                 continue
@@ -146,7 +158,7 @@ class MenuNavigation:
                     if not self._grid_ready(self.operations.needs_grid_proxy(recipe=path)):
                         continue
                     self._follow_run(self.operations.start_run(path))
-                    return
+                    return True
 
     def _create_analysis(self):
         """Ask again after an error, keeping the name. Cancellation never creates a file."""

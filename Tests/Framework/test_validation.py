@@ -169,9 +169,9 @@ class CheckRecipeTests(unittest.TestCase):
         self.assertTrue(check.ok)
 
     def test_the_bundled_analyses_have_no_problems(self):
-        for bundle in ("example_mutau_short", "example_mutau_long", "tes_id_2025"):
+        for bundle in ("Examples/mutau_short", "Examples/mutau_long", "Examples/cmsdas26_ztt", "tes_id_2025"):
             with self.subTest(bundle=bundle):
-                check = check_recipe(os.path.join(checkout.REPO, "Analyses", bundle))
+                check = check_recipe(os.path.join(checkout.REPO, "Analyses", *bundle.split("/")))
                 # the tuples of tes_id_2025 are on EOS: missing on a machine without it (e.g. Windows)
                 messages = [m for m in self.messages(check) if not (" tuple directory /eos/" in m
                                                                     and not os.path.isdir("/eos/cms"))]

@@ -3,7 +3,7 @@
 recipe.
 
     from TauFW.Framework import Framework
-    fw     = Framework.from_recipe("Analyses/example_mutau_short")   # an analysis bundle (or a recipe file)
+    fw     = Framework.from_recipe("Analyses/Examples/mutau_short")   # an analysis bundle (or a recipe file)
     plan   = fw.plan()                    # changes nothing: shows what would be done
     record = fw.start()                   # <run_root>/<name>_<time>/run.json; submits the production jobs
     record = fw.advance(record)           # later: check, resubmit or merge; then the local stages (controlhists, ...)

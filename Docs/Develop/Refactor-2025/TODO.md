@@ -51,7 +51,18 @@ Items marked **(verify)** may already be done; check before working on them.
 
 The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go here until they are run.
 
-- [ ] **Times of the earlier advances (CL §46):** menu > Continue on a stopped or failed CDTest run: the finished
+- [ ] **Examples under [Examples] (CL §47):** `python3 taufw.py` > Start a new run: the list has `tes_id_2025` (and
+      your own analyses), no `example_*`; the rows end `Enter another recipe path`, `[Examples]`, `Back`.
+      `[Examples]` lists `broken` (red), `cmsdas26_ztt`, `mutau_long`, `mutau_short`, then `Back` (back to the recipe
+      list); `View detailed plan` of `mutau_short` works; a started example goes back to the main menu.
+      `python3 taufw.py check Analyses/Examples/broken` (4 problems, exit 1) and `plan Analyses/Examples/mutau_short`
+      as before. Paste their outputs again into `Docs/Manual/1-GettingStarted/FirstSession.md` and `UserConfig.md`
+      (only the paths were changed by hand). Run `Analyses/Examples/cmsdas26_ztt` once (about 1.5 h; its steps were
+      reorganized without a change of logic, checked on Windows only): `stages/xsec_fit/results.txt` as in
+      `reference/cmsdas26/README.md` and the `tagger_roc` PNGs with the MD5 of `reference/cmsdas26/`.
+
+- [ ] **Times of the earlier advances (CL §46):** menu > Continue on a stopped or failed run (e.g. of
+      `Analyses/Examples/cmsdas26_ztt`): the finished
       stages show their times in the list (as in the run that made them), their Details say "Took ... in an earlier
       advance." with the commands; a production run continued after its merge shows the production time (from
       submission to merge). Retry: the retried stage starts from zero.
@@ -61,16 +72,19 @@ The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go he
       manual. At 80 columns it opens full width with F4/F5 and F5 returns to editing. Resize while reading;
       check cursor visibility, long code with Left/Right, Tab indentation, F2 save and Esc with unsaved edits.
 
-- [ ] **Retry of a failed stage (CL §44):** a CDTest run whose `sf_tauid` fails (rename `sf/` in the run's bundle
+- [ ] **Retry of a failed stage (CL §44):** a run of `Analyses/Examples/cmsdas26_ztt` whose `sf_tauid` fails (rename `sf/` in the run's bundle
       copy before it runs, or start with it missing); put the file back into `<run>/bundle/`; menu > Continue >
       the run shows "Run failed at sf_tauid" with `Retry sf_tauid` and the bundle change; Retry runs it and the later
       stages, and `hists`, `plots`, `tagger_roc*`, `sf_nominal` do not run again. Check `logs/sf_tauid/attempt1/`
       (log and `stage/`), `run.json` (`retries`, `bundle.changed`), the manifests (`bundle_changed`: false for the
-      first five, true from `sf_tauid` on), one warning in `run.log`. `python3 taufw.py retry <run>` of a DONE run:
+      first five, true from `sf_tauid` on), one warning in `run.log`. (2026-10-27: a retry of `sf_tauid` worked on lxplus in the CDTest run, but that run
+      started before CL §44, so the bundle check was not tested.) `python3 taufw.py retry <run>` of a DONE run:
       one line, exit 1. `python3 Tests/run.py bbb check` 24/24 without re-lock (`framework.production`).
 
-- [ ] **No QCD for a setup (CL §43):** `python3 taufw.py start Analyses/CDTest`: the mumu file
-      `stages/hists/hists/2024/mumu.root` has no QCD histogram in `exp` and its plots no QCD entry; mutau keeps QCD.
+- [ ] **No QCD for a setup (CL §43):** `python3 taufw.py start Analyses/Examples/cmsdas26_ztt`: the mumu
+      file `stages/hists/hists/2024/mumu.root` has no QCD histogram in `exp` and its plots no QCD entry; mutau keeps
+      QCD. (2026-10-27, CDTest run on lxplus: `mumu.root` has no key named QCD, `mutau.root` has; read without
+      ROOT, the plots not looked at.)
       `cd Histogrammer; ./fillhists.py -y 2024 -c mumu --tuples <pattern> -S baseline -V m_vis` (template, no key)
       still shows QCD.
 - [ ] **Run status and PAUSED in the menu (CL §42):** `python3 taufw.py menu` > Inspect run status > a DONE run:
@@ -81,7 +95,7 @@ The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go he
 - [ ] **User config settings (CL §41):** in an installed checkout without `Analyses/UserConfig.yaml`,
       `python3 taufw.py userconfig` writes the lxplus guesses (`taufw/` on EOS; `run_root` if the AFS work area
       exists; values of `PicoProducer/config/config.json` if it exists); `python3 taufw.py plan
-      Analyses/example_mutau_short` shows `Run root: ... (user config)` and `from your user config: ...`; a
+      Analyses/Examples/mutau_short` shows `Run root: ... (user config)` and `from your user config: ...`; a
       `plan --local` test runs with the user config's `outdir`; `python3 Tests/run.py bbb check` passes without
       re-lock. 2026-10-27 on lxplus: `userconfig` and `plan` work (outputs pasted into the Manual), `bbb check` running.
       Still to paste: the FastSetup summary with its `User config` line (`UserConfig.md`) and `taufw.py --help`
@@ -580,7 +594,7 @@ Other limitations ([Analyses/README.md](../../../Analyses/README.md) "Current li
 
 ## 10. Ideas
 
-- [ ] **A stage config that comes from an earlier step (idea, 2026-10-27):** from the CMSDAS26 port (`Analyses/CDTest`):
+- [ ] **A stage config that comes from an earlier step (idea, 2026-10-27):** from the CMSDAS26 port (`Analyses/Examples/cmsdas26_ztt`):
       choose the tagger from the ROC curves of a python step and continue with it in the same run. Today a stage's
       options and configs are fixed in the recipe (`plan` shows them before the run); a python step can only pass
       artifacts to later python steps. Rejected: a step that rewrites a config of `<run_dir>/bundle/` in place (it
@@ -591,4 +605,4 @@ Other limitations ([Analyses/README.md](../../../Analyses/README.md) "Current li
       `run.json`; cost: `plan` cannot check that config's branches before the run;
       (b) no Framework change: fill the histograms of every candidate (one setup per tagger, own `tag`) and let a
       python step compare them and pick one for the python steps after it.
-      Not needed for CDTest: the analysis stays on DeepTau, the only tagger with scale factors.
+      Not needed for the CMSDAS26 port: its selection (the hybrid one of the exercise team) was fixed before the run.

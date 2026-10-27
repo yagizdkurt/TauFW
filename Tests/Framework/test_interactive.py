@@ -45,9 +45,9 @@ class FakeUI(ConsoleUI):
     def help(self):
         pass
 
-    def select_recipe(self, names, preview=None, broken=None, warnings=None, **layout):
+    def select_recipe(self, names, preview=None, broken=None, warnings=None, examples=False, **layout):
         self.broken = broken
-        return super().select_recipe(names)
+        return super().select_recipe(names, examples=examples)
 
     def confirm_recipe(self, path, review=None, position=None):
         self.review = review
@@ -455,7 +455,7 @@ class MenuTests(unittest.TestCase):
         self.recipe_file(self.root / "bad.yml")
         self.recipe_file(self.root / "good.yml")
         self.framework.side_effect = [ValueError("invalid recipe"), self.framework.return_value]
-        ui = FakeUI([1, 1, 2, 2], ["bad.yml", "good.yml"])
+        ui = FakeUI([1, 1, 2, 3], ["bad.yml", "good.yml"])  # ... Back of the review, Back
         with contextlib.redirect_stdout(io.StringIO()) as output:
             self.menu(ui).start()
         self.assertEqual(output.getvalue(), "")  # nothing printed over the screen
@@ -597,13 +597,30 @@ class MenuTests(unittest.TestCase):
         recipes_dir = checkout.REPO / "Analyses"
         expected = sorted(path.name for path in recipes_dir.iterdir() if (path / "recipe.yml").is_file())
         self.assertIn("tes_id_2025", expected)
+        self.assertNotIn("Examples", expected)  # the examples have their own list
         ui = FakeUI([expected.index("tes_id_2025") + 1, 0])
         menu = Menu(ui, launch_dir=self.root, operations_dir=self.root / "operations")
         self.assertEqual(menu.operations.recipes_dir, recipes_dir)
         menu.start()
-        self.assertEqual(ui.screens[0][1][1:-2], expected)
-        self.assertEqual(ui.broken, [name == "example_broken" for name in expected])  # the validation demo
+        self.assertEqual(ui.screens[0][1][1:-3], expected)
+        self.assertEqual(ui.screens[0][1][-3:], ["Enter another recipe path", "[Examples]", "Back"])
         self.assertEqual([argv for argv, _ in self.started], [["start", str(recipes_dir / "tes_id_2025"), "--wait"]])
+
+    def test_examples_are_listed_under_examples(self):
+        """[Examples] (the row above Back) opens the list of Analyses/Examples/; the validation demo is red there."""
+        self.eos()
+        examples_dir = checkout.REPO / "Analyses" / "Examples"
+        expected = sorted(path.name for path in examples_dir.iterdir() if (path / "recipe.yml").is_file())
+        self.assertEqual(expected, ["broken", "cmsdas26_ztt", "mutau_long", "mutau_short"])
+        recipes = sorted(path.name for path in (checkout.REPO / "Analyses").iterdir() if (path / "recipe.yml").is_file())
+        ui = FakeUI([len(recipes) + 2, expected.index("cmsdas26_ztt"), 0])  # [Examples], cmsdas26_ztt, Start run
+        menu = Menu(ui, launch_dir=self.root, operations_dir=self.root / "operations")
+        self.assertEqual([path.name for path in menu.operations.examples()], expected)
+        menu.start()
+        self.assertEqual(ui.screens[1][1], expected + ["Back"])  # no create action, no other path
+        self.assertEqual(ui.broken, [name == "broken" for name in expected])  # the validation demo
+        self.assertEqual([argv for argv, _ in self.started],
+                         [["start", str(examples_dir / "cmsdas26_ztt"), "--wait"]])
 
     def test_dispatch_uses_semantic_actions_without_screen_positions(self):
         ui = mock.Mock()
@@ -621,14 +638,14 @@ class MenuTests(unittest.TestCase):
         self.eos()
         operations = self.menu(FakeUI()).operations
         expected = {
-            "example_mutau_short": (("production", "production"),),
-            "example_mutau_long": (("production", "production"), ("hists", "controlhists"), ("plots", "controlplots")),
+            "Examples/mutau_short": (("production", "production"),),
+            "Examples/mutau_long": (("production", "production"), ("hists", "controlhists"), ("plots", "controlplots")),
             "tes_id_2025": (("hists", "controlhists"), ("plots", "controlplots"), ("shapes", "shapes"),
                             ("fit", "fit"), ("fit_summary", "python")),
         }
         for bundle, stages in expected.items():
             with self.subTest(bundle=bundle):
-                view = operations.recipe_preview(checkout.REPO / "Analyses" / bundle)
+                view = operations.recipe_preview(checkout.REPO.joinpath("Analyses", *bundle.split("/")))
                 self.assertEqual(tuple(stage[:2] for stage in view["stages"]), stages)
                 self.assertEqual(view["problems"], ())
                 self.assertTrue(all(stage[2] for stage in view["stages"]))  # the bundles describe every stage
@@ -675,7 +692,7 @@ class MenuTests(unittest.TestCase):
 
     def test_recipe_warnings_are_shown_but_do_not_break(self):
         self.recipe_file(self.recipes / "a.json")  # no run_root
-        ui = FakeUI([3])  # Back
+        ui = FakeUI([4])  # Back
         self.menu(ui).start()
         self.assertEqual(ui.broken, [False])
         view = self.menu(FakeUI()).operations.recipe_preview(self.recipes / "a.json")
@@ -690,7 +707,7 @@ class MenuTests(unittest.TestCase):
              "ele_wps": ["Tight"]},
             {"stage": "fit", "id": "fit", "inputs": {"shapes": "histo"}},
         ])
-        ui = FakeUI([4])  # Back
+        ui = FakeUI([5])  # Back
         self.menu(ui).start()
         self.assertEqual(ui.broken, [False, True])
         view = self.menu(FakeUI()).operations.recipe_preview(self.recipes / "b_bad.json")
@@ -742,7 +759,7 @@ class MenuTests(unittest.TestCase):
 
     def test_invalid_selected_recipe_never_plans_or_starts(self):
         (self.recipes / "broken.json").write_text("{}")
-        ui = FakeUI([1, 3])
+        ui = FakeUI([1, 4])  # broken.json, then Back
         with contextlib.redirect_stdout(io.StringIO()) as output:
             self.menu(ui).start()
         self.assertEqual(output.getvalue(), "")

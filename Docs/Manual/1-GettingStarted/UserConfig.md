@@ -146,11 +146,11 @@ You don't have to guess which one was used. `plan` tells you. Here's a real one,
 made the file:
 
 ```console
-$ python3 taufw.py plan Analyses/example_mutau_short
+$ python3 taufw.py plan Analyses/Examples/mutau_short
 ...
 >>> Warning: User config /afs/cern.ch/user/y/ydinckur/CMSSW_14_1_0_pre4/src/TauFW/Analyses/UserConfig.yaml is not reviewed yet: check its values, then set reviewed: true
 >>> Warning: run_root: not set: the runs go to taufw_runs/ in the directory taufw.py is started from, ...
->>> Bundle: /afs/cern.ch/user/y/ydinckur/CMSSW_14_1_0_pre4/src/TauFW/Analyses/example_mutau_short
+>>> Bundle: /afs/cern.ch/user/y/ydinckur/CMSSW_14_1_0_pre4/src/TauFW/Analyses/Examples/mutau_short
 >>> Run root: /afs/cern.ch/user/y/ydinckur/CMSSW_14_1_0_pre4/src/TauFW/taufw_runs (default: no run_root in the recipe)
 >>> PicoProducer config: PicoProducer/config/config.json (default); from your user config: production.batch, production.hadd.maxopenfiles, production.nanodir, production.ncores, production.outdir
 ...

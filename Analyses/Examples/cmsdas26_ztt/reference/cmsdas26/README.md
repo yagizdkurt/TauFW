@@ -32,9 +32,9 @@ filters.
 
 **Tagger comparison (s.5, s.16):** the plots of s.5 are the three PNG files above. Conclusion: best against
 electrons DeepTau, against jets PNet, against muons DeepTau. The AUC table of s.16 is **not** what the code that made
-those plots prints (CDTest `tagger_roc`, same plots byte for byte), so it comes from another run with other settings:
+those plots prints (the `tagger_roc` stage of this bundle, same plots byte for byte), so it comes from another run with other settings:
 
-| AUC | DeepTau | PNet | UParT | CDTest `tagger_roc` (same order) |
+| AUC | DeepTau | PNet | UParT | this bundle, `tagger_roc` (same order) |
 |---|---|---|---|---|
 | vsJet | 0.876 | 0.906 | 0.902 | 0.875 / 0.890 / 0.884 |
 | vsE | 0.983 | 0.969 | 0.981 | 0.983 / 0.967 / 0.980 |
@@ -73,7 +73,10 @@ in 10 bins, s.9).
 Not consistent with each other: s.6 and the nominal of s.18 differ by about 35% at the peak, and s.17 has no m_T
 cut, so these plots are from different iterations; which one belongs to the r values above is not known.
 
-## Results of CDTest (run `CDTest_20261027-155341`, lxplus, 2026-10-27)
+## Results of this bundle (run `CDTest_20261027-155341`, lxplus, 2026-10-27)
+
+The bundle was `Analyses/CDTest` then, hence the run names `CDTest_*` here; it is now
+`Analyses/Examples/cmsdas26_ztt` and its runs are `cmsdas26_ztt_<time>`.
 
 Steps 1-9 of the recipe (13 stages, about 1.5 h), with the hybrid selection and the team's SF file above. Not done:
 step 7B (the SFs are the team's, not measured again) and step 10 (BDT).

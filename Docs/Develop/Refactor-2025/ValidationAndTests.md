@@ -745,3 +745,25 @@ New unit tests (Windows, no ROOT):
 
 Results on Windows (2026-10-27, `python -m unittest discover`): `Tests/Framework` 243 OK, `Tests/Utilities` 250 OK
 (9 skipped). The real screen (a long run on lxplus, Continue and Retry): [TODO.md](TODO.md) section 1.
+
+## 47. The example analyses move to Analyses/Examples/, listed under [Examples] in the menu
+
+**Change:** [CL §47](Refactor-2025.md#47-the-example-analyses-move-to-analysesexamples-listed-under-examples-in-the-menu)
+
+New and changed unit tests (Windows, no ROOT):
+
+- `Tests/Framework/test_interactive.py` `test_default_recipes_are_the_analysis_bundles`: the recipe list of the
+  checkout has no `Examples` row and ends with `Enter another recipe path`, `[Examples]`, `Back`;
+  `test_examples_are_listed_under_examples`: `examples()` lists `broken`, `cmsdas26_ztt`, `mutau_long`,
+  `mutau_short`; [Examples] shows them with only `Back`, `broken` red (the validation demo), and starting
+  `cmsdas26_ztt` runs `taufw.py start Analyses/Examples/cmsdas26_ztt --wait`. The tests that left the list with
+  Back by its position now count the new row.
+- `Tests/Utilities/test_menu.py` `test_examples_open_from_the_recipe_list`: [Examples] and Back return to the recipe
+  list; [Examples] and a start return to the main menu; `select_recipe` gets `examples=True` for the examples only.
+  The picker hints, the row colors (the `[Examples]` row is accent; the examples list has no create row and its
+  edit keys are on the examples) and the semantic actions (`examples`, and the examples list: `select`, `back`).
+- `Tests/Framework/test_validation.py` `test_the_bundled_analyses_have_no_problems`: also `Examples/cmsdas26_ztt`;
+  `test_framework.py` and `test_interactive.py` read the examples at their new paths.
+
+Results on Windows (2026-10-27, `python -m unittest discover`): `Tests/Framework` 248 OK, `Tests/Utilities` 254 OK
+(9 skipped), `Tests/contracts` OK. The menu on a real terminal: [TODO.md](TODO.md) section 1.

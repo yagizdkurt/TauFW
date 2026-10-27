@@ -827,44 +827,54 @@ class ConsoleUI:
         return "select", selected
 
     def select_recipe(self, names, preview=None, broken=None, warnings=None, checking=None, position=None,
-                      live=False, drafts=None):
-        """Return (create/manual/back/refresh, None) or (select/edit, recipe index).
+                      live=False, drafts=None, examples=False):
+        """Return (create/manual/examples/back/refresh, None) or (select/edit, recipe index).
         broken: True for each recipe with problems (shown in red). Warnings without problems are shown in yellow.
         checking: True for each recipe whose check is still read ("checking..."). position: the focus, kept by
-        the caller across a refresh."""
+        the caller across a refresh. [Examples] (the example analyses) is the row above Back; examples: the list
+        of the examples, with only Back after them and no create action."""
         names = [name + (" [Draft]" if drafts and drafts[index] else "") +
                  ("  checking..." if checking and checking[index] else "") for index, name in enumerate(names)]
-        choices = ["[Create a new run]"] + names + ["Enter another recipe path", "Back"]
+        # The rows around the recipes: (action, label, color, hint).
+        head = [] if examples else [("create", "[Create a new run]", "accent",
+                                     "Create a new analysis with an empty recipe.\n\n"
+                                     "You will first choose an analysis name.\n\n"
+                                     "Configure its pipeline with E before starting a run.")]
+        tail = ([("back", "Back", None, "Return to the list of analyses.")] if examples else
+                [("manual", "Enter another recipe path", None,
+                  "Enter a recipe file or bundle directory to review its pipeline."),
+                 ("examples", "[Examples]", "accent",
+                  "Example analyses (Analyses/Examples/): ready-made recipes to learn from or to copy.\n\n"
+                  "They are listed apart from your analyses."),
+                 ("back", "Back", None, "Return to the main menu.")])
+        first = len(head)  # the index of the first recipe row
+        rows = head + [("select", name, None, None) for name in names] + tail
+        choices = [row[1] for row in rows]
 
         def view(index):
-            if index == 0:
-                return dict(hint="Create a new analysis with an empty recipe.\n\n"
-                            "You will first choose an analysis name.\n\n"
-                            "Configure its pipeline with E before starting a run.")
-            if index <= len(names):
-                return preview(index - 1)
-            return dict(hint="Enter a recipe file or bundle directory to review its pipeline."
-                        if index == len(names) + 1 else "Return to the main menu.")
+            if first <= index < first + len(names):
+                return preview(index - first)
+            return dict(hint=rows[index][3])
 
         colors = ["error" if flag else "warning" if (warnings and warnings[index]) or
                   (drafts and drafts[index]) else None
                   for index, flag in enumerate(broken or [False] * len(names))]
         if preview is None:
-            selected = self.choose("Select a recipe", choices)
+            selected = self.choose("Select an example" if examples else "Select a recipe", choices)
         else:
-            selected = self._pipeline_choice("Start a new run / Select a recipe", choices, view,
-                                             row_colors=["accent"] + colors + [None, None], position=position,
-                                             live=LIST_EVERY if live else None,
-                                             edit_indices=range(1, len(names) + 1))
+            selected = self._pipeline_choice("Start a new run / %s" % ("Examples" if examples else "Select a recipe"),
+                                             choices, view,
+                                             row_colors=[row[2] for row in head] + colors + [row[2] for row in tail],
+                                             position=position, live=LIST_EVERY if live else None,
+                                             edit_indices=range(first, first + len(names)))
         if selected == REFRESH:
             return REFRESH, None
         if isinstance(selected, tuple):
-            return "edit", selected[1] - 1
-        if selected is None or selected == len(names) + 2:
+            return "edit", selected[1] - first
+        if selected is None:
             return "back", None
-        if selected == 0:
-            return "create", None
-        return ("manual", None) if selected == len(names) + 1 else ("select", selected - 1)
+        action = rows[selected][0]
+        return (action, selected - first) if action == "select" else (action, None)
 
     def analysis_name(self, default=""):
         return self.prompt("Define analysis name", default=default)

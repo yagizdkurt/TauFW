@@ -17,7 +17,8 @@ FAQ = (
      "An analysis is a directory in Analyses/ with recipe.yml (the stages "
      "and their options), the config files it uses, and its Python steps. "
      "Select a listed analysis or enter another path (a bundle directory or "
-     "a YAML or JSON recipe file). Relative paths are resolved from the "
+     "a YAML or JSON recipe file). The examples (Analyses/Examples/) have their "
+     "own list: [Examples], above Back. Relative paths are resolved from the "
      "directory where you launched taufw.py. A run reads its own copy of "
      "the bundle, made when it starts."),
 

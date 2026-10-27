@@ -141,7 +141,7 @@ makes the test fail until it is removed there):
 
 | Config | Channels | Branches | Why |
 |---|---|---|---|
-| `v15_2022_preEE.yml` ... `v15_2024.yml` (and the bundle copy `example_mutau_long/v15_2022_postEE.yml`) | mumu, ee, emu | `puweight_2025_69p2_v3`, `idisoweight_1_2025`, `trigweight_2025`, `idisoweight_2_2025` | `weights.other` of every era uses the 2025 add-on names (`samples_v15.py:281-284`, copied into the templates) |
+| `v15_2022_preEE.yml` ... `v15_2024.yml` (and the bundle copy `Examples/mutau_long/v15_2022_postEE.yml`) | mumu, ee, emu | `puweight_2025_69p2_v3`, `idisoweight_1_2025`, `trigweight_2025`, `idisoweight_2_2025` | `weights.other` of every era uses the 2025 add-on names (`samples_v15.py:281-284`, copied into the templates) |
 | `v15_2025.yml`, `v15_2026.yml`, `v15_2526.yml` (and the bundle copy) | ee, emu | `idisoweight_1_2025`, `trigweight_2025`, `idisoweight_2_2025` | `weights.other`: the muon SFs of the add-on in electron channels |
 | the same | etau | `idisoweight_1_2025`, `trigweight_2025` | `weights.semileptonic`: the muon SFs of the add-on for etau |
 | `setup_tautau.yml` | tautau | `idMedium_1`, `idMedium_2` | the baseline of a mumu setup (muon IDs) |

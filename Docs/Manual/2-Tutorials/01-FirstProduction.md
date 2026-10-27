@@ -13,7 +13,7 @@ Don't edit the examples in `Analyses/` directly. Other people use them too, and 
 back at. Make your own bundle from the example instead:
 
 ```bash
-python3 taufw.py init my_first_production --from Analyses/example_mutau_short
+python3 taufw.py init my_first_production --from Analyses/Examples/mutau_short
 ```
 
 <!-- TODO: real output of the init command -->

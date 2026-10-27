@@ -42,10 +42,20 @@ machine, Python API, and run-record internals, see the
 
 | Bundle | Pipeline | Inputs and purpose |
 | --- | --- | --- |
-| [example_mutau_short](example_mutau_short/recipe.yml) | `production` | Produce `2022_postEE` mutau tuples for sample names matching `DY*` or `TT*`: a quick production example (no plots: a few MC samples without data are not enough for them). |
-| [example_mutau_long](example_mutau_long/recipe.yml) | `production` → `controlhists` → `controlplots` | Produce every `2022_postEE` mutau tuple the control plots read (data and the 22 MC samples of its `v15_2022_postEE.yml`), then the plots; `plan` checks that production makes every sample the plots ask for. A full production: tens of GB, hours of batch jobs. |
-| [example_broken](example_broken/recipe.yml) | (invalid on purpose) | A demonstration of the validation: `taufw.py check Analyses/example_broken` lists its four problems; the menu shows it in red. Do not fix it. |
 | [tes_id_2025](tes_id_2025/recipe.yml) | `controlhists` → `controlplots` → `shapes` → `fit` → `fit_summary` (python) | Use existing 2025 tuples for the combined tau energy scale (TES) and tau ID scale factor fit, with the Z→μμ control region; DeepTau VSjet `VTight`, VSe `Tight`; then a table of the fitted values. |
+
+### Examples
+
+The examples are in `Analyses/Examples/`: ready-made recipes to learn from or to copy (`taufw.py init
+<name> --from Analyses/Examples/<example>`). The menu lists them apart from the analyses, under
+**[Examples]** of its recipe list.
+
+| Example | Pipeline | Inputs and purpose |
+| --- | --- | --- |
+| [mutau_short](Examples/mutau_short/recipe.yml) | `production` | Produce `2022_postEE` mutau tuples for sample names matching `DY*` or `TT*`: a quick production example (no plots: a few MC samples without data are not enough for them). |
+| [mutau_long](Examples/mutau_long/recipe.yml) | `production` → `controlhists` → `controlplots` | Produce every `2022_postEE` mutau tuple the control plots read (data and the 22 MC samples of its `v15_2022_postEE.yml`), then the plots; `plan` checks that production makes every sample the plots ask for. A full production: tens of GB, hours of batch jobs. |
+| [broken](Examples/broken/recipe.yml) | (invalid on purpose) | A demonstration of the validation: `taufw.py check Analyses/Examples/broken` lists its four problems; the menu shows it in red. Do not fix it. |
+| [cmsdas26_ztt](Examples/cmsdas26_ztt/README.md) | `controlhists` → `controlplots` → python steps (ROC curves, tau ID SF and TES applied, datacards, Combine fits) | The CMSDAS 2026 tau long exercise: the Z→τ_μτ_h and Z→μμ cross sections on 2024 data, from the pre-made tuples on EOS; reproduces the exercise's results (r(μτ) = 0.970, r(μμ) = 0.964). An example of an analysis made of Python steps. Its scale factors are the exercise team's own, not official ones. |
 
 Each bundle carries copies of the Histogrammer and Fitter configs it uses, next to
 its `recipe.yml`. The examples still need the corresponding sample catalog,
@@ -53,9 +63,10 @@ tuple files, and PicoProducer configuration in your environment; they are not
 self-contained input datasets (see [Current limitations](#current-limitations)).
 
 The optional interactive menu lists the bundles in this directory (directories
-with a `recipe.yml`) and loose `.yml`, `.yaml`, and `.json` recipe files.
-Recipes elsewhere work too: select another path in the menu or pass the path to
-the command line.
+with a `recipe.yml`) and loose `.yml`, `.yaml`, and `.json` recipe files; the
+examples of `Examples/` are listed under **[Examples]**, above Back. Recipes
+elsewhere work too: select another path in the menu or pass the path to the
+command line.
 
 ## Writing your first analysis
 
@@ -242,7 +253,7 @@ also checks the files the recipe names: `pico.config`, every path option (see
 [Paths and configuration](#paths-and-configuration)), and the stage directories of
 [inputs from another run](#inputs-from-another-run). It exits with 1 if there is a problem. The menu runs the same check:
 a recipe with problems is red in the list and its preview lists them; it cannot
-be started. [example_broken](example_broken/recipe.yml) shows what this looks like.
+be started. [Examples/broken](Examples/broken/recipe.yml) shows what this looks like.
 
 Validation does not establish that every input exists, that a physics
 setup is suitable, or that batch submission will work. `plan` also checks local
@@ -776,10 +787,10 @@ From the repository root:
 ```bash
 # Inspect selected samples/jobs, the files each stage reads and the local-stage
 # commands. Nothing executes.
-python3 taufw.py plan Analyses/example_mutau_short
+python3 taufw.py plan Analyses/Examples/mutau_short
 
 # Create a run and execute every stage that can proceed now.
-python3 taufw.py start Analyses/example_mutau_short
+python3 taufw.py start Analyses/Examples/mutau_short
 ```
 
 `start` prints the actual run directory. Use that directory for further commands:
@@ -805,7 +816,7 @@ runs locally on one input file from the first matching sample for each era and
 channel, with 100 events by default:
 
 ```bash
-python3 taufw.py plan Analyses/example_mutau_short --local -m 50
+python3 taufw.py plan Analyses/Examples/mutau_short --local -m 50
 ```
 
 It creates no Framework run record, does not execute the later stages, and needs

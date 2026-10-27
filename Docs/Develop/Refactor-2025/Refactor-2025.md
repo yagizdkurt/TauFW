@@ -1763,3 +1763,36 @@ already records the times, so nothing new is written.
   log. Once the stage takes a step again (a retried stage), its time and commands start from zero (`earlier`).
   `Menu/_preview.py`: the made-up run shows earlier times for `ntuples` and `histograms`.
 - **Unchanged:** run.json, the events, `taufw.py`, a run started from the menu (all stages NEW), every BBB baseline.
+
+## 47. The example analyses move to Analyses/Examples/, listed under [Examples] in the menu
+
+**Date:** 2026-10-27
+**Status:** done (lxplus check open: [TODO.md](TODO.md) section 1)
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#47-the-example-analyses-move-to-analysesexamples-listed-under-examples-in-the-menu)
+
+**Why:** the menu's recipe list showed the examples (`example_mutau_short`, `example_mutau_long`, `example_broken`)
+next to the real analyses, and the CMSDAS26 port (`Analyses/CDTest`, CL §43, §44) was to stay as one more example.
+With every new example the list grows, and a user's own analyses get lost among them.
+
+- **Moved** (`git mv`, contents unchanged unless said): `Analyses/example_mutau_short` -> `Analyses/Examples/mutau_short`,
+  `example_mutau_long` -> `Examples/mutau_long`, `example_broken` -> `Examples/broken`, `CDTest` ->
+  `Examples/cmsdas26_ztt` (its recipe `name:` is now `cmsdas26_ztt`, so its runs are `cmsdas26_ztt_<time>`; the
+  other recipe names are unchanged). The `.gitignore` exceptions of the CMSDAS26 bundle follow it.
+- **Framework** (`defaults.py` `EXAMPLES_DIR_NAME = "Examples"`, `interfaces/interactive.py`): `recipes()` lists the
+  recipes directory as before; `Examples/` has no `recipe.yml`, so it is not one of them. `examples()` lists
+  `Analyses/Examples/` the same way. `run_roots()` also reads the `run_root` of the examples. Nothing else looks at
+  the directory: `check`, `plan`, `start` take a path as before (`taufw.py plan Analyses/Examples/mutau_short`).
+- **Menu** (`Utilities/python/Menu/_menu.py` `select_recipe`, `_navigation.py` `_pick_recipe`): the recipe list ends
+  with `Enter another recipe path`, **`[Examples]`** (accent color), `Back`. `[Examples]` opens the same screen with
+  the examples (title "Start a new run / Examples"), without the create action and the other-path row, only `Back`
+  (to the recipe list). An example starts like any recipe; after the start the menu returns to the main menu. The
+  examples are checked ahead with the recipes (`_read_ahead`). "Create a new run" still creates `Analyses/<name>/`;
+  the name `Examples` is taken by the directory (the usual "already exists").
+- **Docs:** `Analyses/README.md` (a table of the analyses and one of the examples), `Framework/README.md`,
+  `Framework/python/__init__.py`, `taufw.py`, the Manual (`FirstSession.md`: the examples have their own list;
+  `UserConfig.md`, `01-FirstProduction.md`: the new paths), `contracts/pico-tuples.md`, the comments of the
+  example recipes. The outputs pasted in the Manual changed only in their paths; they are pasted again from lxplus
+  with the check of TODO section 1. Earlier changelog, TODO_Done and validation entries keep the old names (they
+  describe what was done then).
+- **Unchanged:** the recipe format, `check`/`plan`/`start`/`advance`, run.json, every BBB baseline (no case uses
+  the examples).

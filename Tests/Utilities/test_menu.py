@@ -27,6 +27,7 @@ def idle_operations():
     operations.run_lock.return_value = None
     operations.needs_grid_proxy.return_value = False
     operations.run_directories.return_value = []
+    operations.examples.return_value = []
     operations.recipe_preview.return_value = {}
     operations.kept_recipe_preview.side_effect = lambda path: operations.recipe_preview(path)  # read at once
     operations.kept_run_row.side_effect = lambda run_dir: operations.run_row(run_dir)
@@ -718,6 +719,26 @@ class ScreenTests(unittest.TestCase):
         operations.prepare_review.assert_called_once_with(str(Path("recipes/example.yml")))
         ui.operation_error.assert_not_called()
 
+    def test_examples_open_from_the_recipe_list(self):
+        """[Examples] opens the list of the examples: Back returns to the recipe list, a started example to the
+        main menu."""
+        ui, operations = mock.Mock(), idle_operations()
+        operations.recipes.return_value = [Path("Analyses/mine")]
+        operations.examples.return_value = [Path("Analyses/Examples/short"), Path("Analyses/Examples/broken")]
+        operations.start_run.return_value = mock.Mock(running=True, data=dict(run_id="short", run_dir=""))
+        ui.main_menu.side_effect = ["start", "exit"]
+        ui.select_recipe.side_effect = [("examples", None), ("back", None),       # in and out of the examples
+                                        ("examples", None), ("select", 0)]        # then start the first one
+        ui.confirm_recipe.return_value = "start"
+        self.assertEqual(MenuNavigation(ui, operations).run(), 0)
+        names = [call.args[0] for call in ui.select_recipe.call_args_list]
+        self.assertEqual(names, [["mine"], ["short", "broken"], ["mine"], ["short", "broken"]])
+        self.assertEqual([call.kwargs.get("examples", False) for call in ui.select_recipe.call_args_list],
+                         [False, True, False, True])
+        operations.start_run.assert_called_once_with(str(Path("Analyses/Examples/short")))
+        self.assertEqual(ui.main_menu.call_count, 2)  # straight back to the main menu after the start
+        ui.operation_error.assert_not_called()
+
     def test_plan_and_status_are_shown_on_the_command_screen(self):
         ui, operations, record = self.runs_menu()
         operations.recipes.return_value = [Path("recipes/example.yml")]
@@ -846,7 +867,9 @@ class ScreenTests(unittest.TestCase):
             (ui.continue_actions, ("run",), ["wait", "advance", "back"]),
             (ui.grid_proxy_needed, (), ["renew", "back"]),
             (ui.select_recipe, (["example.yml"],),
-             [("create", None), ("select", 0), ("manual", None), ("back", None)]),
+             [("create", None), ("select", 0), ("manual", None), ("examples", None), ("back", None)]),
+            (lambda names: ui.select_recipe(names, examples=True), (["example.yml"],),
+             [("select", 0), ("back", None)]),
             (ui.select_run, ([("run", "WAITING", "today")],),
              [("select", 0), ("manual", None), ("back", None)]),
         ]
@@ -1033,7 +1056,7 @@ ConsoleUI(None)
         ui.message.assert_called_once_with("Analysis draft", "No stages configured. Press E for Run editor.")
 
     def test_picker_updates_errors_and_special_row_hints(self):
-        ui, screen, frames = self.rendered_terminal([1002, 1002, 1002, 1002, 27])
+        ui, screen, frames = self.rendered_terminal([1002, 1002, 1002, 1002, 1002, 27])
         preview = mock.Mock(side_effect=[dict(name="good", stages=(("plots", "plots", ""),)),
                                          dict(name="bad", error="invalid recipe")])
         self.assertEqual(ui.select_recipe(["good", "bad"], preview), ("back", None))
@@ -1041,7 +1064,8 @@ ConsoleUI(None)
         self.assertIn("Create a new analysis", "\n".join(frames[0]))
         self.assertIn("Cannot preview: invalid recipe", "\n".join(frames[2]))
         self.assertIn("Enter a recipe file", "\n".join(frames[3]))
-        self.assertIn("Return to the main menu.", "\n".join(frames[4]))
+        self.assertIn("Example analyses (Analyses/Examples/)", "\n".join(frames[4]))
+        self.assertIn("Return to the main menu.", "\n".join(frames[5]))
 
     def test_pipeline_scroll_wrap_and_reset_on_recipe_change(self):
         ui, screen, frames = self.rendered_terminal([1004] * 12 + [1002, 27], (18, 64))
@@ -1219,12 +1243,17 @@ ConsoleUI(None)
         ui = ConsoleUI(mock.Mock())
         with mock.patch.object(ui, "_pipeline_choice", return_value=None) as choice:
             self.assertEqual(ui.select_recipe(["a", "b"], lambda i: {}, broken=[False, True]), ("back", None))
-        self.assertEqual(choice.call_args.kwargs["row_colors"], ["accent", None, "error", None, None])
+        self.assertEqual(choice.call_args.kwargs["row_colors"], ["accent", None, "error", None, "accent", None])
         with mock.patch.object(ui, "_pipeline_choice", return_value=None) as choice:
             ui.select_recipe(["ok", "warning", "error", "both"], lambda i: {},
                              broken=[False, False, True, True], warnings=[False, True, False, True])
         self.assertEqual(choice.call_args.kwargs["row_colors"],
-                         ["accent", None, "warning", "error", "error", None, None])
+                         ["accent", None, "warning", "error", "error", None, "accent", None])
+        with mock.patch.object(ui, "_pipeline_choice", return_value=None) as choice:  # the examples: no create row
+            ui.select_recipe(["a", "b"], lambda i: {}, broken=[True, False], examples=True)
+        self.assertEqual(choice.call_args.args[1], ["a", "b", "Back"])
+        self.assertEqual(choice.call_args.kwargs["row_colors"], ["error", None, None])
+        self.assertEqual(list(choice.call_args.kwargs["edit_indices"]), [0, 1])
 
     def test_warning_colors_survive_errors_wrapping_and_scrolling(self):
         for problems in ({}, {"problems": ("stages[0]: missing 'id'",)}, {"error": "invalid recipe"}):

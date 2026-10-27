@@ -3,12 +3,12 @@
 # This is a validation demo, not a pipeline intended to submit jobs or make plots.
 #
 # Inspect without running anything (after setting up the TauFW environment):
-#   python3 taufw.py check Analyses/example_broken
+#   python3 taufw.py check Analyses/Examples/broken
 # Expected: four problems, with exit code 1 because this recipe is invalid (and the warning that run_root is not
 # set, which alone would not fail).
 #
-# Menu: python3 taufw.py -> select example_broken in the recipe list.
-# The menu discovers Analyses/*/recipe.yml automatically, even invalid recipes;
+# Menu: python3 taufw.py -> Start a new run -> [Examples] -> broken.
+# The menu discovers Analyses/Examples/*/recipe.yml automatically, even invalid recipes;
 # its preview shows the problems below. No menu registration is needed.
 # Stage indexes in diagnostics are zero-based: stages[0] is production, etc.
 #
@@ -19,7 +19,7 @@ name: example_broken
 
 pico:
   # ERROR 1: pico.config names a file that deliberately does not exist here.
-  # Expected: pico.config: file not found: .../example_broken/missing_pico.json
+  # Expected: pico.config: file not found: .../Examples/broken/missing_pico.json
   # Fix: use config: null for PicoProducer's default, or supply a real config.
   config: missing_pico.json
 

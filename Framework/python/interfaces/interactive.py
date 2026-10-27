@@ -24,8 +24,8 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from TauFW.Framework.defaults import (ANALYSES_DIR, BUNDLE_DIR_NAME, CONFIGS_DIR, DEFAULT_RUN_ROOT, RECIPE_NAME,
-                                      RUN_RECORD_NAME, STAGES_DIR_NAME, TIME_FORMAT)
+from TauFW.Framework.defaults import (ANALYSES_DIR, BUNDLE_DIR_NAME, CONFIGS_DIR, DEFAULT_RUN_ROOT, EXAMPLES_DIR_NAME,
+                                      RECIPE_NAME, RUN_RECORD_NAME, STAGES_DIR_NAME, TIME_FORMAT)
 from TauFW.Framework.runtime.run_record import RunRecord, RunState
 from TauFW.Framework.recipes.recipe import Recipe, read_recipe
 from TauFW.Framework.recipes.validation import check_recipe
@@ -103,11 +103,13 @@ class _Operations:
 
     def recipes(self):
         """The analysis bundles (directories with a recipe.yml) and loose recipe files in the recipes directory;
-        the user config (Analyses/UserConfig.yaml) is not a recipe."""
-        return sorted((p for p in self.recipes_dir.iterdir()
-                       if (p.is_dir() and (p / RECIPE_NAME).is_file())
-                       or (p.is_file() and p.suffix in (".yml", ".yaml", ".json") and p.name != USER_CONFIG_NAME)),
-                      key=lambda p: p.name) if self.recipes_dir.is_dir() else []
+        the user config (Analyses/UserConfig.yaml) is not a recipe. The examples (Analyses/Examples/) are not
+        listed here: examples() lists them."""
+        return _recipes_in(self.recipes_dir)
+
+    def examples(self):
+        """The example analyses in Analyses/Examples/, listed under [Examples] of the recipe list."""
+        return _recipes_in(self.recipes_dir / EXAMPLES_DIR_NAME)
 
     def create_analysis(self, name):
         """Create a draft in the same root that the recipe picker discovers."""
@@ -158,12 +160,12 @@ class _Operations:
 
     def run_roots(self):
         """Where runs are looked for: taufw_runs/ in the launch directory, runs.run_root of the user config, and the
-        run_root of every recipe in the recipes directory (also of a recipe with problems, if its run_root can be
-        read)."""
+        run_root of every recipe in the recipes directory and its examples (also of a recipe with problems, if its
+        run_root can be read)."""
         roots = [self.launch_dir / DEFAULT_RUN_ROOT]
         if user_run_root():
             roots.append(Path(user_run_root()))
-        for path in self.recipes():
+        for path in self.recipes() + self.examples():
             value = self._kept_value("root", path, _file_signature)
             if value is None:
                 value = self._run_root_of(path)
@@ -501,6 +503,18 @@ class _Operations:
         return self.store.start("command", "%s %s" % (command, Path(target).name),
                                 [sys.executable, "-B", str(TAUFW_SCRIPT), command, str(target)],
                                 str(self.launch_dir), data=dict(command=command, target=str(target)))
+
+
+def _recipes_in(directory):
+    """The analysis bundles (directories with a recipe.yml) and loose recipe files of a directory, by name; the
+    user config is not a recipe. A directory without a recipe.yml (e.g. Examples/) is not listed."""
+    directory = Path(directory)
+    if not directory.is_dir():
+        return []
+    return sorted((p for p in directory.iterdir()
+                   if (p.is_dir() and (p / RECIPE_NAME).is_file())
+                   or (p.is_file() and p.suffix in (".yml", ".yaml", ".json") and p.name != USER_CONFIG_NAME)),
+                  key=lambda p: p.name)
 
 
 def _file_signature(path):

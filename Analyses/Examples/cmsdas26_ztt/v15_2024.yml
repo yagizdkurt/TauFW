@@ -48,7 +48,7 @@ data:                             # dataset pattern by channel kind (tautau, muo
 weights:                          # MC weight by channel kind (semileptonic, ditau, other)
   semileptonic: "genweight*puweight*trigweight*idisoweight_1*idweight_2*ltfweight_2"
   ditau: "genweight*trigweight*puweight*idweight_1*idweight_2*ltfweight_1*ltfweight_2"
-  # CDTest: the mumu weight of the CMSDAS long exercise for 2024 (long-ex Plotter/config/samples_v15.py); the
+  # cmsdas26_ztt: the mumu weight of the CMSDAS long exercise for 2024 (long-ex Plotter/config/samples_v15.py); the
   # template has the 2025 pileup and muon SFs here (samples_v15.py of TauFW uses them for every era)
   other: "genweight*puweight*idisoweight_1*trigweight*idisoweight_2"
 stitch: []
