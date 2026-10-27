@@ -724,8 +724,21 @@ class ConsoleUI:
         """Open the independent editor only on request; contain even its import/terminal errors."""
         try:
             from ..Editor import edit_file
-            result = self._run(lambda screen: edit_file(screen, path, validate=validate,
-                                                       title="Modify User Config", curses_module=self.curses))
+
+            def draw(screen):
+                self._setup(screen)
+                styles = dict(self.styles, muted=getattr(self.curses, "A_DIM", 0),
+                              active=self.styles["accent"] | self.curses.A_BOLD,
+                              higgs=self.styles["error"] | self.curses.A_BOLD,
+                              tau=self.styles["brand"], products=self.styles["good"],
+                              vertex=self.styles["warning"] | self.curses.A_BOLD)
+                appearance = dict(styles=styles, banner=BADGE,
+                                  banner_spans=((1, 2, "TauFW", "brand"), (2, 2, VERSION, "version")),
+                                  large_banner=FULL, large_banner_spans=INTERACTIONS)
+                return edit_file(screen, path, validate=validate, title="Modify User Config",
+                                 appearance=appearance, curses_module=self.curses)
+
+            result = self._run(draw)
             if result.error:
                 raise RuntimeError(result.error)
             return result.saved

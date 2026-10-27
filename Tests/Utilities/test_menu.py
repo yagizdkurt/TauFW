@@ -108,6 +108,26 @@ class ScreenTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "Editor unavailable"):
                 ui.edit_file("unused")
 
+    def test_editor_receives_existing_branding_and_styles_without_owning_the_palette(self):
+        from TauFW.Utilities.Editor import EditResult
+        from TauFW.Utilities.Menu.banner import BADGE, FULL, VERSION
+        for color in (False, True):
+            with self.subTest(color=color):
+                curses, screen = self.curses([])
+                curses.A_DIM, curses.COLOR_MAGENTA, curses.COLOR_YELLOW = 64, 5, 3
+                ui = ConsoleUI(curses)
+                with mock.patch.object(ui, "colors_enabled", return_value=color), \
+                        mock.patch("TauFW.Utilities.Editor.edit_file", return_value=EditResult()) as editor:
+                    self.assertFalse(ui.edit_file("personal.yaml"))
+                appearance = editor.call_args.kwargs["appearance"]
+                self.assertEqual(appearance["banner"], BADGE)
+                self.assertEqual(appearance["large_banner"], FULL)
+                self.assertIn((2, 2, VERSION, "version"), appearance["banner_spans"])
+                for role in ("accent", "brand", "version", "good", "warning", "error"):
+                    self.assertEqual(appearance["styles"][role], ui.styles[role])
+                self.assertEqual(bool(appearance["styles"]["accent"]), color)
+                self.assertIsNot(appearance["styles"], ui.styles)
+
     def test_grid_certificate_status_label_and_color(self):
         ui = ConsoleUI(mock.Mock())
         for valid, label, role in ((True, "Grid Certificate  \u2713", "good"),

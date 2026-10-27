@@ -48,6 +48,9 @@ for you. Use the arrow keys to move, Page Up/Page Down to scroll, and Tab to ins
 and Esc to go back. If you've changed something without saving, the editor asks whether to save, discard those
 changes or keep editing.
 
+The file appears in a frame below the TauFW logo. The current line is marked with `>`, and `Modified` means you
+have changes to save. Questions and save errors open over the text, so you can keep your place.
+
 Before saving, TauFW checks the YAML and its own settings. If something is wrong, it shows the problem and keeps
 your edits so you can fix it. It also refuses to overwrite a file changed by another editor since you opened it.
 You can still open the file in any other editor you prefer.

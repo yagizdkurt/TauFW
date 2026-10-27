@@ -28,7 +28,7 @@ class Terminal:
     def __init__(self, keys, dimensions=(16, 64)):
         self.keys = iter(keys)
         self.dimensions = dimensions
-        self.frames, self.cursors = [], []
+        self.frames, self.cursors, self.attributes, self.positions = [], [], [], []
         self.touched = 0
 
     def getmaxyx(self):
@@ -48,6 +48,7 @@ class Terminal:
 class Window:
     def __init__(self, terminal, height, width):
         self.terminal, self.height, self.width = terminal, height, width
+        self.position = (0, 0)
 
     def keypad(self, enabled):
         pass
@@ -57,19 +58,24 @@ class Window:
 
     def erase(self):
         self.lines = [" " * self.width for _ in range(self.height)]
+        self.attributes = []
 
     def addstr(self, row, column, text, attribute=0):
         if not 0 <= row < self.height or column + _width(text) >= self.width:
             raise TerminalError("Draw outside window")
         line = self.lines[row]
         self.lines[row] = line[:column] + text + line[column + len(text):]
+        self.attributes.append((row, column, text, attribute))
 
     def move(self, row, column):
         if not (0 <= row < self.height and 0 <= column < self.width):
             raise TerminalError("Cursor outside window")
+        self.position = row, column
 
     def refresh(self):
         self.terminal.frames.append("\n".join(self.lines))
+        self.terminal.attributes.append(list(self.attributes))
+        self.terminal.positions.append(self.position)
 
     def get_wch(self):
         key = next(self.terminal.keys)
@@ -86,13 +92,95 @@ class EditorTests(unittest.TestCase):
         self.path = self.root / "settings.yaml"
         self.path.write_text("# keep this comment\nvalue: old\n", encoding="utf-8")
 
-    def open(self, keys, validate=None, dimensions=(16, 64)):
+    def open(self, keys, validate=None, dimensions=(16, 64), appearance=None):
         terminal = Terminal(keys, dimensions)
-        result = edit_file(terminal, self.path, validate=validate, curses_module=terminal)
+        result = edit_file(terminal, self.path, validate=validate, appearance=appearance, curses_module=terminal)
         self.assertIsNone(result.error)
         self.assertEqual(terminal.cursors, [1, 0])
         self.assertEqual(terminal.touched, 1)
         return result, terminal
+
+    def appearance(self):
+        """Caller-owned branding and attributes; Editor needs no import from that caller."""
+        return dict(banner=("+-------+", "| TauFW |", "+-V0.0--+"),
+                    banner_spans=((1, 2, "TauFW", "brand"), (2, 2, "V0.0", "version")),
+                    large_banner=("LARGE BANNER",) + ("." * 78,) * 23,
+                    styles=dict(accent=16, brand=32, version=64, active=128, muted=256, warning=512,
+                                good=1024, error=2048))
+
+    def test_frame_banner_path_and_cursor_share_the_same_content_rectangle(self):
+        directory = self.root / ("parent_directory_" * 4)
+        directory.mkdir()
+        self.path = directory / "settings.yaml"
+        self.path.write_text("\n".join("value_%d: text" % i for i in range(40)), encoding="utf-8")
+        _, terminal = self.open([Terminal.KEY_END, "\x1b"], dimensions=(24, 80), appearance=self.appearance())
+        lines = terminal.frames[0].splitlines()
+        self.assertIn("| TauFW |", lines[1])
+        self.assertIn("settings.yaml", lines[2])
+        self.assertIn("...", lines[2])
+        self.assertEqual((lines[3][1], lines[3][78], lines[20][1], lines[20][78]), ("+",) * 4)
+        self.assertIn("Lines 1-16/40", lines[21])
+        self.assertEqual(terminal.positions[0], (4, 9))
+        self.assertEqual(terminal.positions[1], (4, 22))
+        self.assertIn((1, 3, "TauFW", 32), terminal.attributes[0])
+        self.assertTrue(any(text.startswith("> 1 | ") and attribute == 128
+                            for _, _, text, attribute in terminal.attributes[0]))
+
+    def test_large_banner_yields_to_badge_on_resize_without_changing_text_or_cursor(self):
+        original = "\n".join("value_%d: text" % i for i in range(40))
+        self.path.write_text(original, encoding="utf-8")
+        terminal = Terminal([], dimensions=(48, 90))
+
+        def resize(dimensions):
+            terminal.dimensions = dimensions
+            return Terminal.KEY_RESIZE
+
+        terminal.keys = iter([Terminal.KEY_NPAGE, lambda: resize((24, 80)),
+                              lambda: resize((48, 90)), "\x1b"])
+        result = edit_file(terminal, self.path, appearance=self.appearance(), curses_module=terminal)
+        self.assertIsNone(result.error)
+        self.assertIn("LARGE BANNER", terminal.frames[0])
+        self.assertIn("| TauFW |", terminal.frames[2])
+        self.assertNotIn("LARGE BANNER", terminal.frames[2])
+        self.assertIn("LARGE BANNER", terminal.frames[3])
+        for frame in terminal.frames[1:]:
+            self.assertIn("Ln 17, Col 1", frame)
+        self.assertEqual(terminal.positions[2], (19, 9))
+        self.assertEqual(terminal.positions[3], (43, 9))
+        self.assertEqual(self.path.read_text(), original)
+
+    def test_dialogs_overlay_the_document_and_keep_the_banner_visible(self):
+        self.path.write_text("\n".join("value_%d: text" % i for i in range(40)), encoding="utf-8")
+        for validation in (None, lambda path: ["Problem %d" % i for i in range(40)]):
+            with self.subTest(validation=validation):
+                keys = ["X", "\x1b", "d"] if validation is None else [
+                    "X", Terminal.KEY_F2, Terminal.KEY_NPAGE, "\n", "\x1b", "d"]
+                result, terminal = self.open(keys, validation, (24, 80), self.appearance())
+                self.assertFalse(result.saved)
+                for frame in terminal.frames:
+                    self.assertIn("| TauFW |", frame)
+                    self.assertIn("settings.yaml", frame)
+                    self.assertIn("F2 Save | Esc Back", frame)
+                if validation is None:
+                    self.assertIn("Unsaved changes", terminal.frames[-1])
+                    self.assertIn("value_0: text", terminal.frames[-1])
+                else:
+                    self.assertIn("Cannot save", terminal.frames[2])
+                    self.assertIn("Problem 13", terminal.frames[3])
+                    self.assertTrue(any("Cannot save" in text and attribute == 2048
+                                        for _, _, text, attribute in terminal.attributes[2]))
+
+    def test_small_monochrome_dialog_keeps_essential_controls_and_modified_state(self):
+        appearance = self.appearance()
+        appearance["styles"] = {role: 0 for role in appearance["styles"]}
+        original = self.path.read_bytes()
+        result, terminal = self.open(["X", "\x1b", "d"], dimensions=(10, 40), appearance=appearance)
+        self.assertFalse(result.saved)
+        self.assertIn("Modified", terminal.frames[-1])
+        self.assertIn("Unsaved changes", terminal.frames[-1])
+        self.assertIn("F2 Save | D Discard | Esc Edit", terminal.frames[-1])
+        self.assertIn("| TauFW |", terminal.frames[-1])
+        self.assertEqual(self.path.read_bytes(), original)
 
     def test_text_operations_preserve_empty_lines_and_vertical_cursor_column(self):
         buffer = Buffer("alpha\nx\nlong line\n")

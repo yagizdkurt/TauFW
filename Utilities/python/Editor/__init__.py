@@ -24,12 +24,14 @@ class EditResult:
     error: Optional[str] = None
 
 
-def edit_file(screen, path, *, validate=None, title="Text editor", curses_module=None):
+def edit_file(screen, path, *, validate=None, title="Text editor", appearance=None, curses_module=None):
     """Edit an existing UTF-8 file on an existing curses screen; always return EditResult.
 
     Expected save failures stay on the editor screen so the buffer can be fixed
     or copied. Other ordinary exceptions become result.error after terminal
-    cleanup. curses_module is optional dependency injection for terminal tests.
+    cleanup. appearance optionally supplies banner lines, highlight spans and
+    preallocated curses styles; the editor never imports its caller's UI.
+    curses_module is optional dependency injection for terminal tests.
     This is an exception boundary, not isolation from hangs or process crashes.
     """
     editor = None
@@ -38,7 +40,7 @@ def edit_file(screen, path, *, validate=None, title="Text editor", curses_module
         from ._screen import Editor
         if curses_module is None:
             import curses as curses_module
-        editor = Editor(screen, curses_module, Document(path), title, validate)
+        editor = Editor(screen, curses_module, Document(path), title, validate, appearance)
         editor.run()
         return EditResult(saved=editor.saved)
     except KeyboardInterrupt:
