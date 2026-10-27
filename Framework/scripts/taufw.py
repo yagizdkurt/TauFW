@@ -32,8 +32,8 @@ variable is removed from the environment first, so the commands the stages run n
 
 The runs go to the recipe's run_root (start --run-root DIR takes precedence; without both: taufw_runs/ here).
 
-check, plan and start warn in one line while there is no user config or it is not reviewed (TauFW.Utilities.UserConfig);
-the recipe still runs.
+check, plan and start warn in one line while there is no user config or it is not reviewed
+(TauFW.Utilities.UserConfig.manage); the recipe still runs.
 
 Exit code: 1 if the run failed or the recipe is invalid (warnings do not count), otherwise 0. See
 Framework/README.md.
@@ -51,6 +51,7 @@ try:
                                           default_file_io)
     from TauFW.Utilities.Process import EVENTS_ENV, EventWriter
     from TauFW.Utilities import UserConfig
+    from TauFW.Utilities.UserConfig import manage as user_config
 except ImportError as err:
     print("\033[1m\033[31mImportError for TauFW.Framework: please check if you compiled with `scram b`.\033[0m")
     raise err
@@ -236,12 +237,12 @@ def cmd_userconfig(args):
     reporter = _reporter(args)
     path = UserConfig.location()
     try:
-        created = UserConfig.create(path)
+        created = user_config.create(path)
     except OSError as error:  # e.g. the directory of $TAUFW_USER_CONFIG does not exist
         reporter.warning("Cannot create the user config %s: %s" % (path, error))
         return 1
     reporter.message(("New user config: %s" if created else "User config: %s") % (path))
-    warnings = UserConfig.check()
+    warnings = user_config.check()
     for warning in warnings:
         reporter.warning(warning)
     if not warnings:
@@ -257,7 +258,7 @@ def _reporter(args):
 
 def _show_user_config(reporter):
     """The warnings of the user config, one line each (no file, not reviewed): the recipe still runs."""
-    for warning in UserConfig.check():
+    for warning in user_config.check():
         reporter.warning(warning)
 
 

@@ -9,11 +9,20 @@ from unittest import mock
 
 import checkout  # noqa: F401  (must precede TauFW.Utilities imports)
 from TauFW.Utilities import UserConfig
+from TauFW.Utilities.UserConfig import manage
 
 REVIEWED = "taufw_user:\n  version: 1\n  reviewed: true\n"
 
 
 class UserConfigTests(unittest.TestCase):
+    def test_reading_and_managing_are_separate(self):
+        """Scripts see only the reading side; making the file and its warnings are in UserConfig.manage."""
+        self.assertEqual(sorted(UserConfig.__all__), ["Config", "UserConfigError", "load", "location"])
+        for name in ("create", "check"):
+            self.assertFalse(hasattr(UserConfig, name))
+            self.assertTrue(callable(getattr(manage, name)))
+        self.assertIs(manage.location, UserConfig.location)  # one location for both
+
     def setUp(self):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
@@ -26,9 +35,9 @@ class UserConfigTests(unittest.TestCase):
 
     def test_location_is_the_checkouts_analyses_or_the_environment(self):
         with mock.patch.dict(os.environ):
-            os.environ.pop(UserConfig.ENVVAR, None)
+            os.environ.pop(manage.ENVVAR, None)
             self.assertEqual(UserConfig.location(), checkout.SOURCE.parents[1] / "Analyses" / "UserConfig.yaml")
-            os.environ[UserConfig.ENVVAR] = str(self.path)
+            os.environ[manage.ENVVAR] = str(self.path)
             self.assertEqual(UserConfig.location(), self.path)
 
     def test_missing_file_gives_defaults_and_names_the_create_command(self):
@@ -42,22 +51,23 @@ class UserConfigTests(unittest.TestCase):
             config.require("runs.run_root")
         self.assertIn(str(self.path), str(error.exception))
         self.assertIn("'runs.run_root'", str(error.exception))
-        self.assertIn(UserConfig.CREATE_COMMAND, str(error.exception))
-        self.assertEqual(UserConfig.check(config),
+        self.assertIn(manage.CREATE_COMMAND, str(error.exception))
+        self.assertEqual(manage.check(config),
                          ["No user config %s: create it with `python3 taufw.py userconfig`" % (self.path)])
 
     def test_create_writes_once_and_never_overwrites(self):
-        self.assertTrue(UserConfig.create(self.path))
+        self.assertTrue(manage.create(self.path))
         text = self.path.read_text(encoding="utf-8")
         config = UserConfig.load(self.path)
         self.assertTrue(config.exists)
         self.assertEqual((config.version, config.reviewed, config.values), (1, False, {}))
-        self.assertEqual(UserConfig.check(config),
-                         ["User config %s is not reviewed yet: check its values, then set reviewed: true" % (self.path)])
+        self.assertEqual(manage.check(config),
+                         ["User config %s is not reviewed yet: check its values, then set reviewed: true"
+                          % (self.path)])
         self.write(text.replace("reviewed: false", "reviewed: true"))
-        self.assertFalse(UserConfig.create(self.path))
+        self.assertFalse(manage.create(self.path))
         self.assertIn("reviewed: true", self.path.read_text(encoding="utf-8"))  # kept
-        self.assertEqual(UserConfig.check(UserConfig.load(self.path)), [])
+        self.assertEqual(manage.check(UserConfig.load(self.path)), [])
 
     def test_dotted_keys_sections_and_values(self):
         self.write(REVIEWED + "runs:\n  run_root: /afs/x\nproduction:\n  hadd: {maxopenfiles: 500}\n")
@@ -88,14 +98,14 @@ class UserConfigTests(unittest.TestCase):
 
     def test_check_never_raises(self):
         self.write("- a list\n")
-        with mock.patch.dict(os.environ, {UserConfig.ENVVAR: str(self.path)}):
-            (warning,) = UserConfig.check()
+        with mock.patch.dict(os.environ, {manage.ENVVAR: str(self.path)}):
+            (warning,) = manage.check()
         self.assertIn("not a YAML mapping", warning)
 
     def test_importable_before_cmsenv_as_a_top_level_package(self):
         """FastSetup imports it with Utilities/python on sys.path and no TauFW package."""
-        code = ("import sys; sys.path.insert(0, sys.argv[1]); import UserConfig; "
-                "print(UserConfig.create(sys.argv[2]), UserConfig.create(sys.argv[2]))")
+        code = ("import sys; sys.path.insert(0, sys.argv[1]); from UserConfig import manage; "
+                "print(manage.create(sys.argv[2]), manage.create(sys.argv[2]))")
         result = subprocess.run([sys.executable, "-c", code, str(checkout.SOURCE), str(self.path)],
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
         self.assertEqual(result.returncode, 0, result.stdout)

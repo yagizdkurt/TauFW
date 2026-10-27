@@ -11,9 +11,11 @@ If you've never used TauFW before, go through these in order:
    data flows through them.
 2. **Setting up:** [FastSetup](FastSetup.md) does the installation for you with one command. If you'd rather do it by
    hand, or something goes wrong, there's the [manual installation guide](ManualInstallation.md).
-3. **[Your first session](1-GettingStarted/FirstSession.md)**: log in to lxplus, open the TauFW menu and look
+3. **[Your user config](1-GettingStarted/UserConfig.md)**: the one file with your personal settings. Check it once,
+   and see how to read it from your own scripts.
+4. **[Your first session](1-GettingStarted/FirstSession.md)**: log in to lxplus, open the TauFW menu and look
    around without breaking anything.
-4. **[Tutorial 1: your first production](2-Tutorials/01-FirstProduction.md)**: make real analysis ntuples with one
+5. **[Tutorial 1: your first production](2-Tutorials/01-FirstProduction.md)**: make real analysis ntuples with one
    of the example analyses.
 
 Keep the **[Glossary](4-Concepts/Glossary.md)** open in another tab. TauFW has a lot of its own words (bundle,

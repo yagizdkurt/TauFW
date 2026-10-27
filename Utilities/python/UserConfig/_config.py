@@ -1,8 +1,11 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-"""Read and create the user config: Analyses/UserConfig.yaml of this checkout, or the file $TAUFW_USER_CONFIG names.
+"""Read the user config: Analyses/UserConfig.yaml of this checkout, or the file $TAUFW_USER_CONFIG names.
+
+The reading side, for everyone (users' scripts and TauFW alike): one way to read, so both see the same values.
+Making the file and reporting its state are in manage.py.
 
 Inputs:  the user config file (YAML, optional).
-Outputs: Config (read-only values); create() writes a new file, never over an existing one.
+Outputs: Config (read-only values). Nothing is written.
 """
 import os
 from pathlib import Path
@@ -13,7 +16,7 @@ if __name__.startswith("TauFW."):
 else:  # FastSetup imports this package as UserConfig (Utilities/python on sys.path), before cmsenv
     from FIO import FileIO
     from Paths import TAUFW_ROOT
-from ._template import HEADER_KEY, VERSION, default_text
+from ._template import HEADER_KEY, VERSION
 
 FILE_NAME = "UserConfig.yaml"
 ENVVAR = "TAUFW_USER_CONFIG"  # another file instead of Analyses/UserConfig.yaml (e.g. one for several checkouts)
@@ -48,34 +51,6 @@ def load(path=None, files=None):
     if problem:
         raise UserConfigError("%s: %s (a new file: delete this one, then `%s`)" % (path, problem, CREATE_COMMAND))
     return Config(path, data)
-
-
-def check(config=None):
-    """One-line warnings for the commands that run an analysis (taufw.py check, plan, start): no file, a file that
-    cannot be read, or one not reviewed yet. Never raises: the commands go on."""
-    try:
-        config = config or load()
-    except UserConfigError as error:
-        return [str(error)]
-    if not config.exists:
-        return ["No user config %s: create it with `%s`" % (config.path, CREATE_COMMAND)]
-    if not config.reviewed:
-        return ["User config %s is not reviewed yet: check its values, then set reviewed: true" % (config.path)]
-    return []
-
-
-# =============================================================================
-# ==== Creation ====
-
-def create(path=None, files=None):
-    """Write a new user config to `path` (default: location()) if there is none. Returns True if it was written,
-    False if a file was there already (it is never changed)."""
-    path = Path(path) if path else location()
-    files = files or FileIO()
-    if files.exists(path):
-        return False
-    files.write_text(path, default_text())  # exclusive: never replaces a file made in the meantime
-    return True
 
 
 # =============================================================================

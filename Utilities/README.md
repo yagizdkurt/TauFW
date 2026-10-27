@@ -18,7 +18,7 @@ The package `__init__.py` files contain the public exports, so they are tracked 
 
 ## Package boundaries
 
-CLI and FIO each export one class; Menu exports `ConsoleUI` and `MenuNavigation`; Process exports `Command`, `CommandResult`, `ProcessRunner` and `ParallelProcessor`, and for the menu `EventWriter`, `EventReader`, `LogTail`, `BackgroundProcess`, `Operation` and `OperationStore`; Math exports plain functions (`_math.py`); HistFile exports `write_histfile`, `read_histfile` and their records (`_histfile.py`); UserConfig exports `load`, `check`, `create`, `location`, `Config` and `UserConfigError` (`_userconfig.py`). `_cli.py`, `_file_io.py`, and `_menu.py` implement those entry points; CLI and FIO use `_internal/` for formatting, filesystem, serialization, command, transport and ROOT functions. Application code should import only the owning package's public class. Underscores and `__all__` document Python's private API convention; they do not prevent access to internal modules.
+CLI and FIO each export one class; Menu exports `ConsoleUI` and `MenuNavigation`; Process exports `Command`, `CommandResult`, `ProcessRunner` and `ParallelProcessor`, and for the menu `EventWriter`, `EventReader`, `LogTail`, `BackgroundProcess`, `Operation` and `OperationStore`; Math exports plain functions (`_math.py`); HistFile exports `write_histfile`, `read_histfile` and their records (`_histfile.py`); UserConfig exports the reading side, `load`, `location`, `Config` and `UserConfigError` (`_config.py`), and its module `manage` the tools' side, `create` and `check`. `_cli.py`, `_file_io.py`, and `_menu.py` implement those entry points; CLI and FIO use `_internal/` for formatting, filesystem, serialization, command, transport and ROOT functions. Application code should import only the owning package's public class. Underscores and `__all__` document Python's private API convention; they do not prevent access to internal modules.
 
 These packages do not import existing analysis/startup modules or Framework. Construction is silent and does not open files, change directories, read configuration or launch commands; only `ProcessRunner.run`/`run_all`, `ParallelProcessor.start`, `BackgroundProcess.start` and `OperationStore.start` launch processes. There are no global utility instances, base classes or service registries. Pass instances explicitly to future framework components.
 The drawing library is the exception; see [Drawing](#drawing-cms-style-root-plots).
@@ -38,11 +38,13 @@ See [FastSetup](../Docs/Manual/FastSetup.md#installer-and-menu-organization) for
 
 ## User config
 
-`python/UserConfig` reads and creates the user config: the personal and machine settings of one user, in
+`python/UserConfig` reads and makes the user config: the personal and machine settings of one user, in
 `Analyses/UserConfig.yaml` of the checkout (ignored by git) or the file `$TAUFW_USER_CONFIG` names. FastSetup makes
 it once (`setup_tools.py userconfig`), `python3 taufw.py userconfig` makes it for an older installation, and nothing
 overwrites it. Which settings it holds is not decided yet: a new file has only its header (`taufw_user: {version,
 reviewed}`); a setting is added in `_template.py`. Changelog §40.
+
+Reading is for everyone, analysis scripts and TauFW alike (one way to read, so both see the same values):
 
 ```python
 from TauFW.Utilities import UserConfig
@@ -50,11 +52,19 @@ from TauFW.Utilities import UserConfig
 config = UserConfig.load()                  # a missing file gives an empty Config (config.exists is False)
 run_root = config.get("runs.run_root")      # None if the key is missing; keys of nested sections joined with dots
 run_root = config.require("runs.run_root")  # UserConfigError naming the file and the key if it is missing
-for warning in UserConfig.check():          # no file, not reviewed yet, or broken: one line each
+```
+
+Managing the file is for the tools that look after it (FastSetup, taufw.py, the menu), not for scripts:
+
+```python
+from TauFW.Utilities.UserConfig import manage
+
+manage.create()                 # a new file if there is none (never over an existing one)
+for warning in manage.check():  # no file, not reviewed yet, or broken: one line each
     print(warning)
 ```
 
-`taufw.py check`, `plan` and `start` show `check()` as warnings; the recipe still runs. Importing needs only the
+`taufw.py check`, `plan` and `start` show `manage.check()` as warnings; the recipe still runs. Importing needs only the
 standard library (reading needs PyYAML), and the package also imports as a top-level `UserConfig` with
 `Utilities/python` on `sys.path`, as FastSetup does before `cmsenv`.
 

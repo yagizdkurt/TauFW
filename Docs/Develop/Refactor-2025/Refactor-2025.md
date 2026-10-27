@@ -1521,12 +1521,19 @@ file is `Analyses/UserConfig.yaml` (YAML, for comments), made by the setup and i
 yet gets a one-line warning, nothing more; scripts keep `config.json` (compat), recipes and stages take the user
 config once it holds settings; its code lives in `Utilities/python/UserConfig/`.
 
-- **`TauFW.Utilities.UserConfig`** (new package, standard library only; reading needs PyYAML):
-  `location()` (`$TAUFW_USER_CONFIG` if set, else `Analyses/UserConfig.yaml` of the checkout), `load(path)` ->
-  `Config` (`get("runs.run_root", default)`, `require(key)`, `section(name)`, `values`, `exists`, `reviewed`,
-  `version`; a missing file is an empty `Config`, a broken one a `UserConfigError` naming the file), `create(path)`
-  (writes the new file, never over an existing one) and `check()` (the one-line warnings: no file, not reviewed, a
-  broken file; never raises). The new file has only its header:
+- **`TauFW.Utilities.UserConfig`** (new package, standard library only; reading needs PyYAML), in two parts (user,
+  2026-10-27: what scripts use apart from what the tools use):
+  - **Reading, for everyone** (`UserConfig`, `_config.py`): `location()` (`$TAUFW_USER_CONFIG` if set, else
+    `Analyses/UserConfig.yaml` of the checkout), `load(path)` -> `Config` (`get("runs.run_root", default)`,
+    `require(key)`, `section(name)`, `values`, `exists`, `reviewed`, `version`; a missing file is an empty `Config`,
+    a broken one a `UserConfigError` naming the file). TauFW's own readers of a setting use the same `load()` as a
+    user's script, so both see the same value.
+  - **Managing the file** (`UserConfig.manage`, `manage.py`), for FastSetup, taufw.py and the menu: `create(path)`
+    (writes the new file, never over an existing one), `check()` (the one-line warnings: no file, not reviewed, a
+    broken file; never raises) and the constants (`FILE_NAME`, `ENVVAR`, `DEFAULT_PATH`, `CREATE_COMMAND`). Not
+    named after the Framework: FastSetup uses it too, and Utilities does not know the Framework.
+
+  The new file has only its header:
 
   ```yaml
   taufw_user:
@@ -1541,7 +1548,7 @@ config once it holds settings; its code lives in `Utilities/python/UserConfig/`.
   prints `Created ...` or `Kept ...`; a failure is a setup warning, not an error. The summary gets a line
   `User config  <path> (review it)`. For checkouts installed before: `python3 taufw.py userconfig` (new command:
   makes the file if there is none, prints its path and its warnings).
-- **taufw.py:** `check`, `plan` and `start` show `UserConfig.check()` as warnings, one line each, e.g.
+- **taufw.py:** `check`, `plan` and `start` show `manage.check()` as warnings, one line each, e.g.
   `User config /afs/.../Analyses/UserConfig.yaml is not reviewed yet: check its values, then set reviewed: true`.
   The recipe still runs; the exit code does not change.
 - **Not a recipe:** the menu listed every loose `.yml`/`.yaml`/`.json` file of `Analyses/` as a recipe, so the user

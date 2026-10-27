@@ -605,7 +605,8 @@ re-captures the whole suite: 22 same, 1 changed): 658 `lumi` fields added, each 
 
 **Change:** [CL §40](Refactor-2025.md#40-the-user-config-infrastructure-analysesuserconfigyaml-taufwutilitiesuserconfig)
 
-- `Tests/Utilities/test_userconfig.py` (7 tests, no ROOT): location (checkout / `$TAUFW_USER_CONFIG`), a missing file
+- `Tests/Utilities/test_userconfig.py` (8 tests, no ROOT): the public `UserConfig` has only the reading side
+  (`create`, `check` only in `manage`), location (checkout / `$TAUFW_USER_CONFIG`), a missing file
   (defaults, `require` names the file, the key and the create command, the warning), `create` writes once and never
   overwrites, dotted keys / sections / copies, every broken header and a YAML syntax error name the file,
   `check()` never raises, and the package imported as a top-level `UserConfig` (FastSetup, before `cmsenv`).

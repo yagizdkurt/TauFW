@@ -181,6 +181,11 @@ the main things TauFW measures.
 The ratio of tau identification efficiency in data to that in simulation, for a given *working point*. You multiply
 simulation by it to correct it.
 
+**user config**
+Your own settings file, `Analyses/UserConfig.yaml`. It holds things that belong to you rather than to an analysis,
+and git ignores it. FastSetup makes it, and `python3 taufw.py userconfig` makes it if you don't have one. See
+[Your user config](../1-GettingStarted/UserConfig.md).
+
 **working point** (WP)
 How tight a tau ID cut is, for example `Loose`, `Medium` or `VTight`. Tighter means fewer fake taus, but also fewer
 real ones. TauFW uses DeepTau working points against jets (VSjet), electrons (VSe) and muons (VSmu).

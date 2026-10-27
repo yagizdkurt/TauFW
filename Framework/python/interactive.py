@@ -30,7 +30,7 @@ from TauFW.Framework.framework import Framework
 from TauFW.Framework.reporting import SilentReporter
 from TauFW.Framework.run_lock import read_lock
 from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation, Prefetch
-from TauFW.Utilities.UserConfig import FILE_NAME as USER_CONFIG_NAME
+from TauFW.Utilities.UserConfig.manage import FILE_NAME as USER_CONFIG_NAME
 from TauFW.Utilities.Process import LOST, EventReader, OperationStore
 
 CHECKOUT = Path(__file__).resolve().parents[2]

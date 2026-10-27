@@ -54,11 +54,11 @@ def main(argv=None):
         verify_htt_files(args.directory, args.files)
     elif args.command == "userconfig":  # imported here: the other commands need only Installer
         if __package__:
-            from .. import UserConfig
+            from ..UserConfig import manage
         else:
-            import UserConfig
-        path = Path(args.path) if args.path else UserConfig.location()
-        print(("Created %s" if UserConfig.create(path) else "Kept %s") % path)
+            from UserConfig import manage
+        path = Path(args.path) if args.path else manage.location()
+        print(("Created %s" if manage.create(path) else "Kept %s") % path)
     return 0
 
 
