@@ -573,7 +573,7 @@ class ScreenTests(unittest.TestCase):
             ui.operation_error.assert_not_called()
 
     def test_entry_banners_welcome_text_and_compact_layout(self):
-        from TauFW.Utilities.Menu.banner import FULL
+        from TauFW.Utilities.Menu.banner import FULL, decay_frame
         for installer in (False, True):
             with self.subTest(installer=installer):
                 curses, screen = self.curses([27])
@@ -583,11 +583,12 @@ class ScreenTests(unittest.TestCase):
                     ui.setup_checklist([("combine", "Combine")], ["combine"])
                     welcome = "Welcome to TauFW fast installer!"
                 else:
-                    ui.main_menu()
+                    with mock.patch("TauFW.Utilities.Menu._menu.time.monotonic", return_value=0):
+                        ui.main_menu()
                     welcome = "Welcome to TauFW!"
                 calls = screen.addnstr.call_args_list
                 drawn = [call.args[2] for call in calls]
-                self.assertEqual(drawn[:len(FULL)], list(FULL))
+                self.assertEqual(drawn[:len(FULL)], list(FULL if installer else decay_frame(FULL, 0)))
                 self.assertIn(welcome, drawn)
                 self.assertIn("Tau analysis framework", drawn[len(FULL) - 4])
                 self.assertIn("V0.0", drawn[len(FULL) - 3])
@@ -601,6 +602,7 @@ class ScreenTests(unittest.TestCase):
                 drawn = [call.args[2] for call in screen.addnstr.call_args_list]
                 self.assertEqual(drawn[:len(BOXED)], list(BOXED))
                 self.assertIn("> Start a new run", drawn)
+                screen.timeout.assert_called_with(-1)
         curses, screen = self.curses([27])
         screen.getmaxyx.return_value = (12, 40)
         curses.has_colors.return_value = False
@@ -610,6 +612,81 @@ class ScreenTests(unittest.TestCase):
         self.assertIn("Welcome to TauFW!", drawn)
         self.assertIn("> Start a new run", drawn)
         self.assertFalse(any(line.startswith("****") for line in drawn))
+        screen.timeout.assert_called_with(-1)
+
+    def test_main_banner_animates_with_and_without_color_then_holds_the_complete_art(self):
+        for colors in (False, True):
+            with self.subTest(colors=colors):
+                ui, screen, frames = self.rendered_terminal([], (43, 80))
+                ui.set_version("V1.2.3")
+                full, now = ui._full_banner, [0]
+                events = iter(((0.3, -1), (0.75, 1002), (1.2, 1099), (1.4, -1), (1.4, 10)))
+
+                def key():
+                    now[0], answer = next(events)
+                    return answer
+
+                screen.getch.side_effect = key
+                with mock.patch("TauFW.Utilities.Menu._menu.time.monotonic", side_effect=lambda: now[0]), \
+                     mock.patch.object(ui, "colors_enabled", return_value=colors):
+                    self.assertEqual(ui.main_menu(), "continue")
+                headers = [tuple(line[:78] for line in frame[:len(full)]) for frame in frames]
+                self.assertNotIn("tau-", "\n".join(headers[0]))
+                self.assertIn("H ~~~~~~~~>----*", headers[1][9])
+                self.assertIn("tau- ------*", headers[2][3])
+                self.assertIn("tau+ ------*", headers[2][15])
+                self.assertNotIn("anti-nu_mu", headers[2][3])
+                self.assertEqual(headers[3:], [full, full])  # Completion does not loop.
+                for header in headers:
+                    self.assertEqual(tuple(line[26:] for line in header[7:12]),
+                                     tuple(line[26:] for line in full[7:12]))
+                    self.assertEqual(header[18:], full[18:])  # Caption, version and border stay put.
+                self.assertIn("> Continue an existing run", "\n".join(frames[-1]))
+                screen.timeout.assert_called_with(-1)
+
+    def test_main_banner_survives_live_refresh_and_replays_after_leaving_the_menu(self):
+        from TauFW.Utilities.Menu._menu import LIVE_EVERY
+        ui, screen, frames = self.rendered_terminal([], (43, 80))
+        now = [0]
+
+        def timeout():
+            now[0] += screen.timeout.call_args.args[0] / 1000
+            return -1
+
+        screen.getch.side_effect = timeout
+        with mock.patch("TauFW.Utilities.Menu._menu.time.monotonic", side_effect=lambda: now[0]):
+            self.assertEqual(ui.main_menu(live=True), "refresh")
+            self.assertAlmostEqual(now[0], LIVE_EVERY, places=2)
+            count = len(frames)
+            self.assertGreater(count, 2)  # Animation timeouts did not return REFRESH early.
+            self.assertEqual(ui.main_menu(live=True), "refresh")
+            self.assertEqual(len(frames), count + 1)
+            self.assertEqual(tuple(line[:78] for line in frames[-1][:len(ui._full_banner)]), ui._full_banner)
+            screen.timeout.assert_called_with(int(LIVE_EVERY * 1000))
+            screen.getch.side_effect = [10, 27]
+            self.assertEqual(ui.main_menu(), "start")
+            self.assertEqual(ui.main_menu(), "exit")  # Returning from an action starts a new opening.
+        self.assertEqual(frames[-1], frames[0])
+
+    def test_main_banner_resize_uses_the_same_animation_clock(self):
+        from TauFW.Utilities.Menu.banner import BOXED, decay_frame
+        ui, screen, frames = self.rendered_terminal([], (43, 80))
+        now = [0]
+        events = iter(((0.4, (31, 80)), (0.8, (43, 80)), (1.3, (43, 80))))
+
+        def resize():
+            now[0], size = next(events)
+            screen.getmaxyx.return_value = size
+            return 1099  # A resize redraws without changing selection.
+
+        keys = iter((resize, resize, resize, lambda: 27))
+        screen.getch.side_effect = lambda: next(keys)()
+        with mock.patch("TauFW.Utilities.Menu._menu.time.monotonic", side_effect=lambda: now[0]):
+            self.assertEqual(ui.main_menu(), "exit")
+        self.assertEqual(tuple(line[:64] for line in frames[1][:len(BOXED)]), BOXED)
+        self.assertEqual(tuple(line[:78] for line in frames[2][:len(ui._full_banner)]),
+                         decay_frame(ui._full_banner, 0.8))
+        self.assertEqual(tuple(line[:78] for line in frames[3][:len(ui._full_banner)]), ui._full_banner)
 
     def test_interaction_colors_preserve_banner_text_and_logo(self):
         from TauFW.Utilities.Menu.banner import FULL, INTERACTIONS

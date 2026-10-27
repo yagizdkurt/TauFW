@@ -116,6 +116,10 @@ status to `main_menu(version=...)`; Utilities never reads a manifest or makes
 an HTTP request. Standalone installer/preview screens use the `V0.0` fallback.
 Entry screens show their welcome messages beneath the
 banner; smaller terminals use compact branding so controls remain visible.
+The full main-menu banner reveals its decay tracks once over 1.2 seconds on
+entry, then stays complete. Returning from another screen replays it; background
+refreshes and resizing keep its progress. Input remains available throughout.
+The installer and smaller banner layouts are static.
 Change screen transitions, back behavior, refresh loops,
 and operation recovery in `python/Menu/_navigation.py`. Source section banners
 group the related responsibilities. `python/Menu/_preview.py` is the UI preview

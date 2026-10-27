@@ -73,6 +73,32 @@ BOXED = tuple(
 COMPACT = ("TauFW", "Tau analysis framework", VERSION)
 
 
+DECAY_SECONDS = 1.2
+
+
+def decay_frame(lines, elapsed):
+    """Reveal the full banner's tracks once; keep its frame, wordmark and metadata in place."""
+    if elapsed >= DECAY_SECONDS:
+        return lines
+    frame = [list(line) for line in lines]
+    for row, scene in enumerate(_SCENE, start=1):
+        for column, character in enumerate(scene):
+            if character == " " or (7 <= row <= 11 and column >= 25):
+                continue  # The TauFW wordmark is always visible.
+            if row == 9:  # Incoming H, ending at the central vertex (column 17).
+                appears = 0.3 * (max(0, column - 2) / 15)
+            elif 7 <= row <= 11 and column < 17:
+                appears = 0.3  # Scattered particles around the central interaction.
+            elif column <= 33:  # Both tau branches, ending at their decay vertices.
+                appears = 0.3 + 0.45 * ((abs(row - 9) + max(0, column - 17)) / 22)
+            else:  # Products grow outward from the upper/lower vertex.
+                vertex_row = 3 if row < 9 else 15
+                appears = 0.75 + 0.45 * (abs(row - vertex_row) + column - 33) / 16
+            if elapsed < appears:
+                frame[row][column + 1] = " "  # One column for the banner's left border.
+    return tuple("".join(line) for line in frame)
+
+
 # =============================================================================
 # ================================ SCREEN BADGE ===============================
 

@@ -11,9 +11,10 @@ and restores it before returning.
 import os
 import sys
 import textwrap
+import time
 
 from .faq import FAQ
-from .banner import INTERACTIONS, VERSION, WIDTH, branding
+from .banner import DECAY_SECONDS, INTERACTIONS, VERSION, WIDTH, branding, decay_frame
 
 
 QUIT_WARNING = ("If you quit, they keep running, but only while this login session lasts. Logging out (closing "
@@ -25,6 +26,7 @@ QUIT_WARNING = ("If you quit, they keep running, but only while this login sessi
 
 
 LIVE_EVERY = 2.0      # seconds between two draws of a live main menu (something runs behind it)
+BANNER_FRAME = 0.05   # seconds between frames of the one-shot main-menu decay
 LIST_EVERY = 0.5      # seconds between two draws of a list whose rows are still read (Start, Continue)
 ESC_DELAY = 25        # ms curses waits after Esc for the rest of a key sequence (its default: 1000, a slow Esc)
 MODAL_WIDTH = 76      # columns of a panel over the screen at most
@@ -48,6 +50,7 @@ class ConsoleUI:
         self.screen = None    # the screen of the session (session()), None outside it
         self._summaries = {}  # operation directory -> what its menu line keeps between draws (summary_model)
         self._main_action = None  # the main menu's line last selected: a live redraw keeps it
+        self._main_banner_started = None  # a live redraw keeps the same one-shot animation
         self.set_version(VERSION)
 
     def set_version(self, version):
@@ -368,8 +371,8 @@ class ConsoleUI:
                     return selected
         return self._run(draw)
 
-    def _entry_header(self, screen, welcome, minimum_rows):
-        """Reserve room for controls, using compact branding on smaller terminals."""
+    def _entry_banner(self, screen, minimum_rows):
+        """Choose branding that leaves room for the screen's controls."""
         height, width = screen.getmaxyx()
         if width > WIDTH and height >= len(self._full_banner) + minimum_rows + 5:
             lines = self._full_banner
@@ -379,6 +382,14 @@ class ConsoleUI:
             lines = self._compact_banner
         if height < len(lines) + minimum_rows + 5:
             lines = ("TauFW " + self.version,)
+        return lines
+
+    def _entry_header(self, screen, welcome, minimum_rows, elapsed=None):
+        """Reserve room for controls; elapsed animates only the full decay scene."""
+        lines = self._entry_banner(screen, minimum_rows)
+        full = lines is self._full_banner
+        if full and elapsed is not None:
+            lines = decay_frame(lines, elapsed)
         color = 0
         interaction_colors = {}
         try:
@@ -392,7 +403,7 @@ class ConsoleUI:
                     pass
                 self.curses.init_pair(3, self.curses.COLOR_CYAN, background)
                 color = self.curses.color_pair(3)
-                if lines is self._full_banner:
+                if full:
                     for role, pair, foreground, bold in (
                         ("higgs", 4, self.curses.COLOR_RED, True),
                         ("tau", 5, self.curses.COLOR_MAGENTA, True),
@@ -406,31 +417,38 @@ class ConsoleUI:
             interaction_colors = {}
         for row, line in enumerate(lines):
             self._line(screen, row, 0, line, color=color)
-        if lines is self._full_banner and interaction_colors:
+        if full and interaction_colors:
             for row, column, text, role in INTERACTIONS:
-                self._line(screen, row, column, text, color=interaction_colors[role])
+                self._line(screen, row, column, lines[row][column:column + len(text)],
+                           color=interaction_colors[role])
         self._line(screen, len(lines) + 1, 0, welcome)
         return len(lines) + 3
 
     def choose(self, title, choices, welcome=None, descriptions=None, row_colors=None, position=None, live=None,
-               separators=(), badge=False, notice=None):
+               separators=(), badge=False, notice=None, banner_started=None):
         """The index of the choice, or None (Esc). position: {"selected": index}, where the focus starts and was
-        left. live: seconds; without a key by then, REFRESH (the caller draws it again with new labels)."""
+        left. live: seconds; without a key by then, REFRESH (the caller draws it again with new labels).
+        banner_started: monotonic start of the main-menu visit, kept through live refreshes."""
         position = position if position is not None else {}
 
         def draw(screen):
             self._setup(screen)
-            if live:
-                screen.timeout(int(live * 1000))
+            refresh_at = None  # Animation ticks share the normal live-refresh deadline.
             selected = min(position.get("selected", 0), len(choices) - 1)
             while True:
+                now = time.monotonic() if banner_started is not None else None
+                elapsed = now - banner_started if banner_started is not None else None
+                animating = False
                 screen.erase()
                 height, width = screen.getmaxyx()
                 if welcome is None:
                     self._header(screen, title, badge=badge)
                     start = 3
                 else:
-                    start = self._entry_header(screen, welcome, len(choices) + len(separators) + 3)
+                    minimum_rows = len(choices) + len(separators) + 3
+                    animating = (elapsed is not None and elapsed < DECAY_SECONDS
+                                 and self._entry_banner(screen, minimum_rows) is self._full_banner)
+                    start = self._entry_header(screen, welcome, minimum_rows, elapsed=elapsed)
                 if notice:
                     text, role = notice
                     if welcome is not None:
@@ -462,11 +480,23 @@ class ConsoleUI:
                         self._line(screen, height - 6 + index, left, line,
                                    color=self.styles["accent"])
                 self._footer(screen, "Up/Down Move | Enter Select | Esc Back")
+                wait = int(live * 1000) if live else -1
+                if animating:
+                    wait = int(BANNER_FRAME * 1000)
+                    if live and refresh_at is None:
+                        refresh_at = now + live
+                if refresh_at is not None:
+                    wait = min(wait, max(1, int((refresh_at - now) * 1000)))
+                screen.timeout(wait)
                 screen.refresh()
                 key = screen.getch()
                 position["selected"] = selected
-                if key == -1 and live:
-                    return REFRESH
+                if key == -1:
+                    if live and (not animating or time.monotonic() >= refresh_at):
+                        return REFRESH
+                    continue
+                if refresh_at is not None:
+                    refresh_at = time.monotonic() + live
                 if key == self.curses.KEY_UP:
                     selected = (selected - 1) % len(choices)
                 elif key == self.curses.KEY_DOWN:
@@ -584,7 +614,8 @@ class ConsoleUI:
         more are "Runs (2 active)" (action "runs"). live: something runs behind the menu; without a key for
         LIVE_EVERY seconds the answer is REFRESH (the caller draws it again with the new states), the selected
         line stays. version is plain caller-supplied metadata, shown without a selectable action. config_reviewed
-        False: the user config is missing or not reviewed yet; its line is "Modify User Config (Please set)"."""
+        False: the user config is missing or not reviewed yet; its line is "Modify User Config (Please set)".
+        The full banner animates once per visit; only REFRESH keeps its animation start time."""
         notice = None
         if version:
             self.set_version('V' + version['installed'])
@@ -627,11 +658,20 @@ class ConsoleUI:
             colors.insert(3, role)
             descriptions.insert(3, description)
         position = dict(selected=actions.index(self._main_action) if self._main_action in actions else 0)
-        answer = self._action("TauFW", choices, actions, back="exit", row_colors=colors, welcome="Welcome to TauFW!",
-                              descriptions=descriptions, position=position, live=LIVE_EVERY if live else None,
-                              separators=(actions.index("grid_certificate"), actions.index("tests")), notice=notice)
-        self._main_action = actions[position["selected"]]
-        return answer
+        if self._main_banner_started is None:
+            self._main_banner_started = time.monotonic()
+        answer = None
+        try:
+            answer = self._action("TauFW", choices, actions, back="exit", row_colors=colors,
+                                  welcome="Welcome to TauFW!", descriptions=descriptions, position=position,
+                                  live=LIVE_EVERY if live else None,
+                                  separators=(actions.index("grid_certificate"), actions.index("tests")), notice=notice,
+                                  banner_started=self._main_banner_started)
+            self._main_action = actions[position["selected"]]
+            return answer
+        finally:
+            if answer != REFRESH:
+                self._main_banner_started = None
 
     def _runs_line(self, runs):
         """(label, role, action, description) of the main menu line of the advances behind the menu."""
