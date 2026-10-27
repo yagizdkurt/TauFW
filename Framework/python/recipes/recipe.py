@@ -224,17 +224,19 @@ class Recipe:
         return recipe
 
     @classmethod
-    def parse(cls, data, source="<recipe>", bundle_dir=None):
+    def parse(cls, data, source="<recipe>", bundle_dir=None, *, allow_empty=False):
         """Check a recipe dict without raising: (Recipe or None, [(index, StageSpec)], [Issue]).
         The Recipe is None if there is any issue; the StageSpecs are those of the stages whose options are valid
-        (validation.py checks their files even when other stages are wrong)."""
+        (validation.py checks their files even when other stages are wrong). allow_empty is only for inspecting
+        an unfinished analysis; load/from_dict and execution always require stages."""
         issues = []
         if not isinstance(data, dict):
             return None, [], [Issue("", "a recipe is a mapping with keys %s" % (', '.join(TOP_KEYS)))]
         _check_keys(data, TOP_KEYS, "", issues)
         name = data.get('name')
-        if not isinstance(name, str) or not NAMEEXP.match(name):
-            issues.append(Issue('name', "must be a word of letters, digits, '_', '.' or '-' (got %r)" % (name,)))
+        problem = name_problem(name)
+        if problem:
+            issues.append(Issue('name', problem))
         run_root = _check_run_root(data.get('run_root'), bundle_dir, issues)
         pico = data.get('pico') or {}
         if not isinstance(pico, dict):
@@ -242,7 +244,7 @@ class Recipe:
             pico = {}
         _check_keys(pico, PICO_KEYS, "pico", issues)
         stages = data.get('stages')
-        if not isinstance(stages, list) or not stages:
+        if not isinstance(stages, list) or (not stages and not allow_empty):
             issues.append(Issue('stages', "must be a non-empty list"))
             stages = []
         entries = [_stage_entry(entry, index, bundle_dir, issues) for index, entry in enumerate(stages)]
@@ -298,6 +300,13 @@ def read_recipe(path, files=None):
 
 # =============================================================================
 # ================================ VALIDATION =================================
+
+
+def name_problem(name):
+    """The shared recipe/analysis name rule; None when the name is valid."""
+    if not isinstance(name, str) or not NAMEEXP.fullmatch(name):
+        return "must be a word of letters, digits, '_', '.' or '-' (got %r)" % (name,)
+    return None
 
 
 @dataclass

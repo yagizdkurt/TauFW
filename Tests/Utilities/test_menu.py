@@ -27,6 +27,7 @@ def idle_operations():
     operations.run_lock.return_value = None
     operations.needs_grid_proxy.return_value = False
     operations.run_directories.return_value = []
+    operations.recipe_preview.return_value = {}
     operations.kept_recipe_preview.side_effect = lambda path: operations.recipe_preview(path)  # read at once
     operations.kept_run_row.side_effect = lambda run_dir: operations.run_row(run_dir)
     return operations
@@ -268,7 +269,7 @@ class ScreenTests(unittest.TestCase):
         curses, screen = self.curses([1002, -1, 10])
         ui = ConsoleUI(curses)
         screen.getmaxyx.return_value = (24, 90)
-        position = {}
+        position = {"selected": 1}  # first recipe, after the create action
         self.assertEqual(ui.select_recipe(["a", "b"], lambda i: dict(name="b", hint="Checking the recipe..."),
                                           broken=[False, False], checking=[False, True], position=position,
                                           live=True), ("refresh", None))
@@ -845,7 +846,7 @@ class ScreenTests(unittest.TestCase):
             (ui.continue_actions, ("run",), ["wait", "advance", "back"]),
             (ui.grid_proxy_needed, (), ["renew", "back"]),
             (ui.select_recipe, (["example.yml"],),
-             [("select", 0), ("manual", None), ("back", None)]),
+             [("create", None), ("select", 0), ("manual", None), ("back", None)]),
             (ui.select_run, ([("run", "WAITING", "today")],),
              [("select", 0), ("manual", None), ("back", None)]),
         ]
@@ -966,7 +967,8 @@ ConsoleUI(None)
                 ui, screen, frames = self.rendered_terminal([27], dimensions)
                 preview = dict(name="example", stages=(("production", "production", ""),
                                                        ("plots", "plots", "")))
-                self.assertEqual(ui.select_recipe(["example"], lambda index: preview), ("back", None))
+                self.assertEqual(ui.select_recipe(["example"], lambda index: preview,
+                                                 position={"selected": 1}), ("back", None))
                 width = dimensions[1]
                 panel_width = (width - 1) // 2
                 left = (width - (2 * panel_width - 1)) // 2
@@ -981,15 +983,65 @@ ConsoleUI(None)
                     self.assertIn("2. plots", "\n".join(frames[0]))
                     self.assertIn("v", [line.strip() for line in ui._pipeline_lines(preview, 30)])
 
+    def test_create_action_and_edit_keys_are_scoped_to_recipe_rows(self):
+        ui, screen, frames = self.rendered_terminal([ord("e"), ord("E"), 10])
+        preview = mock.Mock()
+        self.assertEqual(ui.select_recipe([], preview), ("create", None))
+        preview.assert_not_called()
+        self.assertIn("[Create a new run]", "\n".join(frames[0]))
+        for key in (ord("e"), ord("E")):
+            ui, screen, frames = self.rendered_terminal([1002, key])
+            view = dict(name="draft", draft=True)
+            self.assertEqual(ui.select_recipe(["draft"], lambda i: view, drafts=[True]), ("edit", 0))
+            text = "\n".join(frames[-1])
+            self.assertIn("draft [Draft]", text)
+            self.assertIn("E Edit", text)
+            self.assertIn("no stages configured", text)
+
+    def test_create_navigation_preserves_name_selects_draft_and_never_starts_it(self):
+        ui, operations = mock.Mock(), idle_operations()
+        path = Path("Analyses/new_analysis")
+        operations.recipes.side_effect = [[], [path], [path], [path]]
+        operations.recipe_preview.return_value = dict(name="new_analysis", draft=True)
+        operations.create_analysis.side_effect = [ValueError("name taken"), path]
+        ui.select_recipe.side_effect = [("create", None), ("select", 0), ("edit", 0), ("back", None)]
+        ui.analysis_name.side_effect = ["taken", "new_analysis"]
+        MenuNavigation(ui, operations).start()
+        self.assertEqual(ui.analysis_name.call_args_list, [mock.call(default=""), mock.call(default="taken")])
+        self.assertEqual(operations.create_analysis.call_args_list, [mock.call("taken"), mock.call("new_analysis")])
+        self.assertEqual(ui.select_recipe.call_args_list[1].kwargs["position"]["selected"], 1)
+        self.assertEqual(ui.select_recipe.call_args_list[1].kwargs["drafts"], [True])
+        self.assertEqual([call.args[0] for call in ui.message.call_args_list],
+                         ["Analysis created", "Analysis draft", "Run editor"])
+        operations.prepare_review.assert_not_called()
+        operations.start_run.assert_not_called()
+        operations.start_command.assert_not_called()
+        ui.operation_error.assert_called_once()
+
+    def test_create_cancellation_does_not_write_and_manual_drafts_do_not_start(self):
+        ui, operations = mock.Mock(), idle_operations()
+        operations.recipes.return_value = []
+        operations.recipe_preview.return_value = dict(name="draft", draft=True)
+        ui.select_recipe.side_effect = [("create", None), ("manual", None), ("back", None)]
+        ui.analysis_name.return_value = None
+        ui.recipe_path.return_value = "another/draft"
+        operations.resolve_path.return_value = "resolved/draft"
+        MenuNavigation(ui, operations).start()
+        operations.create_analysis.assert_not_called()
+        operations.prepare_review.assert_not_called()
+        operations.start_run.assert_not_called()
+        ui.message.assert_called_once_with("Analysis draft", "No stages configured. Press E for Run editor.")
+
     def test_picker_updates_errors_and_special_row_hints(self):
-        ui, screen, frames = self.rendered_terminal([1002, 1002, 1002, 27])
+        ui, screen, frames = self.rendered_terminal([1002, 1002, 1002, 1002, 27])
         preview = mock.Mock(side_effect=[dict(name="good", stages=(("plots", "plots", ""),)),
                                          dict(name="bad", error="invalid recipe")])
         self.assertEqual(ui.select_recipe(["good", "bad"], preview), ("back", None))
         self.assertEqual(preview.call_args_list, [mock.call(0), mock.call(1)])
-        self.assertIn("Cannot preview: invalid recipe", "\n".join(frames[1]))
-        self.assertIn("Enter a recipe file", "\n".join(frames[2]))
-        self.assertIn("Return to the main menu.", "\n".join(frames[3]))
+        self.assertIn("Create a new analysis", "\n".join(frames[0]))
+        self.assertIn("Cannot preview: invalid recipe", "\n".join(frames[2]))
+        self.assertIn("Enter a recipe file", "\n".join(frames[3]))
+        self.assertIn("Return to the main menu.", "\n".join(frames[4]))
 
     def test_pipeline_scroll_wrap_and_reset_on_recipe_change(self):
         ui, screen, frames = self.rendered_terminal([1004] * 12 + [1002, 27], (18, 64))
@@ -997,7 +1049,7 @@ ConsoleUI(None)
         stages = (("production", "production", ""), (long_id, "python", ""), ("fit", "fit", ""))
         view = dict(name="first", stages=stages)
         other = dict(name="second", stages=(("plots", "plots", ""),))
-        ui.select_recipe(["first", "second"], lambda index: (view, other)[index])
+        ui.select_recipe(["first", "second"], lambda index: (view, other)[index], position={"selected": 1})
         text = "\n".join(line for frame in frames for line in frame)
         self.assertNotIn("Python step", text)
         self.assertIn("3. fit", text)
@@ -1017,7 +1069,7 @@ ConsoleUI(None)
 
         screen.getch.side_effect = key
         preview = mock.Mock(return_value=dict(name="recipe", stages=(("fit", "fit", ""),)))
-        self.assertEqual(ui.select_recipe(["first", "second"], preview), ("select", 1))
+        self.assertEqual(ui.select_recipe(["first", "second"], preview, position={"selected": 1}), ("select", 1))
         self.assertIn("Enlarge terminal", "\n".join(frames[1]))
         self.assertEqual(preview.call_args_list, [mock.call(0), mock.call(1)])
         self.assertIn("> second", "\n".join(frames[2]))
@@ -1046,7 +1098,7 @@ ConsoleUI(None)
         prefetch = mock.Mock()
         drawn = []
 
-        def select(names, preview, broken, warnings, checking, position, live):
+        def select(names, preview, broken, warnings, checking, position, live, drafts):
             drawn.append((list(checking), live, preview(1).get("hint"), dict(position)))
             if len(drawn) == 1:
                 position["selected"] = 1
@@ -1125,7 +1177,7 @@ ConsoleUI(None)
                                                  dict(name="wrong", problems=("stages[0] (fit): missing 'id'",),
                                                       warnings=("run_root: not set",))]
 
-        def select(names, preview, broken, warnings, checking, position, live):
+        def select(names, preview, broken, warnings, checking, position, live, drafts):
             self.assertEqual((checking, live), ([False] * 3, False))  # every check was read: not live
             self.assertEqual(preview(0), preview(0))
             self.assertEqual(preview(1), preview(1))
@@ -1167,12 +1219,12 @@ ConsoleUI(None)
         ui = ConsoleUI(mock.Mock())
         with mock.patch.object(ui, "_pipeline_choice", return_value=None) as choice:
             self.assertEqual(ui.select_recipe(["a", "b"], lambda i: {}, broken=[False, True]), ("back", None))
-        self.assertEqual(choice.call_args.kwargs["row_colors"], [None, "error", None, None])
+        self.assertEqual(choice.call_args.kwargs["row_colors"], ["accent", None, "error", None, None])
         with mock.patch.object(ui, "_pipeline_choice", return_value=None) as choice:
             ui.select_recipe(["ok", "warning", "error", "both"], lambda i: {},
                              broken=[False, False, True, True], warnings=[False, True, False, True])
         self.assertEqual(choice.call_args.kwargs["row_colors"],
-                         [None, "warning", "error", "error", None, None])
+                         ["accent", None, "warning", "error", "error", None, None])
 
     def test_warning_colors_survive_errors_wrapping_and_scrolling(self):
         for problems in ({}, {"problems": ("stages[0]: missing 'id'",)}, {"error": "invalid recipe"}):

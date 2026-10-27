@@ -29,6 +29,7 @@ from TauFW.Framework.defaults import (ANALYSES_DIR, BUNDLE_DIR_NAME, CONFIGS_DIR
 from TauFW.Framework.runtime.run_record import RunRecord, RunState
 from TauFW.Framework.recipes.recipe import Recipe, read_recipe
 from TauFW.Framework.recipes.validation import check_recipe
+from TauFW.Framework.recipes.analysis import create_analysis
 from TauFW.Framework.recipes.bundle import bundle_changes, bundle_hashes
 from TauFW.Framework.runtime.framework import Framework, retryable_stage
 from TauFW.Framework.runtime.reporting import SilentReporter
@@ -108,6 +109,10 @@ class _Operations:
                        or (p.is_file() and p.suffix in (".yml", ".yaml", ".json") and p.name != USER_CONFIG_NAME)),
                       key=lambda p: p.name) if self.recipes_dir.is_dir() else []
 
+    def create_analysis(self, name):
+        """Create a draft in the same root that the recipe picker discovers."""
+        return create_analysis(self.recipes_dir, name)
+
     @staticmethod
     def _recipe_view(recipe, path):
         """Plain presentation data; Utilities never needs Framework objects."""
@@ -121,8 +126,9 @@ class _Operations:
         also a template of Configs/, its copies are compared with them)."""
         signature = _recipe_signature(path)
         try:
-            check = check_recipe(str(path))
+            check = check_recipe(str(path), allow_draft=True)
             view = dict(name=check.name, path=str(path), stages=check.stages, notes=(),
+                        draft=check.draft,
                         problems=tuple(str(issue) for issue in check.issues),
                         warnings=tuple(str(warning) for warning in check.warnings))
         except Exception as error:

@@ -27,6 +27,8 @@ menu, stop_operation(operation) stops one.
 User config callbacks: user_config_path() creates the file if missing and names
 it; user_config_reference() names its Markdown manual in the checkout;
 validate_user_config(draft_path) checks a candidate file before the editor saves it.
+create_analysis(name) creates an empty analysis in the recipe root and returns its path. Recipe views mark
+well-formed empty recipes with draft=True; they can be listed and edited, but cannot start.
 The independent Editor owns file editing and saving; navigation only opens it.
 install_components() opens the existing interactive installer on the terminal and returns when it closes.
 version_status() returns plain installed/latest/status/checking/available/stale data; only the caller checks
@@ -86,9 +88,15 @@ class MenuNavigation:
     def start(self):
         """The recipe list opens at once: a recipe whose check is not read yet says "checking..." and the list
         draws itself again until every check came (read ahead from the menu's start, see _read_ahead)."""
-        position = {}
+        position, created = {}, None
         while True:
             recipes = self.operations.recipes()
+            if created is not None:
+                for index, path in enumerate(recipes):
+                    if path.resolve() == created.resolve():
+                        position.update(selected=index + 1, offset=0)  # the create action is the first row
+                        break
+                created = None
             previews = [self._kept_preview(path) for path in recipes]
             checking = [view is None for view in previews]
             previews = [view if view is not None else dict(name=path.name, hint="Checking the recipe...")
@@ -97,11 +105,15 @@ class MenuNavigation:
             warnings = [bool(view.get("warnings")) for view in previews]
             action, index = self.ui.select_recipe([p.name for p in recipes], preview=lambda i: previews[i],
                                                   broken=broken, warnings=warnings, checking=checking,
-                                                  position=position, live=any(checking))
+                                                  position=position, live=any(checking),
+                                                  drafts=[bool(view.get("draft")) for view in previews])
             if action == "refresh":
                 continue  # a check came
             if action == "back":
                 return
+            if action == "create":
+                created = self._create_analysis()
+                continue
             if action == "manual":
                 value = self.ui.recipe_path(self.operations.launch_dir)
                 if not value:
@@ -109,16 +121,23 @@ class MenuNavigation:
                 path = self.operations.resolve_path(value)
             else:
                 path = str(recipes[index])
+            if action == "edit":
+                self.edit_analysis(path)
+                continue
             try:
+                view = self.operations.recipe_preview(path) if action == "manual" else previews[index]
+                if view.get("draft"):
+                    self.ui.message("Analysis draft", "No stages configured. Press E for Run editor.")
+                    continue
                 review = self.operations.prepare_review(path)
             except KeyboardInterrupt:
                 return
             except Exception as error:
                 self.ui.operation_error(error)
                 continue
-            position = {}
+            review_position = {}
             while True:
-                action = self.ui.confirm_recipe(path, review=review, position=position)
+                action = self.ui.confirm_recipe(path, review=review, position=review_position)
                 if action == "back":
                     break
                 if action == "plan":
@@ -128,6 +147,25 @@ class MenuNavigation:
                         continue
                     self._follow_run(self.operations.start_run(path))
                     return
+
+    def _create_analysis(self):
+        """Ask again after an error, keeping the name. Cancellation never creates a file."""
+        value = ""
+        while True:
+            value = self.ui.analysis_name(default=value)
+            if value is None:
+                return None
+            try:
+                path = self.operations.create_analysis(value)
+            except Exception as error:
+                self.ui.operation_error(error)
+                continue
+            self.ui.message("Analysis created", "Analysis created: %s\nPress E for Run editor." % path, "good")
+            return path
+
+    def edit_analysis(self, path):
+        """Run editor entry point; its screen is designed in the next step."""
+        self.ui.message("Run editor", "Run editor will be added in the next step.\nAnalysis: %s" % path)
 
     def _kept_preview(self, path):
         """The kept check of a recipe, or None while it is read (asked for here if it is not)."""

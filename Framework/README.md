@@ -81,6 +81,10 @@ Use Up/Down to move, Enter to select, and Esc to go back or exit the main menu.
   panels: a recipe table on the left and numbered stage boxes connected by downward arrows on the right.
   Up/Down changes the recipe; Page Up/Page Down scrolls its pipeline. At least 64 columns and 12 rows
   are required; smaller terminals show a resize message and Esc still returns to the main menu.
+  **[Create a new run]** is always the first row. It asks for an analysis name and creates
+  `Analyses/<name>/recipe.yml` from the empty template, then selects the new **Draft**. Existing paths
+  are never overwritten; Esc cancels. A draft has `stages: []` and cannot be planned or started until
+  stages are added. **E** on an analysis opens the Run editor entry point; its screen is coming next.
   The preview follows the recipe's actual stage order, including custom Python steps, without planning jobs.
   Every recipe is checked when the list opens (`validation.py`): a recipe with problems is red in the list, and its
   preview lists every problem above the stages it could read. Such a recipe cannot be started.

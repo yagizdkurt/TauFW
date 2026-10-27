@@ -435,7 +435,7 @@ class MenuTests(unittest.TestCase):
         (self.recipes / "c_bundle").mkdir()
         (self.recipes / "c_bundle" / "recipe.yml").touch()
         (self.recipes / "d_not_a_bundle").mkdir()
-        ui = FakeUI([3, 0], ["custom.yml"])
+        ui = FakeUI([4, 0], ["custom.yml"])
         self.recipe_file(self.root / "custom.yml")
         order = []
         planned = self.framework.return_value
@@ -444,7 +444,7 @@ class MenuTests(unittest.TestCase):
         menu.operations.start_run = mock.Mock(side_effect=lambda path: order.append("start") or mock.Mock(
             running=True, title="test", data=dict(run_id="test")))
         menu.start()
-        self.assertEqual(ui.screens[0][1][:3], ["a.json", "b.yml", "c_bundle"])
+        self.assertEqual(ui.screens[0][1][:4], ["[Create a new run]", "a.json", "b.yml", "c_bundle"])
         self.assertEqual(order, ["prepare", "start"])
         self.assertEqual(self.started, [])  # start_run is mocked; no plan ran
         menu.operations.start_run.assert_called_once_with(str(self.root / "custom.yml"))
@@ -455,7 +455,7 @@ class MenuTests(unittest.TestCase):
         self.recipe_file(self.root / "bad.yml")
         self.recipe_file(self.root / "good.yml")
         self.framework.side_effect = [ValueError("invalid recipe"), self.framework.return_value]
-        ui = FakeUI([0, 0, 2, 1], ["bad.yml", "good.yml"])
+        ui = FakeUI([1, 1, 2, 2], ["bad.yml", "good.yml"])
         with contextlib.redirect_stdout(io.StringIO()) as output:
             self.menu(ui).start()
         self.assertEqual(output.getvalue(), "")  # nothing printed over the screen
@@ -597,11 +597,11 @@ class MenuTests(unittest.TestCase):
         recipes_dir = checkout.REPO / "Analyses"
         expected = sorted(path.name for path in recipes_dir.iterdir() if (path / "recipe.yml").is_file())
         self.assertIn("tes_id_2025", expected)
-        ui = FakeUI([expected.index("tes_id_2025"), 0])
+        ui = FakeUI([expected.index("tes_id_2025") + 1, 0])
         menu = Menu(ui, launch_dir=self.root, operations_dir=self.root / "operations")
         self.assertEqual(menu.operations.recipes_dir, recipes_dir)
         menu.start()
-        self.assertEqual(ui.screens[0][1][:-2], expected)
+        self.assertEqual(ui.screens[0][1][1:-2], expected)
         self.assertEqual(ui.broken, [name == "example_broken" for name in expected])  # the validation demo
         self.assertEqual([argv for argv, _ in self.started], [["start", str(recipes_dir / "tes_id_2025"), "--wait"]])
 
@@ -675,7 +675,7 @@ class MenuTests(unittest.TestCase):
 
     def test_recipe_warnings_are_shown_but_do_not_break(self):
         self.recipe_file(self.recipes / "a.json")  # no run_root
-        ui = FakeUI([2])  # Back
+        ui = FakeUI([3])  # Back
         self.menu(ui).start()
         self.assertEqual(ui.broken, [False])
         view = self.menu(FakeUI()).operations.recipe_preview(self.recipes / "a.json")
@@ -690,7 +690,7 @@ class MenuTests(unittest.TestCase):
              "ele_wps": ["Tight"]},
             {"stage": "fit", "id": "fit", "inputs": {"shapes": "histo"}},
         ])
-        ui = FakeUI([3])  # Back
+        ui = FakeUI([4])  # Back
         self.menu(ui).start()
         self.assertEqual(ui.broken, [False, True])
         view = self.menu(FakeUI()).operations.recipe_preview(self.recipes / "b_bad.json")
@@ -742,7 +742,7 @@ class MenuTests(unittest.TestCase):
 
     def test_invalid_selected_recipe_never_plans_or_starts(self):
         (self.recipes / "broken.json").write_text("{}")
-        ui = FakeUI([0, 2])
+        ui = FakeUI([1, 3])
         with contextlib.redirect_stdout(io.StringIO()) as output:
             self.menu(ui).start()
         self.assertEqual(output.getvalue(), "")

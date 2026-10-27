@@ -27,7 +27,7 @@ Inputs:  a recipe file or bundle directory.
 Outputs: a RecipeCheck. Nothing is written.
 
 Public API:
-  check_recipe(path, files=None) -> RecipeCheck
+  check_recipe(path, files=None, allow_draft=False) -> RecipeCheck
   read_source(stage_spec, slot, path) -> StageDir   the source of a {path: ...} input (raises ManifestError)
   RecipeCheck   name, path, recipe (None if invalid), stages ((stage id, type, description) of every stage whose
                 options are valid), issues (Issue), warnings (Issue: the recipe can run with them), ok
@@ -51,9 +51,10 @@ __all__ = ['check_recipe', 'RecipeCheck', 'read_source']
 # ================================= PIPELINE ==================================
 
 
-def check_recipe(path, files=None):
+def check_recipe(path, files=None, *, allow_draft=False):
     """Every problem of the recipe at `path` (a bundle directory or a recipe file). Never raises for a bad
-    recipe: the problems are the result."""
+    recipe: the problems are the result. allow_draft accepts a well-formed empty stages list for the menu only;
+    its result is marked draft and has no runnable Recipe. CLI checks remain strict."""
     try:
         data, source, bundle_dir = read_recipe(path, files)
     except RecipeError as error:
@@ -61,16 +62,18 @@ def check_recipe(path, files=None):
     except Exception as error:  # unreadable file, YAML syntax error, ...
         return RecipeCheck(name=os.path.basename(path), path=path,
                            issues=(Issue("", "cannot read %s: %s" % (path, error)),))
-    recipe, stage_specs, issues = Recipe.parse(_outside_made_absolute(data, bundle_dir), source, bundle_dir)
+    recipe, stage_specs, issues = Recipe.parse(_outside_made_absolute(data, bundle_dir), source, bundle_dir,
+                                             allow_empty=allow_draft)
     pico = data.get('pico') if isinstance(data, dict) else None
     issues = list(issues) + _file_issues(pico.get('config') if isinstance(pico, dict) else None, stage_specs,
                                          bundle_dir)
     if any(stage_spec.stage == 'production' for _, stage_spec in stage_specs):  # its settings (user_settings.py)
         issues.extend(Issue('user config', problem) for problem in production_problems())
     name = data.get('name') if isinstance(data, dict) and isinstance(data.get('name'), str) else source
-    return RecipeCheck(name=name, path=path, recipe=None if issues else recipe,
+    draft = bool(allow_draft and not issues and data.get('stages') == [])
+    return RecipeCheck(name=name, path=path, recipe=None if issues or draft else recipe, draft=draft,
                        stages=tuple((s.id, s.stage, s.description) for _, s in stage_specs),
-                       issues=tuple(issues), warnings=tuple(recipe_warnings(data, bundle_dir)))
+                       issues=tuple(issues), warnings=() if draft else tuple(recipe_warnings(data, bundle_dir)))
 
 
 # =============================================================================
@@ -149,14 +152,16 @@ def read_source(stage_spec, slot, path):
 @dataclass(frozen=True)
 class RecipeCheck:
     """The result of check_recipe(). recipe: the Recipe if there is no issue, else None.
-    warnings: what the recipe should change, though it can run (they never make it not ok)."""
+    warnings: what the recipe should change, though it can run (they never make it not ok).
+    draft: a well-formed empty analysis accepted for display only; recipe is None and ok is False."""
     name:     str
     path:     str
     recipe:   Optional[Recipe] = None
     stages:   Tuple[Tuple[str, str, str], ...] = ()
     issues:   Tuple[Issue, ...] = ()
     warnings: Tuple[Issue, ...] = ()
+    draft:    bool = False
 
     @property
     def ok(self):
-        return not self.issues
+        return not self.issues and not self.draft

@@ -22,6 +22,10 @@ FAQ = (
      "the bundle, made when it starts."),
 
     ("Starting a run", 
+     "Use [Create a new run] at the top of the list to choose an analysis name and create "
+     "Analyses/<name>/recipe.yml with an empty pipeline. Esc cancels; existing files are never overwritten. "
+     "The new analysis is selected and labelled Draft. A draft cannot start until stages are configured. "
+     "E opens the Run editor entry point for the selected analysis (the editor screen is coming next). "
      "Choose a recipe in the left table; its pipeline appears on the right, "
      "with stages running from top to bottom. The picker needs at least 64 columns "
      "and 12 rows. Select a recipe to prepare its read-only plan and review the "

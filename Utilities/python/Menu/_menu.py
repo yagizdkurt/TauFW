@@ -234,6 +234,10 @@ class ConsoleUI:
             return finish()
         if show_path:
             lines += self._wrap("Path: " + view.get("path", ""), width)
+        if view.get("draft"):
+            lines += [""] + self._wrap("Draft - no stages configured.", width) + [""]
+            lines += self._wrap("Press E to configure this analysis in Run editor before starting a run.", width)
+            return finish()
         problems = view.get("problems", ())
         if problems:
             lines += ["", "%d problem(s):" % len(problems)]
@@ -286,7 +290,8 @@ class ConsoleUI:
                                             len(lines)))[:width], color=self.styles["accent"])
         return offset, visible
 
-    def _pipeline_choice(self, title, choices, preview, review=False, position=None, row_colors=None, live=None):
+    def _pipeline_choice(self, title, choices, preview, review=False, position=None, row_colors=None, live=None,
+                         edit_indices=()):
         """Two equal columns, with independent recipe/action and pipeline scrolling.
         row_colors: a style name per choice (e.g. "error"), or None. live: seconds; without a key by then, REFRESH
         (the caller draws it again with what came meanwhile; the position is kept)."""
@@ -328,7 +333,8 @@ class ConsoleUI:
                                                   line_colors=line_colors)
                 else:
                     self._line(screen, 3, 1, "Enlarge terminal (at least 64 x 12).")
-                self._footer(screen, "Up/Down Move | Enter Select | PgUp/Dn Pipeline | Esc Back")
+                self._footer(screen, "Up/Down Move | Enter Select | " +
+                             ("E Edit | " if selected in edit_indices else "") + "PgUp/Dn Pipeline | Esc Back")
                 screen.refresh()
                 key = screen.getch()
                 if key == -1 and live:
@@ -339,6 +345,9 @@ class ConsoleUI:
                     return None
                 if not usable:
                     continue
+                if key in (ord("e"), ord("E")) and selected in edit_indices:
+                    position.update(selected=selected, offset=offset)
+                    return "edit", selected
                 if key in (self.curses.KEY_UP, self.curses.KEY_DOWN):
                     selected = (selected + (1 if key == self.curses.KEY_DOWN else -1)) % len(choices)
                     if not review:
@@ -818,32 +827,47 @@ class ConsoleUI:
         return "select", selected
 
     def select_recipe(self, names, preview=None, broken=None, warnings=None, checking=None, position=None,
-                      live=False):
-        """Return (select, index), (manual, None), (back, None), or (refresh, None) (live: a check may have come).
+                      live=False, drafts=None):
+        """Return (create/manual/back/refresh, None) or (select/edit, recipe index).
         broken: True for each recipe with problems (shown in red). Warnings without problems are shown in yellow.
         checking: True for each recipe whose check is still read ("checking..."). position: the focus, kept by
         the caller across a refresh."""
-        if preview is None:
-            return self._pick("Select a recipe", names, "Enter another recipe path")
-        names = [name + ("  checking..." if checking and checking[index] else "") for index, name in enumerate(names)]
+        names = [name + (" [Draft]" if drafts and drafts[index] else "") +
+                 ("  checking..." if checking and checking[index] else "") for index, name in enumerate(names)]
+        choices = ["[Create a new run]"] + names + ["Enter another recipe path", "Back"]
 
         def view(index):
-            if index < len(names):
-                return preview(index)
+            if index == 0:
+                return dict(hint="Create a new analysis with an empty recipe.\n\n"
+                            "You will first choose an analysis name.\n\n"
+                            "Configure its pipeline with E before starting a run.")
+            if index <= len(names):
+                return preview(index - 1)
             return dict(hint="Enter a recipe file or bundle directory to review its pipeline."
-                        if index == len(names) else "Return to the main menu.")
+                        if index == len(names) + 1 else "Return to the main menu.")
 
-        colors = ["error" if flag else "warning" if warnings and warnings[index] else None
+        colors = ["error" if flag else "warning" if (warnings and warnings[index]) or
+                  (drafts and drafts[index]) else None
                   for index, flag in enumerate(broken or [False] * len(names))]
-        selected = self._pipeline_choice("Start a new run / Select a recipe",
-                                         names + ["Enter another recipe path", "Back"], view,
-                                         row_colors=colors + [None, None], position=position,
-                                         live=LIST_EVERY if live else None)
+        if preview is None:
+            selected = self.choose("Select a recipe", choices)
+        else:
+            selected = self._pipeline_choice("Start a new run / Select a recipe", choices, view,
+                                             row_colors=["accent"] + colors + [None, None], position=position,
+                                             live=LIST_EVERY if live else None,
+                                             edit_indices=range(1, len(names) + 1))
         if selected == REFRESH:
             return REFRESH, None
-        if selected is None or selected == len(names) + 1:
+        if isinstance(selected, tuple):
+            return "edit", selected[1] - 1
+        if selected is None or selected == len(names) + 2:
             return "back", None
-        return ("manual", None) if selected == len(names) else ("select", selected)
+        if selected == 0:
+            return "create", None
+        return ("manual", None) if selected == len(names) + 1 else ("select", selected - 1)
+
+    def analysis_name(self, default=""):
+        return self.prompt("Define analysis name", default=default)
 
     def recipe_path(self, launch_dir):
         return self.prompt("Recipe path (relative to %s)" % launch_dir)
