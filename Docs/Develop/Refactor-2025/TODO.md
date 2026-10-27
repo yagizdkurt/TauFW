@@ -57,8 +57,8 @@ The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go he
       submission to merge). Retry: the retried stage starts from zero.
 
 - [ ] **Editor reference pane (CL §45):** menu > Modify User Config: at 120 columns the YAML and UserConfig.md
-      appear side by side; F6 switches focus and Up/Down/PgUp/PgDn move each independently. F4 hides/opens the
-      manual. At 80 columns it opens full width with F4/F6 and F6 returns to editing. Resize while reading;
+      appear side by side; F5 switches focus and Up/Down/PgUp/PgDn move each independently. F4 hides/opens the
+      manual. At 80 columns it opens full width with F4/F5 and F5 returns to editing. Resize while reading;
       check cursor visibility, long code with Left/Right, Tab indentation, F2 save and Esc with unsaved edits.
 
 - [ ] **Retry of a failed stage (CL §44):** a CDTest run whose `sf_tauid` fails (rename `sf/` in the run's bundle

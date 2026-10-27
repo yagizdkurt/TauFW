@@ -39,7 +39,7 @@ At 110 columns or more, the editor uses about 60% of the width and the reference
 uses the rest. Below that, the editor opens alone and the reference takes the
 body's full width when selected. The existing minimum remains 40 x 10.
 
-- F6 switches focus; on a narrow terminal it switches the visible pane too.
+- F5 switches focus; on a narrow terminal it switches the visible pane too.
 - F4 hides the reference or opens it with focus. Hiding returns to editing.
 - Up/Down and Page Up/Down move within the focused pane, independently.
 - In the reference, Left/Right scroll long code lines horizontally, Home goes

@@ -71,7 +71,7 @@ FAQ = (
      "system, queue). TAUFW_USER_CONFIG can name another file. Modify User Config "
      "opens it inside the menu and creates it if missing. F2 saves, Esc goes back, "
      "and Tab inserts two-space indentation. UserConfig.md opens beside it at 110 columns or more. "
-     "F6 switches panes, F4 hides/opens the manual; in smaller terminals only the focused pane is shown. "
+     "F5 switches panes, F4 hides/opens the manual; in smaller terminals only the focused pane is shown. "
      "Arrow keys and Page Up/Down move in that pane; each keeps its own position. "
      "The manual is read only. Save errors keep your edits so you "
      "can fix them; leaving asks about unsaved changes. Change production output "

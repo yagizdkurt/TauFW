@@ -26,7 +26,7 @@ class Terminal:
     A_BOLD, A_REVERSE = 1, 2
     (KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_HOME, KEY_END, KEY_PPAGE,
      KEY_NPAGE, KEY_BACKSPACE, KEY_DC, KEY_ENTER, KEY_F2, KEY_F10, KEY_RESIZE) = range(1000, 1014)
-    KEY_F4, KEY_F6 = 1020, 1021
+    KEY_F4, KEY_F5 = 1020, 1021
 
     def __init__(self, keys, dimensions=(16, 64)):
         self.keys = iter(keys)
@@ -116,8 +116,8 @@ class EditorTests(unittest.TestCase):
         self.path.write_text("\n".join("value_%d: text" % i for i in range(50)), encoding="utf-8")
         reference = self.reference()
         original = reference.read_bytes()
-        keys = [Terminal.KEY_NPAGE, Terminal.KEY_F6, Terminal.KEY_NPAGE, "X", "\t", "\n",
-                Terminal.KEY_BACKSPACE, Terminal.KEY_DC, Terminal.KEY_F6, Terminal.KEY_END, "!",
+        keys = [Terminal.KEY_NPAGE, Terminal.KEY_F5, Terminal.KEY_NPAGE, "X", "\t", "\n",
+                Terminal.KEY_BACKSPACE, Terminal.KEY_DC, Terminal.KEY_F5, Terminal.KEY_END, "!",
                 Terminal.KEY_F2, "\x1b"]
         result, terminal = self.open(keys, dimensions=(24, 120), reference=reference)
         self.assertTrue(result.saved)
@@ -133,7 +133,7 @@ class EditorTests(unittest.TestCase):
     def test_narrow_terminal_opens_and_closes_docs_without_losing_either_position(self):
         reference = self.reference()
         result, terminal = self.open([Terminal.KEY_F4, Terminal.KEY_NPAGE, Terminal.KEY_F4,
-                                      "X", Terminal.KEY_F6, "\x1b", Terminal.KEY_F2],
+                                      "X", Terminal.KEY_F5, "\x1b", Terminal.KEY_F2],
                                      dimensions=(24, 80), reference=reference)
         self.assertTrue(result.saved)
         self.assertNotIn("Help paragraph 0.", terminal.frames[0])
@@ -153,9 +153,9 @@ class EditorTests(unittest.TestCase):
             terminal.dimensions = dimensions
             return Terminal.KEY_RESIZE
 
-        terminal.keys = iter([Terminal.KEY_NPAGE, Terminal.KEY_F6, Terminal.KEY_NPAGE, Terminal.KEY_RIGHT,
+        terminal.keys = iter([Terminal.KEY_NPAGE, Terminal.KEY_F5, Terminal.KEY_NPAGE, Terminal.KEY_RIGHT,
                               lambda: resize((24, 60)), lambda: resize((24, 160)),
-                              Terminal.KEY_F6, Terminal.KEY_F4, Terminal.KEY_F4, Terminal.KEY_F6, "\x1b"])
+                              Terminal.KEY_F5, Terminal.KEY_F4, Terminal.KEY_F4, Terminal.KEY_F5, "\x1b"])
         result = edit_file(terminal, self.path, reference=reference, curses_module=terminal)
         self.assertIsNone(result.error)
         for frame in terminal.frames[4:7]:
@@ -169,9 +169,9 @@ class EditorTests(unittest.TestCase):
         reference = self.reference("# Heading\n\n```yaml\n  key: " + "x" * 150 + "\n```\n")
         for size in ((10, 40), (24, 109), (24, 110), (24, 160), (5, 20)):
             with self.subTest(size=size):
-                result, _ = self.open([Terminal.KEY_F6, Terminal.KEY_NPAGE, Terminal.KEY_RIGHT,
+                result, _ = self.open([Terminal.KEY_F5, Terminal.KEY_NPAGE, Terminal.KEY_RIGHT,
                                        Terminal.KEY_HOME, Terminal.KEY_END, Terminal.KEY_F4,
-                                       Terminal.KEY_F4, Terminal.KEY_F6, Terminal.KEY_F2, "\x1b"],
+                                       Terminal.KEY_F4, Terminal.KEY_F5, Terminal.KEY_F2, "\x1b"],
                                       dimensions=size, reference=reference)
                 self.assertFalse(result.saved)
 
@@ -180,15 +180,15 @@ class EditorTests(unittest.TestCase):
         invalid.write_bytes(b"\xff\xfe")
         for reference in (invalid, self.root / "missing.md"):
             with self.subTest(reference=reference):
-                result, terminal = self.open([Terminal.KEY_F6, Terminal.KEY_F6, "X", Terminal.KEY_F2, "\x1b"],
+                result, terminal = self.open([Terminal.KEY_F5, Terminal.KEY_F5, "X", Terminal.KEY_F2, "\x1b"],
                                              dimensions=(24, 120), reference=reference)
                 self.assertTrue(result.saved)
                 self.assertIn("Reference unavailable", terminal.frames[0])
 
     def test_save_error_owns_keys_until_dismissed_even_with_reference_focus(self):
         reference = self.reference()
-        keys = ["X", Terminal.KEY_F6, Terminal.KEY_F2, Terminal.KEY_F4, Terminal.KEY_F6,
-                Terminal.KEY_NPAGE, "\n", Terminal.KEY_F6, Terminal.KEY_BACKSPACE, "\x1b"]
+        keys = ["X", Terminal.KEY_F5, Terminal.KEY_F2, Terminal.KEY_F4, Terminal.KEY_F5,
+                Terminal.KEY_NPAGE, "\n", Terminal.KEY_F5, Terminal.KEY_BACKSPACE, "\x1b"]
         result, terminal = self.open(keys, validate=lambda path: "Invalid setting", dimensions=(24, 120),
                                      reference=reference)
         self.assertFalse(result.saved)

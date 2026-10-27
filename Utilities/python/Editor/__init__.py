@@ -32,7 +32,7 @@ def edit_file(screen, path, *, validate=None, title="Text editor", appearance=No
     cleanup. appearance optionally supplies banner lines, highlight spans and
     preallocated curses styles; the editor never imports its caller's UI.
     reference optionally names a read-only Markdown or text file beside the
-    editor. F6 switches panes; F4 shows/hides it. A missing reference is shown
+    editor. F5 switches panes; F4 shows/hides it. A missing reference is shown
     as a message in that pane and never prevents editing or saving.
     curses_module is optional dependency injection for terminal tests.
     This is an exception boundary, not isolation from hangs or process crashes.

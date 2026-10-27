@@ -1726,8 +1726,8 @@ production stage and its `max_tries`, the run.json schema (3) and the manifest f
 **Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#45-a-read-only-markdown-reference-beside-the-terminal-editor)
 
 Modify User Config opens its YAML beside `Docs/Manual/1-GettingStarted/UserConfig.md`. Each pane keeps its own
-position. F6 switches focus; arrows and Page Up/Down act on that pane. F4 hides/opens the reference. At 110 columns
-or more, the editor/reference use about 60/40 of the width; smaller terminals show one pane at a time (F6 switches).
+position. F5 switches focus; arrows and Page Up/Down act on that pane. F4 hides/opens the reference. At 110 columns
+or more, the editor/reference use about 60/40 of the width; smaller terminals show one pane at a time (F5 switches).
 F2 saves the YAML from either pane, Tab indents only while editing, and leaving still asks about unsaved changes.
 
 - `Editor.edit_file(..., reference=path)` and `ConsoleUI.edit_file(..., title=..., reference=...)` work for other

@@ -161,7 +161,7 @@ class Editor:
             self.write(min(2, max(0, height - 3)), 0,
                        "Enlarge terminal (at least %d x %d)." % (MIN_COLUMNS, MIN_ROWS), self.style("warning"))
         if self.reference:
-            self.write(height - 2, 1, "F2 Save | Esc Back | F4 Docs | F6 Pane", self.style("accent"))
+            self.write(height - 2, 1, "F2 Save | Esc Back | F4 Docs | F5 Pane", self.style("accent"))
             hint = "Arrows/PgUp/Dn Scroll | Home/End" if self.reference_focus else "Arrows/PgUp/Dn Move | Tab Indent"
             self.write(height - 1, 1, hint, self.style("muted"))
         else:
@@ -293,7 +293,7 @@ class Editor:
             shown = self.reference_focus or (self.reference_visible and self.dimensions[1] >= SPLIT_COLUMNS)
             self.reference_visible = not shown
             self.reference_focus = not shown
-        elif self.reference and key == curses.KEY_F6:
+        elif self.reference and key == curses.KEY_F5:
             self.reference_focus = not self.reference_focus
             self.reference_visible = True
         elif self.reference_focus:
