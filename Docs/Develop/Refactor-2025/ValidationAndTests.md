@@ -762,8 +762,11 @@ New and changed unit tests (Windows, no ROOT):
   list; [Examples] and a start return to the main menu; `select_recipe` gets `examples=True` for the examples only.
   The picker hints, the row colors (the `[Examples]` row is accent; the examples list has no create row and its
   edit keys are on the examples) and the semantic actions (`examples`, and the examples list: `select`, `back`).
+- `Tests/Utilities/test_menu.py` `test_an_empty_line_parts_the_recipes_and_runs_from_the_menus_own_rows`: the
+  rendered rows of the recipe list (create, gap, a, b, gap, other path, [Examples], Back), the examples list (gap
+  before Back), an empty recipe list (one gap, not two) and the run list (gap before the other directory).
 - `Tests/Framework/test_validation.py` `test_the_bundled_analyses_have_no_problems`: also `Examples/cmsdas26_ztt`;
   `test_framework.py` and `test_interactive.py` read the examples at their new paths.
 
-Results on Windows (2026-10-27, `python -m unittest discover`): `Tests/Framework` 248 OK, `Tests/Utilities` 254 OK
+Results on Windows (2026-10-27, `python -m unittest discover`): `Tests/Framework` 248 OK, `Tests/Utilities` 255 OK
 (9 skipped), `Tests/contracts` OK. The menu on a real terminal: [TODO.md](TODO.md) section 1.

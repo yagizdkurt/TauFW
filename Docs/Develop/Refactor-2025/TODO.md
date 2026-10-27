@@ -54,7 +54,8 @@ The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go he
 - [ ] **Examples under [Examples] (CL §47):** `python3 taufw.py` > Start a new run: the list has `tes_id_2025` (and
       your own analyses), no `example_*`; the rows end `Enter another recipe path`, `[Examples]`, `Back`.
       `[Examples]` lists `broken` (red), `cmsdas26_ztt`, `mutau_long`, `mutau_short`, then `Back` (back to the recipe
-      list); `View detailed plan` of `mutau_short` works; a started example goes back to the main menu.
+      list); an empty line parts the recipes from the menu's own rows, and the runs of Continue/Inspect from
+      `Enter another run directory`; `View detailed plan` of `mutau_short` works; a started example goes back to the main menu.
       `python3 taufw.py check Analyses/Examples/broken` (4 problems, exit 1) and `plan Analyses/Examples/mutau_short`
       as before. Paste their outputs again into `Docs/Manual/1-GettingStarted/FirstSession.md` and `UserConfig.md`
       (only the paths were changed by hand). Run `Analyses/Examples/cmsdas26_ztt` once (about 1.5 h; its steps were

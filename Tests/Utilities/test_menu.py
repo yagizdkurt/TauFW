@@ -984,6 +984,29 @@ ConsoleUI(None)
         screen.refresh.side_effect = refresh
         return ConsoleUI(curses), screen, frames
 
+    def test_an_empty_line_parts_the_recipes_and_runs_from_the_menus_own_rows(self):
+        def rows(frame, labels):
+            """The screen row of each label (the first line that holds it after the cursor column)."""
+            return [next(y for y, line in enumerate(frame) if ("  " + label) in line or ("> " + label) in line)
+                    for label in labels]
+
+        ui, screen, frames = self.rendered_terminal([27])
+        ui.select_recipe(["a", "b"], lambda i: dict(name="a"))
+        found = rows(frames[0], ["[Create a new run]", "a", "b", "Enter another recipe path", "[Examples]", "Back"])
+        self.assertEqual([y - found[0] for y in found], [0, 2, 3, 5, 6, 7])
+        ui, screen, frames = self.rendered_terminal([27])
+        ui.select_recipe(["a"], lambda i: dict(name="a"), examples=True)  # the examples: Back only after them
+        found = rows(frames[0], ["a", "Back"])
+        self.assertEqual(found[1] - found[0], 2)
+        ui, screen, frames = self.rendered_terminal([27])
+        ui.select_recipe([], lambda i: dict(name="a"))  # no recipes: one empty line, not two
+        found = rows(frames[0], ["[Create a new run]", "Enter another recipe path"])
+        self.assertEqual(found[1] - found[0], 2)
+        ui, screen, frames = self.rendered_terminal([27])
+        ui.select_run([("run_1", "DONE", "today"), ("run_2", "FAILED", "today")])
+        found = rows(frames[0], ["run_1", "run_2", "Enter another run directory", "Back"])
+        self.assertEqual([y - found[0] for y in found], [0, 1, 3, 4])
+
     def test_picker_equal_columns_and_vertical_cards_at_supported_sizes(self):
         for dimensions in ((12, 64), (24, 80), (36, 121)):
             with self.subTest(dimensions=dimensions):

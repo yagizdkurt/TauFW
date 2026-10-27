@@ -291,11 +291,13 @@ class ConsoleUI:
         return offset, visible
 
     def _pipeline_choice(self, title, choices, preview, review=False, position=None, row_colors=None, live=None,
-                         edit_indices=()):
+                         edit_indices=(), separators=()):
         """Two equal columns, with independent recipe/action and pipeline scrolling.
         row_colors: a style name per choice (e.g. "error"), or None. live: seconds; without a key by then, REFRESH
-        (the caller draws it again with what came meanwhile; the position is kept)."""
+        (the caller draws it again with what came meanwhile; the position is kept). separators: an empty line
+        before each of these choices (as in choose)."""
         position = position if position is not None else {}
+        offsets = [index + sum(gap <= index for gap in separators) for index in range(len(choices))]
 
         def draw(screen):
             self._setup(screen)
@@ -319,11 +321,16 @@ class ConsoleUI:
                     self._line(screen, top, column, "Action" if review else "Recipe / bundle",
                                color=self.styles["accent"])
                     top, rows = top + 2, max(1, rows - 2)
-                    first = max(0, selected - rows + 1)
-                    for index in range(first, min(len(choices), first + rows)):
+                    first = 0
+                    while offsets[selected] - offsets[first] >= rows:
+                        first += 1
+                    for index in range(first, len(choices)):
+                        row = offsets[index] - offsets[first]
+                        if row >= rows:
+                            break
                         label = ("> " if index == selected else "  ") + choices[index]
                         role = row_colors[index] if row_colors and index < len(row_colors) else None
-                        self._line(screen, top + index - first, column, label[:columns],
+                        self._line(screen, top + row, column, label[:columns],
                                    index == selected, self.styles.get(role, 0) if role else 0)
                     view = preview(selected)
                     line_colors = []
@@ -850,6 +857,8 @@ class ConsoleUI:
         first = len(head)  # the index of the first recipe row
         rows = head + [("select", name, None, None) for name in names] + tail
         choices = [row[1] for row in rows]
+        # an empty line between the recipes and the menu's own rows (above and below them)
+        separators = sorted({gap for gap in (first, first + len(names)) if 0 < gap < len(choices)})
 
         def view(index):
             if first <= index < first + len(names):
@@ -860,13 +869,14 @@ class ConsoleUI:
                   (drafts and drafts[index]) else None
                   for index, flag in enumerate(broken or [False] * len(names))]
         if preview is None:
-            selected = self.choose("Select an example" if examples else "Select a recipe", choices)
+            selected = self.choose("Select an example" if examples else "Select a recipe", choices,
+                                   separators=separators)
         else:
             selected = self._pipeline_choice("Start a new run / %s" % ("Examples" if examples else "Select a recipe"),
                                              choices, view,
                                              row_colors=[row[2] for row in head] + colors + [row[2] for row in tail],
                                              position=position, live=LIST_EVERY if live else None,
-                                             edit_indices=range(first, first + len(names)))
+                                             edit_indices=range(first, first + len(names)), separators=separators)
         if selected == REFRESH:
             return REFRESH, None
         if isinstance(selected, tuple):
@@ -911,7 +921,8 @@ class ConsoleUI:
                 labels[index] += " | %s: %s" % ("advancing" if operation.running else "advance", text)
         selected = self.choose("Select an existing run", labels + ["Enter another run directory", "Back"],
                                row_colors=colors + ["accent", "accent"], position=position,
-                               live=LIST_EVERY if live else None, badge=True)
+                               live=LIST_EVERY if live else None, badge=True,
+                               separators=(len(labels),) if labels else ())  # an empty line after the runs
         if selected == REFRESH:
             return REFRESH, None
         if selected is None or selected == len(labels) + 1:

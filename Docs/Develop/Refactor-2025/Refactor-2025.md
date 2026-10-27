@@ -1788,6 +1788,11 @@ With every new example the list grows, and a user's own analyses get lost among 
   (to the recipe list). An example starts like any recipe; after the start the menu returns to the main menu. The
   examples are checked ahead with the recipes (`_read_ahead`). "Create a new run" still creates `Analyses/<name>/`;
   the name `Examples` is taken by the directory (the usual "already exists").
+- **An empty line between what you choose and the menu's own rows:** in the recipe list after `[Create a new run]`
+  and before `Enter another recipe path`; in the examples list before `Back`; in the run list (Continue, Inspect)
+  before `Enter another run directory`. `_pipeline_choice` takes `separators` like `choose`. The run list used to
+  leave an empty line between every two rows when the terminal had room; with the separator its runs are one per
+  line, as in the recipe list.
 - **Docs:** `Analyses/README.md` (a table of the analyses and one of the examples), `Framework/README.md`,
   `Framework/python/__init__.py`, `taufw.py`, the Manual (`FirstSession.md`: the examples have their own list;
   `UserConfig.md`, `01-FirstProduction.md`: the new paths), `contracts/pico-tuples.md`, the comments of the
