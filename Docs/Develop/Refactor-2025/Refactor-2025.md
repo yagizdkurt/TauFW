@@ -1740,3 +1740,26 @@ F2 saves the YAML from either pane, Tab indents only while editing, and leaving 
 - `_screen.py` handles layout, focus, resizing and key routing. Reference typing/deletion cannot change either
   file; save errors and unsaved-change dialogs consume keys before the panes. Cursor visibility is restored.
 - The editor README, user-config manual and menu FAQ document the controls. No new dependencies or file-format changes.
+
+## 46. Continue and Retry show how long the finished stages took
+
+**Date:** 2026-10-27
+**Status:** done (lxplus check open: [TODO.md](TODO.md) section 1)
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#46-continue-and-retry-show-how-long-the-finished-stages-took)
+
+**Why:** the run screen of Continue (and of Retry, CL §44) listed the stages finished in an earlier advance without a
+time: a run whose first five stages took 28 minutes showed them as `[DONE]` with an empty time column. `run.json`
+already records the times, so nothing new is written.
+
+- **`Framework/python/interactive.py`** (`_earlier_time`, used by `_run_of` for `advance_run` and `retry_run`): for
+  every DONE or FAILED stage, the run screen's data gets `seconds`, `commands` and `log` from run.json:
+  - a local stage (`controlhists`, `controlplots`, `shapes`, `fit`, `python`): its commands
+    (`last_status.commands`: label, seconds, ok, log); `seconds` is their sum, `log` the last command's log;
+  - a stage without commands (production): the time from its first to its last `history` entry, i.e. with the
+    waits for the jobs (no commands).
+  A stage that did not finish (NEW, SUBMITTED, WAITING, MERGING) gets nothing.
+- **`Utilities/python/Menu/_run_screen.py`** (`RunProgress`): such a stage shows its time in the stage list, "Took
+  <time> in an earlier advance." in its Details, its commands with their times and states, and its last command's
+  log. Once the stage takes a step again (a retried stage), its time and commands start from zero (`earlier`).
+  `Menu/_preview.py`: the made-up run shows earlier times for `ntuples` and `histograms`.
+- **Unchanged:** run.json, the events, `taufw.py`, a run started from the menu (all stages NEW), every BBB baseline.

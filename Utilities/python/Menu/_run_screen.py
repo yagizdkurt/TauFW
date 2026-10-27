@@ -15,10 +15,13 @@ operation screen (_operation_screen.py):
                                        complete / waiting for jobs / failed / blocked / stopped / lost
 
 operation.data: run_id, run_dir and stages, [dict(id, type, state, message,
-info)] in recipe order (the Framework supplies them from run.json as plain
-data); info: [label, value] pairs of the stage's facts (its config, inputs,
-output, ...), shown in a box next to the list (the Framework chooses them per
-stage type; the preview makes them up). The events it reads:
+info, [seconds, commands, log])] in recipe order (the Framework supplies them
+from run.json as plain data); info: [label, value] pairs of the stage's facts
+(its config, inputs, output, ...), shown in a box next to the list (the
+Framework chooses them per stage type; the preview makes them up). seconds,
+commands ([dict(label, seconds, status, log)]) and log: how long a finished or
+failed stage took in the earlier advances, shown as they were until the stage
+takes a step again (a retry starts its time anew). The events it reads:
 
   run          run_id, run_dir                    stage_step  stage, type, state (before the step)
   stage_state  stage, state, message              run_state   run_id, state
@@ -60,9 +63,10 @@ LOST_TEXT = ("The advance gave no sign of life for minutes: its login session en
 
 class RunProgress(ScreenModel):
     """What the screen knows about a run while it advances, from its events (see the module docstring). stages:
-    id -> dict(id, type, state, message, started, seconds, commands, log, info) in recipe order; state is a run.json
-    stage state, RUN while a step works, STOP once the advance stopped during it; commands: index ->
-    dict(index, total, label, status, started, seconds, log)."""
+    id -> dict(id, type, state, message, started, seconds, commands, log, info, earlier) in recipe order; state is a
+    run.json stage state, RUN while a step works, STOP once the advance stopped during it; commands: index ->
+    dict(index, total, label, status, started, seconds, log); earlier: seconds and commands are those of the earlier
+    advances (from operation.data)."""
 
     list_title = "Stages"
     item = "Stage"
@@ -119,6 +123,8 @@ class RunProgress(ScreenModel):
     def details(self, stage):
         lines = [] if stage["info"] else ["Type: %s" % stage["type"]]  # else the first fact of info()
         lines.append("State: %s" % self._state_text(stage, long=True))
+        if stage["earlier"]:
+            lines.append("Took %s in an earlier advance." % _time(stage, "started", "seconds"))
         if stage["message"]:
             lines.append("Message: %s" % stage["message"])
         if stage["state"] in JOBS and self.next_check and self.ended is None:
@@ -198,6 +204,8 @@ class RunProgress(ScreenModel):
 
     def _on_stage_step(self, event):
         stage = self._stage(event["stage"], event.get("type"))
+        if stage["earlier"]:  # a retried stage: its time and commands start again
+            stage.update(seconds=None, commands={}, log=None, earlier=False)
         stage.update(state="RUN", started=event.get("t"))
         self.next_check = None
         self._seen(event)
@@ -243,7 +251,7 @@ class RunProgress(ScreenModel):
     def _stage(self, name, kind=None):
         if name not in self.stages:
             self.stages[name] = dict(id=name, type=kind or "", state="NEW", message="", started=None, seconds=None,
-                                     commands={}, log=None, info=[])
+                                     commands={}, log=None, info=[], earlier=False)
         elif kind:
             self.stages[name]["type"] = kind
         return self.stages[name]
@@ -289,9 +297,15 @@ class RunProgress(ScreenModel):
         self.run_dir = data.get("run_dir", "")
         self.stages = {}
         for stage in data.get("stages", ()):
-            self._stage(stage["id"], stage.get("type")).update(state=stage.get("state") or "NEW",
-                                                               message=stage.get("message") or "",
-                                                               info=[tuple(fact) for fact in stage.get("info", ())])
+            commands = stage.get("commands") or ()
+            self._stage(stage["id"], stage.get("type")).update(
+                state=stage.get("state") or "NEW", message=stage.get("message") or "",
+                info=[tuple(fact) for fact in stage.get("info", ())], seconds=stage.get("seconds"),
+                earlier=stage.get("seconds") is not None, log=stage.get("log"),
+                commands={index: dict(index=index, total=len(commands), label=command.get("label", ""),
+                                      status=command.get("status", "ok"), started=None,
+                                      seconds=command.get("seconds"), log=command.get("log"))
+                          for index, command in enumerate(commands, 1)})
         self.run_state = None
         self.next_check = None
         self.poll = 0.0

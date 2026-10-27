@@ -333,10 +333,18 @@ RUN_INFO = {
 }
 
 
+EARLIER = dict(  # how long the finished stages took in the earlier advances (run.json; Framework _earlier_time)
+    ntuples=dict(seconds=26 * 3600 + 14 * 60 + 3.0),
+    histograms=dict(seconds=1693.0, log="/tmp/histograms.log",
+                    commands=[dict(label="mutau 2025", seconds=1012.4, status="ok", log="/tmp/histograms.log"),
+                              dict(label="mumu 2025", seconds=680.6, status="ok", log="/tmp/histograms.log")]))
+
+
 def _run_data(states):
     return dict(run_id=RUN_ID, run_dir=RUN_DIR,
-                stages=[dict(id=name, type=kind, state=states.get(name, "NEW"), message="",
-                             info=[list(fact) for fact in RUN_INFO[name]])
+                stages=[dict(dict(id=name, type=kind, state=states.get(name, "NEW"), message="",
+                                  info=[list(fact) for fact in RUN_INFO[name]]),
+                             **(EARLIER.get(name, {}) if states.get(name) == "DONE" else {}))
                         for name, kind in RUN_STAGES])
 
 

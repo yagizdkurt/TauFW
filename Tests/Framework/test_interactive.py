@@ -508,6 +508,31 @@ class MenuTests(unittest.TestCase):
         self.assertEqual(self.started[0][1]["data"]["stages"][1]["state"], "FAILED")
         self.assertEqual(ui.screens[-1][0], "Run " + record.run_id)
 
+    def test_the_run_screen_gets_the_times_of_the_earlier_advances(self):
+        """Continue and Retry: how long the DONE and FAILED stages took, from run.json (commands of a local stage;
+        the history of a stage without commands, e.g. production); nothing for a stage that did not finish."""
+        record = self.record(state="FAILED")
+        record.stage("shapes").last_status = {"commands": [
+            {"label": "mutau", "seconds": 61.5, "ok": True, "log": "/r/logs/shapes/01_mutau.log"},
+            {"label": "mumu", "seconds": 20.0, "ok": True, "log": "/r/logs/shapes/02_mumu.log"}]}
+        record.stage("fit").history = [{"time": "2026-10-01 10:00:00", "event": "submitted"},
+                                       {"time": "2026-10-02 12:30:05", "event": "failed"}]
+        record.save()
+        ui = FakeUI([0, 0])
+        self.menu(ui).continue_run()
+        shapes, fit = self.started[0][1]["data"]["stages"]
+        self.assertEqual({key: shapes[key] for key in ("seconds", "commands", "log")}, dict(
+            seconds=81.5, log="/r/logs/shapes/02_mumu.log",
+            commands=[dict(label="mutau", seconds=61.5, status="ok", log="/r/logs/shapes/01_mutau.log"),
+                      dict(label="mumu", seconds=20.0, status="ok", log="/r/logs/shapes/02_mumu.log")]))
+        self.assertEqual((fit["seconds"], "commands" in fit), (26 * 3600 + 30 * 60 + 5.0, False))
+        waiting = self.record("other", state="WAITING", day=3)
+        waiting.stage("fit").history = list(record.stage("fit").history)
+        waiting.save()
+        self.started.clear()
+        self.menu(FakeUI([0, 0])).continue_run()
+        self.assertNotIn("seconds", self.started[0][1]["data"]["stages"][1])  # still running: no time yet
+
     def test_inspect_refreshes_and_does_not_write(self):
         record = self.record()
         before = Path(record.path).read_bytes()

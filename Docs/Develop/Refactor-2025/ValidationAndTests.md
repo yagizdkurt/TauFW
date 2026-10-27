@@ -727,3 +727,21 @@ Focused Windows checks (2026-10-27, Python 3.13.8, no ROOT or real curses sessio
   focus markers, separate line ranges and the pane controls. `git diff --check` passes.
 
 The real terminal/SSH key and resize check remains in [TODO.md](TODO.md) section 1. No batch or BBB run was needed.
+
+## 46. Continue and Retry show how long the finished stages took
+
+**Change:** [CL §46](Refactor-2025.md#46-continue-and-retry-show-how-long-the-finished-stages-took)
+
+New unit tests (Windows, no ROOT):
+
+- `Tests/Framework/test_interactive.py` `test_the_run_screen_gets_the_times_of_the_earlier_advances`: a DONE shapes
+  stage with two recorded commands gives `seconds` 81.5, both commands (label, seconds, status, log) and the last log;
+  a FAILED fit with only history gives the time between its first and last entry (26:30:05); a WAITING stage gets no
+  time.
+- `Tests/Utilities/test_run_screen.py` `test_the_times_of_the_earlier_advances_are_shown`: the stage list shows
+  `26:00:00`, `01:15` and nothing for a NEW stage; the Details say "Took 01:15 in an earlier advance." and list the
+  commands `[ ok ]` and `[FAIL]` with their times; the log is the last command's; after the retry's `stage_state`
+  NEW and `stage_step` the stage starts from zero, the finished one keeps its time.
+
+Results on Windows (2026-10-27, `python -m unittest discover`): `Tests/Framework` 243 OK, `Tests/Utilities` 250 OK
+(9 skipped). The real screen (a long run on lxplus, Continue and Retry): [TODO.md](TODO.md) section 1.

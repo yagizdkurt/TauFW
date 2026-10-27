@@ -117,6 +117,32 @@ class RunProgressTests(unittest.TestCase):
                 self.assertEqual(run.states[state][0], line)
                 self.assertNotIn("RUN", [stage["state"] for stage in run.items()])
 
+    def test_the_times_of_the_earlier_advances_are_shown(self):
+        """Continue and Retry: a finished or failed stage shows how long it took before, until it takes a step again
+        (a retried stage starts its time anew)."""
+        data = dict(DATA, stages=[
+            dict(DATA["stages"][0], seconds=93600.0),  # production: no commands
+            dict(DATA["stages"][1], state="FAILED", message="exit code 1", seconds=75.0, log="/l/mumu.log",
+                 commands=[dict(label="etau 2025", seconds=45.0, status="ok", log="/l/etau.log"),
+                           dict(label="mumu 2025", seconds=30.0, status="failed", log="/l/mumu.log")]),
+            DATA["stages"][2]])
+        run = RunProgress(data)
+        ntuples, plot, fit = run.items()
+        self.assertEqual([run.row(stage)[:2] for stage in run.items()],
+                         [("[DONE] ntuples  DONE", "26:00:00"), ("[FAIL] plots    FAILED", "01:15"),
+                          ("[    ] fit      NEW", "")])
+        self.assertEqual(run.details(plot), ["Type: plotter", "State: FAILED", "Took 01:15 in an earlier advance.",
+                                             "Message: exit code 1", "Commands:", "  [ ok ] 1/2 etau 2025  45.0s",
+                                             "  [FAIL] 2/2 mumu 2025  30.0s"])
+        self.assertEqual(run.log(plot), "/l/mumu.log")
+        self.assertIn("Took 26:00:00 in an earlier advance.", run.details(ntuples))
+        self.assertNotIn("earlier", " ".join(run.details(fit)))
+        run.feed([event("stage_state", stage="plots", state="NEW", message="retry"),  # the retry starts it anew
+                  event("stage_step", T + 1, stage="plots", type="plotter", state="NEW")])
+        self.assertEqual((plot["seconds"], plot["commands"], plot["log"], plot["earlier"]), (None, {}, None, False))
+        self.assertNotIn("Took", " ".join(run.details(plot)))
+        self.assertEqual(ntuples["seconds"], 93600.0)  # the finished stage keeps its time
+
     def test_failed_card_says_whether_the_stage_can_be_retried(self):
         """CL §44: a failed local stage is retried from Continue; a failed production stage ends the run."""
         for stage, kind, then in (("plots", "plotter", "Fix the cause, then Continue offers Retry plots: the "

@@ -21,10 +21,11 @@ import socket
 import subprocess
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
 from TauFW.Framework.defaults import (ANALYSES_DIR, BUNDLE_DIR_NAME, CONFIGS_DIR, DEFAULT_RUN_ROOT, RECIPE_NAME,
-                                      RUN_RECORD_NAME, STAGES_DIR_NAME)
+                                      RUN_RECORD_NAME, STAGES_DIR_NAME, TIME_FORMAT)
 from TauFW.Framework.run_record import RunRecord, RunState
 from TauFW.Framework.recipe import Recipe, read_recipe
 from TauFW.Framework.validation import check_recipe
@@ -377,8 +378,9 @@ class _Operations:
         return dict(stage=found[0], type=found[1], message=record.stage(found[0]).message, changed=changed)
 
     def _run_of(self, record, argv):
-        """taufw.py argv (advance or retry) of a run behind the menu, with the run's stages as run.json has them.
-        The earlier advances of the run count as seen."""
+        """taufw.py argv (advance or retry) of a run behind the menu, with the run's stages as run.json has them,
+        and how long the finished and failed ones took in the earlier advances (_earlier_time). The earlier advances
+        of the run count as seen."""
         for operation in self._run_operations_of(record.run_dir):
             operation.mark_seen()
         stages = []
@@ -386,7 +388,7 @@ class _Operations:
             saved = record.stage(stage.get("id"))
             info = _stage_info(stage) + ([["Attempt", str(saved.attempt)]] if saved.attempt else [])
             stages.append(dict(id=stage.get("id"), type=stage.get("stage"), state=saved.state, message=saved.message,
-                               info=info))
+                               info=info, **_earlier_time(saved)))
         return self._start_run(record.run_id, argv, dict(run_id=record.run_id, run_dir=record.run_dir,
                                                           stages=stages))
 
@@ -547,6 +549,32 @@ def _stage_info(stage):
                                           for slot, source in inputs.items())])
     facts.append(["Output", "%s/%s/" % (STAGES_DIR_NAME, stage.get("id"))])
     return facts
+
+
+def _earlier_time(saved):
+    """How long a DONE or FAILED stage took in the earlier advances of its run, as run.json recorded it, for the
+    run screen: dict(seconds, commands, log), {} if nothing is recorded (or the stage did not finish).
+    A local stage: its commands (last_status.commands: label, seconds, ok, log); seconds is their sum. Another stage
+    (production): the time from its first to its last history entry (with the waits for the jobs)."""
+    if saved.state not in ("DONE", "FAILED"):
+        return {}
+    commands = [command for command in (saved.last_status or {}).get("commands") or ()
+                if isinstance(command, dict) and isinstance(command.get("seconds"), (int, float))]
+    if commands:
+        return dict(seconds=float(sum(command["seconds"] for command in commands)),
+                    commands=[dict(label=command.get("label", ""), seconds=float(command["seconds"]),
+                                   status="ok" if command.get("ok") else "failed", log=command.get("log"))
+                              for command in commands],
+                    log=commands[-1].get("log"))
+    times = []
+    for entry in saved.history:
+        try:
+            times.append(datetime.strptime(entry.get("time", ""), TIME_FORMAT))
+        except (TypeError, ValueError):
+            pass
+    if len(times) < 2:
+        return {}
+    return dict(seconds=(times[-1] - times[0]).total_seconds())
 
 
 def _fact(value):

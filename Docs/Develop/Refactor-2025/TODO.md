@@ -51,6 +51,11 @@ Items marked **(verify)** may already be done; check before working on them.
 
 The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go here until they are run.
 
+- [ ] **Times of the earlier advances (CL §46):** menu > Continue on a stopped or failed CDTest run: the finished
+      stages show their times in the list (as in the run that made them), their Details say "Took ... in an earlier
+      advance." with the commands; a production run continued after its merge shows the production time (from
+      submission to merge). Retry: the retried stage starts from zero.
+
 - [ ] **Editor reference pane (CL §45):** menu > Modify User Config: at 120 columns the YAML and UserConfig.md
       appear side by side; F6 switches focus and Up/Down/PgUp/PgDn move each independently. F4 hides/opens the
       manual. At 80 columns it opens full width with F4/F6 and F6 returns to editing. Resize while reading;
