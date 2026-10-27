@@ -66,7 +66,7 @@ SKIPPED     = ('__pycache__', 'taufw_runs')  # directories never scanned (nor hi
 IDEXP       = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$")  # e.g. histogrammer.samples_v15_2025
 VERSIONEXP  = re.compile(r"^(?P<head>[ \t]+version:[ \t]*)(?P<number>\d+)", re.M)  # a version line of the header
 LOCK_HEADER = ("# Configs/configs.lock: the content version and hash of every template in Configs/.\n"
-               "# Written by `taufw.py configs update` (Framework/python/configs.py); do not edit by hand.\n"
+               "# Written by `taufw.py configs update` (Framework/python/recipes/configs.py); do not edit by hand.\n"
                "# id  version  sha256 of the values without the taufw_config header\n")
 
 # ===== BACKWARD COMPATIBILITY (changelog §21, TODO §8): delete at the migration point =====

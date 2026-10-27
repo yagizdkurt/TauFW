@@ -11,7 +11,7 @@ from unittest import mock
 import checkout  # noqa: F401  (must precede TauFW imports)
 import fakes
 from TauFW.Framework import Framework, Recipe, SilentReporter, check_recipe, user_settings
-from TauFW.Framework.recipe import recipe_warnings
+from TauFW.Framework.recipes.recipe import recipe_warnings
 from TauFW.Framework.stages import ProductionStage
 from TauFW.Utilities import UserConfig
 from test_framework import RECIPE, Clock

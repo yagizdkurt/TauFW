@@ -26,13 +26,13 @@ from pathlib import Path
 
 from TauFW.Framework.defaults import (ANALYSES_DIR, BUNDLE_DIR_NAME, CONFIGS_DIR, DEFAULT_RUN_ROOT, RECIPE_NAME,
                                       RUN_RECORD_NAME, STAGES_DIR_NAME, TIME_FORMAT)
-from TauFW.Framework.run_record import RunRecord, RunState
-from TauFW.Framework.recipe import Recipe, read_recipe
-from TauFW.Framework.validation import check_recipe
-from TauFW.Framework.bundle import bundle_changes, bundle_hashes
-from TauFW.Framework.framework import Framework, retryable_stage
-from TauFW.Framework.reporting import SilentReporter
-from TauFW.Framework.run_lock import read_lock
+from TauFW.Framework.runtime.run_record import RunRecord, RunState
+from TauFW.Framework.recipes.recipe import Recipe, read_recipe
+from TauFW.Framework.recipes.validation import check_recipe
+from TauFW.Framework.recipes.bundle import bundle_changes, bundle_hashes
+from TauFW.Framework.runtime.framework import Framework, retryable_stage
+from TauFW.Framework.runtime.reporting import SilentReporter
+from TauFW.Framework.runtime.run_lock import read_lock
 from TauFW.Framework.version import VersionChecker
 from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation, Prefetch
 from TauFW.Utilities import UserConfig
@@ -40,7 +40,7 @@ from TauFW.Utilities.UserConfig import manage as user_config
 from TauFW.Framework.user_settings import run_root_or_none as user_run_root
 from TauFW.Utilities.Process import LOST, EventReader, OperationStore
 
-CHECKOUT = Path(__file__).resolve().parents[2]
+CHECKOUT = Path(__file__).resolve().parents[3]
 OPERATIONS_DIR = CHECKOUT / ".artifacts" / "menu" / "operations"  # what runs behind the menu (git-ignored)
 TAUFW_SCRIPT = CHECKOUT / "Framework" / "scripts" / "taufw.py"
 PROXY_MARGIN = 60  # seconds a proxy must still be valid for (voms-proxy-info --valid 0:01 before)

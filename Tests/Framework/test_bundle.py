@@ -11,7 +11,7 @@ from unittest import mock
 import checkout  # noqa: F401  (must precede TauFW imports)
 import fakes
 from TauFW.Framework import Framework, Recipe, RecipeError, RunRecord, SilentReporter
-from TauFW.Framework.bundle import resolve, where, bundle_files, path_rows, BundleError
+from TauFW.Framework.recipes.bundle import resolve, where, bundle_files, path_rows, BundleError
 from TauFW.Framework.defaults import CONFIGS_DIR
 from TauFW.Framework.stages import ProductionStage, ControlHistsStage, ShapesStage, FitStage
 from test_framework import Clock
@@ -144,7 +144,7 @@ class RunSnapshotTests(BundleTestCase):
         recipe = self.recipe(SHAPES)
         record = self.framework(recipe).start(run_root=os.path.join(self.root, "runs"))
         self.assertFalse([f for f in record.bundle["files"] if "pycache" in f or ".git" in f or "taufw_runs" in f])
-        with mock.patch("TauFW.Framework.bundle.MAX_BUNDLE_BYTES", 10):
+        with mock.patch("TauFW.Framework.recipes.bundle.MAX_BUNDLE_BYTES", 10):
             with self.assertRaises(BundleError):
                 self.framework(recipe).start(run_root=os.path.join(self.root, "big"))
         self.assertFalse(os.path.exists(os.path.join(self.root, "big")))  # nothing was created
@@ -400,7 +400,7 @@ class MakeBundleTests(BundleTestCase):
             self.assertEqual(stream.read(), "original setup_mumu.yml\n")
 
     def test_copied_names_do_not_clash(self):
-        from TauFW.Framework.bundle import _free_name
+        from TauFW.Framework.recipes.bundle import _free_name
         taken = []
         for group, source in (("fitter", "/m/Fitter/A/cfg.yml"), ("histogrammer", "/m/Histogrammer/cfg.yml"),
                               ("fitter", "/m/Fitter/B/cfg.yml"), ("fitter", "/m/Fitter/A2/x/cfg.yml"),

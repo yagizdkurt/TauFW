@@ -141,7 +141,7 @@ Run selectors accept `(run_id, state, updated)` summaries; `state=None` marks an
 unreadable run. Framework retains the records and paths behind those summaries.
 
 Discovery, validation, record access, callback arguments, and command dispatch
-stay in `Framework/python/interactive.py`. Menu imports no Framework modules.
+stay in `Framework/python/interfaces/interactive.py`. Menu imports no Framework modules.
 Workflow operations continue to use their existing CLI reporting.
 
 Testing screens use `tests_menu()`, `test_family(title)`, and

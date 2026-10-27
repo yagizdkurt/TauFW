@@ -91,8 +91,8 @@ Public API:
 import os, re, copy
 from dataclasses import dataclass, field
 from typing import Optional, Tuple
-from TauFW.Framework.bundle import leaves_bundle, is_bundle, is_absolute, path_rows
-from TauFW.Framework.configs import copy_warnings
+from TauFW.Framework.recipes.bundle import leaves_bundle, is_bundle, is_absolute, path_rows
+from TauFW.Framework.recipes.configs import copy_warnings
 from TauFW.Framework.defaults import RECIPE_NAME, DEFAULT_RUN_ROOT, default_file_io
 from TauFW.Framework.user_settings import run_root_or_none as user_run_root
 from TauFW.Framework.stages import STAGES, ORDER, RETIRED, MOVED_CONFIGS, SpecError, spec_from_dict

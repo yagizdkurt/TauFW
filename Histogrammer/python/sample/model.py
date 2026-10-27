@@ -47,7 +47,7 @@ __all__ = ['load_sample_model', 'pick', 'sample_names', 'getsampleset', 'SampleM
 
 
 SCHEMA       = 2                                    # the format this module reads (taufw_config.schema; 2: lumi)
-HEADER_KEY   = 'taufw_config'                       # the template header (Framework/python/configs.py)
+HEADER_KEY   = 'taufw_config'                       # the template header (Framework/python/recipes/configs.py)
 KEYS         = ('era', 'cme', 'lumi', 'extraweights', 'mc', 'data', 'weights', 'stitch', 'join')
 MC_KEYS      = ('group', 'name', 'title', 'xsec', 'extraweight')
 DATA_KINDS   = ('tautau', 'muon', 'electron', 'emu')

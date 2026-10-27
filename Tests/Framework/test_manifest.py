@@ -10,7 +10,7 @@ import unittest
 import checkout  # noqa: F401  (must precede TauFW imports)
 from TauFW.Framework import Recipe
 from TauFW.Framework.defaults import default_file_io
-from TauFW.Framework.manifest import write_manifest, read_stage_dir, ManifestError, MANIFEST_FORMAT
+from TauFW.Framework.runtime.manifest import write_manifest, read_stage_dir, ManifestError, MANIFEST_FORMAT
 
 SHAPES = [{"kind": "shapes", "path": "/x/a.root", "era": "2025", "jet_wp": "VTight", "ele_wp": "Tight",
            "config": "tt.yml"}]

@@ -33,7 +33,7 @@
 RECIPE is an analysis bundle directory (Analyses/<name>, with recipe.yml) or a recipe file.
 
 With $TAUFW_EVENTS set (the menu does that for a command it runs beside its screen), every command also writes its
-messages and the Framework's events (TauFW.Framework.reporting) to that file; the output does not change. The
+messages and the Framework's events (TauFW.Framework.runtime.reporting) to that file; the output does not change. The
 variable is removed from the environment first, so the commands the stages run never see it.
 
 The runs go to start --run-root DIR, else the recipe's run_root, else runs.run_root of your user config, else
@@ -53,9 +53,9 @@ from argparse import ArgumentParser
 try:
     from TauFW.Framework import (Framework, Recipe, RecipeError, load_run, FrameworkReporter, EventReporter,
                                  RunState, check_recipe, RunDirectoryError, RunLockError, RetryError)
-    from TauFW.Framework.framework import retryable_stage
-    from TauFW.Framework.bundle import BundleError, make_bundle
-    from TauFW.Framework.configs import LOCK_NAME, lock_changes, update
+    from TauFW.Framework.runtime.framework import retryable_stage
+    from TauFW.Framework.recipes.bundle import BundleError, make_bundle
+    from TauFW.Framework.recipes.configs import LOCK_NAME, lock_changes, update
     from TauFW.Framework.defaults import (DEFAULT_RUN_ROOT, DEFAULT_POLL_SECONDS, ANALYSES_DIR, CONFIGS_DIR,
                                           default_file_io)
     from TauFW.Utilities.Process import EVENTS_ENV, EventWriter
@@ -245,7 +245,7 @@ def cmd_init(args):
 
 def cmd_configs(args):
     """List the config templates of Configs/; with `update`, raise the versions of the changed templates and
-    rewrite the lock (Framework/python/configs.py)."""
+    rewrite the lock (Framework/python/recipes/configs.py)."""
     reporter = _reporter(args)
     configs, changes = (update if args.action == 'update' else lock_changes)(CONFIGS_DIR)
     for problem in configs.problems:
@@ -455,7 +455,7 @@ def main(argv=None):
     """Without arguments, open the interactive menu; otherwise run one command."""
     argv = sys.argv[1:] if argv is None else argv
     if not argv:
-        from TauFW.Framework.interactive import run_menu
+        from TauFW.Framework.interfaces.interactive import run_menu
         return run_menu(build_parser())
     args = build_parser().parse_args(argv)
     args.events = EventWriter(os.environ.pop(EVENTS_ENV, None))  # read once; the stages' commands never see it

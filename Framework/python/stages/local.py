@@ -43,7 +43,7 @@ import os
 from collections import deque
 from dataclasses import replace
 
-from TauFW.Framework.bundle import resolve_spec
+from TauFW.Framework.recipes.bundle import resolve_spec
 from TauFW.Framework.stages.base import Stage, StageState, StageOutcome, StageContext, PreflightError
 
 __all__ = ['LocalStage', 'LOG_TAIL', 'fixed_directory']

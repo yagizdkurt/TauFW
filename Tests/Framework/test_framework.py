@@ -14,7 +14,7 @@ import checkout  # noqa: F401  (must precede TauFW imports)
 import fakes
 from TauFW.Framework import (Framework, Recipe, RecipeError, RunRecord, SilentReporter, StageState,
                              RunDirectoryError, EventReporter, FrameworkReporter, RetryError)
-from TauFW.Framework.framework import failed_stage, retryable_stage
+from TauFW.Framework.runtime.framework import failed_stage, retryable_stage
 from TauFW.Utilities.Process import EVENTS_ENV, EventReader, EventWriter
 from TauFW.Framework.stages import ProductionStage, StageOutcome, decide_next, Action
 from TauFW.Framework.stages.production import StatusCounts
@@ -347,7 +347,7 @@ class RunRootTests(FrameworkTestCase):
     def test_run_root_that_cannot_be_written_stops_before_anything(self):
         pico = fakes.FakePicoProducer(statuses=[fakes.pending("DY")])
         root = os.path.join(self.root, "runs")
-        with mock.patch("TauFW.Framework.framework.open", side_effect=PermissionError("Permission denied"),
+        with mock.patch("TauFW.Framework.runtime.framework.open", side_effect=PermissionError("Permission denied"),
                         create=True):
             with self.assertRaises(RunDirectoryError) as context:
                 framework(pico).start(run_root=root)
@@ -363,7 +363,7 @@ class RunRootTests(FrameworkTestCase):
         with open(record.path, "rb") as stream:
             before = stream.read()
         calls = len(pico.calls)
-        with mock.patch("TauFW.Framework.framework.open", side_effect=PermissionError("Permission denied"),
+        with mock.patch("TauFW.Framework.runtime.framework.open", side_effect=PermissionError("Permission denied"),
                         create=True):
             with self.assertRaises(RunDirectoryError) as context:
                 fw.advance(record)
@@ -689,7 +689,7 @@ class CommandLineTests(FrameworkTestCase):
             self.assertEqual(self.cli.main(["plan", recipe]), 0)
             self.assertIn("Run root: %s (recipe)" % (os.path.join(self.root, "runs")),
                           [t for k, t in reporter.messages if k == "message"])
-            with mock.patch("TauFW.Framework.framework.open", side_effect=PermissionError("Permission denied"),
+            with mock.patch("TauFW.Framework.runtime.framework.open", side_effect=PermissionError("Permission denied"),
                             create=True):
                 self.assertEqual(self.cli.main(["start", recipe]), 1)  # the reason, no traceback
             self.assertIn("cannot write in the run root", [t for k, t in reporter.messages if k == "warning"][-1])
