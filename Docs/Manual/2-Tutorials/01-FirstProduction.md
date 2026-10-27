@@ -3,7 +3,6 @@
 **You'll learn:** how to make your own copy of an example analysis, test it on a few events, send it to the batch
 system, and pick it up again later to collect your pico tuples.
 **You need:** to have gone through [Your first session](../1-GettingStarted/FirstSession.md), and a valid grid proxy.
-**Time:** about 30 minutes of your time, plus a few hours of waiting for batch jobs.
 
 In this tutorial you'll make mutau pico tuples for the 2022_postEE Drell-Yan and ttbar samples. That's 9 samples and
 340 batch jobs. It's a real production, just a small one.

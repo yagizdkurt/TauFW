@@ -3,7 +3,6 @@
 **You'll learn:** what the user config file is, where it lives, how to mark it as checked, and how to read it from
 your own Python scripts.
 **You need:** TauFW installed with [FastSetup](../FastSetup.md).
-**Time:** about 10 minutes.
 
 Some settings belong to you, not to an analysis. Where your EOS area is, which batch queue you like, where your runs
 should go. They're different for every person, so they shouldn't live in a recipe that you share with others, and

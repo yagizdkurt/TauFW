@@ -3,7 +3,6 @@
 **You'll learn:** how to get into TauFW each time you log in, how to find your way around the menu, and how to read a
 recipe check and a plan.
 **You need:** TauFW installed with [FastSetup](../FastSetup.md), and a lxplus account.
-**Time:** about 15 minutes.
 
 Nothing on this page submits jobs or writes anything big. You can't break anything here, so go ahead and try.
 
