@@ -48,11 +48,10 @@ The optional `appearance` dictionary supplies caller-owned presentation data:
 - `large_banner` and `large_banner_spans`: an optional larger variant, used only
   if it fits horizontally and leaves at least 16 rows of editable text.
 
-The TauFW menu passes its existing badge, full banner and initialized color
-attributes. A standard 80 x 24 terminal uses the three-row badge and shows 16
-rows of text. With enough height (48 rows for the current full banner), the
-full banner appears instead. Resizing chooses again without resetting the
-buffer or cursor. Editor never allocates color pairs or changes global colors;
+The TauFW menu always passes its existing three-row badge and initialized color
+attributes, including on tall terminals. A standard 80 x 24 terminal shows 16
+rows of text; larger terminals give the extra space to the document. Resizing
+does not reset the buffer or cursor. Editor never allocates color pairs or changes global colors;
 without appearance data it uses a plain title and monochrome frame. With colors
 disabled, state labels and the active-line marker still carry the same information.
 

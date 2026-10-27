@@ -728,13 +728,9 @@ class ConsoleUI:
             def draw(screen):
                 self._setup(screen)
                 styles = dict(self.styles, muted=getattr(self.curses, "A_DIM", 0),
-                              active=self.styles["accent"] | self.curses.A_BOLD,
-                              higgs=self.styles["error"] | self.curses.A_BOLD,
-                              tau=self.styles["brand"], products=self.styles["good"],
-                              vertex=self.styles["warning"] | self.curses.A_BOLD)
+                              active=self.styles["accent"] | self.curses.A_BOLD)
                 appearance = dict(styles=styles, banner=BADGE,
-                                  banner_spans=((1, 2, "TauFW", "brand"), (2, 2, VERSION, "version")),
-                                  large_banner=FULL, large_banner_spans=INTERACTIONS)
+                                  banner_spans=((1, 2, "TauFW", "brand"), (2, 2, VERSION, "version")))
                 return edit_file(screen, path, validate=validate, title="Modify User Config",
                                  appearance=appearance, curses_module=self.curses)
 

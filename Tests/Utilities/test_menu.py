@@ -110,10 +110,11 @@ class ScreenTests(unittest.TestCase):
 
     def test_editor_receives_existing_branding_and_styles_without_owning_the_palette(self):
         from TauFW.Utilities.Editor import EditResult
-        from TauFW.Utilities.Menu.banner import BADGE, FULL, VERSION
+        from TauFW.Utilities.Menu.banner import BADGE, VERSION
         for color in (False, True):
             with self.subTest(color=color):
                 curses, screen = self.curses([])
+                screen.getmaxyx.return_value = (50, 100)
                 curses.A_DIM, curses.COLOR_MAGENTA, curses.COLOR_YELLOW = 64, 5, 3
                 ui = ConsoleUI(curses)
                 with mock.patch.object(ui, "colors_enabled", return_value=color), \
@@ -121,7 +122,7 @@ class ScreenTests(unittest.TestCase):
                     self.assertFalse(ui.edit_file("personal.yaml"))
                 appearance = editor.call_args.kwargs["appearance"]
                 self.assertEqual(appearance["banner"], BADGE)
-                self.assertEqual(appearance["large_banner"], FULL)
+                self.assertNotIn("large_banner", appearance)
                 self.assertIn((2, 2, VERSION, "version"), appearance["banner_spans"])
                 for role in ("accent", "brand", "version", "good", "warning", "error"):
                     self.assertEqual(appearance["styles"][role], ui.styles[role])
