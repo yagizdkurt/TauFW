@@ -60,6 +60,54 @@ class FakeOperation:
 
 class ScreenTests(unittest.TestCase):
     """Exercise actual screen key handling and wrapper lifetime with a fake terminal."""
+    def test_user_config_action_passes_the_active_file_and_validator_to_the_editor(self):
+        ui, operations = mock.Mock(), idle_operations()
+        ui.main_menu.side_effect = ["user_config", "exit"]
+        operations.user_config_path.return_value = "/work/personal.yaml"
+        self.assertEqual(MenuNavigation(ui, operations).run(), 0)
+        ui.edit_file.assert_called_once_with("/work/personal.yaml", operations.validate_user_config)
+        ui.operation_error.assert_not_called()
+
+    def test_editor_failures_stay_in_the_menu_and_do_not_reopen_the_session(self):
+        from TauFW.Utilities.Editor import EditResult
+
+        class CursesError(Exception):
+            pass
+
+        for outcome in (EditResult(error="broken editor"), RuntimeError("editor draw failed"),
+                        CursesError("editor terminal failed")):
+            with self.subTest(outcome=outcome):
+                curses, screen = self.curses([1002] * 5 + [10, 10, 27])
+                curses.error = CursesError
+                ui, operations = ConsoleUI(curses), idle_operations()
+                with mock.patch("TauFW.Utilities.Editor.edit_file") as editor:
+                    if isinstance(outcome, Exception):
+                        editor.side_effect = outcome
+                    else:
+                        editor.return_value = outcome
+                    self.assertEqual(ui.session(MenuNavigation(ui, operations).run), 0)
+                curses.wrapper.assert_called_once()
+                editor.assert_called_once()
+                drawn = [call.args[2] for call in screen.addnstr.call_args_list]
+                self.assertIn(" Error ", drawn)
+                self.assertTrue(any("Editor:" in line for line in drawn))
+
+    def test_editor_import_failure_is_local_to_the_action(self):
+        import builtins
+        original = builtins.__import__
+
+        def unavailable(name, *args, **kwargs):
+            if name == "Editor":
+                raise ImportError("Editor unavailable")
+            return original(name, *args, **kwargs)
+
+        curses, _ = self.curses([27])
+        ui = ConsoleUI(curses)
+        with mock.patch("builtins.__import__", side_effect=unavailable):
+            self.assertEqual(ui.main_menu(), "exit")  # opening the menu does not import Editor
+            with self.assertRaisesRegex(RuntimeError, "Editor unavailable"):
+                ui.edit_file("unused")
+
     def test_grid_certificate_status_label_and_color(self):
         ui = ConsoleUI(mock.Mock())
         for valid, label, role in ((True, "Grid Certificate  \u2713", "good"),
@@ -656,7 +704,8 @@ class ScreenTests(unittest.TestCase):
     def test_semantic_screen_actions_and_cancellation(self):
         ui = ConsoleUI(mock.Mock())
         cases = [
-            (ui.main_menu, (), ["start", "continue", "inspect", "tests", "grid_certificate", "help", "exit"]),
+            (ui.main_menu, (), ["start", "continue", "inspect", "tests", "grid_certificate", "user_config",
+                                "help", "exit"]),
             (ui.tests_menu, (), ["all", "checks", "normal", "bbb", "environment", "preview", "back"]),
             (ui.test_family, ("Normal",), ["all", "choose", "back"]),
             (ui.confirm_recipe, ("example.yml",), ["start", "plan", "back"]),

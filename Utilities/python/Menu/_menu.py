@@ -547,16 +547,17 @@ class ConsoleUI:
         if tests is not None:
             text, role = self._operation_summary(tests)
             label = "Tests (%s)" % text
-        choices = ["Start a new run", "Continue an existing run", "Inspect run status", label, certificate, "Help",
-                   "Exit"]
-        actions = ["start", "continue", "inspect", "tests", "grid_certificate", "help", "exit"]
-        colors = [None, None, None, role, "good" if proxy_valid else "warning", None, None]
+        choices = ["Start a new run", "Continue an existing run", "Inspect run status", label, certificate,
+                   "Modify User Config", "Help", "Exit"]
+        actions = ["start", "continue", "inspect", "tests", "grid_certificate", "user_config", "help", "exit"]
+        colors = [None, None, None, role, "good" if proxy_valid else "warning", None, None, None]
         descriptions = [
             "Choose an analysis recipe and review its pipeline before starting.",
             "Resume a saved run behind the menu: to the end, or one step.",
             "Inspect the recorded and live status of an existing run.",
             "Run automated checks or choose individual tests.",
             "Create or renew your CMS grid proxy using your grid certificate password.",
+            "Edit your personal settings; F2 saves after checking their values.",
             "Browse workflow explanations and frequently asked questions.",
             "Close the menu and return to your terminal.",
         ]
@@ -718,6 +719,20 @@ class ConsoleUI:
         """Every screen with made-up data (Tests > UI preview); Left/Right switch screens, Esc leaves."""
         from ._preview import preview  # imported here: see test_run()
         self._run(lambda screen: preview(self.curses, screen))
+
+    def edit_file(self, path, validate=None):
+        """Open the independent editor only on request; contain even its import/terminal errors."""
+        try:
+            from ..Editor import edit_file
+            result = self._run(lambda screen: edit_file(screen, path, validate=validate,
+                                                       title="Modify User Config", curses_module=self.curses))
+            if result.error:
+                raise RuntimeError(result.error)
+            return result.saved
+        except Exception as error:
+            # Navigation treats raw curses errors as a failure of the entire
+            # menu. An editor failure belongs to this action alone.
+            raise RuntimeError("Editor: %s" % error) from error
 
     def quit_running(self, operations):
         """Ask before the menu closes while operations run behind it. Return "cancel" (stay in the menu), "stop"

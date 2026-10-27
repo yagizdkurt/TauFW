@@ -11,7 +11,7 @@ FAQ = (
     ("Navigation", 
      "Use Up/Down to move and Enter to select. Esc goes back; "
      "at the main menu it exits. Page Up/Page Down scroll help, the pipeline or "
-     "a command's output. Ctrl+C returns to the menu."),
+     "a command's output. Ctrl+C goes back too; the editor asks before discarding changes."),
 
     ("Recipes",
      "An analysis is a directory in Analyses/ with recipe.yml (the stages "
@@ -60,10 +60,23 @@ FAQ = (
      "the reason as its message; fix it and Continue. Logs are in the run "
      "directory, one folder per stage. Outputs stay in Histogrammer/ and Fitter/."),
 
+    ("User config",
+     "Analyses/UserConfig.yaml holds your own settings: where your runs go "
+     "(runs.run_root) and your production settings (EOS output folders, batch "
+     "system, queue). TAUFW_USER_CONFIG can name another file. Modify User Config "
+     "opens it inside the menu and creates it if missing. F2 saves, Esc goes back, "
+     "and Tab inserts two-space indentation. Save errors keep your edits so you "
+     "can fix them; leaving asks about unsaved changes. Change production output "
+     "folders between runs. Git ignores the default file. Setup or python3 taufw.py userconfig "
+     "also makes it if missing. The recipe wins over it; plan names what came "
+     "from it. Until you set reviewed: true, check, plan and start warn in one "
+     "line. Scripts read it with TauFW.Utilities.UserConfig."),
+
     ("CLI equivalents", 
      "taufw.py plan RECIPE previews; taufw.py start RECIPE "
      "starts; taufw.py advance RUN_DIR continues; taufw.py status RUN_DIR "
-     "inspects. Add --wait --poll 600 to advance for polling. Use --help for "
+     "inspects. taufw.py userconfig makes or shows your user config. "
+     "Add --wait --poll 600 to advance for polling. Use --help for "
      "command options. pico.py and the other package entry points remain "
      "available independently."),
 

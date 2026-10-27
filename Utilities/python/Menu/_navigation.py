@@ -23,6 +23,9 @@ menu and return its Operation (kind "run"); run_operations() (the advances for t
 (the advance of a run that runs now), run_advances(run_dirs) (for the run list), run_lock(run_dir) (its advance lock
 or None), mark_seen(operation), needs_grid_proxy(recipe=, record=). running_operations() lists what runs behind the
 menu, stop_operation(operation) stops one.
+User config callbacks: user_config_path() creates the file if missing and names
+it; validate_user_config(draft_path) checks a candidate file before the editor saves it.
+The independent Editor owns file editing and saving; navigation only opens it.
 The Tests menu also opens the UI preview (ConsoleUI.preview(), made-up screens; no operations are used).
 Operations run behind the menu: leaving a screen or quitting never stops them (quitting warns first).
 While one runs, the main menu draws itself again every 2 s (ConsoleUI.main_menu(live=True)). An error is shown
@@ -349,11 +352,15 @@ class MenuNavigation:
             return
         self.ui.grid_result(valid, output)
 
+    def user_config(self):
+        self.ui.edit_file(self.operations.user_config_path(), self.operations.validate_user_config)
+
     def run(self):
         self._read_ahead()
         actions = {"start": self.start, "continue": self.continue_run, "run": self.follow_runs,
                    "runs": self.follow_runs, "inspect": self.inspect, "tests": self.tests,
-                   "grid_certificate": self.grid_certificate, "help": self.ui.help}
+                   "grid_certificate": self.grid_certificate, "user_config": self.user_config,
+                   "help": self.ui.help}
         while True:
             try:
                 tests, runs = self.operations.tests_operation(), self.operations.run_operations()

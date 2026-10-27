@@ -1,0 +1,48 @@
+# Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
+"""A self-contained terminal file editor, independent of Menu and Framework.
+
+    result = edit_file(screen, path, validate=check_draft)
+
+The caller owns the curses session. validate(draft_path), if supplied, checks a
+temporary file before it replaces the destination: return problem strings (or
+None), or raise an exception to reject the save. The editor preserves the text,
+including comments. It imports curses only when opened and uses no TauFW APIs.
+
+F2 saves; Esc leaves, asking first about unsaved changes. Result.saved means at
+least one save succeeded, even if later edits were discarded. Result.error is
+set if the editor could not open or had to close because of an unexpected error.
+"""
+from dataclasses import dataclass
+from typing import Optional
+
+__all__ = ["EditResult", "edit_file"]
+
+
+@dataclass(frozen=True)
+class EditResult:
+    saved: bool = False
+    error: Optional[str] = None
+
+
+def edit_file(screen, path, *, validate=None, title="Text editor", curses_module=None):
+    """Edit an existing UTF-8 file on an existing curses screen; always return EditResult.
+
+    Expected save failures stay on the editor screen so the buffer can be fixed
+    or copied. Other ordinary exceptions become result.error after terminal
+    cleanup. curses_module is optional dependency injection for terminal tests.
+    This is an exception boundary, not isolation from hangs or process crashes.
+    """
+    editor = None
+    try:
+        from ._file import Document
+        from ._screen import Editor
+        if curses_module is None:
+            import curses as curses_module
+        editor = Editor(screen, curses_module, Document(path), title, validate)
+        editor.run()
+        return EditResult(saved=editor.saved)
+    except KeyboardInterrupt:
+        return EditResult(saved=editor.saved if editor else False)
+    except Exception as error:
+        return EditResult(saved=editor.saved if editor else False,
+                          error="%s: %s" % (type(error).__name__, error))

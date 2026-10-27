@@ -331,6 +331,47 @@ class MenuTests(unittest.TestCase):
     def menu(self, ui):
         return Menu(ui, self.root, self.recipes, self.root / "operations")
 
+    def test_user_config_editor_opens_the_override_and_reuses_config_validation(self):
+        from TauFW.Utilities.UserConfig import UserConfigError
+        operations = self.menu(FakeUI()).operations
+        path = self.root / "personal.yaml"
+        with mock.patch.dict(os.environ, {"TAUFW_USER_CONFIG": str(path)}):
+            self.assertEqual(operations.user_config_path(), path)
+            self.assertIn("reviewed: false", path.read_text())
+            path.write_text("broken existing file", encoding="utf-8")
+            self.assertEqual(operations.user_config_path(), path)
+            self.assertEqual(path.read_text(), "broken existing file")  # still opens so it can be repaired
+
+        draft = self.root / "draft.yaml"
+        header = "taufw_user:\n  version: 1\n  reviewed: false\n"
+        draft.write_text(header + "custom: {key: value}\n", encoding="utf-8")
+        self.assertEqual(operations.validate_user_config(draft), [])
+        draft.write_text(header + "production: {ncores: 0}\n", encoding="utf-8")
+        self.assertIn("production.ncores", operations.validate_user_config(draft)[0])
+        for invalid in ("taufw_user: [", "production: {}\n"):
+            draft.write_text(invalid, encoding="utf-8")
+            with self.assertRaises(UserConfigError):
+                operations.validate_user_config(draft)
+
+    def test_editor_save_refreshes_recipe_previews_and_run_root_without_restarting(self):
+        from TauFW.Utilities.Editor._file import Document
+        operations = self.menu(FakeUI()).operations
+        path, recipe = self.root / "personal.yaml", self.recipes / "example.yml"
+        self.recipe_file(recipe)
+        header = "taufw_user:\n  version: 1\n  reviewed: true\n"
+        path.write_text(header, encoding="utf-8")
+        check = SimpleNamespace(name="test", stages=(), issues=(), warnings=())
+        run_root = self.root / "new_runs"
+        with mock.patch.dict(os.environ, {"TAUFW_USER_CONFIG": str(path)}), \
+                mock.patch.object(interactive, "check_recipe", return_value=check):
+            preview = operations.recipe_preview(recipe)
+            self.assertEqual(operations.kept_recipe_preview(recipe), preview)
+            document = Document(path)
+            document.save(header + "runs:\n  run_root: %s\n" % json.dumps(str(run_root)),
+                          operations.validate_user_config)
+            self.assertIsNone(operations.kept_recipe_preview(recipe))
+            self.assertIn(run_root, operations.run_roots())
+
     def test_the_user_config_is_not_a_recipe(self):
         """Analyses/UserConfig.yaml sits beside the bundles and loose recipe files, but is never listed (CL §40)."""
         (self.recipes / "bundle").mkdir()
@@ -464,7 +505,7 @@ class MenuTests(unittest.TestCase):
 
     def test_interrupted_operation_returns_to_main_menu(self):
         self.record()
-        menu = self.menu(FakeUI([1, 0, 1, 6]))
+        menu = self.menu(FakeUI([1, 0, 1, 7]))
         menu.operations.advance_run = mock.Mock(side_effect=KeyboardInterrupt)
         self.assertEqual(menu.run(), 0)
         menu.operations.advance_run.assert_called_once()

@@ -126,11 +126,11 @@ menus' run line, run chooser and run list.
 
 `ConsoleUI.open(parser)` lazily loads curses on an interactive Linux terminal.
 It returns a UI, or `None` after explaining the failure and showing CLI help.
-Each screen uses its own `curses.wrapper` session, restoring the terminal before
-Framework operations print output or wait for jobs.
+The menu shares one `curses.wrapper` session between its screens. A screen opened
+on its own uses a wrapper of its own; terminal programs temporarily suspend the session.
 
 Application screens return named actions: `main_menu()` returns `start`,
-`continue`, `inspect`, `tests`, `help`, or `exit`; recipe confirmation, status, and run
+`continue`, `inspect`, `tests`, `grid_certificate`, `user_config`, `help`, or `exit`; recipe confirmation, status, and run
 continuation return their corresponding action or `back`. Recipe/run selectors
 return `(action, index)`, with `select` identifying a supplied item and `manual`
 or `back` carrying `None`. Path and polling prompts return text or `None` on Esc.
@@ -160,6 +160,21 @@ pauses; Framework supplies command defaults and decides whether a run can advanc
 `Framework.interactive.Menu(...)` remains a construction entry point and returns
 a `MenuNavigation` wired to Framework operations. Its `start()`, `inspect()`,
 `continue_run()`, and `run()` methods now live in Utilities/Menu.
+
+## Terminal editor
+
+`python/Editor` is a self-contained UTF-8 file editor with no Menu, Framework,
+UserConfig or other TauFW dependencies. It edits on a caller-owned curses screen,
+with F2 to save and Esc to return. It keeps comments, checks a candidate file
+through an optional validator, detects external content changes and saves with
+a temporary file followed by atomic replacement. Save failures keep the buffer.
+See [Editor/README.md](python/Editor/README.md) for the API and isolation limits.
+
+The menu loads Editor only for **Modify User Config**. Its Framework adapter
+supplies `user_config_path()` (creates a missing config) and
+`validate_user_config(draft_path)` (the existing YAML, header and value checks).
+Editor handles neither recipe nor production logic. `ConsoleUI.edit_file()`
+converts editor failures into action errors so ordinary failures return to the menu.
 
 ## File I/O
 

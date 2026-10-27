@@ -5,7 +5,8 @@ Discovery, path resolution, record access, validation, and CLI dispatch belong
 here. Presentation and screen transitions live in TauFW.Utilities.Menu. Every
 command runs behind the menu as taufw.py (OperationStore): start/advance
 (kind "run"), plan/status (kind "command", read only) and the tests; the
-menu's own process only reads (recipes, run.json, check_recipe, a dry plan).
+menu's own process reads recipes, run.json, check_recipe and a dry plan. The
+User Config action creates a missing config and opens the independent Editor.
 
 What Start and Continue list (a recipe's check, a run's row) is kept with the
 signature of the files it was read from (path, inode, mtime, size: a stat
@@ -31,7 +32,7 @@ from TauFW.Framework.reporting import SilentReporter
 from TauFW.Framework.run_lock import read_lock
 from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation, Prefetch
 from TauFW.Utilities import UserConfig
-from TauFW.Utilities.UserConfig.manage import FILE_NAME as USER_CONFIG_NAME
+from TauFW.Utilities.UserConfig import manage as user_config
 from TauFW.Framework.user_settings import run_root_or_none as user_run_root
 from TauFW.Utilities.Process import LOST, EventReader, OperationStore
 
@@ -40,6 +41,7 @@ OPERATIONS_DIR = CHECKOUT / ".artifacts" / "menu" / "operations"  # what runs be
 TAUFW_SCRIPT = CHECKOUT / "Framework" / "scripts" / "taufw.py"
 PROXY_MARGIN = 60  # seconds a proxy must still be valid for (voms-proxy-info --valid 0:01 before)
 PROXY_INIT_TIMEOUT = 120  # seconds voms-proxy-init may take (it asks the VOMS server)
+USER_CONFIG_NAME = user_config.FILE_NAME
 
 
 class _Operations:
@@ -58,6 +60,18 @@ class _Operations:
     def resolve_path(self, value):
         path = Path(value).expanduser()
         return str((path if path.is_absolute() else self.launch_dir / path).resolve())
+
+    @staticmethod
+    def user_config_path():
+        """The active config, including $TAUFW_USER_CONFIG; a missing file gets the usual template."""
+        path = UserConfig.location().resolve()
+        user_config.create(path)
+        return path
+
+    @staticmethod
+    def validate_user_config(draft_path):
+        """Reuse the normal YAML/header/value checks; reviewed: false is allowed while editing."""
+        return user_config.setting_problems(UserConfig.load(draft_path))
 
     # =========================================================================
     # =============================== DISCOVERY ===============================
