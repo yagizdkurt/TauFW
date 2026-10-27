@@ -660,3 +660,11 @@ re-captures the whole suite: 22 same, 1 changed): 658 `lumi` fields added, each 
   and its lock not read.
 - Windows: Tests/Utilities 236 OK (9 skipped), Tests/Framework 227 OK.
 - Open on lxplus: [TODO.md](TODO.md) section 1 (a real terminal, an advance from a second terminal).
+
+## 43. A channel setup can leave out the QCD estimate (`qcd: false`)
+
+**Change:** [CL §43](Refactor-2025.md#43-a-channel-setup-can-leave-out-the-qcd-estimate-qcd-false)
+
+- No Windows test: `fillhists.py` needs ROOT. The default path (no `qcd` key) is the line it was, so the BBB
+  control-plot baselines stay valid.
+- Open on lxplus: [TODO.md](TODO.md) section 1 (a mumu setup with and without `qcd: false`).

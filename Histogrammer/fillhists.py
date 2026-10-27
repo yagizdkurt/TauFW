@@ -28,10 +28,12 @@ def plot(sampleset,setup,parallel=True,tag="",extratext="",outdir="plots",era=""
   """Test plotting of SampleSet class for data/MC comparison.
   With histfile (a path; $ERA, $CHANNEL replaced), the histograms of every stack are also written to that file as
   they were filled, before they are drawn (TauFW.Histogrammer.controlhists; Plotter/draw.py draws them).
-  With draw=False (--no-draw, CL §21 S4) nothing is drawn and no plot directory is made: only the file is written."""
+  With draw=False (--no-draw, CL §21 S4) nothing is drawn and no plot directory is made: only the file is written.
+  The setup's 'qcd: false' leaves out the data-driven QCD estimate (CL §43); without it, QCD_OSSS as before."""
   LOG.header("plot")
   
   channel  = setup["channel"]
+  qcdmethod = 'QCD_OSSS' if setup.get('qcd',True) is not False else None # OS/SS QCD unless the setup says qcd: false
   
   if 'baselineCuts' in setup: # baseline pre-selections
     baseline = setup['baselineCuts']
@@ -112,7 +114,7 @@ def plot(sampleset,setup,parallel=True,tag="",extratext="",outdir="plots",era=""
   entries = [ ] # --hists: the histograms of every stack, as filled
   for selection in selections:
     print(">>> Selection %r: %r"%(selection.title,selection.selection))
-    stacks = sampleset.getstack(variables,selection,method='QCD_OSSS',parallel=parallel)
+    stacks = sampleset.getstack(variables,selection,method=qcdmethod,parallel=parallel)
     fname  = "%s/$VAR_%s-%s-%s$TAG"%(outdir,channel.replace('mu','m').replace('tau','t'),selection.filename,era)
     text   = "%s: %s"%(channel.replace('mu',"#mu").replace('tau',"#tau_{h}"),selection.title)
     if extratext:

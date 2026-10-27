@@ -1,0 +1,28 @@
+taufw_config:                     # set by the maintainers: analysts edit the values below, never these lines
+  id: histogrammer.setup_mutau
+  version: 1
+  schema: 1
+  description: fillhists.py channel setup mutau (channel, tag, baseline cuts, regions)
+##
+## CMSDAS26 Z -> tau_mu tau_h: the mutau selection of the long exercise (Plotter/config/cmsdas_mutau.yml there).
+## fillhists.py makes one selection per region: baselineCuts && definition.
+##
+
+channel: mutau
+tag: ""
+
+# Option A, the standard DeepTau path of the exercise: the selection of the scale-factor measurement
+# (long-ex Fitter/TauES_ID/config/config_coarse_TT.yml, at the working points of its fit: VSjet Tight (>=6),
+# VSe VVLoose (>=2), VSmu Tight (>=4)), without the mt_1 cut, which is the signalRegion below. The scale factors
+# applied later are the official ones of the exercise for these working points:
+#   /eos/cms/store/group/phys_tau/TauFW/pico2024/TES_variations/CMSDAS/TauCorrections_2024_corrTES_noCR.json
+# Option B (not used): the "hybrid" selection filled in during the exercise, PNet against jets
+# (long-ex config_coarse_TT_hybrid.yml); it needs the scale factors measured with that selection:
+#   "(q_1*q_2 < 0) && (iso_1 < 0.15) && (iso_2 < 0.15) && (idDeepTau2018v2p5VSe_2 >= 2) && (idDeepTau2018v2p5VSmu_2 >= 4)
+#    && (rawPNetVSjet_2 >= 0.9059) && (dm_2 == 0 || dm_2 == 1 || dm_2 == 10 || dm_2 == 11) && !lepton_vetoes_notau && metfilter"
+baselineCuts: "q_1*q_2<0 && iso_1<0.15 && idDecayModeNewDMs_2 && idDeepTau2018v2p5VSjet_2>=6 && idDeepTau2018v2p5VSe_2>=2 && idDeepTau2018v2p5VSmu_2>=4 && !lepton_vetoes_notau && metfilter"
+
+regions:
+    signalRegion:                 # the only selection of the exercise
+        definition: "mt_1<65"
+        title: "signal region"

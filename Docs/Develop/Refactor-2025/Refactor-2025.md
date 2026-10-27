@@ -1635,3 +1635,20 @@ menu says `PAUSED`) and B2 (split the state in the Framework); the user chose B1
   `WAITING`) unless an advance behind the menu runs now or a live `advance.lock` is held (an advance from the CLI).
   Only the list: `run.json`, `taufw.py status`, `RunState` and Continue are unchanged. The UI preview lists a
   PAUSED run.
+
+## 43. A channel setup can leave out the QCD estimate (`qcd: false`)
+
+**Date:** 2026-10-27
+**Status:** done (lxplus check open: [TODO.md](TODO.md) section 1)
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#43-a-channel-setup-can-leave-out-the-qcd-estimate-qcd-false)
+
+**Details:** `fillhists.py` always added the OS/SS QCD estimate (`QCD_OSSS`) to every stack. The CMSDAS26 long
+exercise, redone as `Analyses/CDTest`, has none in the mumu channel (`qcd.method: null` of its `cmsdas_mumu.yml`).
+
+- **`Histogrammer/fillhists.py`** (`plot()`): a channel setup with `qcd: false` fills the stacks without a data-driven
+  method (`SampleSet.getstack(method=None)`). Without the key (every existing setup) or with any other value:
+  `QCD_OSSS`, as before. Only fillhists.py reads the key; the TES/ID fit configs and `createinputsTES.py` are unchanged.
+- **Contract** ([control-histograms.md](../contracts/control-histograms.md)): the `exp` group has no QCD histogram
+  for such a setup. `Plotter/draw.py` draws what the file holds and needs no change.
+- **Unchanged:** the templates in `Configs/Histogrammer/setups/` (no key, so no re-lock), the API and the
+  `controlhists` stage (the key is in the setup file they pass on), every BBB baseline.

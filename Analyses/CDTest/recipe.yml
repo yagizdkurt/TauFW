@@ -1,0 +1,110 @@
+# TauFW analysis bundle: the CMSDAS 2026 tau long exercise (Z -> tau_mu tau_h cross-section on 2024 data), redone
+# with the new framework. Goal: the same results as the exercise, which was made on the lite version of TauFW
+# (the long-ex repository; it is not on lxplus, so everything this bundle needs is in this directory).
+#   python3 taufw.py check  Analyses/CDTest
+#   python3 taufw.py plan   Analyses/CDTest
+#   python3 taufw.py start  Analyses/CDTest
+#
+# The exercise, step by step (docs/CMSDAS26/ of long-ex), and where each step is in this recipe:
+#   1. Software setup        CMSSW_14_1_0_pre4 (el9), Combine v10, CombineHarvester: FastSetup.sh, not a stage.
+#   2. Configuration         pico.py era/channel/set picodir: not needed, the tuples are given below as inputs.
+#   3. Finding samples (DAS) dasgoclient exercise: not a stage.
+#   4. Flat n-tuples         the CMSDAS26 ModuleMuTau on one small sample: commented out below (not possible yet).
+#   5. Normalization, QCD    controlhists + controlplots below: the m_vis, pt, mt, met, dm_2 control plots of the
+#      and corrections       mutau and mumu signal regions, with the OS/SS QCD estimate (mutau only).
+#   6. Tagger comparison     python step tagger_roc (steps/tagger_roc.py): the ROC curves of DeepTau, PNet, UParT.
+#   7.-10. (tau ID SF + TES, datacards, cross-section fit, BDT): not in this recipe yet.
+# The analysis uses DeepTau2018v2p5 at VSjet Tight / VSe VVLoose / VSmu Tight (option A of setup_mutau.yml), the
+# working points of the official scale factors of the exercise, whatever the ROC curves of step 6 show.
+name: CDTest
+# run_root: not set here; Analyses/UserConfig.yaml or start --run-root decide.
+
+pico:
+  config: null              # null: PicoProducer/config/config.json (no production stage below)
+
+stages:
+  # ---------------------------------------------------------------------------------------------------------------
+  # Step 4: flat n-tuples (docs/CMSDAS26/flat_n-tuples.md). NOT POSSIBLE YET, kept as a reminder.
+  # The exercise runs its own analysis module on ONE small sample, as a demo:
+  #   pico.py channel mutau CMSDAS26.ModuleMuTau
+  #   pico.py run -c mutau -y 2024 -s DYto2Tau_Bin-MLL-50to120 -m 2000
+  # Everything after it reads the pre-made tuples (the inputs of the hists stage below), not this output.
+  # Missing for this:
+  #   - the CMSDAS26 module (PicoProducer/python/analysis/CMSDAS26/ModuleMuTau.py, ModuleMuMu.py of long-ex) is not
+  #     in TauFW; the TauFW ModuleMuTau.py differs from it;
+  #   - the CMSDAS sample list (PicoProducer/samples/CMSDAS26/samples_mutau_2024.py of long-ex, powheg DY binned in
+  #     m_ll) is not in TauFW; samples_2024.py there lists other DY samples;
+  #   - production submits batch jobs over whole samples; there is no option for a local run with a maximum number of
+  #     events (pico.py run -m 2000).
+  # When these exist, the stage would be:
+  # - stage: production
+  #   id: demo_tuple
+  #   description: the CMSDAS mutau module on one small DY sample (demo)
+  #   inputs: null
+  #   eras: [2024]
+  #   channels: [mutau]          # registered as CMSDAS26.ModuleMuTau in the PicoProducer configuration of pico.config
+  #   samples: ["DYto2Tau_Bin-MLL-50to120"]
+  #   dtypes: [mc]
+
+  # ---------------------------------------------------------------------------------------------------------------
+  # Step 5: normalization, QCD and corrections (docs/CMSDAS26/norm_and_corr.md):
+  #   ./plots_and_histograms_CMSDAS26.py -y 2024 -c mutau
+  #   ./plots_and_histograms_CMSDAS26.py -y 2024 -c mumu
+  - stage: controlhists
+    id: hists
+    description: control histograms of the CMSDAS mutau and mumu signal regions
+    inputs:
+      tuples:               # the pre-made 2024 tuples of the exercise (pico.py set picodir there), with all three
+                            # taggers and the TES/fake shifted copies: <sample>_<channel>.root
+        external: &tuples_2024 /eos/cms/store/group/phys_tau/TauFW/pico2024/TES_variations/$ERA/$GROUP
+    eras: [2024]
+    configs: [setup_mutau.yml, setup_mumu.yml]   # the selections of cmsdas_mutau.yml and cmsdas_mumu.yml
+    samples: [v15_2024.yml]  # a copy of Configs/Histogrammer/samples/v15_2024.yml: the same MC table, luminosity
+                            # (109.08/fb) and weights as samples_v15.py of long-ex
+    # The variables of cmsdas_mutau.yml; fillhists.py defines them (and their binning), the list only picks them.
+    # Not the same as long-ex: m_vis also gives mvis_coarse (20 bins, 50-150); for mumu, long-ex plots m_vis in
+    # 40 bins from 50 to 130, fillhists.py has 40 bins 0-200 (mvis) and one bin 0-200 (mvis_1bin), no 50-130.
+    variables: [m_vis, pt_1, pt_2, eta_2, mt_1, met, dm_2]
+    selections: [signalRegion]
+    # QCD: mutau uses QCD_OSSS with the OS/SS scale 1.10, as qcd: {method: QCD_OSSS, scale: 1.1} of
+    # cmsdas_mutau.yml. mumu has none (qcd: false in setup_mumu.yml), as qcd.method: null of cmsdas_mumu.yml.
+    # The tau ID SF is not applied (idweight_2 is 1 in these tuples), as in the exercise at this step.
+    #
+    # NOT POSSIBLE YET (step 5 tasks):
+    #   - the effect of one correction: plots_and_histograms_CMSDAS26.py -t _nopu --rmsf puweight. controlhists
+    #     can only remove the tau ID SFs (notauidsf: true); there is no option to remove another weight;
+    #   - the bonus task, the OS/SS scale from an isolation-inverted sideband (0.15 < iso_1 < 0.5): the scale (1.10)
+    #     cannot be set from the recipe;
+    #   - own variables or binning (the variables: list of cmsdas_mutau.yml): the list is fixed in fillhists.py.
+
+  - stage: controlplots
+    id: plots
+    description: data/MC control plots of the CMSDAS mutau and mumu signal regions
+    inputs: {hists: hists}
+    pdf: true               # the plots: stages/plots/plots/2024/ of the run; long-ex m_vis_mutau-signalRegion-2024.pdf
+                            # is mvis_mt-signalRegion-2024.pdf here (fillhists.py names m_vis 'mvis')
+
+  # ---------------------------------------------------------------------------------------------------------------
+  # Step 6: tagger comparison (docs/CMSDAS26/tagger_comparison.md):
+  #   ./plots_and_histograms_CMSDAS26.py -y 2024 -c mutau --tagger
+  # The ROC curves of DeepTau2018v2p5, PNet and UParT against jets, electrons and muons, all three taggers on one
+  # plot per discriminant, from all simulated samples. The AUCs and the efficiency at a 1% fake rate:
+  # stages/tagger_roc/roc_summary.txt; the plots: stages/tagger_roc/plots/2024/tagger_ROC_*_mutau_2024.png/.pdf.
+  # Not here: one tagger alone (--tagger pnet); all three are always drawn together.
+  - stage: python
+    id: tagger_roc
+    description: ROC curves of DeepTau, PNet and UParT (VSjet, VSe, VSmu)
+    inputs: null            # reads the tuples itself: a python step cannot take {external: ...}, so plan does not
+                            # check that they exist (the hists stage above checks the same files)
+    file: steps/tagger_roc.py
+    options:
+      era: '2024'
+      channel: mutau
+      samples: v15_2024.yml
+      tuples: *tuples_2024
+      # tagger.base of long-ex cmsdas_mutau.yml: the loose selection, without tau ID cuts. Each tagger leaves out
+      # its own taus without a score (-1). The docs say every ROC uses the same events (all three scores valid);
+      # long-ex had that part commented out. To use it, add:
+      #   && rawDeepTau2018v2p5VSjet_2>-1 && rawPNetVSjet_2>-1 && rawUParTVSjet_2>-1
+      base: "q_1*q_2<0 && iso_1<0.15 && mt_1<65"
+      nbins: 100

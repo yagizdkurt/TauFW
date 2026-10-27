@@ -35,7 +35,7 @@ colours, titles):
 | Group | Content |
 |---|---|
 | `data` | the observed data histogram, or empty |
-| `exp` | the expected processes, in stack order (the order `Stack` stacks them), including the data-driven QCD estimate |
+| `exp` | the expected processes, in stack order (the order `Stack` stacks them), including the data-driven QCD estimate (none if the setup says `qcd: false`, CL §43) |
 | `sig` | signal histograms |
 
 The histograms are **as filled**: copies taken right after `SampleSet.getstack`, before any drawing (drawing

@@ -51,6 +51,10 @@ Items marked **(verify)** may already be done; check before working on them.
 
 The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go here until they are run.
 
+- [ ] **No QCD for a setup (CL §43):** `python3 taufw.py start Analyses/CDTest`: the mumu file
+      `stages/hists/hists/2024/mumu.root` has no QCD histogram in `exp` and its plots no QCD entry; mutau keeps QCD.
+      `cd Histogrammer; ./fillhists.py -y 2024 -c mumu --tuples <pattern> -S baseline -V m_vis` (template, no key)
+      still shows QCD.
 - [ ] **Run status and PAUSED in the menu (CL §42):** `python3 taufw.py menu` > Inspect run status > a DONE run:
       the state line says `READING STATUS | ... | taufw.py status` with `Reading the run status...` in the Output,
       then `00:01 | taufw.py status` (no `RUNNING`/`DONE`); View detailed plan says `READING PLAN`. The run list

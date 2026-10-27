@@ -1,0 +1,20 @@
+taufw_config:                     # set by the maintainers: analysts edit the values below, never these lines
+  id: histogrammer.setup_mumu
+  version: 1
+  schema: 1
+  description: fillhists.py channel setup mumu (channel, tag, baseline cuts, regions)
+##
+## CMSDAS26 Z -> mumu cross-check: the mumu selection of the long exercise (Plotter/config/cmsdas_mumu.yml there).
+## fillhists.py makes one selection per region: baselineCuts && definition.
+##
+
+channel: mumu
+qcd: false                        # cmsdas_mumu.yml qcd.method: null (negligible with two isolated muons); CL §43
+
+# cmsdas_mumu.yml signalRegion: two opposite-sign, isolated muons
+baselineCuts: "q_1*q_2<0 && iso_1<0.15 && iso_2<0.15 && !lepton_vetoes_notau && metfilter"
+
+regions:
+    signalRegion:                 # the baseline itself, under the name the mutau setup uses
+        definition: "1"
+        title: "signal region"
