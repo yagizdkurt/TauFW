@@ -583,13 +583,19 @@ re-captures the whole suite: 22 same, 1 changed): 658 `lumi` fields added, each 
   `check_recipe` of the four `Analyses/` recipes: as before (`tes_id_2025` only the EOS directory on Windows,
   `example_broken` four problems, the fourth with the new wording). Framework 209 pass.
 
-## 39. `getmcsample` moves into the two Legacy analyses that use it
+## 39. `getmcsample` takes the tuples instead of reading the PicoProducer configuration
 
-**Change:** [CL §39](Refactor-2025.md#39-getmcsample-moves-into-the-two-legacy-analyses-that-use-it)
+**Change:** [CL §39](Refactor-2025.md#39-getmcsample-takes-the-tuples-instead-of-reading-the-picoproducer-configuration)
 
 - Callers: `grep -rIil getmcsample` over every file of the repository, `mcsample` variants, the star imports of
   `TauFW.Histogrammer.sample.utils` (`Sample.py`, `SampleSet.py`: no call through them) and `git log --all -S
   getmcsample`: only the two Legacy scripts.
-- `python -m py_compile` of `Histogrammer/python/sample/utils.py` and both Legacy scripts (they need Run 2 tuples
-  and are not run). `check_import_boundaries`: no Histogrammer -> PicoProducer row, totals 19 / 18 / 16, 0 new
-  pairs. `python Tests/run.py checks` on Windows 14/16 (the known two).
+- `Tests/Plotter/testTupleLocation.py` (ROOT, lxplus): `test_getmcsample_tuples_instead_of_the_configuration`
+  (MC file and a `tag` variation from `tuples=`, `getconfig` not called), `test_getmcsample_without_tuples`
+  (`ValueError` for the default pattern, a full `fname=` works).
+- `Tests/Plotter/testScriptFlow.py` (ROOT, lxplus): `MC` -> `gethist` (bin contents) -> `Plot` -> `saveas` (file
+  written). Registered in `Tests/inventory.json` and `check_harness`.
+- Windows: `py_compile` of the library, both Legacy scripts (they need Run 2 tuples and are not run) and both
+  tests; `check_import_boundaries`: no Histogrammer -> PicoProducer row, totals 19 / 18 / 16, 0 new pairs;
+  `python Tests/run.py checks` 14/16 (the known two: known debt, no ROOT). `Utilities/IOInventory.md`: the
+  `sample/utils.py` row regenerated.

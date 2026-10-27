@@ -118,7 +118,8 @@ class HarnessChecks(unittest.TestCase):
         expected = {record["moved"][6:] for record in moved if Path(record["moved"]).name.startswith(("test", "Test"))}
         expected |= {"Plotter/plotPico.py", "Plotter/WstarplotPico.py",
                      "PicoProducer/testChunking.py", "Plotter/testHistogramCorrectness.py",
-                     "Plotter/testTupleLocation.py", "PicoProducer/testTupleDir.py"}
+                     "Plotter/testTupleLocation.py", "PicoProducer/testTupleDir.py",
+                     "Plotter/testScriptFlow.py"}
         self.assertEqual(expected, {case["path"] for case in cases})
         for case in cases:
             self.assertIn(TESTS.resolve(), (TESTS / case["path"]).resolve().parents)

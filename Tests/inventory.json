@@ -29,7 +29,15 @@
       "path": "Plotter/testTupleLocation.py",
       "package": "Histogrammer",
       "group": "local",
-      "reason": "Assert getsampleset finds MC, merged data and variation tuples in the directory given by tuples=, without reading the PicoProducer configuration.",
+      "reason": "Assert getsampleset and getmcsample find MC, merged data and variation tuples in the directory given by tuples=, without reading the PicoProducer configuration.",
+      "dependencies": ["ROOT", "numpy", "past"]
+    },
+    {
+      "id": "plotter.script_flow",
+      "path": "Plotter/testScriptFlow.py",
+      "package": "Histogrammer",
+      "group": "local",
+      "reason": "Assert a one-script study works: Sample -> gethist -> Plot -> saveas, the Histogrammer's samples with the drawing library, from a tiny local tuple.",
       "dependencies": ["ROOT", "numpy", "past"]
     },
     {

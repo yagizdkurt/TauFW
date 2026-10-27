@@ -7,9 +7,12 @@
 *.pdf
 *~
 *.root
-# ignore pngs for plots etc but not in the docs
+
+# ignore pngs for plots etc but not in the docs (Documentation ignors)
 *.png
 !Docs/Extra/**/*.png
+Docs/Manual/STYLE.md
+
 *.json
 core.*
 __init__.py

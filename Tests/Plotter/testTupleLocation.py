@@ -1,6 +1,6 @@
-"""getsampleset(tuples=...): the directory of the tuples comes from the caller (plot.py and createinputsTES.py
---tuples), not from $PICODIR of the PicoProducer configuration. Without it the library refuses $PICODIR (CL §37); the
-scripts' old default is TauFW.Histogrammer.sample.tupledir. Real ROOT, tiny local tuples."""
+"""getsampleset(tuples=...) and getmcsample(tuples=...): the directory of the tuples comes from the caller (plot.py
+and createinputsTES.py --tuples), not from $PICODIR of the PicoProducer configuration. Without it the library refuses
+$PICODIR (CL §37, §39); the scripts' old default is TauFW.Histogrammer.sample.tupledir. Real ROOT, tiny local tuples."""
 import json
 from array import array
 import os
@@ -9,7 +9,7 @@ import unittest
 from unittest import mock
 
 import ROOT
-from TauFW.Plotter.sample.utils import getsampleset
+from TauFW.Plotter.sample.utils import getsampleset, getmcsample
 from TauFW.Histogrammer.sample.tupledir import ENVVAR, script_default_tuples
 
 TUPLES = ('2025/DY/DYJets_mumu.root', '2025/DY/DYJets_mumu_TES0p950.root',
@@ -78,6 +78,25 @@ class TupleLocationTests(unittest.TestCase):
         with mock.patch.dict(os.environ, {ENVVAR: config}):
             sampleset = self.sampleset(tuples=script_default_tuples())
         self.check_files(sampleset)
+
+    def test_getmcsample_tuples_instead_of_the_configuration(self):
+        with mock.patch('TauFW.PicoProducer.settings.getconfig') as getconfig:
+            sample = getmcsample('DY', "DYJets", "Drell-Yan", 1.0, 'mumu', '2025', tuples=self.pattern, lumi=1.0)
+            shifted = getmcsample('DY', "DYJets", "Drell-Yan", 1.0, 'mumu', '2025', tag="_TES0p950",
+                                  tuples=self.pattern, lumi=1.0)
+        getconfig.assert_not_called()  # CL §39: given, never found
+        self.assertEqual(sample.filename, self.path('2025/DY/DYJets_mumu.root'))
+        self.assertEqual((shifted.name, shifted.filename),
+                         ("DYJets_TES0p950", self.path('2025/DY/DYJets_mumu_TES0p950.root')))
+
+    def test_getmcsample_without_tuples(self):
+        with mock.patch('TauFW.PicoProducer.settings.getconfig') as getconfig:
+            with self.assertRaises(ValueError):  # $PICODIR in the default pattern, no tuples
+                getmcsample('DY', "DYJets", "Drell-Yan", 1.0, 'mumu', '2025', lumi=1.0)
+            sample = getmcsample('DY', "DYJets", "Drell-Yan", 1.0, 'mumu', '2025', lumi=1.0,  # a full pattern
+                                 fname=os.path.join(self.root, '$ERA', '$GROUP', '$SAMPLE_$CHANNEL$TAG.root'))
+        getconfig.assert_not_called()
+        self.assertEqual(sample.filename, self.path('2025/DY/DYJets_mumu.root'))
 
 
 if __name__ == '__main__':

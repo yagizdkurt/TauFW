@@ -1459,32 +1459,51 @@ was. `run_root` had `~` and `$VARIABLES` expanded where `taufw.py` ran (with a w
   controlhists: {configs: [mutau]}                           unchanged (plan shows `channel`, was `module`)
   ```
 
-## 39. `getmcsample` moves into the two Legacy analyses that use it
+## 39. `getmcsample` takes the tuples instead of reading the PicoProducer configuration
 
 **Date:** 2026-10-27
 **Status:** done
-**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#39-getmcsample-moves-into-the-two-legacy-analyses-that-use-it)
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#39-getmcsample-takes-the-tuples-instead-of-reading-the-picoproducer-configuration)
 
-**Details:** decision K6 of `LocalR/architecture/archive/23-given-inputs-plan.md` (user, 2026-10-27); the last step
-of "inputs are given, never found" (ModuleIsolationFinalizations §3 D).
+**Details:** decision K6 of `LocalR/architecture/archive/23-given-inputs-plan.md` (user, 2026-10-27), revised the
+same day after feedback of the group; the last step of "inputs are given, never found" (ModuleIsolationFinalizations
+§3 D).
 
 `getmcsample(group, sample, title, xsec, channel, era, tag)` of `TauFW.Histogrammer.sample.utils` (old name
 `TauFW.Plotter.sample.utils`) built one MC sample from `$PICODIR/$SAMPLE_$CHANNEL$TAG.root` and filled `$PICODIR`
 from `picodir` of the PicoProducer configuration (`getconfig`, A03): the last Histogrammer -> PicoProducer import.
-Its `pico=` keyword was read and cleared on the next line (Histogrammer BUGS L12). A search of the whole repository
-(every file type, star imports, the git history of all branches) found only two callers, both in the archive:
-`Legacy/OldAnalysis/2016-2018/plot_compare.py` (2 calls) and `Legacy/OldAnalysis/2018/plot_stitching.py` (5 calls,
-4 more commented out); no maintained code, test, BBB case or recipe.
+Its `pico=` keyword was read and cleared on the next line (Histogrammer BUGS L12). In the repository only two
+archived scripts call it: `Legacy/OldAnalysis/2016-2018/plot_compare.py` (2 calls) and
+`Legacy/OldAnalysis/2018/plot_stitching.py` (5 calls, 4 more commented out); no maintained code, test, BBB case or
+recipe. It stays in the library anyway: it is a helper for users' own quick MC studies (a set of `Sample` objects,
+`gethist`, a `Plot`, all in one script, outside the repository). Only its `getconfig` call breaks a boundary, and it
+is fixed the way CL §37 fixed `getsampleset`.
 
-- The function is deleted from `Histogrammer/python/sample/utils.py`. Each of the two scripts has its own copy below
-  its imports (the same code, `repkey` imported inside it), with a docstring saying where it came from, and no longer
-  imports `getmcsample` from the library. The copies keep reading `picodir` of the PicoProducer configuration, so the
-  scripts behave as before; the two lines of L12 (`picodir = kwargs.get('pico', "")`, `picodir = ""`) are dropped,
-  which changes nothing since `picodir` was always `""` there. When `Legacy/OldAnalysis/` is deleted, the copies go
-  with it. The import-boundary check skips `Legacy/`.
+- `getmcsample(group, sample, title, xsec, channel, era, tag="", verb=0, **kwargs)` takes a new keyword `tuples=`:
+  the directory pattern put in for `$PICODIR` (as in `getsampleset`, it may contain `$ERA`, `$GROUP`, ...). A
+  pattern with `$PICODIR` and no `tuples=` raises `ValueError` naming `tuples=`; the PicoProducer configuration is
+  never read. A full `fname=` pattern without `$PICODIR` needs no `tuples=`. The rest (`fname`, `user`/`$USER`,
+  `tag`, the "Did not find" print, `verb`) is unchanged. The `pico=` keyword (always ignored, L12) is gone.
+- The two Legacy scripts get their own copy of the old function below their imports (the same code, `repkey`
+  imported inside it, a docstring saying where it came from) and no longer import it from the library. The copies
+  keep reading `picodir` of the PicoProducer configuration, so the scripts behave as before; the two lines of L12
+  (`picodir = kwargs.get('pico', "")`, `picodir = ""`) are dropped, which changes nothing since `picodir` was always
+  `""` there. When `Legacy/OldAnalysis/` is deleted, the copies go with it. The import-boundary check skips
+  `Legacy/`.
 - Histogrammer -> PicoProducer: 1 / 1 / 1 -> none; totals 20 / 19 / 17 -> 19 / 18 / 16. Its allowlist entry is
   removed (a stale entry would fail the test). L12 is closed.
-- Before / after: `python3 plot_stitching.py` (Legacy, with its old Run 2 tuples) reads the same files;
-  `from TauFW.Plotter.sample.utils import getmcsample` in a user's own script outside the repository is an
-  `ImportError`: copy the function (it is 20 lines in either Legacy script) or build the sample with
-  `MC(name, title, "/path/$SAMPLE_$CHANNEL.root", xsec)` and the tuple directory written in.
+- New test `Tests/Plotter/testScriptFlow.py` (`plotter.script_flow`, ROOT): `MC` -> `gethist` -> `Plot` -> `draw`
+  -> `saveas` in one script, so the one-script study stays supported. The module boundaries are between the
+  stages' packages, not inside a user's script: it may use the Histogrammer's samples and the drawing library
+  (`TauFW.Utilities.Drawing`) together.
+- Before / after:
+
+  ```python
+  # before: $PICODIR came from the PicoProducer configuration
+  getmcsample('DY', "DYJetsToLL_M-50", "DYJetsToLL", 1., channel, era)
+  # after
+  getmcsample('DY', "DYJetsToLL_M-50", "DYJetsToLL", 1., channel, era, tuples="/eos/.../$ERA/$GROUP")
+  getmcsample('DY', "DYJetsToLL_M-50", "DYJetsToLL", 1., channel, era)   # ValueError: give tuples=...
+  ```
+
+  `python3 plot_stitching.py` (Legacy, with its old Run 2 tuples) reads the same files.

@@ -24,10 +24,10 @@ from TauFW.Plotter.sample.utils import MC, SampleSet
 def getmcsample(group,sample,title,xsec,channel,era,tag="",verb=0,**kwargs):
   """Helper function to create MC sample.
   E.g.: getmcsample('DY',"DYJetsToLL_M-50","DYJetsToLL",1.,channel,era,verb=1),
-  Copy of TauFW.Histogrammer.sample.utils.getmcsample, moved here when it left the library (Refactor-2025
-  changelog section 39): only the Legacy analyses used it, and it reads $PICODIR from the PicoProducer
-  configuration, which the library no longer does. The two lines that read and then cleared the 'pico' keyword
-  (Histogrammer BUGS L12) were dropped; nothing else changed."""
+  Copy of the old TauFW.Histogrammer.sample.utils.getmcsample (Refactor-2025 changelog section 39): it reads
+  $PICODIR from the PicoProducer configuration, as this script always did; the library's getmcsample takes the
+  directory as tuples= instead. The two lines that read and then cleared the 'pico' keyword (Histogrammer BUGS L12)
+  were dropped; nothing else changed."""
   from TauFW.common.tools.utils import repkey
   fname   = kwargs.get('fname', "$PICODIR/$SAMPLE_$CHANNEL$TAG.root" ) # file name pattern of pico files
   user    = kwargs.get('user',   "" )
