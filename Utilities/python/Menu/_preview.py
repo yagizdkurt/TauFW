@@ -494,7 +494,8 @@ RECIPES = [dict(name="tes_2025.yml", stages=STAGES,
            dict(name="broken_example.yml", stages=STAGES[1:2],
                 problems=["histograms: input `ntuples` is not produced by an earlier stage."])]
 RUNS = [("tes_2025", "WAITING", "2026-10-18 14:02"), ("etau_fr_2024", "DONE", "2026-10-15 09:41"),
-        ("mutau_2024", "FAILED", "2026-10-12 17:20"), ("copied_by_hand", None, None)]
+        ("mutau_2024", "FAILED", "2026-10-12 17:20"), ("mutau_fr_2025", "PAUSED", "2026-10-11 10:05"),
+        ("copied_by_hand", None, None)]
 
 
 def _recipes(ui, directory):

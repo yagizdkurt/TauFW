@@ -1,7 +1,7 @@
 # Refactor-2025: still to do
 
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-**Last updated:** 2026-10-26
+**Last updated:** 2026-10-27
 
 Everything the `Refactor-2025` branch has left open: checks that need lxplus, the rest of the `common` → `Utilities`
 move, old output kept on purpose, open bugs, and planned next steps. The [change log](Refactor-2025.md) ("CL §N")
@@ -51,6 +51,11 @@ Items marked **(verify)** may already be done; check before working on them.
 
 The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go here until they are run.
 
+- [ ] **Run status and PAUSED in the menu (CL §42):** `python3 taufw.py menu` > Inspect run status > a DONE run:
+      the state line says `READING STATUS | ... | taufw.py status` with `Reading the run status...` in the Output,
+      then `00:01 | taufw.py status` (no `RUNNING`/`DONE`); View detailed plan says `READING PLAN`. The run list
+      shows `menutest_20261021-180111` (stopped at `second`) as `PAUSED`; during "Advance to the end" of a run it
+      shows `RUNNING`, and again during `python3 taufw.py advance <run_dir> --wait` from a second terminal.
 - [ ] **User config settings (CL §41):** in an installed checkout without `Analyses/UserConfig.yaml`,
       `python3 taufw.py userconfig` writes the lxplus guesses (`taufw/` on EOS; `run_root` if the AFS work area
       exists; values of `PicoProducer/config/config.json` if it exists); `python3 taufw.py plan
@@ -227,6 +232,35 @@ Parts 1–5 are done (CL §5–§8; the Part 2 changelog section was removed).
 
 ## 6. Framework
 
+- [ ] **`RUNNING` means "half done", not "an advance works on it" (user, 2026-10-27; menu workaround CL §42).**
+      `RunRecord.state` (`Framework/python/run_record.py`) is computed from the stage states only, and `RUNNING` is
+      its last rule: everything that is not FAILED, all DONE, WAITING, BLOCKED or all NEW. So a run whose advance
+      was stopped between two stages (`slow: DONE`, `second: NEW`) says `RUNNING` forever, also days later, until
+      it is advanced again. Seen in the menu (2026-10-27): `menutest_20261021-180111 | RUNNING | ... | advance:
+      Stopped at second`, and `taufw.py status` printed `=== Run ...: RUNNING ===`.
+      **Done for now (B1, CL §42):** only the menu's run list says `PAUSED` (`MenuNavigation._summary`: no running
+      advance behind the menu and no live `advance.lock`). `run.json`, `taufw.py status`, `RunState` and the
+      Continue checks are unchanged, so the menu and the CLI disagree (`PAUSED` vs `RUNNING`).
+      **To do (B2, the real fix):** split the state in the Framework:
+      (1) the state computed from the stages: rename the last rule `RUNNING` -> `PAUSED` (a stage started, none
+      waits for jobs, nothing failed: "advance it again"). Small: `RunState` is not written to `run.json` (it is
+      computed), but its string is printed by `status`, `start`/`advance` (`=== Run ...: X ===`), checked by tests
+      (`Tests/Framework`, BBB records with the run state: check which, a re-lock needs approval), named in
+      `Framework/README.md` (terms table and "Run states") and the Manual's example outputs (real lxplus output
+      only: paste them again).
+      (2) `RUNNING` only while an advance holds the run lock: `status` reads `read_lock(run_dir)` (already used by
+      the menu) and says `RUNNING (advance on <host> since <time>)`; a lost lock says `PAUSED (advance lost on
+      <host>)`. Decide where: in `RunRecord.state` (then it needs the run dir and reads a file, a property that does
+      IO), or in a `status`-level helper (`run_state(record)` next to `read_lock`; the record keeps the pure stage
+      state). Preferred: the helper, `RunRecord.state` stays pure.
+      (3) Then remove the menu workaround (`_summary`, its test `test_a_running_run_that_no_advance_works_on_is_paused`)
+      and let the list show the Framework's state; `select_run` colors `PAUSED` like `WAITING` (yellow) already.
+      `RunState.finished` and `can_advance` do not change (`PAUSED` is not final).
+      Recipes are not used by others yet (2026-10-26), so the rename is low risk; scripts are not affected.
+- [ ] **Run list: an advance started from the CLI on another machine (CL §42).** `PAUSED` in the menu trusts the
+      run lock for advances that are not behind the menu. A live lock of another machine shows `RUNNING`; one that
+      gave no sign of life for `LOST_AFTER` (120 s, e.g. a slow EOS/AFS) shows `PAUSED` although it may still work.
+      Same rule as the "Advance lost" screen; revisit with B2 above.
 - [ ] **A run keeps the settings it started with (user decision 2026-10-27, CL §41).** `advance` builds the
       production stage again and reads `PicoProducer/config/config.json` and the user config anew, so a change of
       either between `start` and `advance` applies to the rest of the run. Already submitted jobs are safe (their

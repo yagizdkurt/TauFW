@@ -91,8 +91,11 @@ Use Up/Down to move, Enter to select, and Esc to go back or exit the main menu.
   in the `run_root` of every recipe in `Analyses/` (newest first)
   or accepts another run directory. Choose one advance or repeated checking;
   polling defaults to 600 seconds. Terminal runs offer status inspection instead.
+  The list shows a `RUNNING` run that no advance works on now (none behind the menu, no live advance lock) as
+  `PAUSED`: it goes on with the next advance. `run.json` and `taufw.py status` still say `RUNNING`.
 - **Inspect run status** shows the existing read-only status output, with Refresh
-  and Back actions.
+  and Back actions. Its state line is the command's: `READING STATUS` while it reads, then only the time; the run's
+  state is in the output.
 - **Tests** runs the automated tests behind the menu, on a live test screen ([Tests/README.md](../Tests/README.md)
   "Interactive testing menu"). Leaving the screen never stops them: the main menu shows their state, e.g.
   **Tests (Running 12/40)** or **Tests (Failed: 3)**, and Tests opens the running run's screen again.

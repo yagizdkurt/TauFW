@@ -150,8 +150,9 @@ class MenuNavigation:
             paths = [row[1] for row in runs]
             if focus in paths:
                 position["selected"] = paths.index(focus)
-            summaries = [row[2] if row[2] is not None else (_name(row[1]), None, None) for row in runs]
-            action, index = self.ui.select_run(summaries, advances=self.operations.run_advances(paths),
+            advances = self.operations.run_advances(paths)
+            summaries = [self._summary(row, advance) for row, advance in zip(runs, advances)]
+            action, index = self.ui.select_run(summaries, advances=advances,
                                                loading=[row[2] is None for row in runs], position=position,
                                                live=bool(loading))
             selected = position.get("selected", 0)
@@ -171,6 +172,20 @@ class MenuNavigation:
                 return self.operations.load_run(path)
             except Exception as error:
                 self.ui.unreadable_run(error)
+
+    def _summary(self, row, advance):
+        """(run_id, state, updated) of a run row. A RUNNING run (run.json: a stage started, none waits) that no
+        advance works on now (none behind the menu, no live run lock: advanced from the CLI) is PAUSED: it waits
+        for the next advance. Only the list says so; run.json and `taufw.py status` still say RUNNING (see
+        Docs/Develop/Refactor-2025/TODO.md)."""
+        if row[2] is None:
+            return _name(row[1]), None, None
+        run_id, state, updated = row[2]
+        if state == "RUNNING" and not (advance is not None and advance.running):
+            lock = self.operations.run_lock(row[1])
+            if lock is None or lock.get("lost"):
+                state = "PAUSED"
+        return run_id, state, updated
 
     def _kept_row(self, run_dir):
         """The kept row of a run, or None while its run.json is read (asked for here if it is not)."""

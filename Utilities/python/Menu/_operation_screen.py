@@ -59,6 +59,7 @@ class ScreenModel:
     list_title = "Items"                 # the list panel
     item = "Item"                        # footer: "Up/Down Item | Enter Item log"
     output_title = "Output"              # the L view
+    empty = "(no output yet)"            # the L view before the first line
     stop_question = "Stop it?"           # asked before a stop
     stopping = "Stopping..."             # footer while it stops
     kill_warning = "It ends at once, without finishing what it does."  # asked before K Kill now (while it stops)
@@ -192,7 +193,7 @@ def _draw(ui, screen, title, process, model, view, state):
     height, width = screen.getmaxyx()
     start = ui._header(screen, title, badge=True)
     text, role = _state(model, process, state)
-    summary = "%s | %s | %s" % (text, _clock(process.elapsed()), model.summary())
+    summary = " | ".join(part for part in (text, _clock(process.elapsed()), model.summary()) if part)
     column = width - len(summary) - 2
     row = 1 if column > start + len(title) + 2 else 2  # no room next to the title: on the free line below it
     ui._line(screen, row, column if row == 1 else start, summary, color=ui.styles.get(role, 0))
@@ -201,10 +202,11 @@ def _draw(ui, screen, title, process, model, view, state):
         ui._line(screen, 3, 1, "Enlarge terminal (at least 40 x 12).")
     elif view.mode == "output" or not items:
         lines = list(process.output.lines) + ([process.output.partial] if process.output.partial else [])
-        _log(ui, screen, view, model.output_title, lines, height, width)
+        _log(ui, screen, view, model.output_title, lines, height, width, model.empty)
     elif view.mode == "item":
         item = _focused(items, view)
-        _log(ui, screen, view, "Log: %s" % model.label(item), _item_lines(model, view, item), height, width)
+        _log(ui, screen, view, "Log: %s" % model.label(item), _item_lines(model, view, item), height, width,
+             model.empty)
     else:
         _items(ui, screen, model, items, view, height, width)
     ui._footer(screen, _footer(model, items, view, state))
@@ -255,10 +257,10 @@ def _items(ui, screen, model, items, view, height, width):
     ui._viewport(screen, details, pinned + rest, 0)
 
 
-def _log(ui, screen, view, title, lines, height, width):
-    """A scrollable log that follows its end until the user scrolls up."""
+def _log(ui, screen, view, title, lines, height, width, empty):
+    """A scrollable log that follows its end until the user scrolls up; empty: the line before the first."""
     rect = ui._panel(screen, 3, 1, height - 6, width - 2, title)
-    lines = [part for line in lines for part in ui._wrap(printable(line), rect[3])] or ["(no output yet)"]
+    lines = [part for line in lines for part in ui._wrap(printable(line), rect[3])] or [empty]
     view.page = max(1, rect[2] - (1 if len(lines) > rect[2] else 0))
     view.end = max(0, len(lines) - view.page)
     if view.offset is not None and view.offset >= view.end:

@@ -1610,3 +1610,28 @@ settings: the first would not move the directories made from it, the second is n
   `(default: no run_root in the recipe)` line keep their text (BBB `framework.production` records them).
 - **Tests:** every test of `Tests/Framework` runs with a neutral user config (`checkout.py` sets
   `$TAUFW_USER_CONFIG` to a reviewed file without settings), so a developer's own file changes nothing.
+
+## 42. The menu's run status says READING STATUS, and a stopped run is PAUSED
+
+**Date:** 2026-10-27
+**Status:** done (lxplus check open: [TODO.md](TODO.md) section 1)
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#42-the-menus-run-status-says-reading-status-and-a-stopped-run-is-paused)
+
+**Details:** two reports from the menu (user, 2026-10-27). (1) Inspect run status of a DONE run first showed
+`RUNNING` and `(no output yet)`, then `DONE | 00:01 | taufw.py status`: the state line was the state of the
+`taufw.py status` command, not of the run. (2) A run whose advance was stopped between two stages
+(`slow: DONE`, `second: NEW`) stayed `RUNNING` in the run list for days: `RunRecord.state` is computed from the
+stages, and `RUNNING` is its last rule ("half done"), not "an advance works on it". Options discussed: B1 (only the
+menu says `PAUSED`) and B2 (split the state in the Framework); the user chose B1 for now, B2 is a TODO
+([TODO.md](TODO.md) section 6).
+
+- **Command screen** (`Utilities/python/Menu/_command_screen.py`): while the command runs the state line says
+  `READING STATUS` (`taufw.py status`) or `READING PLAN` (`taufw.py plan`), and the empty Output view says
+  `Reading the run status...` / `Reading the plan...`. Once it is done the state is left out:
+  `00:01 | taufw.py status`. STOPPING, FAILED (with the exit code), STOPPED and LOST stay.
+- **Operation screen** (`_operation_screen.py`): `ScreenModel.empty`, the line of an empty Output or log view
+  (`(no output yet)` by default); the state line leaves out empty parts.
+- **Run list** (`_navigation.py`, `MenuNavigation._summary`): a `RUNNING` run is shown as `PAUSED` (yellow, like
+  `WAITING`) unless an advance behind the menu runs now or a live `advance.lock` is held (an advance from the CLI).
+  Only the list: `run.json`, `taufw.py status`, `RunState` and Continue are unchanged. The UI preview lists a
+  PAUSED run.

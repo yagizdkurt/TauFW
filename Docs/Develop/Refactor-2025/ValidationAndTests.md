@@ -646,3 +646,17 @@ re-captures the whole suite: 22 same, 1 changed): 658 `lumi` fields added, each 
   `PicoProducer/python/api/producer.py`; `check_import_boundaries`: no new pair.
 - Not run on Windows (needs PicoProducer): `from_config(overrides=)` with a real configuration; on lxplus
   `bbb check` must pass without re-lock (no settings in the BBB workspace's user config).
+
+## 42. The menu's run status says READING STATUS, and a stopped run is PAUSED
+
+**Change:** [CL §42](Refactor-2025.md#42-the-menus-run-status-says-reading-status-and-a-stopped-run-is-paused)
+
+- `Tests/Utilities/test_operation_screen.py`: the command screen's state line is `READING STATUS | 01:01 | taufw.py
+  status` while it runs and `01:01 | taufw.py status` once done, never `RUNNING` or `DONE`;
+  `test_a_command_screen_before_its_first_line`: `READING STATUS` / `READING PLAN` and their empty Output line
+  instead of `(no output yet)`.
+- `Tests/Utilities/test_menu.py`, `test_a_running_run_that_no_advance_works_on_is_paused`: `RUNNING` with an
+  advance behind the menu or a live lock; `PAUSED` with a lost lock or a stopped advance; a `WAITING` run unchanged
+  and its lock not read.
+- Windows: Tests/Utilities 236 OK (9 skipped), Tests/Framework 227 OK.
+- Open on lxplus: [TODO.md](TODO.md) section 1 (a real terminal, an advance from a second terminal).

@@ -1000,6 +1000,27 @@ ConsoleUI(None)
                                          ("a_1", "DONE", "today")], [False, False, False], False))
         self.assertEqual(drawn[1][3], {"selected": 1})  # b_2 stayed selected while the rows moved
 
+    def test_a_running_run_that_no_advance_works_on_is_paused(self):
+        dirs = ["runs/r"]
+        for advance, lock, shown in ((mock.Mock(running=True), None, "RUNNING"),   # behind the menu now
+                                     (None, dict(lost=False), "RUNNING"),          # from the CLI: a live lock
+                                     (None, dict(lost=True), "PAUSED"),
+                                     (mock.Mock(running=False), None, "PAUSED")):  # the advance stopped
+            with self.subTest(shown=shown, lock=lock):
+                ui, operations = mock.Mock(), idle_operations()
+                operations.run_directories.return_value = dirs
+                operations.run_row.return_value = ("today", dirs[0], ("r", "RUNNING", "today"))
+                operations.run_advances.side_effect = lambda run_dirs: [advance]
+                operations.run_lock.return_value = lock
+                ui.select_run.return_value = ("back", None)
+                MenuNavigation(ui, operations, prefetch=mock.Mock()).continue_run()
+                self.assertEqual(ui.select_run.call_args.args[0], [("r", shown, "today")])
+        operations.run_row.return_value = ("today", dirs[0], ("w", "WAITING", "today"))
+        operations.run_lock.reset_mock()
+        MenuNavigation(ui, operations, prefetch=mock.Mock()).continue_run()
+        self.assertEqual(ui.select_run.call_args.args[0], [("w", "WAITING", "today")])  # only RUNNING changes
+        operations.run_lock.assert_not_called()
+
     def test_the_menu_reads_the_lists_ahead(self):
         ui, operations = mock.Mock(), idle_operations()
         operations.recipes.return_value = [Path("a.yml")]

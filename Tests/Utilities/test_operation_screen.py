@@ -166,6 +166,26 @@ class OperationScreenTests(unittest.TestCase):
                           else "Up/Down/PgUp/PgDn Scroll | End Follow | R Refresh | Esc Back")
                 self.assertIn(footer, drawn)
                 self.assertTrue(any("taufw.py status" in line for line in drawn))  # on the state line
+                # the command's state, not the run's: it reads, then says nothing
+                state_line = "READING STATUS | 01:01 | taufw.py status" if states == ["RUNNING"] else \
+                    "01:01 | taufw.py status"
+                self.assertIn(state_line, drawn)
+                self.assertFalse(any("DONE" in line or "RUNNING" in line for line in drawn))
+
+    def test_a_command_screen_before_its_first_line(self):
+        from TauFW.Utilities.Menu._command_screen import follow_command
+        for command, words in (("status", ("READING STATUS", "Reading the run status...")),
+                               ("plan", ("READING PLAN", "Reading the plan..."))):
+            with self.subTest(command=command):
+                ui, screen = self.screen([-1, 27])
+                process = Process(self.output, ["RUNNING"])
+                process.events = None
+                process.data = dict(command=command)
+                follow_command(ui, screen, "Run status: tes_2025", process)
+                drawn = [call.args[2] for call in screen.addnstr.call_args_list]
+                self.assertIn("%s | 01:01 | taufw.py %s" % (words[0], command), drawn)
+                self.assertIn(words[1], drawn)
+                self.assertNotIn("(no output yet)", drawn)
 
     def test_printable(self):
         self.assertEqual(printable("\x1b[1ma\tb\x07"), "a   b")
