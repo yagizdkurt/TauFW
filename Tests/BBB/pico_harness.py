@@ -190,6 +190,12 @@ class PicoWorkspace:
         env.pop("CMSSW_BASE", None)
         env.update(PATH=str(self.bin) + os.pathsep + env.get("PATH", ""), BBB_BATCH=str(self.batch),
                    PYTHONHASHSEED="1777", PYTHONDONTWRITEBYTECODE="1", PYTHONUNBUFFERED="1")
+        # The checkout's user config is personal (taufw.py warns while it is missing or not reviewed): a reviewed one
+        # of the workspace keeps the output the same for everyone (CL §40).
+        user_config = self.root / "UserConfig.yaml"
+        if not user_config.exists():
+            user_config.write_text("taufw_user:\n  version: 1\n  reviewed: true\n", encoding="utf-8")
+        env["TAUFW_USER_CONFIG"] = str(user_config)
         return env
 
     def execute(self, script, *arguments, cwd=None, check=True):

@@ -51,6 +51,11 @@ Items marked **(verify)** may already be done; check before working on them.
 
 The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go here until they are run.
 
+- [ ] **User config (CL §40):** a FastSetup install (or `python3 taufw.py userconfig` in an installed checkout) makes
+      `Analyses/UserConfig.yaml` and its summary names it; `git status` does not list it; the menu does not show it as
+      a recipe; `python3 taufw.py check Analyses/tes_id_2025` warns "not reviewed yet" in one line until
+      `reviewed: true`. `python3 Tests/run.py bbb check` passes without re-lock (the workspace has its own reviewed file).
+
 - [ ] **`getmcsample` takes `tuples=` (CL §39):** with `cmsenv`, `python3 Tests/run.py normal --case
       plotter.tuple_location --case plotter.script_flow` (6 + 1 tests pass), `python3 Tests/run.py checks` (`check_import_boundaries`: no
       Histogrammer -> PicoProducer row, totals 19 / 18 / 16) and `python3 Tests/run.py bbb check` 24/24 without
@@ -214,6 +219,14 @@ Parts 1–5 are done (CL §5–§8; the Part 2 changelog section was removed).
 
 ## 6. Framework
 
+- [ ] **User config: its settings (CL §40).** The infrastructure is done; which settings it holds is open (proposal
+      to the group, 2026-10-27: storage base, PicoProducer job output/nano/tmp directories, batch system, queue and
+      options, `ncores`/hadd settings, a personal default `run_root`; not eras/channels, job splitting or physics
+      configs). For each setting: a section in `UserConfig/_template.py` (a guess from the host where possible), its
+      reader (precedence: command line > recipe > user config > built-in guess), and for an existing
+      `PicoProducer/config/config.json` its values taken over by `create()`. Then: a missing user config becomes a
+      problem for a recipe with a production stage; standalone `pico.py` keeps `config.json` until the migration
+      point (`pico.py install`, still a stub, is the place to make the user config from it).
 - [ ] **Half-done job submission (production).** If the process dies (SIGKILL: logout, a lost SSH connection, a
       restarted machine) after condor accepted the jobs but before `run.json` records them, `run.json` still says
       "nothing submitted" and the next `advance` submits everything again (duplicate jobs, duplicate output, quota).

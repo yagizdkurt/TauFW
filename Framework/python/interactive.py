@@ -30,6 +30,7 @@ from TauFW.Framework.framework import Framework
 from TauFW.Framework.reporting import SilentReporter
 from TauFW.Framework.run_lock import read_lock
 from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation, Prefetch
+from TauFW.Utilities.UserConfig import FILE_NAME as USER_CONFIG_NAME
 from TauFW.Utilities.Process import LOST, EventReader, OperationStore
 
 CHECKOUT = Path(__file__).resolve().parents[2]
@@ -60,10 +61,11 @@ class _Operations:
     # =============================== DISCOVERY ===============================
 
     def recipes(self):
-        """The analysis bundles (directories with a recipe.yml) and loose recipe files in the recipes directory."""
+        """The analysis bundles (directories with a recipe.yml) and loose recipe files in the recipes directory;
+        the user config (Analyses/UserConfig.yaml) is not a recipe."""
         return sorted((p for p in self.recipes_dir.iterdir()
                        if (p.is_dir() and (p / RECIPE_NAME).is_file())
-                       or (p.is_file() and p.suffix in (".yml", ".yaml", ".json"))),
+                       or (p.is_file() and p.suffix in (".yml", ".yaml", ".json") and p.name != USER_CONFIG_NAME)),
                       key=lambda p: p.name) if self.recipes_dir.is_dir() else []
 
     @staticmethod

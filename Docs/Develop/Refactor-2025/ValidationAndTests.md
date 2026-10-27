@@ -599,3 +599,25 @@ re-captures the whole suite: 22 same, 1 changed): 658 `lumi` fields added, each 
   tests; `check_import_boundaries`: no Histogrammer -> PicoProducer row, totals 19 / 18 / 16, 0 new pairs;
   `python Tests/run.py checks` 14/16 (the known two: known debt, no ROOT). `Utilities/IOInventory.md`: the
   `sample/utils.py` row regenerated.
+
+
+## 40. The user config: infrastructure (`Analyses/UserConfig.yaml`, `TauFW.Utilities.UserConfig`)
+
+**Change:** [CL §40](Refactor-2025.md#40-the-user-config-infrastructure-analysesuserconfigyaml-taufwutilitiesuserconfig)
+
+- `Tests/Utilities/test_userconfig.py` (7 tests, no ROOT): location (checkout / `$TAUFW_USER_CONFIG`), a missing file
+  (defaults, `require` names the file, the key and the create command, the warning), `create` writes once and never
+  overwrites, dotted keys / sections / copies, every broken header and a YAML syntax error name the file,
+  `check()` never raises, and the package imported as a top-level `UserConfig` (FastSetup, before `cmsenv`).
+- `Tests/Setup/test_fastsetup.py`: `test_user_config_is_created_once_and_named_in_the_summary` (`Created`, then
+  `Kept` with the edit kept, the summary line, a warning without `Analyses/`). The helper imports `UserConfig` only
+  for its `userconfig` command, so `test_shell_finds_helper_before_and_after_checkout_relocation` (a fixture with
+  `Installer/` only) still passes.
+- `Tests/Framework/test_framework.py`: `test_user_config_warns_in_one_line_and_the_command_creates_it` (`check`,
+  `plan`, `start` warn while missing / not reviewed, exit 0; `taufw.py userconfig` creates, then keeps).
+  `test_interactive.py`: `test_the_user_config_is_not_a_recipe`. The `CommandLineTests` of `test_framework.py` and
+  `test_stages.py` use `checkout.reviewed_user_config`, so they do not depend on the checkout's own file.
+- BBB: `pico_harness.PicoWorkspace.env()` sets `$TAUFW_USER_CONFIG` to a reviewed file of the workspace;
+  `framework.production` keeps its `plan` lines (no re-lock expected).
+- Windows: Tests/Utilities 207 OK, Tests/Setup 61 OK, Tests/Framework 211 OK; `check_import_boundaries`: no new pair
+  (fails only on the known debt).

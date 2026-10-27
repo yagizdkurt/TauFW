@@ -33,6 +33,9 @@ def main(argv=None):
     htt.add_argument("directory")
     htt.add_argument("files", nargs="+")
 
+    userconfig = commands.add_parser("userconfig", help="Write a new user config if there is none; print its path.")
+    userconfig.add_argument("--path", help="The file (default: $TAUFW_USER_CONFIG, else Analyses/UserConfig.yaml).")
+
     args = parser.parse_args(argv)
     if args.command == "environment":
         for warning in python_environment_warnings():
@@ -49,6 +52,13 @@ def main(argv=None):
         verify_modules(args.specs, args.root, args.instantiate)
     elif args.command == "htt":
         verify_htt_files(args.directory, args.files)
+    elif args.command == "userconfig":  # imported here: the other commands need only Installer
+        if __package__:
+            from .. import UserConfig
+        else:
+            import UserConfig
+        path = Path(args.path) if args.path else UserConfig.location()
+        print(("Created %s" if UserConfig.create(path) else "Kept %s") % path)
     return 0
 
 

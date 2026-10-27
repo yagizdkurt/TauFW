@@ -87,6 +87,7 @@ cms_setup=       # CMS environment script
 moved=false      # whether this run moved the checkout
 clean_marker=    # persisted until a requested fitting-tool clean succeeds
 copied_from=     # original checkout retained after a cross-filesystem copy
+user_config=     # the user config file, once create_user_config has run
 error_reported=false
 cancelled=false
 warnings=()      # repeated in the summary, so they are not lost in build output
@@ -138,6 +139,7 @@ main() {
   build_release            # scram b; clean only when fitting tools require it
   banner 'Verification'
   verify_install
+  create_user_config       # Analyses/UserConfig.yaml, never replaced
   publish_setup_record
   if [[ -n ${FASTSETUP_EVENT_FD:-} ]]; then
     local summary
@@ -740,6 +742,21 @@ verify_install() {
 }
 
 # =============================================================================
+# ==== User config ====
+
+# Personal and machine settings (Utilities/python/UserConfig): written once,
+# never replaced. Created after the move, so it is in the installed checkout.
+create_user_config() {
+  local path=${TAUFW_USER_CONFIG:-$repo_dir/Analyses/UserConfig.yaml} line
+  if line=$(installer_python userconfig --path "$path"); then
+    log "$line"
+    user_config=$path
+  else
+    warn "Could not create the user config $path: run python3 taufw.py userconfig later."
+  fi
+}
+
+# =============================================================================
 # ==== Completion summary ====
 
 # Successful setup state is data, never executable shell code.
@@ -807,6 +824,7 @@ print_completion_notices() {
 print_summary() {
   summary_line success 'Setup complete'
   printf '\nCMSSW        %s\nArchitecture %s\nTauFW        %s\n' "${RELEASE#CMSSW_}" "$SCRAM_ARCH" "$repo_dir"
+  if [[ -n $user_config ]]; then printf 'User config  %s (review it)\n' "$user_config"; fi
   printf '\n'
   summary_line heading 'Optional components'
   if ! $tauidsfs && ! $htt && ! $combine && ! $run2_jme; then

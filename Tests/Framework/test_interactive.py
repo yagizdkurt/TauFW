@@ -331,6 +331,18 @@ class MenuTests(unittest.TestCase):
     def menu(self, ui):
         return Menu(ui, self.root, self.recipes, self.root / "operations")
 
+    def test_the_user_config_is_not_a_recipe(self):
+        """Analyses/UserConfig.yaml sits beside the bundles and loose recipe files, but is never listed (CL §40)."""
+        (self.recipes / "bundle").mkdir()
+        self.recipe_file(self.recipes / "bundle" / "recipe.yml")
+        self.recipe_file(self.recipes / "loose.yml")
+        (self.recipes / "UserConfig.yaml").write_text("taufw_user:\n  version: 1\n  reviewed: false\n",
+                                                     encoding="utf-8")
+        names = [path.name for path in self.menu(FakeUI()).operations.recipes()]
+        self.assertIn("bundle", names)
+        self.assertIn("loose.yml", names)
+        self.assertNotIn("UserConfig.yaml", names)
+
     def recipe_file(self, path, name="test", stages=None):
         path.write_text(json.dumps(dict(name=name, stages=stages or STAGES)),
                         encoding="utf-8")

@@ -100,6 +100,39 @@ print_summary
         self.assertNotIn("checkout was moved", output)
         self.assertNotIn("\x1b[", output)
 
+    def test_user_config_is_created_once_and_named_in_the_summary(self):
+        """Analyses/UserConfig.yaml of the installed checkout (Utilities/python/UserConfig, CL §40)."""
+        output, directory = self.run_script(r'''
+unset TAUFW_USER_CONFIG
+export LC_ALL=C
+repo_dir=$PWD
+mkdir Analyses
+create_user_config
+printf 'reviewed: true\n' >> Analyses/UserConfig.yaml
+create_user_config
+SCRAM_ARCH=el9_amd64_gcc12
+tauidsfs=false
+htt=false
+combine=false
+run2_jme=false
+print_summary
+mv Analyses elsewhere
+user_config=
+create_user_config
+printf 'after:%s\n' "$user_config"
+''')
+        path = directory / "Analyses" / "UserConfig.yaml"
+        self.assertEqual(output.count("[FastSetup] Created "), 1)
+        self.assertEqual(output.count("[FastSetup] Kept "), 1)
+        self.assertIn("User config  ", output)
+        self.assertIn("UserConfig.yaml (review it)", output)
+        self.assertIn("WARNING: Could not create the user config", output)  # no Analyses/: a warning, not a failure
+        self.assertIn("after:\n", output)
+        text = (directory / "elsewhere" / "UserConfig.yaml").read_text(encoding="utf-8")
+        self.assertIn("reviewed: false", text)
+        self.assertTrue(text.endswith("reviewed: true\n"))  # the second run kept the file
+        self.assertFalse(path.exists())
+
     def test_environment_warning_precedes_verification_and_is_retained(self):
         output, _ = self.run_script(r'''
 exec 2>&1

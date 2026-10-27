@@ -32,3 +32,21 @@ for _name in ("Fitter", "Histogrammer"):  # no tracked __init__.py (SCRAM genera
         sys.modules["TauFW." + _name] = _namespace
         setattr(sys.modules["TauFW"], _name, _namespace)
 TAUFW_SCRIPT = REPO / "Framework" / "scripts" / "taufw.py"
+
+
+def reviewed_user_config(test):
+    """Point $TAUFW_USER_CONFIG at a reviewed user config of a temporary directory for the duration of `test` (a
+    TestCase): the checkout's own Analyses/UserConfig.yaml is personal, and taufw.py warns while it is missing or not
+    reviewed. Returns the file's path."""
+    import os
+    import tempfile
+    from unittest import mock
+    directory = tempfile.TemporaryDirectory()
+    test.addCleanup(directory.cleanup)
+    path = os.path.join(directory.name, "UserConfig.yaml")
+    with open(path, "w") as stream:
+        stream.write("taufw_user:\n  version: 1\n  reviewed: true\n")
+    patcher = mock.patch.dict(os.environ, {"TAUFW_USER_CONFIG": path})
+    patcher.start()
+    test.addCleanup(patcher.stop)
+    return path

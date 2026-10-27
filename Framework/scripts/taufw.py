@@ -21,6 +21,8 @@
   taufw.py configs [update]                               the config templates of Configs/ to copy into a bundle;
                                                           update (maintainers): raise the versions of changed
                                                           templates and rewrite Configs/configs.lock
+  taufw.py userconfig                                     your user config (Analyses/UserConfig.yaml, or
+                                                          $TAUFW_USER_CONFIG): made if there is none, its state
 
 RECIPE is an analysis bundle directory (Analyses/<name>, with recipe.yml) or a recipe file.
 
@@ -29,6 +31,9 @@ messages and the Framework's events (TauFW.Framework.reporting) to that file; th
 variable is removed from the environment first, so the commands the stages run never see it.
 
 The runs go to the recipe's run_root (start --run-root DIR takes precedence; without both: taufw_runs/ here).
+
+check, plan and start warn in one line while there is no user config or it is not reviewed (TauFW.Utilities.UserConfig);
+the recipe still runs.
 
 Exit code: 1 if the run failed or the recipe is invalid (warnings do not count), otherwise 0. See
 Framework/README.md.
@@ -45,6 +50,7 @@ try:
     from TauFW.Framework.defaults import (DEFAULT_RUN_ROOT, DEFAULT_POLL_SECONDS, ANALYSES_DIR, CONFIGS_DIR,
                                           default_file_io)
     from TauFW.Utilities.Process import EVENTS_ENV, EventWriter
+    from TauFW.Utilities import UserConfig
 except ImportError as err:
     print("\033[1m\033[31mImportError for TauFW.Framework: please check if you compiled with `scram b`.\033[0m")
     raise err
@@ -58,6 +64,7 @@ def cmd_check(args):
     """List every problem and warning of a recipe."""
     reporter = _reporter(args)
     check = check_recipe(args.recipe)
+    _show_user_config(reporter)
     _show_warnings(reporter, check.warnings)
     if check.ok:
         reporter.message("Recipe %s: no problems (%d stage(s): %s)"
@@ -81,6 +88,7 @@ def cmd_plan(args):
         results = framework.stages[stage_spec.id].run_local(stage_spec.spec, maxevts=args.maxevts)
         return 1 if any(r.exitcode for r in results) else 0
     plan = framework.plan()
+    _show_user_config(reporter)
     _show_warnings(reporter, framework.recipe.warnings)
     if plan.bundle_dir:
         reporter.message("Bundle: %s" % (plan.bundle_dir))
@@ -122,6 +130,7 @@ def cmd_start(args):
     """Start a new run."""
     reporter = _reporter(args)
     framework = Framework.from_recipe(args.recipe, reporter=reporter)
+    _show_user_config(reporter)
     if not args.run_root:  # --run-root chooses the place, so the recipe's run_root warnings do not apply
         _show_warnings(reporter, framework.recipe.warnings)
     reporter.message("Run root: %s" % (_run_root_line(framework.recipe, args.run_root)))
@@ -222,10 +231,34 @@ def cmd_configs(args):
     return 1 if configs.problems or lowered else 0
 
 
+def cmd_userconfig(args):
+    """Make the user config if there is none (never over an existing one), and show where it is and its state."""
+    reporter = _reporter(args)
+    path = UserConfig.location()
+    try:
+        created = UserConfig.create(path)
+    except OSError as error:  # e.g. the directory of $TAUFW_USER_CONFIG does not exist
+        reporter.warning("Cannot create the user config %s: %s" % (path, error))
+        return 1
+    reporter.message(("New user config: %s" if created else "User config: %s") % (path))
+    warnings = UserConfig.check()
+    for warning in warnings:
+        reporter.warning(warning)
+    if not warnings:
+        reporter.message("Reviewed: yes")
+    return 0
+
+
 def _reporter(args):
     """The terminal reporter; with an events file (args.events, see main), it also writes events."""
     reporter = FrameworkReporter(verbosity=args.verbose)
     return EventReporter(reporter, args.events) if args.events.path else reporter
+
+
+def _show_user_config(reporter):
+    """The warnings of the user config, one line each (no file, not reviewed): the recipe still runs."""
+    for warning in UserConfig.check():
+        reporter.warning(warning)
 
 
 def _show_warnings(reporter, warnings):
@@ -305,7 +338,7 @@ def _finish(reporter, record):
 
 
 COMMANDS = {'check': cmd_check, 'plan': cmd_plan, 'start': cmd_start, 'advance': cmd_advance, 'status': cmd_status, 'init': cmd_init,
-            'configs': cmd_configs}
+            'configs': cmd_configs, 'userconfig': cmd_userconfig}
 
 
 # =============================================================================
@@ -351,6 +384,8 @@ def build_parser():
     configs.add_argument('action', nargs='?', choices=('list', 'update'), default='list',
                          help="list (default): the templates; update (maintainers): raise the versions of changed "
                               "templates and rewrite Configs/configs.lock")
+    subparsers.add_parser('userconfig', parents=[common],
+                          help="your user config: made if there is none, its path and state")
     return parser
 
 

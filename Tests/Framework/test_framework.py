@@ -566,6 +566,7 @@ class ReporterTests(FrameworkTestCase):
 class CommandLineTests(FrameworkTestCase):
     def setUp(self):
         super().setUp()
+        checkout.reviewed_user_config(self)  # taufw.py's output does not depend on the checkout's user config
         spec = importlib.util.spec_from_file_location("taufw_cli", str(checkout.TAUFW_SCRIPT))
         self.cli = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(self.cli)
@@ -598,6 +599,46 @@ class CommandLineTests(FrameworkTestCase):
             self.assertEqual(self.cli.main(command), 1)  # no traceback (Framework BUGS K06)
             self.assertEqual([t for k, t in reporter.messages if k == "warning"],
                              ["%s: cannot read the recipe: no such file" % (missing)])
+
+    def test_user_config_warns_in_one_line_and_the_command_creates_it(self):
+        """check, plan and start warn while there is no user config or it is not reviewed; the recipe still runs.
+        `taufw.py userconfig` makes the file once and shows its state (CL §40)."""
+        reporter = SilentReporter()
+        self.cli.FrameworkReporter = lambda verbosity=0: reporter
+        warnings = lambda: [t for k, t in reporter.messages if k == "warning"]
+        recipe = os.path.join(self.root, "r.json")
+        with open(recipe, "w") as stream:
+            json.dump(dict(RECIPE, run_root=os.path.join(self.root, "runs")), stream)
+        path = os.path.join(self.root, "user", "UserConfig.yaml")
+        os.mkdir(os.path.dirname(path))
+        os.environ["TAUFW_USER_CONFIG"] = path  # restored by reviewed_user_config's patch
+        self.assertEqual(self.cli.main(["check", recipe]), 0)
+        self.assertEqual(warnings(), ["No user config %s: create it with `python3 taufw.py userconfig`" % (path)])
+        reporter.messages.clear()
+        self.assertEqual(self.cli.main(["userconfig"]), 0)
+        self.assertIn("New user config: %s" % (path), [t for k, t in reporter.messages if k == "message"])
+        not_reviewed = "User config %s is not reviewed yet: check its values, then set reviewed: true" % (path)
+        self.assertEqual(warnings(), [not_reviewed])
+        reporter.messages.clear()
+        pico = fakes.FakePicoProducer(statuses=[fakes.pending("DY")])
+        real = Framework.from_recipe
+        with mock.patch.object(self.cli.Framework, "from_recipe",
+                               side_effect=lambda r, reporter=None, fake=pico, **kw: real(r, reporter=reporter, pico=fake)):
+            self.assertEqual(self.cli.main(["plan", recipe]), 0)
+            self.assertEqual(warnings(), [not_reviewed])
+            reporter.messages.clear()
+            self.assertEqual(self.cli.main(["start", recipe]), 0)
+            self.assertEqual(warnings(), [not_reviewed])
+        with open(path) as stream:
+            text = stream.read()
+        with open(path, "w") as stream:
+            stream.write(text.replace("reviewed: false", "reviewed: true"))
+        reporter.messages.clear()
+        self.assertEqual(self.cli.main(["userconfig"]), 0)  # kept, not overwritten
+        self.assertEqual(warnings(), [])
+        self.assertIn("User config: %s" % (path), [t for k, t in reporter.messages if k == "message"])
+        self.assertEqual(self.cli.main(["check", recipe]), 0)
+        self.assertEqual(warnings(), [])
 
     def test_check_plan_and_start_show_the_run_root(self):
         reporter = SilentReporter()

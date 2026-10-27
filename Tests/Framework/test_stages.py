@@ -563,6 +563,7 @@ class SpecTests(unittest.TestCase):
 class CommandLineTests(LocalStageTestCase):
     def setUp(self):
         super().setUp()
+        checkout.reviewed_user_config(self)  # taufw.py's output does not depend on the checkout's user config
         spec = importlib.util.spec_from_file_location("taufw_cli", str(checkout.TAUFW_SCRIPT))
         self.cli = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(self.cli)

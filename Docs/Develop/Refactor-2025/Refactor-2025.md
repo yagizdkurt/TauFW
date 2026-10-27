@@ -1507,3 +1507,48 @@ is fixed the way CL §37 fixed `getsampleset`.
   ```
 
   `python3 plot_stitching.py` (Legacy, with its old Run 2 tuples) reads the same files.
+
+
+## 40. The user config: infrastructure (`Analyses/UserConfig.yaml`, `TauFW.Utilities.UserConfig`)
+
+**Date:** 2026-10-27
+**Status:** done (infrastructure only: which settings the file holds is not decided yet)
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#40-the-user-config-infrastructure-analysesuserconfigyaml-taufwutilitiesuserconfig)
+
+**Details:** group discussion of 2026-10-27 (Izaak Neutelings, Hagop Awedikian): one personal configuration instead of
+`PicoProducer/config/config.json`, whose personal changes kept being committed and overwritten. User decisions: the
+file is `Analyses/UserConfig.yaml` (YAML, for comments), made by the setup and ignored by git; a file not reviewed
+yet gets a one-line warning, nothing more; scripts keep `config.json` (compat), recipes and stages take the user
+config once it holds settings; its code lives in `Utilities/python/UserConfig/`.
+
+- **`TauFW.Utilities.UserConfig`** (new package, standard library only; reading needs PyYAML):
+  `location()` (`$TAUFW_USER_CONFIG` if set, else `Analyses/UserConfig.yaml` of the checkout), `load(path)` ->
+  `Config` (`get("runs.run_root", default)`, `require(key)`, `section(name)`, `values`, `exists`, `reviewed`,
+  `version`; a missing file is an empty `Config`, a broken one a `UserConfigError` naming the file), `create(path)`
+  (writes the new file, never over an existing one) and `check()` (the one-line warnings: no file, not reviewed, a
+  broken file; never raises). The new file has only its header:
+
+  ```yaml
+  taufw_user:
+    version: 1           # the format of this file (set by TauFW, do not change)
+    reviewed: false      # true: you checked this file
+  ```
+
+  A setting is added in `_template.py` (its docstring says how). The same package is importable before `cmsenv` as
+  a top-level package (`import UserConfig` with `Utilities/python` on `sys.path`), as FastSetup does.
+- **Made by the setup:** `FastSetup.sh` runs `create_user_config` after `verify_install` (in the installed checkout,
+  after the move): `setup_tools.py userconfig --path ${TAUFW_USER_CONFIG:-$repo_dir/Analyses/UserConfig.yaml}`
+  prints `Created ...` or `Kept ...`; a failure is a setup warning, not an error. The summary gets a line
+  `User config  <path> (review it)`. For checkouts installed before: `python3 taufw.py userconfig` (new command:
+  makes the file if there is none, prints its path and its warnings).
+- **taufw.py:** `check`, `plan` and `start` show `UserConfig.check()` as warnings, one line each, e.g.
+  `User config /afs/.../Analyses/UserConfig.yaml is not reviewed yet: check its values, then set reviewed: true`.
+  The recipe still runs; the exit code does not change.
+- **Not a recipe:** the menu listed every loose `.yml`/`.yaml`/`.json` file of `Analyses/` as a recipe, so the user
+  config would have been a red, broken entry; `interactive._Operations.recipes()` skips `UserConfig.yaml`.
+- **Not a template:** the file is not in `Configs/` (`configs.py` checks every YAML there for a `taufw_config`
+  header). `.gitignore`: `Analyses/UserConfig.yaml` (`*.json` is ignored anyway, a YAML file is not).
+- **Tests stay independent of the checkout's file:** the BBB workspace (`Tests/BBB/pico_harness.py`) and the
+  `taufw.py` tests (`checkout.reviewed_user_config`) point `$TAUFW_USER_CONFIG` at a reviewed file of their
+  temporary directory, so the output of `taufw.py plan` (BBB `framework.production`) does not change: no re-lock.
+- Nothing reads a setting yet; PicoProducer, Histogrammer, Fitter and the scripts are unchanged.
