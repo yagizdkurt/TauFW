@@ -14,6 +14,8 @@ core.*
 *.png
 *.json
 !Framework/python/_internal/version.json
+!Analyses/CDTest/sf/*.json
+!Analyses/CDTest/reference/**/*.png
 
 # Python package initializers and exceptions.
 __init__.py
