@@ -89,6 +89,14 @@ class _Operations:
         return user_config.setting_problems(UserConfig.load(draft_path))
 
     @staticmethod
+    def user_config_reviewed():
+        """Whether the active config exists and says reviewed: true; a file that cannot be read is not reviewed."""
+        try:
+            return UserConfig.load().reviewed is True
+        except UserConfig.UserConfigError:
+            return False
+
+    @staticmethod
     def install_components():
         """Reuse the installer's checklist and progress screen in this checkout's release area."""
         script = CHECKOUT / "Utilities" / "FastSetup.sh"
@@ -203,6 +211,16 @@ class _Operations:
     def kept_run_row(self, run_dir):
         """The row of the run as run_row() left it, if its run.json did not change since; else None."""
         return self._kept_value("run", run_dir, lambda path: _file_signature(Path(path) / RUN_RECORD_NAME))
+
+    def run_preview(self, run_dir):
+        """Plain saved details for the selected run; called by the menu's preview worker, never by curses."""
+        record = self.load_run(run_dir)
+        advancing = self.run_operation(run_dir)
+        return dict(run_id=record.run_id, run_dir=record.run_dir, state=str(record.state), updated=record.updated,
+                    stages=[dict(id=stage.name, state=str(stage.state), message=stage.message)
+                            for stage in record.stages],
+                    can_advance=self.can_advance(record), retry=self.retry_info(record),
+                    lock=self.run_lock(run_dir), advancing=advancing is not None)
 
     def runs(self):
         """The rows of every run (run_directories), newest first."""

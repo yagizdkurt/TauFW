@@ -527,6 +527,28 @@ def _review(ui, directory):
     return ui.confirm_recipe("recipes/tes_2025.yml", review=review, position={})
 
 
+def _run_picker(mode, loading=False):
+    """The real adaptive picker with plain made-up data; no threads, commands or Framework reads."""
+    def show(ui, directory):
+        def view(index, refresh=False):
+            if index is None:
+                return {}
+            run_id, state, updated = RUNS[index]
+            if state is None:
+                return dict(error="run.json cannot be read")
+            retry = dict(stage="plots", message="plot.py: exit code 1", changed={}) if state == "FAILED" else None
+            return dict(run_id=run_id, state=state, updated=updated, loading=False, reading=loading,
+                        can_advance=state in ("WAITING", "PAUSED"), retry=retry,
+                        stages=[dict(id=name, state="WAITING" if n == 0 else "NEW", message="")
+                                for n, (name, _, _) in enumerate(STAGES)],
+                        output=() if loading else ("=== Run %s: %s ===" % (run_id, state),
+                            "stage       state    attempt  message",
+                            "ntuples     WAITING  1        jobs: 540 done, 300 running, 12 idle",
+                            "histograms  NEW      0", "plots       NEW      0", "fit         NEW      0"))
+        return ui.select_run(RUNS, preview=view, mode=mode)
+    return show
+
+
 def _runs(directory, *kinds):
     """Made-up advances of different runs (kind, or (kind, run_id, ago)), each in a directory of its own."""
     operations = []
@@ -556,6 +578,8 @@ def _test_run(kind, **options):
 
 SCENARIOS = [
     Scenario("Main menu", "idle", lambda ui, directory: ui.main_menu(proxy_valid=True)),
+    Scenario("Main menu", "user config not reviewed",
+             lambda ui, directory: ui.main_menu(proxy_valid=True, config_reviewed=False)),
     Scenario("Main menu", "new version available",
              lambda ui, directory: ui.main_menu(proxy_valid=True, version=dict(
                  installed="0.1.0", latest="0.2.3", status="available", checking=False,
@@ -587,6 +611,9 @@ SCENARIOS = [
              lambda ui, directory: ui.select_run(RUNS, advances=_runs(directory, ("advancing", None, 14.0))
                                                  + [None] * (len(RUNS) - 1))),
     Scenario("Continue", "actions", lambda ui, directory: ui.continue_actions("tes_2025")),
+    Scenario("Continue", "adaptive run list and actions", _run_picker("continue")),
+    Scenario("Inspect", "adaptive run list and status", _run_picker("inspect")),
+    Scenario("Inspect", "adaptive run list while status loads", _run_picker("inspect", loading=True)),
     Scenario("Start / Continue", "grid proxy needed", lambda ui, directory: ui.grid_proxy_needed()),
     Scenario("Continue", "run that cannot advance", lambda ui, directory: ui.terminal_run_actions("DONE")),
     Scenario("Continue", "failed run: retry its stage",

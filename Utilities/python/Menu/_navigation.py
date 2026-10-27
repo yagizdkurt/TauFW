@@ -27,7 +27,8 @@ or None), mark_seen(operation), needs_grid_proxy(recipe=, record=). running_oper
 menu, stop_operation(operation) stops one.
 User config callbacks: user_config_path() creates the file if missing and names
 it; user_config_reference() names its Markdown manual in the checkout;
-validate_user_config(draft_path) checks a candidate file before the editor saves it.
+validate_user_config(draft_path) checks a candidate file before the editor saves it; user_config_reviewed()
+is False while the file is missing or not reviewed yet (the main menu asks for it).
 create_analysis(name) creates an empty analysis in the recipe root and returns its path. Recipe views mark
 well-formed empty recipes with draft=True; they can be listed and edited, but cannot start.
 The independent Editor owns file editing and saving; navigation only opens it.
@@ -41,6 +42,7 @@ in a panel over the current screen (ui.operation_error). This class owns screen 
 """
 from ._menu import ConsoleUI
 from ._prefetch import Prefetch
+from ._run_preview import RunPreview
 
 
 class MenuNavigation:
@@ -190,42 +192,61 @@ class MenuNavigation:
     # =========================================================================
     # ============================= RUN NAVIGATION ============================
 
-    def _pick_run(self):
+    def _run_listing(self, kept):
+        """Discover/read list data in the browser worker (or immediately for a caller without threads)."""
+        rows, loading = [], []
+        for run_dir in self.operations.run_directories():
+            row = self._kept_row(run_dir)
+            (rows if row is not None else loading).append(row or ("", run_dir, None))
+        rows = sorted(rows, key=lambda row: (row[0], row[1]), reverse=True)
+        runs = rows + sorted(loading, key=lambda row: row[1], reverse=True)
+        advances = self.operations.run_advances([row[1] for row in runs])
+        summaries = [self._summary(row, advance) for row, advance in zip(runs, advances)]
+        # Summary reads consume operation events too; keep those reads in this worker.
+        advance_labels = [(self.ui._operation_summary(advance, kept), advance.running) if advance is not None else None
+                          for advance in advances]
+        return runs, advances, summaries, advance_labels
+
+    def _pick_run(self, mode="inspect"):
         """The run list opens at once: a run whose run.json is not read yet says "loading..." (after the others)
         and the list draws itself again until every row came; the selected run stays selected."""
-        position, focus = {}, None
-        while True:
-            rows, loading = [], []
-            for run_dir in self.operations.run_directories():
-                row = self._kept_row(run_dir)
-                (rows if row is not None else loading).append(row or ("", run_dir, None))
-            rows = sorted(rows, key=lambda row: (row[0], row[1]), reverse=True)
-            runs = rows + sorted(loading, key=lambda row: row[1], reverse=True)
-            paths = [row[1] for row in runs]
-            if focus in paths:
-                position["selected"] = paths.index(focus)
-            advances = self.operations.run_advances(paths)
-            summaries = [self._summary(row, advance) for row, advance in zip(runs, advances)]
-            action, index = self.ui.select_run(summaries, advances=advances,
-                                               loading=[row[2] is None for row in runs], position=position,
-                                               live=bool(loading))
-            selected = position.get("selected", 0)
-            focus = paths[selected] if selected < len(paths) else None
-            if action == "refresh":
-                continue  # a row came
-            if action == "back":
-                return None
-            if action == "manual":
-                value = self.ui.run_path(self.operations.launch_dir)
-                if not value:
+        position, focus, kept = {}, None, {}
+        browser = RunPreview(self.operations, mode, listing=lambda: self._run_listing(kept),
+                             threaded=self.prefetch.threaded is True)
+        try:
+            while True:
+                catalog, error = browser.catalog()
+                if error:
+                    self.ui.operation_error(RuntimeError(error))
+                    return None
+                runs, advances, summaries, advance_labels = catalog or ([], [], [], [])
+                paths = [row[1] for row in runs]
+                if focus in paths:
+                    position["selected"] = paths.index(focus)
+                action, index = self.ui.select_run(summaries, advances=advances,
+                        loading=[row[2] is None for row in runs], position=position,
+                        live=browser.threaded or any(row[2] is None for row in runs),
+                        preview=lambda i, refresh=False: browser.view(paths[i] if i is not None else None, refresh),
+                        mode=mode, finding=catalog is None, advance_labels=advance_labels)
+                selected = position.get("selected", 0)
+                focus = paths[selected] if selected < len(paths) else None
+                if action == "refresh":
                     continue
-                path = self.operations.resolve_path(value)
-            else:
-                path = runs[index][1]
-            try:
-                return self.operations.load_run(path)
-            except Exception as error:
-                self.ui.unreadable_run(error)
+                if action == "back":
+                    return None
+                if action == "manual":
+                    value = self.ui.run_path(self.operations.launch_dir)
+                    if not value:
+                        continue
+                    path = self.operations.resolve_path(value)
+                else:
+                    path = runs[index][1]
+                try:
+                    return self.operations.load_run(path), action
+                except Exception as error:
+                    self.ui.unreadable_run(error)
+        finally:
+            browser.close()
 
     def _summary(self, row, advance):
         """(run_id, state, updated) of a run row. A RUNNING run (run.json: a stage started, none waits) that no
@@ -253,9 +274,10 @@ class MenuNavigation:
         if record is not None:
             return self._inspect_record(record)
         while True:
-            record = self._pick_run()
-            if record is None:
+            picked = self._pick_run()
+            if picked is None:
                 return
+            record, _ = picked
             self._inspect_record(record)
 
     def _inspect_record(self, record):
@@ -266,16 +288,23 @@ class MenuNavigation:
         advance works on now opens its screen; one whose lock another advance holds shows the lock (a lost one
         may be taken over)."""
         while True:
-            record = self._pick_run()
-            if record is None:
+            picked = self._pick_run("continue")
+            if picked is None:
                 return
+            record, chosen = picked
+            if chosen == "inspect":
+                self._inspect_record(record)
+                continue
             while True:
                 advancing = self.operations.run_operation(record.run_dir)
                 if advancing is not None:
                     self._follow_run(advancing)
                     return
                 if not self.operations.can_advance(record):
-                    action = self.ui.terminal_run_actions(record.state, retry=self.operations.retry_info(record))
+                    retry = self.operations.retry_info(record)
+                    action = "retry" if chosen == "retry" and retry else \
+                        self.ui.terminal_run_actions(record.state, retry=retry)
+                    chosen = None
                     if action == "inspect":
                         self.inspect(record)
                         continue
@@ -289,7 +318,8 @@ class MenuNavigation:
                     if self.ui.run_lock(record.run_id, lock) != "take":
                         break
                     take_lock = True
-                action = self.ui.continue_actions(record.run_id)
+                action = chosen if chosen in ("wait", "advance") else self.ui.continue_actions(record.run_id)
+                chosen = None
                 if action == "back":
                     break
                 if not self._grid_ready(self.operations.needs_grid_proxy(record=record)):
@@ -446,7 +476,8 @@ class MenuNavigation:
                 live = ((tests is not None and tests.running) or any(operation.running for operation in runs)
                         or bool(version and version['checking']))
                 action = self.ui.main_menu(proxy_valid=self.operations.grid_proxy_valid(), tests=tests, runs=runs,
-                                           live=live, version=version)
+                                           live=live, version=version,
+                                           config_reviewed=self.operations.user_config_reviewed())
                 if action == "refresh":
                     continue  # live: the new states
                 if action == "exit":

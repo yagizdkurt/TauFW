@@ -577,13 +577,14 @@ class ConsoleUI:
         selected = self.choose(title, choices, welcome=welcome, **layout)
         return back if selected is None else REFRESH if selected == REFRESH else actions[selected]
 
-    def main_menu(self, proxy_valid=False, tests=None, runs=(), live=False, version=None):
+    def main_menu(self, proxy_valid=False, tests=None, runs=(), live=False, version=None, config_reviewed=True):
         """tests: the last test run (a TauFW.Utilities.Process.Operation) or None; its state is shown next to
         Tests ("Tests (Running 12/40)"). runs: the advances to show (Operations of kind "run": those behind the
         menu and those that ended unseen): one is a line of its own, "Run tes_2025 (3/5 plots)" (action "run"),
         more are "Runs (2 active)" (action "runs"). live: something runs behind the menu; without a key for
         LIVE_EVERY seconds the answer is REFRESH (the caller draws it again with the new states), the selected
-        line stays. version is plain caller-supplied metadata, shown without a selectable action."""
+        line stays. version is plain caller-supplied metadata, shown without a selectable action. config_reviewed
+        False: the user config is missing or not reviewed yet; its line is "Modify User Config (Please set)"."""
         notice = None
         if version:
             self.set_version('V' + version['installed'])
@@ -602,10 +603,12 @@ class ConsoleUI:
             text, role = self._operation_summary(tests)
             label = "Tests (%s)" % text
         choices = ["Start a new run", "Continue an existing run", "Inspect run status", certificate,
-                   "Modify User Config", "Install components", label, "Help", "Exit"]
+                   "Modify User Config" + ("" if config_reviewed else " (Please set)"), "Install components", label,
+                   "Help", "Exit"]
         actions = ["start", "continue", "inspect", "grid_certificate", "user_config", "install", "tests",
                    "help", "exit"]
-        colors = [None, None, None, "good" if proxy_valid else "warning", None, None, role, None, None]
+        colors = [None, None, None, "good" if proxy_valid else "warning", None if config_reviewed else "warning",
+                  None, role, None, None]
         descriptions = [
             "Choose an analysis recipe and review its pipeline before starting.",
             "Resume a saved run behind the menu: to the end, or one step.",
@@ -813,15 +816,16 @@ class ConsoleUI:
         return self._modal("Still running: quit TauFW?", rows + [("", None), (QUIT_WARNING, "warning")],
                            "C Cancel (stay) | S Stop all and quit | Q Quit anyway", answers.get)
 
-    def _operation_summary(self, operation):
+    def _operation_summary(self, operation, kept=None):
         """(text, style role) of an operation's state for the menus; only the events added since the last draw
         are read, none once it ended."""
+        summaries = self._summaries if kept is None else kept
         if operation.kind == "tests":
             from ._test_run import test_summary  # imported here: see test_run()
-            return test_summary(operation, self._summaries.setdefault(operation.path, {}))
+            return test_summary(operation, summaries.setdefault(operation.path, {}))
         if operation.kind == "run":
             from ._run_screen import run_summary  # imported here: see test_run()
-            return run_summary(operation, self._summaries.setdefault(operation.path, {}))
+            return run_summary(operation, summaries.setdefault(operation.path, {}))
         state = operation.state()
         return state.capitalize(), {"RUNNING": "accent", "DONE": "good", "FAILED": "error"}.get(state, "warning")
 
@@ -900,7 +904,8 @@ class ConsoleUI:
                                          lambda index: review, review=True, position=position)
         return "back" if selected is None else actions[selected]
 
-    def select_run(self, summaries, advances=None, loading=None, position=None, live=False):
+    def select_run(self, summaries, advances=None, loading=None, position=None, live=False,
+                   preview=None, mode="inspect", finding=False, advance_labels=None):
         """Summaries are (run_id, state, updated); state=None marks unreadable runs. advances: an Operation (kind
         "run") or None per summary: the advance of that run behind the menu, shown after its row
         ("| advancing: 3/5 plots, 5/7 commands"). loading: True for each run whose run.json is still read
@@ -917,8 +922,14 @@ class ConsoleUI:
                   "good" if state == "DONE" else "waiting" for (_, state, _), waiting in zip(summaries, loading)]
         for index, operation in enumerate(advances or ()):
             if operation is not None:
-                text, colors[index] = self._operation_summary(operation)
-                labels[index] += " | %s: %s" % ("advancing" if operation.running else "advance", text)
+                (text, colors[index]), running = advance_labels[index] if advance_labels is not None else \
+                    (self._operation_summary(operation), operation.running)
+                labels[index] += " | %s: %s" % ("advancing" if running else "advance", text)
+        if preview is not None and self.curses is not None:
+            from ._run_picker import pick
+            return self._run(lambda screen: pick(self, screen,
+                             labels + ["Enter another run directory", "Back"], colors + ["accent", "accent"],
+                             summaries, preview, mode, position if position is not None else {}, live, finding))
         selected = self.choose("Select an existing run", labels + ["Enter another run directory", "Back"],
                                row_colors=colors + ["accent", "accent"], position=position,
                                live=LIST_EVERY if live else None, badge=True,

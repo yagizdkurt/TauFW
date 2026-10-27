@@ -110,6 +110,10 @@ class ScreenModel:
         """(title, [(label, value)]) of the box of an item's facts next to the list, or None."""
         return None
 
+    def loading(self, state):
+        """Whether an empty Output view should show the ASCII decay instead of its empty text."""
+        return False
+
     def __init__(self):
         self.messages = []
         self.answer = None               # of the action that left the screen
@@ -202,7 +206,11 @@ def _draw(ui, screen, title, process, model, view, state):
         ui._line(screen, 3, 1, "Enlarge terminal (at least 40 x 12).")
     elif view.mode == "output" or not items:
         lines = list(process.output.lines) + ([process.output.partial] if process.output.partial else [])
-        _log(ui, screen, view, model.output_title, lines, height, width, model.empty)
+        if not lines and model.loading(state) and height >= 12 and width >= 40:
+            from ._loading import draw_loading
+            draw_loading(ui, screen, ui._panel(screen, 3, 1, height - 6, width - 2, model.output_title))
+        else:
+            _log(ui, screen, view, model.output_title, lines, height, width, model.empty)
     elif view.mode == "item":
         item = _focused(items, view)
         _log(ui, screen, view, "Log: %s" % model.label(item), _item_lines(model, view, item), height, width,

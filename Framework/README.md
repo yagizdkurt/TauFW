@@ -100,6 +100,12 @@ Use Up/Down to move, Enter to select, and Esc to go back or exit the main menu.
 - **Inspect run status** shows the existing read-only status output, with Refresh
   and Back actions. Its state line is the command's: `READING STATUS` while it reads, then only the time; the run's
   state is in the output.
+  At **120 columns by 18 rows** or more, Continue and Inspect keep the run list on the left and show the
+  selected run's actions/stages or status on the right. Discovery and previews load in the background;
+  a small ASCII decay marks loading. Up/Down changes runs, PgUp/PgDn scrolls details, and R refreshes them.
+  In Continue, Enter/Tab focuses the actions and Enter runs the chosen action; Esc returns to the list.
+  In Inspect, Enter opens status full screen. Smaller terminals keep the list/Enter flow. A status query
+  starts only after the selection settles for 250 ms; changing runs or leaving stops the old query.
 - **Tests** runs the automated tests behind the menu, on a live test screen ([Tests/README.md](../Tests/README.md)
   "Interactive testing menu"). Leaving the screen never stops them: the main menu shows their state, e.g.
   **Tests (Running 12/40)** or **Tests (Failed: 3)**, and Tests opens the running run's screen again.

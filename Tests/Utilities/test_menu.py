@@ -22,6 +22,7 @@ def idle_operations():
     operations.running_operations.return_value = []
     operations.run_operations.return_value = []
     operations.version_status.return_value = None
+    operations.user_config_reviewed.return_value = True
     operations.run_operation.return_value = None
     operations.run_advances.side_effect = lambda run_dirs: [None] * len(run_dirs)
     operations.run_lock.return_value = None
@@ -164,6 +165,15 @@ class ScreenTests(unittest.TestCase):
                 self.assertEqual(choose.call_args.args[1][3], label)
                 self.assertEqual(choose.call_args.kwargs["row_colors"][3], role)
 
+    def test_user_config_line_asks_to_set_it_until_reviewed(self):
+        ui = ConsoleUI(mock.Mock())
+        for reviewed, label, role in ((True, "Modify User Config", None),
+                                      (False, "Modify User Config (Please set)", "warning")):
+            with self.subTest(reviewed=reviewed), mock.patch.object(ui, "choose", return_value=4) as choose:
+                self.assertEqual(ui.main_menu(config_reviewed=reviewed), "user_config")
+                self.assertEqual(choose.call_args.args[1][4], label)
+                self.assertEqual(choose.call_args.kwargs["row_colors"][4], role)
+
     def test_grid_certificate_asks_the_password_in_a_panel_and_refreshes_after_renewal(self):
         """The password from the panel goes to renew_grid_proxy; a voms-proxy-init without -pwstdin (None) asks
         on the plain terminal; the result is a panel, an error too; the next main menu asks again."""
@@ -182,8 +192,10 @@ class ScreenTests(unittest.TestCase):
                     operations.renew_grid_proxy.return_value = outcome
                 self.assertEqual(MenuNavigation(ui, operations).run(), 0)
                 self.assertEqual(ui.main_menu.call_args_list,
-                                 [mock.call(proxy_valid=False, tests=None, runs=[], live=False, version=None),
-                                  mock.call(proxy_valid=valid, tests=None, runs=[], live=False, version=None)])
+                                 [mock.call(proxy_valid=False, tests=None, runs=[], live=False, version=None,
+                                            config_reviewed=True),
+                                  mock.call(proxy_valid=valid, tests=None, runs=[], live=False, version=None,
+                                            config_reviewed=True)])
                 operations.renew_grid_proxy.assert_called_once_with("secret")
                 ui.notice.assert_called_once()  # "Renewing..." while voms-proxy-init works
                 if isinstance(outcome, tuple) and outcome[0] is None:
@@ -790,6 +802,22 @@ class ScreenTests(unittest.TestCase):
                 else:
                     operations.advance_run.assert_called_once_with(record, wait=True, take_lock=take)
 
+    def test_inline_continue_action_is_rechecked_before_advancing(self):
+        for state, allowed in (("WAITING", True), ("DONE", False)):
+            with self.subTest(state=state):
+                ui, operations, record = self.runs_menu()
+                ui.select_run.side_effect = [("advance", 0), ("back", None)]
+                record.state = state
+                operations.can_advance.return_value = allowed
+                ui.terminal_run_actions.return_value = "back"
+                MenuNavigation(ui, operations).continue_run()
+                if allowed:
+                    operations.advance_run.assert_called_once_with(record, wait=False, take_lock=False)
+                    ui.continue_actions.assert_not_called()
+                else:
+                    operations.advance_run.assert_not_called()
+                    ui.terminal_run_actions.assert_called_once()
+
     def test_continue_on_a_failed_run_offers_its_retry(self):
         """CL §44: a FAILED run whose stage can be retried: Retry runs it again behind the menu (to the end)."""
         for action, retried, inspected in (("retry", True, False), ("inspect", False, True), ("back", False, False)):
@@ -1168,7 +1196,7 @@ ConsoleUI(None)
         operations.kept_run_row.side_effect = lambda run_dir: kept.get(run_dir)
         drawn = []
 
-        def select(summaries, advances, loading, position, live):
+        def select(summaries, advances, loading, position, live, **layout):
             drawn.append((list(summaries), list(loading), live, dict(position)))
             if len(drawn) == 1:
                 position["selected"] = 2  # runs/b_2 (loading, after the read ones)

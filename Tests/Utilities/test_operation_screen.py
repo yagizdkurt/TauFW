@@ -181,10 +181,16 @@ class OperationScreenTests(unittest.TestCase):
                 process = Process(self.output, ["RUNNING"])
                 process.events = None
                 process.data = dict(command=command)
-                follow_command(ui, screen, "Run status: tes_2025", process)
+                with mock.patch("TauFW.Utilities.Menu._loading.time.monotonic", return_value=0.6):
+                    follow_command(ui, screen, "Run status: tes_2025", process)
                 drawn = [call.args[2] for call in screen.addnstr.call_args_list]
                 self.assertIn("%s | 01:01 | taufw.py %s" % (words[0], command), drawn)
-                self.assertIn(words[1], drawn)
+                if command == "status":
+                    self.assertIn("H ----*", drawn)
+                    self.assertIn("       /-- tau-", drawn)
+                    self.assertNotIn(words[1], drawn)
+                else:
+                    self.assertIn(words[1], drawn)
                 self.assertNotIn("(no output yet)", drawn)
 
     def test_printable(self):

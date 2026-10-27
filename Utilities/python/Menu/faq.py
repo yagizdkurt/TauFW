@@ -36,7 +36,11 @@ FAQ = (
      "with run.json and run.log. Starting returns after submission."),
 
     ("Continuing and polling", 
-     "Continue loads an existing run.json. Advance "
+     "Continue loads an existing run.json. At 120 columns and 18 rows or more, the run list stays on the left "
+     "and the selected run's actions and saved stages appear on the right. Enter or Tab focuses the actions; "
+     "choose one and press Enter to run it. Esc returns to the list. Page Up/Down scrolls details; R reloads "
+     "them. In smaller terminals, Enter opens the selected run as before. Discovery and previews load "
+     "behind the menu: you can keep moving or leave. Advance "
      "once checks jobs and may resubmit failed chunks or merge output. Keep "
      "checking repeats while the run waits, every 600 seconds by default. "
      "Ctrl+C stops the foreground operation; it does not cancel batch jobs. "
@@ -45,7 +49,10 @@ FAQ = (
     ("Status and run states", 
      "Inspect status shows saved stage states and "
      "live job counts without advancing or saving (taufw.py status; Esc stops "
-     "a slow one). R checks again. "
+     "a slow one). At 120 columns and 18 rows or more, the selected run's status appears beside the list "
+     "after a short pause. Up/Down changes runs, Page Up/Down scrolls status, and Enter opens it full screen. "
+     "A small ASCII decay animates while status is read; you can still move or leave. "
+     "R checks again, keeping the previous preview visible while it loads. "
      "NEW means unstarted; RUNNING means work in progress; WAITING means jobs "
      "are submitted or running; DONE means all stages finished; FAILED means "
      "a stage failed; BLOCKED means a requested stage is not implemented. "
@@ -83,7 +90,7 @@ FAQ = (
      "folders between runs. Git ignores the default file. Setup or python3 taufw.py userconfig "
      "also makes it if missing. The recipe wins over it; plan names what came "
      "from it. Until you set reviewed: true, check, plan and start warn in one "
-     "line. Scripts read it with TauFW.Utilities.UserConfig."),
+     "line and the menu shows Modify User Config (Please set) in yellow. Scripts read it with TauFW.Utilities.UserConfig."),
 
     ("CLI equivalents", 
      "taufw.py plan RECIPE previews; taufw.py start RECIPE "

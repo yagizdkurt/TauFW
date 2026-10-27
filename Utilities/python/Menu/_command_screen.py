@@ -48,6 +48,7 @@ class CommandOutput(ScreenModel):
     def __init__(self, command, refresh=False, name=""):
         super().__init__()
         self.command = command
+        self.name = name
         reading, self.empty = READING.get(name, ("RUNNING", self.empty))
         self.states = dict(ScreenModel.states, **{RUNNING: (reading, "accent"), DONE: ("", "good")})
         self.returncode = None
@@ -56,9 +57,14 @@ class CommandOutput(ScreenModel):
 
     def finish(self, returncode, lost=False, state=None):
         self.returncode = returncode
+        if self.name == "status":
+            self.empty = "No status output."
 
     def summary(self):
         return self.command + (" (exit %s)" % self.returncode if self.returncode not in (None, 0) else "")
+
+    def loading(self, state):
+        return self.name == "status" and state == RUNNING
 
 
 # =============================================================================

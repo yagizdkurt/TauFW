@@ -370,6 +370,11 @@ class MenuTests(unittest.TestCase):
             path.write_text("broken existing file", encoding="utf-8")
             self.assertEqual(operations.user_config_path(), path)
             self.assertEqual(path.read_text(), "broken existing file")  # still opens so it can be repaired
+            self.assertFalse(operations.user_config_reviewed())  # cannot be read: not reviewed
+            path.write_text("taufw_user:\n  version: 1\n  reviewed: true\n", encoding="utf-8")
+            self.assertTrue(operations.user_config_reviewed())
+            path.unlink()
+            self.assertFalse(operations.user_config_reviewed())  # no file
 
         draft = self.root / "draft.yaml"
         header = "taufw_user:\n  version: 1\n  reviewed: false\n"
@@ -542,6 +547,21 @@ class MenuTests(unittest.TestCase):
         self.assertEqual([argv for argv, _ in self.started], [["status", record.run_dir]] * 2)  # R ran it again
         self.assertEqual(Path(record.path).read_bytes(), before)
         self.assertEqual(ui.messages, [])
+
+    def test_saved_run_preview_is_plain_data_and_does_not_change_the_run(self):
+        record = self.record()
+        before = Path(record.path).read_bytes()
+        operations = self.menu(FakeUI()).operations
+        with mock.patch.object(operations, "run_operation", return_value=None), \
+                mock.patch.object(operations, "run_lock", return_value=None):
+            view = operations.run_preview(record.run_dir)
+        self.assertEqual((view["run_id"], view["state"], view["can_advance"]),
+                         (record.run_id, "WAITING", True))
+        self.assertEqual([stage["id"] for stage in view["stages"]], [stage.name for stage in record.stages])
+        self.assertIsNone(view["retry"])
+        self.assertFalse(view["advancing"])
+        self.assertEqual(Path(record.path).read_bytes(), before)
+        self.assertEqual(self.started, [])
 
     def test_plan_and_status_run_behind_the_menu(self):
         operations = self.menu(FakeUI()).operations
