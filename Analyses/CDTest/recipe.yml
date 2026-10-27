@@ -12,10 +12,18 @@
 #   4. Flat n-tuples         the CMSDAS26 ModuleMuTau on one small sample: commented out below (not possible yet).
 #   5. Normalization, QCD    controlhists + controlplots below: the m_vis, pt, mt, met, dm_2 control plots of the
 #      and corrections       mutau and mumu signal regions, with the OS/SS QCD estimate (mutau only).
-#   6. Tagger comparison     python step tagger_roc (steps/tagger_roc.py): the ROC curves of DeepTau, PNet, UParT.
-#   7.-10. (tau ID SF + TES, datacards, cross-section fit, BDT): not in this recipe yet.
-# The analysis uses DeepTau2018v2p5 at VSjet Tight / VSe VVLoose / VSmu Tight (option A of setup_mutau.yml), the
-# working points of the official scale factors of the exercise, whatever the ROC curves of step 6 show.
+#   6. Tagger comparison     python steps tagger_roc (as the exercise, checked against reference/cmsdas26/) and
+#                            tagger_roc_fixed (corrected): the ROC curves of DeepTau, PNet, UParT (steps/tagger_roc.py).
+#   7. Tau ID SF + TES       Tier A: python steps sf_nominal, sf_tauid, sf_tauid_tes, sf_up, sf_down and mumu_hists
+#                            (steps/tau_sf_hists.py): the team's scale factors applied at plot level, and the
+#                            histogram files of the datacards. Tier B (measure them again): not yet.
+#   8. Datacards            python steps card_mutau, card_mumu (steps/xsec_datacard.py).
+#   9. Measurement          python step xsec_fit (steps/xsec_fit.py, steps/xsec_plots.py): Combine fits, impacts,
+#                            NLL scans, result plots, r(mutau)/r(mumu).
+#  10. BDT                  not in this recipe yet.
+# The analysis uses the "hybrid" selection of the exercise team (option B of setup_mutau.yml): PNet against jets
+# (Tight, rawPNetVSjet_2 >= 0.9059), DeepTau2018v2p5 against electrons (VVLoose) and muons (Tight), with the scale
+# factors the team measured for it (sf/, not official TauPOG ones). The ROC curves of step 6 do not change it.
 name: CDTest
 # run_root: not set here; Analyses/UserConfig.yaml or start --run-root decide.
 
@@ -89,11 +97,16 @@ stages:
   #   ./plots_and_histograms_CMSDAS26.py -y 2024 -c mutau --tagger
   # The ROC curves of DeepTau2018v2p5, PNet and UParT against jets, electrons and muons, all three taggers on one
   # plot per discriminant, from all simulated samples. The AUCs and the efficiency at a 1% fake rate:
-  # stages/tagger_roc/roc_summary.txt; the plots: stages/tagger_roc/plots/2024/tagger_ROC_*_mutau_2024.png/.pdf.
+  # stages/<id>/roc_summary.txt; the plots: stages/<id>/plots/2024/tagger_ROC_*_mutau_2024.png/.pdf.
   # Not here: one tagger alone (--tagger pnet); all three are always drawn together.
+  # Two stages, the same step with other options:
+  #   tagger_roc        the settings of the exercise: its plots are the same, byte for byte, as the reference plots of
+  #                     the CMSDAS26 team in reference/cmsdas26/ (see its README.md); the baseline check
+  #   tagger_roc_fixed  the plots to look at: every tagger on the same events and fine bins (reference/cmsdas26/
+  #                     README.md says what is wrong with the exercise's settings)
   - stage: python
     id: tagger_roc
-    description: ROC curves of DeepTau, PNet and UParT (VSjet, VSe, VSmu)
+    description: ROC curves of DeepTau, PNet and UParT, as the exercise made them (baseline check)
     inputs: null            # reads the tuples itself: a python step cannot take {external: ...}, so plan does not
                             # check that they exist (the hists stage above checks the same files)
     file: steps/tagger_roc.py
@@ -102,9 +115,202 @@ stages:
       channel: mutau
       samples: v15_2024.yml
       tuples: *tuples_2024
-      # tagger.base of long-ex cmsdas_mutau.yml: the loose selection, without tau ID cuts. Each tagger leaves out
-      # its own taus without a score (-1). The docs say every ROC uses the same events (all three scores valid);
-      # long-ex had that part commented out. To use it, add:
-      #   && rawDeepTau2018v2p5VSjet_2>-1 && rawPNetVSjet_2>-1 && rawUParTVSjet_2>-1
+      # tagger.base and tagger.nbins of long-ex cmsdas_mutau.yml: the loose selection, without tau ID cuts; each
+      # tagger leaves out its own taus without a score (-1)
       base: "q_1*q_2<0 && iso_1<0.15 && mt_1<65"
       nbins: 100
+
+  - stage: python
+    id: tagger_roc_fixed
+    description: ROC curves of DeepTau, PNet and UParT on the same events, fine bins
+    inputs: null
+    file: steps/tagger_roc.py
+    options:
+      era: '2024'
+      channel: mutau
+      samples: v15_2024.yml
+      tuples: *tuples_2024
+      # Not the exercise's settings (on purpose): every ROC uses the same events, all three scores valid, as the
+      # docs say (long-ex had this part of tagger.base commented out), and 10000 bins instead of 100, so the curves
+      # reach low fake rates.
+      base: "q_1*q_2<0 && iso_1<0.15 && mt_1<65 && rawDeepTau2018v2p5VSjet_2>-1 && rawPNetVSjet_2>-1 && rawUParTVSjet_2>-1"
+      nbins: 10000
+
+  # ---------------------------------------------------------------------------------------------------------------
+  # Step 7, Tier A: the measured tau ID SF and TES applied at plot level (docs/CMSDAS26/tauid_es.md), and the
+  # histogram files of the datacards (step 8, docs/CMSDAS26/datacards.md step 1):
+  #   ./plots_and_histograms_CMSDAS26.py -y 2024 -c mutau -t _nominal
+  #   ./plots_and_histograms_CMSDAS26.py -y 2024 -c mutau -t _withSF --tauid-sf
+  #   ./plots_and_histograms_CMSDAS26.py -y 2024 -c mutau -t _withSFTES --tauid-sf --apply-tes
+  #   ./plots_and_histograms_CMSDAS26.py -y 2024 -c mutau --tauid-sf --apply-tes --syst up     (and down)
+  #   ./plots_and_histograms_CMSDAS26.py -y 2024 -c mumu
+  # One stage per command, the same step (steps/tau_sf_hists.py) with other options; the selection is the region
+  # signalRegion of the setup, the variables and binning those of long-ex cmsdas_<channel>.yml. The scale factors:
+  # the team's own measurement (sf/, Tier B; reference/cmsdas26/README.md). Each stage writes
+  # stages/<id>/hists/2024/<channel>.root (long-ex format, histograms like m_vis_ZTT) and stages/<id>/plots/2024/.
+  # Compare: s.18 of the team's slides (down / nominal / up), reference/cmsdas26/README.md.
+  - stage: python
+    id: sf_nominal
+    description: mutau, no tau corrections (long-ex -t _nominal)
+    inputs: null
+    file: steps/tau_sf_hists.py
+    options: &mutau_hists
+      era: '2024'
+      channel: mutau
+      setup: setup_mutau.yml
+      samples: v15_2024.yml
+      tuples: *tuples_2024
+      variables:            # the variables of long-ex cmsdas_mutau.yml (m_vis: the cross-section fit)
+        - {name: m_vis, nbins: 40, min: 0, max: 200}
+        - {name: pt_1, title: "Muon pt", nbins: 40, min: 0, max: 120}
+        - {name: pt_2, title: "tau_h pt", nbins: 40, min: 0, max: 120}
+        - {name: eta_2, title: "tau_h eta", nbins: 30, min: -3, max: 3}
+        - {name: mt_1, title: "mt(mu,MET)", nbins: 40, min: 0, max: 200}
+        - {name: met, nbins: 50, min: 0, max: 150}
+        - {name: dm_2, title: "tau_h decay mode", nbins: 14, min: 0, max: 14}
+      qcd: {method: QCD_OSSS, scale: 1.1}   # qcd of long-ex cmsdas_mutau.yml
+      sf:                   # the sf block of long-ex cmsdas_mutau.yml, with the team's file of this bundle
+        json: sf/TauCorrections_2024_corrTES_noCR_vseVLvsmuTvsjetT.json
+        vsjet: Tight        # rawPNetVSjet_2 >= 0.9059
+        vse: VVLoose        # idDeepTau2018v2p5VSe_2 >= 2
+        vsmu: Tight         # idDeepTau2018v2p5VSmu_2 >= 4
+      tauid_sf: false
+      apply_tes: false
+      syst: nom
+
+  - stage: python
+    id: sf_tauid
+    description: mutau, tau ID SF applied (long-ex -t _withSF --tauid-sf)
+    inputs: null
+    file: steps/tau_sf_hists.py
+    options:
+      <<: *mutau_hists
+      tauid_sf: true
+
+  - stage: python
+    id: sf_tauid_tes
+    description: mutau, tau ID SF and TES applied (long-ex --tauid-sf --apply-tes); the datacard input of step 8
+    inputs: null
+    file: steps/tau_sf_hists.py
+    options:
+      <<: *mutau_hists
+      tauid_sf: true
+      apply_tes: true
+
+  - stage: python
+    id: sf_up
+    description: mutau, tau ID SF and TES shifted up by their uncertainty (long-ex --syst up)
+    inputs: null
+    file: steps/tau_sf_hists.py
+    options:
+      <<: *mutau_hists
+      tauid_sf: true
+      apply_tes: true
+      syst: up
+
+  - stage: python
+    id: sf_down
+    description: mutau, tau ID SF and TES shifted down by their uncertainty (long-ex --syst down)
+    inputs: null
+    file: steps/tau_sf_hists.py
+    options:
+      <<: *mutau_hists
+      tauid_sf: true
+      apply_tes: true
+      syst: down
+
+  - stage: python
+    id: mumu_hists
+    description: mumu, no tau corrections (long-ex -c mumu); the datacard input of step 8
+    inputs: null
+    file: steps/tau_sf_hists.py
+    options:
+      era: '2024'
+      channel: mumu
+      setup: setup_mumu.yml
+      samples: v15_2024.yml
+      tuples: *tuples_2024
+      variables:            # the variables of long-ex cmsdas_mumu.yml (m_vis: the Z peak, one bin in the fit)
+        - {name: m_vis, nbins: 40, min: 50, max: 130}
+        - {name: pt_1, title: "Muon pt", nbins: 40, min: 0, max: 120}
+        - {name: pt_2, title: "tau_h pt", nbins: 40, min: 0, max: 120}
+        - {name: eta_2, title: "tau_h eta", nbins: 30, min: -3, max: 3}
+        - {name: mt_1, title: "mt(mu,MET)", nbins: 40, min: 0, max: 200}
+        - {name: met, nbins: 50, min: 0, max: 150}
+      qcd: {method: null}   # cmsdas_mumu.yml: no QCD
+
+  # ---------------------------------------------------------------------------------------------------------------
+  # Step 8: the datacards of the cross-section fit (docs/CMSDAS26/datacards.md):
+  #   ./make_xsec_fit.py -c mutau -y 2024                 # m_vis shape, signal ZTT
+  #   ./make_xsec_fit.py -c mumu  -y 2024 --onebin        # one-bin counting, signal DY
+  # The settings are the datacard blocks of the team's long-ex cmsdas_<channel>.yml. The histograms: those of the
+  # stage the input 'hists' names (mutau: with the tau ID SF and TES applied). Outputs: stages/<id>/datacard_<ch>.txt
+  # and shapes_<ch>.root.
+  - stage: python
+    id: card_mutau
+    description: mutau datacard, m_vis shape, signal ZTT
+    inputs: {hists: sf_tauid_tes}
+    file: steps/xsec_datacard.py
+    options:
+      era: '2024'
+      channel: mutau
+      signal: ZTT           # process scaled by the signal strength r
+      region: signalRegion  # which selection to take the histograms from
+      variable: m_vis       # which variable to fit
+      lumi_unc: 0.014       # relative luminosity uncertainty, applied to all simulated processes
+      tauid_unc: null       # null: the TauID SF uncertainty of the SF JSON below
+      tes_unc: null         # null: the TES uncertainty of the SF JSON below
+      sf:
+        json: sf/TauCorrections_2024_corrTES_noCR_vseVLvsmuTvsjetT.json
+        vsjet: Tight
+        vse: VVLoose
+        vsmu: Tight
+      bkg_unc:              # as filled in by the team (cmsdas_mutau.yml): 'norm_<process> lnN' lines
+        WJ: 0.15            # W + jets
+        QCD: 0.20           # data-driven multijet
+        ZJ: 0.15            # Z + jets, jet -> tau_h
+        ZL: 0.10            # Z -> ll, lepton -> tau_h
+        VV: 0.05            # diboson
+        Top: 0.08           # ttbar + single top
+      onebin: false
+
+  - stage: python
+    id: card_mumu
+    description: mumu datacard, one bin, signal DY
+    inputs: {hists: mumu_hists}
+    file: steps/xsec_datacard.py
+    options:
+      era: '2024'
+      channel: mumu
+      signal: DY
+      region: signalRegion
+      variable: m_vis
+      lumi_unc: 0.014
+      bkg_unc:              # cmsdas_mumu.yml
+        Top: 0.08           # ttbar + single top
+        VV: 0.05            # diboson
+        WJ: 0.15            # W + jets
+      onebin: true          # make_xsec_fit.py --onebin
+
+  # ---------------------------------------------------------------------------------------------------------------
+  # Step 9: the measurement (docs/CMSDAS26/measurement.md): r in both channels (text2workspace.py, combine
+  # MultiDimFit singles and FitDiagnostics), the mutau impacts, the NLL scans (total and stat only), the pre-/post-fit
+  # m_vis, and ./plot_xsec_results.py (pulls, summary with the universality ratio r(mutau)/r(mumu)). Needs Combine and
+  # CombineHarvester: the step stops at once if a tool is missing. Outputs: stages/xsec_fit/ (results.txt, the plots,
+  # combine_logs/). Compare: r(mutau) = 0.970 +0.042/-0.040, r(mumu) = 0.964 +0.013/-0.014, ratio 1.005 +0.041/-0.039
+  # (the team's slides, reference/cmsdas26/README.md).
+  - stage: python
+    id: xsec_fit
+    description: Combine fits of r(mutau) and r(mumu), impacts, NLL scans, result plots
+    inputs: {mutau: card_mutau, mumu: card_mumu}
+    file: steps/xsec_fit.py
+    options:
+      era: '2024'
+      lumi: '109'           # fb^-1, the label of the plots
+      points: 80            # points of the NLL scans
+      fits:                 # the r ranges and options of measurement.md
+        mutau: {rmin: 0.85, rmax: 1.12, impacts: true, postfit_shapes: true}
+        mumu:
+          rmin: 0.92
+          rmax: 1.01
+          singles_extra: [--setRobustFitTolerance, '0.01', --cminDefaultMinimizerStrategy, '0']   # ~7e7 events

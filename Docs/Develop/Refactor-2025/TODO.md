@@ -541,3 +541,18 @@ Other limitations ([Analyses/README.md](../../../Analyses/README.md) "Current li
 - [ ] Changelog §11 onwards have no `---` separators. Cosmetic.
 - [ ] The PicoProducer foundations cleanup moved the forks and generator studies to `PicoProducer/python/legacy/`; several are now in
       `Legacy/OldAnalysis/` (A11, W03). Add a note if wanted.
+
+## 10. Ideas
+
+- [ ] **A stage config that comes from an earlier step (idea, 2026-10-27):** from the CMSDAS26 port (`Analyses/CDTest`):
+      choose the tagger from the ROC curves of a python step and continue with it in the same run. Today a stage's
+      options and configs are fixed in the recipe (`plan` shows them before the run); a python step can only pass
+      artifacts to later python steps. Rejected: a step that rewrites a config of `<run_dir>/bundle/` in place (it
+      would work, nothing locks the copy, but the run's record and `plan` would no longer say what ran, and the
+      preflight checks would have seen the old content). Possible ways:
+      (a) explicit: the step writes the config to its stage directory and returns it as an artifact
+      (`{kind: config, path}`); a later stage takes it as an input (e.g. `configs: {from: <step id>}`), recorded in
+      `run.json`; cost: `plan` cannot check that config's branches before the run;
+      (b) no Framework change: fill the histograms of every candidate (one setup per tagger, own `tag`) and let a
+      python step compare them and pick one for the python steps after it.
+      Not needed for CDTest: the analysis stays on DeepTau, the only tagger with scale factors.

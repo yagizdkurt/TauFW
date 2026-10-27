@@ -11,18 +11,20 @@ taufw_config:                     # set by the maintainers: analysts edit the va
 channel: mutau
 tag: ""
 
-# Option A, the standard DeepTau path of the exercise: the selection of the scale-factor measurement
-# (long-ex Fitter/TauES_ID/config/config_coarse_TT.yml, at the working points of its fit: VSjet Tight (>=6),
-# VSe VVLoose (>=2), VSmu Tight (>=4)), without the mt_1 cut, which is the signalRegion below. The scale factors
-# applied later are the official ones of the exercise for these working points:
+# Option B, used: the "hybrid" selection of the exercise team (PNet against jets, DeepTau against electrons and
+# muons), as filled in during the exercise: the signalRegion of its cmsdas_mutau.yml, the same as the baselineCuts of
+# long-ex Fitter/TauES_ID/config/config_coarse_TT_hybrid.yml, with which the team measured its own scale factors
+# (Tier B of step 7): sf/TauCorrections_2024_corrTES_noCR_vseVLvsmuTvsjetT.json of this bundle, at VSjet Tight
+# (rawPNetVSjet_2 >= 0.9059), VSe VVLoose (>= 2), VSmu Tight (>= 4). Not official (TauPOG) scale factors: say so when
+# the results are shown. Kept as in the exercise, iso_2<0.15 included. Here split as the setup needs it: the mt_1 cut
+# is the signalRegion below.
+baselineCuts: "(q_1*q_2 < 0) && (iso_1 < 0.15) && (iso_2 < 0.15) && (idDeepTau2018v2p5VSe_2 >= 2) && (idDeepTau2018v2p5VSmu_2 >= 4) && (rawPNetVSjet_2 >= 0.9059) && (dm_2 == 0 || dm_2 == 1 || dm_2 == 10 || dm_2 == 11) && !lepton_vetoes_notau && metfilter"
+# Option A (not used), the standard DeepTau path of the docs: the selection of the official scale-factor measurement
+# (long-ex config_coarse_TT.yml at VSjet Tight / VSe VVLoose / VSmu Tight), with the official scale factors
 #   /eos/cms/store/group/phys_tau/TauFW/pico2024/TES_variations/CMSDAS/TauCorrections_2024_corrTES_noCR.json
-# Option B (not used): the "hybrid" selection filled in during the exercise, PNet against jets
-# (long-ex config_coarse_TT_hybrid.yml); it needs the scale factors measured with that selection:
-#   "(q_1*q_2 < 0) && (iso_1 < 0.15) && (iso_2 < 0.15) && (idDeepTau2018v2p5VSe_2 >= 2) && (idDeepTau2018v2p5VSmu_2 >= 4)
-#    && (rawPNetVSjet_2 >= 0.9059) && (dm_2 == 0 || dm_2 == 1 || dm_2 == 10 || dm_2 == 11) && !lepton_vetoes_notau && metfilter"
-baselineCuts: "q_1*q_2<0 && iso_1<0.15 && idDecayModeNewDMs_2 && idDeepTau2018v2p5VSjet_2>=6 && idDeepTau2018v2p5VSe_2>=2 && idDeepTau2018v2p5VSmu_2>=4 && !lepton_vetoes_notau && metfilter"
+#   "q_1*q_2<0 && iso_1<0.15 && idDecayModeNewDMs_2 && idDeepTau2018v2p5VSjet_2>=6 && idDeepTau2018v2p5VSe_2>=2 && idDeepTau2018v2p5VSmu_2>=4 && !lepton_vetoes_notau && metfilter"
 
 regions:
     signalRegion:                 # the only selection of the exercise
-        definition: "mt_1<65"
+        definition: "(mt_1 < 65)"
         title: "signal region"
