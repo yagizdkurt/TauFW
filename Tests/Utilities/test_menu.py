@@ -63,7 +63,7 @@ class ScreenTests(unittest.TestCase):
     def test_install_returns_to_the_same_menu_without_an_extra_prompt(self):
         for outcome in (0, 130, ValueError("installer failed")):
             with self.subTest(outcome=outcome):
-                keys = [1002] * 6 + [10] + ([10] if isinstance(outcome, Exception) else []) + [27]
+                keys = [1002] * 5 + [10] + ([10] if isinstance(outcome, Exception) else []) + [27]
                 curses, screen = self.curses(keys)
                 ui, operations = ConsoleUI(curses), idle_operations()
                 if isinstance(outcome, Exception):
@@ -96,7 +96,7 @@ class ScreenTests(unittest.TestCase):
         for outcome in (EditResult(error="broken editor"), RuntimeError("editor draw failed"),
                         CursesError("editor terminal failed")):
             with self.subTest(outcome=outcome):
-                curses, screen = self.curses([1002] * 5 + [10, 10, 27])
+                curses, screen = self.curses([1002] * 4 + [10, 10, 27])
                 curses.error = CursesError
                 ui, operations = ConsoleUI(curses), idle_operations()
                 with mock.patch("TauFW.Utilities.Editor.edit_file") as editor:
@@ -152,10 +152,10 @@ class ScreenTests(unittest.TestCase):
         ui = ConsoleUI(mock.Mock())
         for valid, label, role in ((True, "Grid Certificate  \u2713", "good"),
                                    (False, "Grid Certificate  Warning: Proxy Failed!", "warning")):
-            with self.subTest(valid=valid), mock.patch.object(ui, "choose", return_value=4) as choose:
+            with self.subTest(valid=valid), mock.patch.object(ui, "choose", return_value=3) as choose:
                 self.assertEqual(ui.main_menu(proxy_valid=valid), "grid_certificate")
-                self.assertEqual(choose.call_args.args[1][4], label)
-                self.assertEqual(choose.call_args.kwargs["row_colors"][4], role)
+                self.assertEqual(choose.call_args.args[1][3], label)
+                self.assertEqual(choose.call_args.kwargs["row_colors"][3], role)
 
     def test_grid_certificate_asks_the_password_in_a_panel_and_refreshes_after_renewal(self):
         """The password from the panel goes to renew_grid_proxy; a voms-proxy-init without -pwstdin (None) asks
@@ -441,13 +441,13 @@ class ScreenTests(unittest.TestCase):
                                       ("DONE", "Done", "good"), ("STOPPING", "Stopping", "warning"),
                                       ("STOPPED", "Stopped", "warning"), ("LOST", "Lost", "warning")):
                 operation = FakeOperation(directory, state, events)
-                with self.subTest(state=state), mock.patch.object(ui, "choose", return_value=3) as choose:
+                with self.subTest(state=state), mock.patch.object(ui, "choose", return_value=6) as choose:
                     self.assertEqual(ui.main_menu(tests=operation), "tests")
-                    self.assertEqual(choose.call_args.args[1][3], "Tests (%s)" % text)
-                    self.assertEqual(choose.call_args.kwargs["row_colors"][3], role)
-            with mock.patch.object(ui, "choose", return_value=3) as choose:
+                    self.assertEqual(choose.call_args.args[1][6], "Tests (%s)" % text)
+                    self.assertEqual(choose.call_args.kwargs["row_colors"][6], role)
+            with mock.patch.object(ui, "choose", return_value=6) as choose:
                 ui.main_menu()
-                self.assertEqual((choose.call_args.args[1][3], choose.call_args.kwargs["row_colors"][3]),
+                self.assertEqual((choose.call_args.args[1][6], choose.call_args.kwargs["row_colors"][6]),
                                  ("Tests", None))
             operation = FakeOperation(directory, "FAILED", events)
             with mock.patch.object(ui, "choose", side_effect=[0, 1]) as choose:
@@ -455,9 +455,9 @@ class ScreenTests(unittest.TestCase):
                 self.assertEqual(choose.call_args.args[1][0], "Last run: Normal tests (Failed: 1)")
                 self.assertEqual(ui.tests_menu(), "checks")
             self.assertEqual(FakeOperation(directory, "RUNNING", "", expected=()).state(), "RUNNING")
-            with mock.patch.object(ui, "choose", return_value=3) as choose:
+            with mock.patch.object(ui, "choose", return_value=6) as choose:
                 ui.main_menu(tests=FakeOperation(directory, "RUNNING", "", expected=()))
-                self.assertEqual(choose.call_args.args[1][3], "Tests (Running)")  # no cases known yet
+                self.assertEqual(choose.call_args.args[1][6], "Tests (Running)")  # no cases known yet
             remote = FakeOperation(directory, "RUNNING", events, remote=True)
             for keys, choice in (([ord("x"), ord("q")], "quit"), ([ord("S")], "stop"), ([27], "cancel"),
                                  ([10], "cancel"), ([KeyboardInterrupt()], "cancel")):
@@ -476,9 +476,9 @@ class ScreenTests(unittest.TestCase):
             ui, operation = ConsoleUI(mock.Mock()), FakeOperation(directory, "RUNNING", event % ("a", "PASS"))
 
             def label():
-                with mock.patch.object(ui, "choose", return_value=3) as choose:
+                with mock.patch.object(ui, "choose", return_value=6) as choose:
                     ui.main_menu(tests=operation)
-                return choose.call_args.args[1][3]
+                return choose.call_args.args[1][6]
             self.assertEqual(label(), "Tests (Running 1/2)")
             reader = ui._summaries[operation.path]["events"]
             with open(operation.events_path, "a") as stream:
@@ -517,7 +517,7 @@ class ScreenTests(unittest.TestCase):
         for installer in (False, True):
             with self.subTest(installer=installer):
                 curses, screen = self.curses([27])
-                screen.getmaxyx.return_value = (41, 80)
+                screen.getmaxyx.return_value = (43, 80)
                 ui = ConsoleUI(curses)
                 if installer:
                     ui.setup_checklist([("combine", "Combine")], ["combine"])
@@ -531,9 +531,9 @@ class ScreenTests(unittest.TestCase):
                 self.assertIn(welcome, drawn)
                 self.assertIn("Tau analysis framework", drawn[len(FULL) - 4])
                 self.assertIn("V0.0", drawn[len(FULL) - 3])
-                self.assertTrue(all(call.args[0] < 39 for call in calls[:-1]))
+                self.assertTrue(all(call.args[0] < 41 for call in calls[:-1]))
         from TauFW.Utilities.Menu.banner import BOXED
-        for dimensions in ((29, 80), (30, 80), (30, 65)):
+        for dimensions in ((31, 80), (32, 80), (32, 65)):
             with self.subTest(dimensions=dimensions):
                 curses, screen = self.curses([27])
                 screen.getmaxyx.return_value = dimensions
@@ -751,8 +751,8 @@ class ScreenTests(unittest.TestCase):
     def test_semantic_screen_actions_and_cancellation(self):
         ui = ConsoleUI(mock.Mock())
         cases = [
-            (ui.main_menu, (), ["start", "continue", "inspect", "tests", "grid_certificate", "user_config",
-                                "install", "help", "exit"]),
+            (ui.main_menu, (), ["start", "continue", "inspect", "grid_certificate", "user_config", "install",
+                                "tests", "help", "exit"]),
             (ui.tests_menu, (), ["all", "checks", "normal", "bbb", "environment", "preview", "back"]),
             (ui.test_family, ("Normal",), ["all", "choose", "back"]),
             (ui.confirm_recipe, ("example.yml",), ["start", "plan", "back"]),

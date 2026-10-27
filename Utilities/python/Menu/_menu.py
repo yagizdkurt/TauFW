@@ -390,7 +390,8 @@ class ConsoleUI:
         self._line(screen, len(lines) + 1, 0, welcome)
         return len(lines) + 3
 
-    def choose(self, title, choices, welcome=None, descriptions=None, row_colors=None, position=None, live=None):
+    def choose(self, title, choices, welcome=None, descriptions=None, row_colors=None, position=None, live=None,
+               separators=()):
         """The index of the choice, or None (Esc). position: {"selected": index}, where the focus starts and was
         left. live: seconds; without a key by then, REFRESH (the caller draws it again with new labels)."""
         position = position if position is not None else {}
@@ -407,19 +408,25 @@ class ConsoleUI:
                     self._header(screen, title)
                     start = 3
                 else:
-                    start = self._entry_header(screen, welcome, len(choices) + 3)
+                    start = self._entry_header(screen, welcome, len(choices) + len(separators) + 3)
                 top, left, rows, columns = self._panel(screen, start, 1,
                                                       height - start - 3, width - 2, "Menu")
-                show_description = descriptions and rows >= len(choices) + 3
+                show_description = descriptions and rows >= len(choices) + len(separators) + 3
                 if show_description:
                     rows -= 3
-                stride = 2 if rows >= 2 * len(choices) - 1 else 1
-                rows = max(1, (rows + stride - 1) // stride)
-                first = max(0, selected - rows + 1)
-                for index in range(first, min(len(choices), first + rows)):
+                stride = 2 if not separators and rows >= 2 * len(choices) - 1 else 1
+                rows = max(1, rows)
+                offsets = [index * stride + sum(gap <= index for gap in separators) for index in range(len(choices))]
+                first = 0
+                while offsets[selected] - offsets[first] >= rows:
+                    first += 1
+                for index in range(first, len(choices)):
+                    row = offsets[index] - offsets[first]
+                    if row >= rows:
+                        break
                     label = ("> " if index == selected else "  ") + choices[index]
                     role = row_colors[index] if row_colors and index < len(row_colors) else "accent"
-                    self._line(screen, (index - first) * stride + top, left, label[:columns],
+                    self._line(screen, row + top, left, label[:columns],
                                index == selected, self.styles.get(role, 0) if row_colors else 0)
                 if show_description:
                     for index, line in enumerate(self._wrap(descriptions[selected], columns)[:2]):
@@ -553,31 +560,32 @@ class ConsoleUI:
         if tests is not None:
             text, role = self._operation_summary(tests)
             label = "Tests (%s)" % text
-        choices = ["Start a new run", "Continue an existing run", "Inspect run status", label, certificate,
-                   "Modify User Config", "Install components", "Help", "Exit"]
-        actions = ["start", "continue", "inspect", "tests", "grid_certificate", "user_config", "install",
+        choices = ["Start a new run", "Continue an existing run", "Inspect run status", certificate,
+                   "Modify User Config", "Install components", label, "Help", "Exit"]
+        actions = ["start", "continue", "inspect", "grid_certificate", "user_config", "install", "tests",
                    "help", "exit"]
-        colors = [None, None, None, role, "good" if proxy_valid else "warning", None, None, None, None]
+        colors = [None, None, None, "good" if proxy_valid else "warning", None, None, role, None, None]
         descriptions = [
             "Choose an analysis recipe and review its pipeline before starting.",
             "Resume a saved run behind the menu: to the end, or one step.",
             "Inspect the recorded and live status of an existing run.",
-            "Run automated checks or choose individual tests.",
             "Create or renew your CMS grid proxy using your grid certificate password.",
             "Edit your personal settings; F2 saves after checking their values.",
             "Open the installer to choose optional components and start installation.",
+            "Run automated checks or choose individual tests.",
             "Browse workflow explanations and frequently asked questions.",
             "Close the menu and return to your terminal.",
         ]
         if runs:
             label, role, action, description = self._runs_line(runs)
-            choices.insert(2, label)
-            actions.insert(2, action)
-            colors.insert(2, role)
-            descriptions.insert(2, description)
+            choices.insert(3, label)
+            actions.insert(3, action)
+            colors.insert(3, role)
+            descriptions.insert(3, description)
         position = dict(selected=actions.index(self._main_action) if self._main_action in actions else 0)
         answer = self._action("TauFW", choices, actions, back="exit", row_colors=colors, welcome="Welcome to TauFW!",
-                              descriptions=descriptions, position=position, live=LIVE_EVERY if live else None)
+                              descriptions=descriptions, position=position, live=LIVE_EVERY if live else None,
+                              separators=(actions.index("grid_certificate"), actions.index("tests")))
         self._main_action = actions[position["selected"]]
         return answer
 
