@@ -1,9 +1,14 @@
-"""Python step of the CDTest analysis: step 6 of the CMSDAS26 long exercise, the tagger comparison
-(docs/CMSDAS26/tagger_comparison.md of long-ex). The ROC curves of DeepTau2018v2p5, PNet and UParT against jets,
-electrons and muons, as long-ex Plotter/plots_and_histograms_CMSDAS26.py --tagger makes them (plot_tagger_comparison,
-ported unchanged apart from the imports and the sample set of this bundle).
+"""Step 6 of the CMSDAS26 long exercise: compare the tau taggers with ROC curves.
 
-Recipe (recipe.yml):
+For each of the three taggers (DeepTau2018v2p5, PNet, UParT) and each of their discriminants (against jets,
+electrons and muons), this step draws a ROC curve: how many genuine taus a cut on the raw score keeps (efficiency)
+against how many fakes it keeps (fake rate). All three taggers go on one plot per discriminant, and a table gives
+the area under each curve (AUC) and the efficiency at a 1% fake rate.
+
+Ported from long-ex Plotter/plots_and_histograms_CMSDAS26.py --tagger (plot_tagger_comparison); the method and the
+plots are unchanged (docs/CMSDAS26/tagger_comparison.md of long-ex).
+
+In the recipe:
 
     - stage: python
       id: tagger_roc
@@ -12,45 +17,61 @@ Recipe (recipe.yml):
       options: {era: '2024', channel: mutau, samples: v15_2024.yml, tuples: /eos/.../$ERA/$GROUP,
                 base: "q_1*q_2<0 && iso_1<0.15 && mt_1<65", nbins: 100}
 
-The tuples are an option, not an input: a python step cannot take {external: ...} (only tuples inputs can), so
-`plan` does not check that they exist.
+  base:   the loose selection, without tau ID cuts
+  nbins:  bins of the raw score in [0,1], i.e. the number of cut values that are tried
+  tuples: an option, not an input: a python step cannot take {external: ...}, so `plan` does not check them
 
-Method: all simulated samples (the sample set of fillhists.py: cross section, luminosity, MC weights, DY split by
-gen-match), in the loose selection `base` without tau ID cuts. Signal: genuine tau_h (genmatch_2==5). Background,
-one per discriminant: jet (genmatch_2==0) for VSjet, electron (1 or 3) for VSe, muon (2 or 4) for VSmu. For a
-threshold on the raw score in [0,1]: efficiency = signal above / all signal, fake rate = background above / all
-background. A score of -1 (no score) is in the underflow and left out, per tagger.
+Outputs, in <run_dir>/stages/<id>/:
+  plots/<era>/tagger_ROC_<VSjet|VSe|VSmu>_<channel>_<era>.png and .pdf   the ROC plots (long-ex names)
+  roc_summary.txt                                                    AUC and efficiency at 1% fake rate per curve
 
-Outputs: <run_dir>/stages/<id>/plots/<era>/tagger_ROC_<VSjet|VSe|VSmu>_<channel>_<era>.png and .pdf (the long-ex
-names), and roc_summary.txt: the AUC of every curve (printed by long-ex) and the efficiency at a fake rate of 1%
-(a task of the exercise, read off the curve there). One 'plots' and one 'table' artifact.
-
-How to read this file:
-
-    1. CONFIGURATION  the three discriminant families and the fixed fake rate of the summary table.
-    2. PIPELINE       run(ctx): the whole step from top to bottom, one numbered block per stage.
-    3. PLOTTING       one ROC canvas per family (_plot_family) and one curve per tagger (_make_roc_graph).
-    4. OUTPUT         the summary table and the result dictionary returned to the framework.
-    5. ROC MATH       the histogram sums and the plain-python math behind a ROC curve.
+The file reads from top to bottom:
+  1. IMPORTS AND OPTIONS    what the step reads from the framework
+  2. PIPELINE               run(ctx): the whole step in a few lines
+  3. ANALYSIS FUNCTIONS     histograms, ROC curves, plots
+  4. BOILERPLATE            output files and the small math helpers
 """
+
+# =====================================================================================================================
+#  1. IMPORTS AND OPTIONS
+# =====================================================================================================================
 import os
+from collections import namedtuple
+from types import SimpleNamespace
 
+import ROOT as R
+from TauFW.Histogrammer.sample.utils import LOG, Sel, Var
+from TauFW.Histogrammer.sample.model import getsampleset, load_sample_model
 
-# =====================================================================================================================
-#  1. CONFIGURATION
-# =====================================================================================================================
+R.gROOT.SetBatch(True)  # draw to files only, never open a window
 
-# One entry per discriminant family, as in long-ex:
-#   (discriminant, {tagger: raw-score branch}, background selection, x-axis title)
+# One discriminant family: its name, the raw-score branch of every tagger, which fakes are the background, and the
+# title of the x-axis. Signal is always the genuine taus (genmatch_2==5).
+Family = namedtuple('Family', ['name', 'taggers', 'background_cut', 'xtitle'])
 FAMILIES = [
-    ('VSjet', {'DeepTau2018v2p5': 'rawDeepTau2018v2p5VSjet_2', 'PNet': 'rawPNetVSjet_2', 'UParT': 'rawUParTVSjet_2'},
-     "genmatch_2==0", "jet#rightarrow#tau_{h} fake rate"),
-    ('VSe',   {'DeepTau2018v2p5': 'rawDeepTau2018v2p5VSe_2', 'PNet': 'rawPNetVSe_2', 'UParT': 'rawUParTVSe_2'},
-     "(genmatch_2==1||genmatch_2==3)", "e#rightarrow#tau_{h} fake rate"),
-    ('VSmu',  {'DeepTau2018v2p5': 'rawDeepTau2018v2p5VSmu_2', 'PNet': 'rawPNetVSmu_2', 'UParT': 'rawUParTVSmu_2'},
-     "(genmatch_2==2||genmatch_2==4)", "#mu#rightarrow#tau_{h} fake rate"),
+    Family('VSjet', {'DeepTau2018v2p5': 'rawDeepTau2018v2p5VSjet_2', 'PNet': 'rawPNetVSjet_2', 'UParT': 'rawUParTVSjet_2'},
+           "genmatch_2==0", "jet#rightarrow#tau_{h} fake rate"),
+    Family('VSe',   {'DeepTau2018v2p5': 'rawDeepTau2018v2p5VSe_2', 'PNet': 'rawPNetVSe_2', 'UParT': 'rawUParTVSe_2'},
+           "(genmatch_2==1||genmatch_2==3)", "e#rightarrow#tau_{h} fake rate"),
+    Family('VSmu',  {'DeepTau2018v2p5': 'rawDeepTau2018v2p5VSmu_2', 'PNet': 'rawPNetVSmu_2', 'UParT': 'rawUParTVSmu_2'},
+           "(genmatch_2==2||genmatch_2==4)", "#mu#rightarrow#tau_{h} fake rate"),
 ]
-FAKERATE = 0.01  # the fixed fake rate of the summary table
+TAGGER_COLORS = {'DeepTau2018v2p5': R.kBlack, 'PNet': R.kRed+1, 'UParT': R.kAzure+2}
+FAKERATE = 0.01  # the summary table gives the efficiency at this fake rate
+
+
+def read_options(ctx):
+    """The recipe options of this stage, with their defaults."""
+    opts = ctx.options
+    return SimpleNamespace(
+        era      = str(opts['era']),
+        channel  = opts.get('channel', 'mutau'),
+        samples  = ctx.path(opts['samples']),   # the sample model of the bundle (v15_2024.yml)
+        tuples   = opts['tuples'],              # where the pico tuples are
+        base     = opts['base'],                # loose selection, no tau ID cuts
+        nbins    = int(opts.get('nbins', 100)),
+        stagedir = ctx.stage_dir,               # where this stage writes its outputs
+    )
 
 
 # =====================================================================================================================
@@ -58,114 +79,110 @@ FAKERATE = 0.01  # the fixed fake rate of the summary table
 # =====================================================================================================================
 
 def run(ctx):
-    """The ROC curves of the three taggers for VSjet, VSe and VSmu, and their summary table.
+    """The step: called by the framework with the context of this stage (ctx)."""
+    opts = read_options(ctx)
+    plotdir = make_directory(opts.stagedir, 'plots', opts.era)
 
-    Entry point called by the framework. ctx gives the recipe options (ctx.options), the stage directory
-    (ctx.stage_dir), paths relative to the analysis (ctx.path) and a logger (ctx.log).
-    """
-    import ROOT as R
-    from TauFW.Histogrammer.sample.utils import LOG, Sel, Var
-    from TauFW.Histogrammer.sample.model import getsampleset, load_sample_model
-    R.gROOT.SetBatch(True)  # no windows: draw to files only
+    # All simulated samples, normalized as in the control plots.
+    sampleset = load_simulated_samples(opts)
 
-    # --- Step 1: read the recipe options ------------------------------------------------------------------------------
-    opts    = ctx.options
-    era     = str(opts['era'])
-    channel = opts.get('channel', 'mutau')
-    base    = opts['base']                  # loose selection, no tau ID cuts
-    nbins   = int(opts.get('nbins', 100))   # bins of the raw score in [0,1] = number of thresholds scanned
+    # Genuine taus: the same signal for every discriminant, so filled once for all nine scores.
+    signal = fill_signal_histograms(sampleset, opts)
 
-    # --- Step 2: build the simulated sample set (same as fillhists.py) ------------------------------------------------
-    model   = load_sample_model(ctx.path(opts['samples']))
-    sampleset = getsampleset(channel, era, model, fname="$PICODIR/$SAMPLE_$CHANNEL$TAG.root", tuples=opts['tuples'],
-                             split=['DY'], table=True)  # as fillhists.py builds it
+    # One plot per discriminant family: fill its background, compute one ROC curve per tagger, draw them.
+    curves, plots = [], []
+    for family in FAMILIES:
+        background = fill_background_histograms(sampleset, family, opts)
+        family_curves = compute_roc_curves(family, signal, background, opts.nbins, ctx.log)
+        plots += draw_roc_plot(family, family_curves, opts, plotdir)
+        curves += family_curves
 
-    # --- Step 3: prepare the output directory and the tagger colors ---------------------------------------------------
-    outdir = os.path.join(ctx.stage_dir, 'plots', era)
-    os.makedirs(outdir, exist_ok=True)
-    colors = {'DeepTau2018v2p5': R.kBlack, 'PNet': R.kRed+1, 'UParT': R.kAzure+2}
-
-    # --- Step 4: fill the signal histograms (genuine taus) ------------------------------------------------------------
-    # All nine discriminants in one event loop; the signal is the same for every family.
-    branches = [branch for _, taggers, _, _ in FAMILIES for branch in taggers.values()]
-    sig = _summed_mc(sampleset, [Var(b, nbins, 0, 1) for b in branches], Sel('sig', base+" && genmatch_2==5"))
-
-    # --- Step 5: one ROC plot per family (fills its own background histograms) ----------------------------------------
-    rows, files = [], []  # rows: one summary-table row per drawn curve; files: every saved plot
-    for fam, taggers, bkgsel, xtitle in FAMILIES:
-        fam_rows, fam_files = _plot_family(ctx, sampleset, sig, fam, taggers, bkgsel, xtitle,
-                                           base=base, channel=channel, era=era, nbins=nbins,
-                                           outdir=outdir, colors=colors)
-        rows.extend(fam_rows)
-        files.extend(fam_files)
-
-    # --- Step 6: write the summary table ------------------------------------------------------------------------------
-    table = os.path.join(ctx.stage_dir, 'roc_summary.txt')
-    _write_summary(table, rows, channel=channel, era=era, base=base)
+    table = write_summary_table(curves, opts)
     ctx.log("wrote %s" % (table))
-
-    # --- Step 7: report the outputs to the framework ------------------------------------------------------------------
-    return _build_result(rows, files, table, era=era, channel=channel, outdir=outdir)
+    return build_result(curves, plots, table, opts, plotdir)
 
 
 # =====================================================================================================================
-#  3. PLOTTING
+#  3. ANALYSIS FUNCTIONS
 # =====================================================================================================================
 
-def _plot_family(ctx, sampleset, sig, fam, taggers, bkgsel, xtitle, base, channel, era, nbins, outdir, colors):
-    """Draw the ROC curves of all taggers of one discriminant family on one canvas and save it as png and pdf.
+def load_simulated_samples(opts):
+    """The sample set of the control plots (fillhists.py): cross sections, luminosity, MC weights, DY split by
+    gen-match."""
+    model = load_sample_model(opts.samples)
+    return getsampleset(opts.channel, opts.era, model, fname="$PICODIR/$SAMPLE_$CHANNEL$TAG.root", tuples=opts.tuples,
+                        split=['DY'], table=True)
 
-    sig is the {branch: signal TH1} of step 4; the background histograms of this family are filled here.
-    Returns (rows, files): one summary-table row (fam, tagger, signal, background, AUC, eff at FAKERATE) per drawn
-    curve, and the paths of the saved plots.
-    """
-    import ROOT as R
-    from TauFW.Histogrammer.sample.utils import LOG, Sel, Var
 
-    # Background histograms of this family (jets, electrons or muons faking a tau_h).
-    bkg = _summed_mc(sampleset, [Var(b, nbins, 0, 1) for b in taggers.values()], Sel('bkg_'+fam, base+" && "+bkgsel))
+def fill_signal_histograms(sampleset, opts):
+    """{score branch: TH1} of the genuine taus, for the raw scores of all taggers of all families."""
+    branches = [branch for family in FAMILIES for branch in family.taggers.values()]
+    return summed_mc_histograms(sampleset, [Var(b, opts.nbins, 0, 1) for b in branches],
+                                Sel('sig', opts.base+" && genmatch_2==5"))
 
-    # Empty canvas: fake rate on a log x-axis (floored at 1e-3), efficiency on a linear y-axis.
-    canvas = R.TCanvas('roc_'+fam, 'roc', 700, 650); canvas.SetLogx(); canvas.SetGrid()
+
+def fill_background_histograms(sampleset, family, opts):
+    """{score branch: TH1} of the fakes of one family (jets, electrons or muons faking a tau_h)."""
+    return summed_mc_histograms(sampleset, [Var(b, opts.nbins, 0, 1) for b in family.taggers.values()],
+                                Sel('bkg_'+family.name, opts.base+" && "+family.background_cut))
+
+
+def compute_roc_curves(family, signal, background, nbins, log):
+    """One ROC curve per tagger of the family, as a dict: tagger, fake and eff (one point per cut value), the total
+    signal and background, the AUC and the efficiency at FAKERATE. A tagger without histograms, or with fewer than
+    two points to draw, is left out."""
+    curves = []
+    for tagger, branch in family.taggers.items():
+        hsig, hbkg = signal.get(branch), background.get(branch)
+        if hsig is None or hbkg is None:
+            LOG.warning("%s/%s: missing hist, skip" % (family.name, tagger)); continue
+        fake, eff, stot, btot = roc_points(hsig, hbkg, nbins)
+        if len(drawable_points(fake, eff)) < 2:
+            continue
+        auc = abs(trapezoid(eff, fake))
+        curves.append({'family': family.name, 'tagger': tagger, 'fake': fake, 'eff': eff, 'signal': stot,
+                       'background': btot, 'auc': auc, 'eff_at_fakerate': efficiency_at(fake, eff, FAKERATE)})
+        log("%-6s %-16s sig=%.0f bkg=%.0f AUC~%.3f" % (family.name, tagger, stot, btot, auc))
+    return curves
+
+
+def roc_points(hsig, hbkg, nbins):
+    """The ROC curve from the score histograms: for every cut value i (bin i of [0,1]), the events in bins
+    i..nbins+1 pass (overflow included). eff[i] = signal passing / all signal, fake[i] = background passing / all
+    background. A score of -1 (no score) is in the underflow (bin 0) and left out of both.
+    Returns (fake, eff, total signal, total background)."""
+    stot = hsig.Integral(1, nbins+1); btot = hbkg.Integral(1, nbins+1)
+    eff  = [hsig.Integral(i, nbins+1)/stot if stot > 0 else 0 for i in range(1, nbins+1)]
+    fake = [hbkg.Integral(i, nbins+1)/btot if btot > 0 else 0 for i in range(1, nbins+1)]
+    return fake, eff, stot, btot
+
+
+def draw_roc_plot(family, curves, opts, plotdir):
+    """All curves of one family on one canvas, saved as png and pdf; returns the saved files."""
+    # Empty frame: fake rate on a log x-axis (from 1e-3), efficiency on a linear y-axis.
+    canvas = R.TCanvas('roc_'+family.name, 'roc', 700, 650); canvas.SetLogx(); canvas.SetGrid()
     frame = canvas.DrawFrame(1e-3, 0.0, 1.0, 1.05)
-    frame.SetTitle("%s ROC (%s);%s;genuine #tau_{h} efficiency" % (fam, channel, xtitle))
+    frame.SetTitle("%s ROC (%s);%s;genuine #tau_{h} efficiency" % (family.name, opts.channel, family.xtitle))
     legend = R.TLegend(0.16, 0.72, 0.52, 0.90)
     graphs = []  # keep the graphs alive until the canvas is saved (ROOT does not own them)
-
-    # One curve per tagger.
-    rows = []
-    for name, branch in taggers.items():
-        hsig, hbkg = sig.get(branch), bkg.get(branch)
-        if hsig is None or hbkg is None:
-            LOG.warning("%s/%s: missing hist, skip" % (fam, name)); continue
-        fake, eff, stot, btot = _roc_arrays(hsig, hbkg, nbins)
-        graph = _make_roc_graph(fake, eff)
-        if graph is None:  # fewer than two points to draw
-            continue
-        graph.SetLineColor(colors[name]); graph.SetLineWidth(2); graph.Draw('L SAME')
-        legend.AddEntry(graph, name, 'l'); graphs.append(graph)
-        auc = abs(_trapezoid(eff, fake))
-        rows.append((fam, name, stot, btot, auc, _eff_at(fake, eff, FAKERATE)))
-        ctx.log("%-6s %-16s sig=%.0f bkg=%.0f AUC~%.3f" % (fam, name, stot, btot, auc))
+    for curve in curves:
+        graph = roc_graph(curve['fake'], curve['eff'])
+        graph.SetLineColor(TAGGER_COLORS[curve['tagger']]); graph.SetLineWidth(2); graph.Draw('L SAME')
+        legend.AddEntry(graph, curve['tagger'], 'l'); graphs.append(graph)
     legend.Draw()
 
-    # Save the canvas.
     files = []
-    fname = os.path.join(outdir, "tagger_ROC_%s_%s_%s" % (fam, channel, era))
+    fname = os.path.join(plotdir, "tagger_ROC_%s_%s_%s" % (family.name, opts.channel, opts.era))
     for ext in ('png', 'pdf'):
         canvas.SaveAs(fname+"."+ext)
         files.append(fname+"."+ext)
     canvas.Close()
-    return rows, files
+    return files
 
 
-def _make_roc_graph(fake, eff):
-    """A TGraph of efficiency vs fake rate, keeping only the points with fake rate > 0 (a log x-axis cannot show 0).
-    None if fewer than two points are left."""
-    import ROOT as R
-    points = [(f, e) for f, e in zip(fake, eff) if f > 0]  # log-x needs fake>0
-    if len(points) < 2:
-        return None
+def roc_graph(fake, eff):
+    """A TGraph of efficiency against fake rate, from the points a log x-axis can show."""
+    points = drawable_points(fake, eff)
     graph = R.TGraph(len(points))
     for i, (f, e) in enumerate(points):
         graph.SetPoint(i, f, e)
@@ -173,42 +190,49 @@ def _make_roc_graph(fake, eff):
 
 
 # =====================================================================================================================
-#  4. OUTPUT
+#  4. BOILERPLATE
 # =====================================================================================================================
 
-def _write_summary(table, rows, channel, era, base):
-    """Write the summary table: one line per curve with signal and background yields, AUC and the efficiency at
-    FAKERATE ('-' when the curve does not reach it)."""
+def write_summary_table(curves, opts):
+    """roc_summary.txt: one line per curve with the signal and background yields, the AUC and the efficiency at
+    FAKERATE ('-' when the curve does not reach it). Returns its path."""
+    table = os.path.join(opts.stagedir, 'roc_summary.txt')
     with open(table, 'w') as stream:
-        stream.write("# %s %s, base selection: %s\n" % (channel, era, base))
+        stream.write("# %s %s, base selection: %s\n" % (opts.channel, opts.era, opts.base))
         stream.write("%-6s %-16s %12s %12s %7s  %s\n" % ("disc", "tagger", "signal", "background", "AUC",
                                                        "eff at %g%% fake rate" % (100*FAKERATE)))
-        for fam, name, stot, btot, auc, eff in rows:
-            stream.write("%-6s %-16s %12.1f %12.1f %7.3f  %s\n" % (fam, name, stot, btot, auc,
+        for c in curves:
+            eff = c['eff_at_fakerate']
+            stream.write("%-6s %-16s %12.1f %12.1f %7.3f  %s\n" % (c['family'], c['tagger'], c['signal'],
+                                                                 c['background'], c['auc'],
                                                                  "-" if eff is None else "%.3f" % eff))
+    return table
 
 
-def _build_result(rows, files, table, era, channel, outdir):
-    """The result dictionary of the step: a short message and the two artifacts (plots and table)."""
-    return {'message': "%d ROC curve(s) in %d plot(s)" % (len(rows), len(FAMILIES)),
-            'artifacts': [{'kind': 'plots', 'era': era, 'channel': channel, 'directory': outdir, 'files': files},
-                          {'kind': 'table', 'path': table, 'nrows': len(rows)}]}
+def build_result(curves, plots, table, opts, plotdir):
+    """What the step returns to the framework: a short message and its outputs (artifacts)."""
+    return {'message': "%d ROC curve(s) in %d plot(s)" % (len(curves), len(FAMILIES)),
+            'artifacts': [{'kind': 'plots', 'era': opts.era, 'channel': opts.channel, 'directory': plotdir,
+                           'files': plots},
+                          {'kind': 'table', 'path': table, 'nrows': len(curves)}]}
 
 
-# =====================================================================================================================
-#  5. ROC MATH
-# =====================================================================================================================
+def make_directory(*parts):
+    """os.path.join(*parts), created if needed."""
+    path = os.path.join(*parts)
+    os.makedirs(path, exist_ok=True)
+    return path
 
-def _summed_mc(sampleset, variables, sel):
-    """{Var.name: total-MC TH1} for every variable under selection sel (no data, so a genmatch_2 cut is safe); one
-    event loop for all variables."""
+
+def summed_mc_histograms(sampleset, variables, sel):
+    """{variable name: TH1 of all simulated samples summed} under the selection sel, in one event loop for all
+    variables. Data is left out (so a genmatch_2 cut is safe)."""
     res = sampleset.getstack(variables, sel, method=None, data=False, parallel=True)
     # getstack returns a dict {stack: (var, sel)} for several variables, a single stack for one variable.
     items = res.items() if isinstance(res, dict) else [(res, (variables[0], sel))]
     out = {}
     for stack, key in items:
         var = key[0] if isinstance(key, tuple) else key
-        # Sum all simulated histograms of the stack into one total.
         total = None
         for hist in stack.hists:
             if 'data' in hist.GetName().lower():
@@ -220,27 +244,19 @@ def _summed_mc(sampleset, variables, sel):
     return out
 
 
-def _roc_arrays(hsig, hbkg, nbins):
-    """Cumulative (fake rate, efficiency) scanning the raw score over the in-range [0,1] bins. The -1 'no-score'
-    default lands in the underflow (bin 0) and is excluded from both.
-
-    Threshold i keeps the events in bins i..nbins+1 (overflow included): eff[i] = signal kept / all signal,
-    fake[i] = background kept / all background. Also returns the totals stot and btot.
-    """
-    stot = hsig.Integral(1, nbins+1); btot = hbkg.Integral(1, nbins+1)
-    eff  = [hsig.Integral(i, nbins+1)/stot if stot > 0 else 0 for i in range(1, nbins+1)]
-    fake = [hbkg.Integral(i, nbins+1)/btot if btot > 0 else 0 for i in range(1, nbins+1)]
-    return fake, eff, stot, btot
+def drawable_points(fake, eff):
+    """The (fake rate, efficiency) points with a fake rate above 0: a log x-axis cannot show 0."""
+    return [(f, e) for f, e in zip(fake, eff) if f > 0]
 
 
-def _trapezoid(y, x):
-    """The trapezoid integral of y over x (numpy.trapz of long-ex, without numpy). Used for the AUC."""
+def trapezoid(y, x):
+    """The trapezoid integral of y over x (numpy.trapz in long-ex). Used for the AUC."""
     return sum((x[i+1]-x[i])*(y[i+1]+y[i])/2. for i in range(len(x)-1))
 
 
-def _eff_at(fake, eff, rate):
-    """The efficiency at a fake rate, interpolated linearly between the two thresholds around it; None if the curve
-    does not reach it. fake decreases with the threshold."""
+def efficiency_at(fake, eff, rate):
+    """The efficiency at a given fake rate, interpolated linearly between the two cut values around it; None if the
+    curve does not reach it. The fake rate decreases with the cut value."""
     for i in range(len(fake)-1):
         if fake[i] >= rate >= fake[i+1]:
             if fake[i] == fake[i+1]:

@@ -1,7 +1,7 @@
 # CMSDAS26 reference plots
 
-The ROC curves of step 6 (tagger comparison) as the CMSDAS 2026 tau long exercise made them: made by the exercise
-team of Yagizhan Dinckurt at CMSDAS 2026 (about 2026-09), with the long-ex code of the exercise:
+The ROC curves of step 6 (tagger comparison) as the CMSDAS 2026 tau long exercise made them: made by our team at
+CMSDAS 2026 (about 2026-09), with the long-ex code of the exercise:
 
 ```sh
 ./plots_and_histograms_CMSDAS26.py -y 2024 -c mutau --tagger

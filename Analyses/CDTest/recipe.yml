@@ -4,6 +4,7 @@
 #   python3 taufw.py check  Analyses/CDTest
 #   python3 taufw.py plan   Analyses/CDTest
 #   python3 taufw.py start  Analyses/CDTest
+# Status: steps 1-9 reproduce the exercise (run CDTest_20261027-155341, see reference/cmsdas26/README.md).
 #
 # The exercise, step by step (docs/CMSDAS26/ of long-ex), and where each step is in this recipe:
 #   1. Software setup        CMSSW_14_1_0_pre4 (el9), Combine v10, CombineHarvester: FastSetup.sh, not a stage.
