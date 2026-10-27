@@ -1,20 +1,20 @@
+# Compiled files and temporary files.
 *.pyc
 *.bak
 *.d
 *.so
 *.pcm
+*~
+core.*
+
+# Generated data, plots, and documents.
 *.txt
 *.pdf
-*~
 *.root
-
-# ignore pngs for plots etc but not in the docs (Documentation ignors)
 *.png
-!Docs/Extra/**/*.png
-Docs/Manual/STYLE.md
-
 *.json
-core.*
+
+# Python package initializers and exceptions.
 __init__.py
 !Utilities/python/**/__init__.py
 !PicoProducer/python/**/__init__.py
@@ -26,26 +26,42 @@ __init__.py
 !Histogrammer/config/__init__.py
 !Plotter/python/api/__init__.py
 !Legacy/**/__init__.py
+
+# Local configuration and run directories.
 taufw_runs/
 Analyses/UserConfig.yaml
-*/compare
 config.json
 PicoProducer/config
 PicoProducer/config/config*
 PicoProducer/config/config.json
+LocalR/
+
+# Module outputs and downloaded data.
+*/compare
+
+# PicoProducer.
 PicoProducer/samples/files
 PicoProducer/output
 PicoProducer/data/jsonpog
+
+# Plotter.
 Plotter/plots
 Plotter/tutorial/plots
+
+# Histogrammer.
 Histogrammer/plots
 Histogrammer/tutorial/plots
+
+# Fitter.
 Fitter/*/*plots*
 Fitter/*.log
 Fitter/output*
 Fitter/*.out
 Fitter/Zpt/weights
-LocalR/
+
+# Documentation images are kept despite the global PNG rule.
+!Docs/Extra/**/*.png
+Docs/Manual/STYLE.md
 
 # What runs behind the menu (Utilities/python/Process/_operations.py).
 .artifacts/
