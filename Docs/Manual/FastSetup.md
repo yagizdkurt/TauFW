@@ -127,6 +127,12 @@ Success ticks and colors fall back to plain text on limited terminals. Set
 `NO_COLOR=1` to disable colors; redirected output and `TERM=dumb` also disable
 them. An ASCII locale uses `[OK]`, `[!]`, and `[FAIL]` instead of Unicode marks.
 
+Near the end, the installer also writes your user config, `Analyses/UserConfig.yaml` of the installed checkout
+(or the file `$TAUFW_USER_CONFIG` names), with your EOS folders and batch system guessed for lxplus. It never
+replaces a file that is already there, and the result screen names it. Check it once and set `reviewed: true`; see
+[Your user config](1-GettingStarted/UserConfig.md). If the file could not be written, the setup warns and goes on:
+make it later with `python3 taufw.py userconfig`.
+
 In each new session, source the wrapper from that checkout (or use its full path):
 
 ```bash

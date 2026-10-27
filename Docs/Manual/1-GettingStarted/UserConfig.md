@@ -32,14 +32,27 @@ If you installed TauFW before the user config existed, you don't have the file y
 python3 taufw.py userconfig
 ```
 
-<!-- TODO: real output of python3 taufw.py userconfig on lxplus, first run and second run -->
+```console
+$ python3 taufw.py userconfig
+>>> New user config: /afs/cern.ch/user/y/ydinckur/CMSSW_14_1_0_pre4/src/TauFW/Analyses/UserConfig.yaml
+>>> Warning: User config /afs/cern.ch/user/y/ydinckur/CMSSW_14_1_0_pre4/src/TauFW/Analyses/UserConfig.yaml is not reviewed yet: check its values, then set reviewed: true
+```
 
 You can run this as often as you like. If the file is already there, it doesn't touch it. It just tells you where
 the file is and whether you still need to check it.
 
 ## Open it and check it
 
-Open the file in any editor. On lxplus, a new one looks like this (here for the user `jdoe`):
+Choose **Modify User Config** from the TauFW menu to open the file. If it doesn't exist yet, TauFW makes it
+for you. Use the arrow keys to move, Page Up/Page Down to scroll, and Tab to insert two spaces. Press F2 to save
+and Esc to go back. If you've changed something without saving, the editor asks whether to save, discard those
+changes or keep editing.
+
+Before saving, TauFW checks the YAML and its own settings. If something is wrong, it shows the problem and keeps
+your edits so you can fix it. It also refuses to overwrite a file changed by another editor since you opened it.
+You can still open the file in any other editor you prefer.
+
+On lxplus, a new one looks like this (here for the user `jdoe`):
 
 ```yaml
 # TauFW user configuration: your personal and machine settings.
@@ -126,10 +139,27 @@ something, the recipe wins:
 - `batch`, `outdir`, `nanodir`, `tmpskimdir`, `hadd`: these aren't recipe options. Your user config wins over
   `PicoProducer/config/config.json`.
 
-You don't have to guess which one was used. `plan` tells you:
+You don't have to guess which one was used. `plan` tells you. Here's a real one, trimmed, from someone who had just
+made the file:
 
-<!-- TODO: real output of python3 taufw.py plan Analyses/example_mutau_short on lxplus, with a user config
-     (the "Run root: ... (user config)" and "PicoProducer config: ...; from your user config: ..." lines) -->
+```console
+$ python3 taufw.py plan Analyses/example_mutau_short
+...
+>>> Warning: User config /afs/cern.ch/user/y/ydinckur/CMSSW_14_1_0_pre4/src/TauFW/Analyses/UserConfig.yaml is not reviewed yet: check its values, then set reviewed: true
+>>> Warning: run_root: not set: the runs go to taufw_runs/ in the directory taufw.py is started from, ...
+>>> Bundle: /afs/cern.ch/user/y/ydinckur/CMSSW_14_1_0_pre4/src/TauFW/Analyses/example_mutau_short
+>>> Run root: /afs/cern.ch/user/y/ydinckur/CMSSW_14_1_0_pre4/src/TauFW/taufw_runs (default: no run_root in the recipe)
+>>> PicoProducer config: PicoProducer/config/config.json (default); from your user config: production.batch, production.hadd.maxopenfiles, production.nanodir, production.ncores, production.outdir
+...
+```
+
+The `PicoProducer config` line lists the settings that came from the user config. Here that's more than the setup
+guesses: `ncores` and `hadd.maxopenfiles` were taken over from an old `config.json`.
+
+The run root is still the default here. This user has no AFS work area, so the setup left `run_root` as a comment
+line, and the runs would land in the TauFW folder in the AFS home. That's exactly the case to fix: put a folder with
+enough space into `run_root`. Once it's set, the `run_root` warning goes away and the line reads
+`Run root: <your folder> (user config)`.
 
 And every run keeps a note of which settings came from your user config, in its `run.json`.
 

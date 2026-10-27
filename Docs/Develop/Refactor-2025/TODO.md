@@ -56,7 +56,9 @@ The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go he
       exists; values of `PicoProducer/config/config.json` if it exists); `python3 taufw.py plan
       Analyses/example_mutau_short` shows `Run root: ... (user config)` and `from your user config: ...`; a
       `plan --local` test runs with the user config's `outdir`; `python3 Tests/run.py bbb check` passes without
-      re-lock. Paste the real outputs into `Docs/Manual/1-GettingStarted/UserConfig.md` (TODO comments there).
+      re-lock. 2026-10-27 on lxplus: `userconfig` and `plan` work (outputs pasted into the Manual), `bbb check` running.
+      Still to paste: the FastSetup summary with its `User config` line (`UserConfig.md`) and `taufw.py --help`
+      (`FirstSession.md`).
 - [ ] **User config (CL §40):** a FastSetup install (or `python3 taufw.py userconfig` in an installed checkout) makes
       `Analyses/UserConfig.yaml` and its summary names it; `git status` does not list it; the menu does not show it as
       a recipe; `python3 taufw.py check Analyses/tes_id_2025` warns "not reviewed yet" in one line until

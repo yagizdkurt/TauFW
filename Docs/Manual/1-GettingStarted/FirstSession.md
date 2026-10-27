@@ -35,6 +35,7 @@ Use the arrow keys to move, Enter to pick something and Esc to go back. Here's w
 - **Inspect run status**: see where a run is, without changing anything.
 - **Tests**: run TauFW's automated tests.
 - **Grid Certificate**: check your grid proxy, or make a new one.
+- **Modify User Config**: edit your personal settings. F2 saves; Esc goes back.
 - **Help**: short answers to common questions.
 - **Exit**: leave the menu.
 
@@ -64,6 +65,8 @@ Press Esc until you're back in the main menu, then **Exit**.
 
 Everything in the menu can also be done with commands. That's handy for scripts, or when you already know exactly
 what you want. To see the commands:
+
+<!-- TODO: paste the real output of python3 taufw.py --help again: it now also lists `userconfig` -->
 
 ```console
 $ python3 taufw.py --help

@@ -40,7 +40,7 @@ The words below are used everywhere in the code and in this README.
 | **preflight** | The check, before a local stage runs, that its environment is ready (`cmsenv`, ROOT, `combine`, configs). A problem leaves the stage `NEW`. | `PreflightError` |
 | **spec** | The options of one stage after checking, as a typed, read-only object. For example, `ProductionSpec` holds `eras`, `channels`, `max_tries`, ... | `ProductionSpec`, ... |
 | **stage spec** | One entry of the recipe's `stages:` list: the stage type, id, inputs, description and spec. | `StageSpec` (`recipe.py`) |
-| **run** | One execution of a recipe. Each run gets its own directory, `<run_root>/<name>_<time>/` (`run_root` from the recipe or `--run-root`, default `taufw_runs/`). | `RunRecord.create` |
+| **run** | One execution of a recipe. Each run gets its own directory, `<run_root>/<name>_<time>/` (`run_root` from `--run-root`, else the recipe, else `runs.run_root` of the user config, default `taufw_runs/`). | `RunRecord.create` |
 | **run record** | The saved state of a run, `run.json`. It is updated after every step, so a run can be continued later, even from another session. | `RunRecord` (`run_record.py`) |
 | **stage record** | The part of `run.json` that belongs to one stage: its state, attempt, submissions, last status, artifacts and history. | `StageRecord` |
 | **step** | One call of `Stage.advance()`: it moves a stage from one state to the next (for example `NEW` → `SUBMITTED`). | `StageOutcome` |
@@ -87,8 +87,8 @@ Use Up/Down to move, Enter to select, and Esc to go back or exit the main menu.
   Selecting a recipe reloads it and prepares its read-only plan silently before showing the review screen,
   including any nonfatal planning notes. **View detailed plan** displays the existing textual plan and
   returns to the same review after Enter. **Start run** launches the run; **Back** returns to the picker.
-- **Continue an existing run** lists saved runs in `taufw_runs/` and in the
-  `run_root` of every recipe in `Analyses/` (newest first)
+- **Continue an existing run** lists saved runs in `taufw_runs/`, in `runs.run_root` of the user config and
+  in the `run_root` of every recipe in `Analyses/` (newest first)
   or accepts another run directory. Choose one advance or repeated checking;
   polling defaults to 600 seconds. Terminal runs offer status inspection instead.
 - **Inspect run status** shows the existing read-only status output, with Refresh
@@ -213,8 +213,28 @@ troubleshooting, and current workflow limitations.
 
 ## Run directory
 
-The run directory is in the recipe's `run_root` (`start --run-root` takes precedence; default `taufw_runs/` in the
-working directory; see [Analyses/README.md](../Analyses/README.md#where-the-runs-go-run_root)).
+The run directory is in the recipe's `run_root` (`start --run-root` takes precedence; without both, `runs.run_root`
+of the user config; default `taufw_runs/` in the working directory; see
+[Analyses/README.md](../Analyses/README.md#where-the-runs-go-run_root)).
+
+## User config
+
+`Analyses/UserConfig.yaml` (or the file `$TAUFW_USER_CONFIG` names) holds the personal settings of the user: made by
+FastSetup or `taufw.py userconfig`, ignored by git, read with `TauFW.Utilities.UserConfig` (changelog §40, §41).
+The Framework reads it in `python/user_settings.py`, the same way as a user's script, and always after the command
+line and the recipe:
+
+| Setting | Used for | Precedence |
+| --- | --- | --- |
+| `runs.run_root` | where `start` makes the run | `--run-root` > recipe `run_root` > user config > `taufw_runs/` |
+| `production.batch`, `outdir`, `nanodir`, `tmpskimdir`, `hadd.cmd`, `hadd.maxopenfiles` | keys `batch`, `outdir`, `nanodir`, `tmpskimdir`, `haddcmd`, `maxopenfiles` of the production stage's PicoProducer configuration (in memory, `PicoProducer.from_config(overrides=)`) | user config > `pico.config` / `config.json` |
+| `production.queue`, `batchopts`, `ncores` | the production request, when the recipe does not set the option | recipe > user config > PicoProducer's default |
+
+`plan` names them (`Run root: ... (user config)`, `PicoProducer config: ...; from your user config: ...`), and
+`run.json` records the settings used in `pico_config.user_config`. `check`, `plan` and `start` show the user
+config's warnings in one line each (no file, not reviewed, a wrong value); a wrong production setting is a problem
+of a recipe with a production stage, and stops `plan` and `start`. Standalone `pico.py` does not read the user
+config (it keeps `config.json`).
 
 ```
 <run_root>/<name>_<YYYYmmdd-HHMMSS>/
@@ -260,13 +280,17 @@ of the stage) and in the reader's manifest.
 ```json
 {"schema": 3, "run_id": "...", "created": "...", "updated": "...",
  "recipe": {"name": "...", "pico": {"config": null}, "stages": [...]},
- "pico_config": {"path": ".../config/config.json", "snapshot": {...}},
+ "pico_config": {"path": ".../config/config.json", "snapshot": {...},
+                 "user_config": {"path": ".../Analyses/UserConfig.yaml", "settings": ["production.outdir", ...]}},
  "bundle": {"source": ".../Analyses/tes_id_2025", "files": ["recipe.yml", "config_coarse_TT.yml", ...]},
  "stages": [{"name": "production", "state": "WAITING", "attempt": 2, "message": "...",
              "request": {...}, "sources": {}, "submissions": [...], "last_status": {...}, "artifacts": [...],
              "history": [{"time": "...", "event": "resubmitted", "state": "SUBMITTED", "detail": "..."}]}]}
 ```
 - A run always continues with the recipe stored in `run.json` and its `bundle/` copy, not with the current files.
+  The PicoProducer configuration and the user config are read again at every `advance` (TODO: use the snapshot).
+- `pico_config.user_config` is there only when the user config gave a production setting; `snapshot` already has
+  its values.
 - A stage record's `name` is the stage id. `bundle` is `{}` for a loose recipe file without bundle files.
 - `run.json` is written to a temporary file and renamed, so it is never half written.
 - The production stage's source of truth stays with PicoProducer (its job configs under `PicoProducer/output/`);
