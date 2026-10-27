@@ -30,7 +30,9 @@ With $TAUFW_EVENTS set (the menu does that for a command it runs beside its scre
 messages and the Framework's events (TauFW.Framework.reporting) to that file; the output does not change. The
 variable is removed from the environment first, so the commands the stages run never see it.
 
-The runs go to the recipe's run_root (start --run-root DIR takes precedence; without both: taufw_runs/ here).
+The runs go to start --run-root DIR, else the recipe's run_root, else runs.run_root of your user config, else
+taufw_runs/ here. A production stage also takes your user config's production settings (Framework/python/
+user_settings.py); `plan` names them.
 
 check, plan and start warn in one line while there is no user config or it is not reviewed
 (TauFW.Utilities.UserConfig.manage); the recipe still runs.
@@ -52,6 +54,7 @@ try:
     from TauFW.Utilities.Process import EVENTS_ENV, EventWriter
     from TauFW.Utilities import UserConfig
     from TauFW.Utilities.UserConfig import manage as user_config
+    from TauFW.Framework import user_settings
 except ImportError as err:
     print("\033[1m\033[31mImportError for TauFW.Framework: please check if you compiled with `scram b`.\033[0m")
     raise err
@@ -94,8 +97,12 @@ def cmd_plan(args):
     if plan.bundle_dir:
         reporter.message("Bundle: %s" % (plan.bundle_dir))
     reporter.message("Run root: %s" % (_run_root_line(framework.recipe)))
-    if framework.recipe.first('production'):  # only production reads it (CL §37)
-        reporter.message("PicoProducer config: %s" % (plan.pico_config or "PicoProducer/config/config.json (default)"))
+    production = framework.recipe.first('production')
+    if production:  # only production reads it (CL §37)
+        settings = getattr(framework.stages[production.id], 'settings', None)
+        used = "; from your user config: %s" % (", ".join(settings.used)) if settings and settings.used else ""
+        reporter.message("PicoProducer config: %s%s"
+                         % (plan.pico_config or "PicoProducer/config/config.json (default)", used))
     for stage_plan in plan.stages:
         stage_spec = framework.recipe.stage(stage_plan.stage)
         reporter.header("Stage %s (%s)" % (stage_spec.id, stage_spec.stage))
@@ -269,12 +276,15 @@ def _show_warnings(reporter, warnings):
 
 
 def _run_root_line(recipe, given=None):
-    """Where the runs go, and why: --run-root, the recipe's run_root (absolute, nothing expanded), or the
-    default."""
+    """Where the runs go, and why: --run-root, the recipe's run_root (absolute, nothing expanded), the user
+    config's runs.run_root, or the default."""
     if given:
         return "%s (--run-root)" % (os.path.abspath(given))
     if recipe.run_root:
         return "%s (recipe)" % (recipe.run_root)
+    from_user = user_settings.run_root_or_none()
+    if from_user:
+        return "%s (user config)" % (from_user)
     return "%s (default: no run_root in the recipe)" % (os.path.abspath(DEFAULT_RUN_ROOT))
 
 
@@ -404,7 +414,7 @@ def main(argv=None):
     args.events = EventWriter(os.environ.pop(EVENTS_ENV, None))  # read once; the stages' commands never see it
     try:
         return COMMANDS[args.command](args)
-    except (RecipeError, RunDirectoryError, RunLockError) as error:  # every problem of the recipe, without a traceback
+    except (RecipeError, RunDirectoryError, RunLockError, UserConfig.UserConfigError) as error:  # without a traceback
         reporter = _reporter(args)
         reporter.warning(str(error))
         reporter.event('error', message=str(error))

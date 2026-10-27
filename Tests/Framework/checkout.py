@@ -34,6 +34,24 @@ for _name in ("Fitter", "Histogrammer"):  # no tracked __init__.py (SCRAM genera
 TAUFW_SCRIPT = REPO / "Framework" / "scripts" / "taufw.py"
 
 
+def _neutral_user_config():
+    """A reviewed user config without settings, for every test of this directory: the checkout's own
+    Analyses/UserConfig.yaml is personal (its run_root and production settings change what the Framework does)."""
+    import atexit
+    import os
+    import shutil
+    import tempfile
+    directory = tempfile.mkdtemp(prefix="taufw-userconfig-")
+    atexit.register(shutil.rmtree, directory, True)
+    path = os.path.join(directory, "UserConfig.yaml")
+    with open(path, "w") as stream:
+        stream.write("taufw_user:\n  version: 1\n  reviewed: true\n")
+    os.environ["TAUFW_USER_CONFIG"] = path
+
+
+_neutral_user_config()
+
+
 def reviewed_user_config(test):
     """Point $TAUFW_USER_CONFIG at a reviewed user config of a temporary directory for the duration of `test` (a
     TestCase): the checkout's own Analyses/UserConfig.yaml is personal, and taufw.py warns while it is missing or not

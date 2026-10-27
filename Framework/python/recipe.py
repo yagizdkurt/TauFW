@@ -56,8 +56,10 @@ run_root is the parent directory of the runs: a run is <run_root>/<name>_<YYYYmm
 a mounted file system (not a URL), and outside the bundle directory (every run copies its bundle, so it would copy
 the earlier runs too; a loose recipe file's directory is not copied). Nothing is expanded in a recipe (CL §38): ~ or
 a $VARIABLE is a problem, since another user or machine would get another directory; for a personal place give
-`--run-root` on the command line, where the shell expands it. Without run_root (or with run_root: null) the runs go to taufw_runs/ in the directory taufw.py is started
-from, with a warning. `taufw.py start --run-root DIR` takes precedence over the recipe.
+`--run-root` on the command line, where the shell expands it, or runs.run_root in your user config
+(Analyses/UserConfig.yaml, user_settings.py). Precedence: `taufw.py start --run-root DIR`, then the recipe, then the
+user config; without any of them the runs go to taufw_runs/ in the directory taufw.py is started from, with a
+warning.
 
 A recipe is usually the recipe.yml of an analysis bundle (Analyses/<name>/, see bundle.py): Recipe.load() takes
 the bundle directory or the file, and the path options of the stages are resolved against that directory, with
@@ -92,6 +94,7 @@ from typing import Optional, Tuple
 from TauFW.Framework.bundle import leaves_bundle, is_bundle, is_absolute, path_rows
 from TauFW.Framework.configs import copy_warnings
 from TauFW.Framework.defaults import RECIPE_NAME, DEFAULT_RUN_ROOT, default_file_io
+from TauFW.Framework.user_settings import run_root_or_none as user_run_root
 from TauFW.Framework.stages import STAGES, ORDER, RETIRED, MOVED_CONFIGS, SpecError, spec_from_dict
 
 __all__ = ['Recipe', 'StageSpec', 'Issue', 'RecipeError', 'recipe_warnings']
@@ -615,8 +618,9 @@ def _check_run_root(value, bundle_dir, issues):
 
 def recipe_warnings(data, bundle_dir=None):
     """The warnings of a recipe dict: what it should change, though it can run. Not problems: the recipe is valid
-    with them (and nothing here is checked twice: a run_root that is a problem gets no warning). With the bundle
-    directory, also the bundle files copied from Configs/ templates that have a newer version (configs.py)."""
+    with them (and nothing here is checked twice: a run_root that is a problem gets no warning). No run_root is a
+    warning only if the user config gives none either (user_settings.py). With the bundle directory, also the
+    bundle files copied from Configs/ templates that have a newer version (configs.py)."""
     warnings = []
     if not isinstance(data, dict):
         return warnings
@@ -624,7 +628,9 @@ def recipe_warnings(data, bundle_dir=None):
     stages = data.get('stages') if isinstance(data.get('stages'), list) else []
     production = [entry.get('id', 'production') for entry in stages
                   if isinstance(entry, dict) and entry.get('stage') == 'production']
-    if value is None and production:
+    if value is None and user_run_root():
+        pass  # the runs go to runs.run_root of the user config (the texts below are kept: BBB records them)
+    elif value is None and production:
         warnings.append(Issue('run_root', "not set: the runs go to %s/ in the directory taufw.py is started from, "
                                           "and production stage %r writes its merged tuples into the run "
                                           "directory (often tens of GB). On lxplus that is your AFS space: the home "

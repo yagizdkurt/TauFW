@@ -254,13 +254,17 @@ class PicoProducer(object):
   # ===== Construction =====
 
   @classmethod
-  def from_config(cls,config=None,reporter=None,basedir=None):
+  def from_config(cls,config=None,reporter=None,basedir=None,overrides=None):
     """config: None (config/config.json), a path to a JSON file, a dict, or a Config.
+    overrides: {key: value} replacing keys of the configuration after it is read (e.g. the user config's settings,
+    given by the Framework); in memory only.
     Reads the configuration only: never writes it, never changes the working directory."""
     if config is None or isinstance(config,str):
       config = loadconfig(config)
     elif isinstance(config,dict):
       config = Config(dict(config),"<dict>")
+    for key, value in (overrides or {}).items():
+      config[key] = value
     return cls(config,reporter=reporter,basedir=basedir)
 
   TUPLE_LAYOUT = TUPLE_LAYOUT

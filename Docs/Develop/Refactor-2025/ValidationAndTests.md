@@ -622,3 +622,23 @@ re-captures the whole suite: 22 same, 1 changed): 658 `lumi` fields added, each 
   `framework.production` keeps its `plan` lines (no re-lock expected).
 - Windows: Tests/Utilities 207 OK, Tests/Setup 61 OK, Tests/Framework 211 OK; `check_import_boundaries`: no new pair
   (fails only on the known debt).
+
+## 41. The user config's settings: run_root and the production settings
+
+**Change:** [CL §41](Refactor-2025.md#41-the-user-configs-settings-run_root-and-the-production-settings)
+
+- `Tests/Utilities/test_userconfig.py` (12 tests): the lxplus guesses (`taufw/` on EOS; `run_root` only with an AFS
+  work area; nothing elsewhere), an existing `config.json` wins over them (empty values not taken over, an unreadable
+  file ignored), a new file reads back every value written and the rest as unset, wrong settings named by key
+  (`~` and `$` in `run_root`, text, empty, whole numbers, `True` is not a number), custom sections are not checked.
+- `Tests/Framework/test_user_settings.py` (13 tests): the mapping to configuration keys and request defaults, the
+  recipe wins (`queue`, `ncores`), no `ncores` anywhere leaves PicoProducer's default, a wrong setting raises where
+  used, `run.json` names the settings (and has no `user_config` key without them), `run_root` precedence
+  (`--run-root` > recipe > user config), the warning disappears, a wrong `run_root` stops `start` but not the
+  warnings, `check_recipe` problem for a production recipe only, `plan` lines, `plan` ends in one line on a wrong
+  setting.
+- `Tests/Framework/checkout.py`: a neutral user config for the whole directory.
+- Windows: Tests/Utilities 212 OK, Tests/Framework 224 OK, Tests/Setup 61 OK; `py_compile` of
+  `PicoProducer/python/api/producer.py`; `check_import_boundaries`: no new pair.
+- Not run on Windows (needs PicoProducer): `from_config(overrides=)` with a real configuration; on lxplus
+  `bbb check` must pass without re-lock (no settings in the BBB workspace's user config).

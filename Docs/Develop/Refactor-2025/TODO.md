@@ -51,6 +51,12 @@ Items marked **(verify)** may already be done; check before working on them.
 
 The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go here until they are run.
 
+- [ ] **User config settings (CL §41):** in an installed checkout without `Analyses/UserConfig.yaml`,
+      `python3 taufw.py userconfig` writes the lxplus guesses (`taufw/` on EOS; `run_root` if the AFS work area
+      exists; values of `PicoProducer/config/config.json` if it exists); `python3 taufw.py plan
+      Analyses/example_mutau_short` shows `Run root: ... (user config)` and `from your user config: ...`; a
+      `plan --local` test runs with the user config's `outdir`; `python3 Tests/run.py bbb check` passes without
+      re-lock. Paste the real outputs into `Docs/Manual/1-GettingStarted/UserConfig.md` (TODO comments there).
 - [ ] **User config (CL §40):** a FastSetup install (or `python3 taufw.py userconfig` in an installed checkout) makes
       `Analyses/UserConfig.yaml` and its summary names it; `git status` does not list it; the menu does not show it as
       a recipe; `python3 taufw.py check Analyses/tes_id_2025` warns "not reviewed yet" in one line until
@@ -219,14 +225,18 @@ Parts 1–5 are done (CL §5–§8; the Part 2 changelog section was removed).
 
 ## 6. Framework
 
-- [ ] **User config: its settings (CL §40).** The infrastructure is done; which settings it holds is open (proposal
-      to the group, 2026-10-27: storage base, PicoProducer job output/nano/tmp directories, batch system, queue and
-      options, `ncores`/hadd settings, a personal default `run_root`; not eras/channels, job splitting or physics
-      configs). For each setting: a section in `UserConfig/_template.py` (a guess from the host where possible), its
-      reader (precedence: command line > recipe > user config > built-in guess), and for an existing
-      `PicoProducer/config/config.json` its values taken over by `create()`. Then: a missing user config becomes a
-      problem for a recipe with a production stage; standalone `pico.py` keeps `config.json` until the migration
-      point (`pico.py install`, still a stub, is the place to make the user config from it).
+- [ ] **A run keeps the settings it started with (user decision 2026-10-27, CL §41).** `advance` builds the
+      production stage again and reads `PicoProducer/config/config.json` and the user config anew, so a change of
+      either between `start` and `advance` applies to the rest of the run. Already submitted jobs are safe (their
+      `outdir` is in their job config), but a resubmission plans its `outdir` from the configuration again
+      (`jobs/planner.py`: `repkey(config.outdir)`), and the merge looks only in the last try's `outdir`: chunks of
+      earlier tries in the old directory are then missing. Fix: `advance` uses the snapshot `start` wrote to
+      `run.json` (`pico_config.snapshot`, which already includes the user config's settings), and/or a resubmission
+      keeps the previous try's `outdir`. Until then the Manual says: do not change `outdir` during a run.
+- [ ] **User config: next steps (CL §41).** Standalone `pico.py` keeps `config.json` until the migration point
+      (`pico.py install`, still a stub, is the place to make the user config from it); then `pico.py` reads the
+      same settings. The texts of the run_root warning and of `Run root: ... (default: no run_root in the recipe)`
+      do not mention the user config (BBB records them): change them with a re-lock if wanted.
 - [ ] **Half-done job submission (production).** If the process dies (SIGKILL: logout, a lost SSH connection, a
       restarted machine) after condor accepted the jobs but before `run.json` records them, `run.json` still says
       "nothing submitted" and the next `advance` submits everything again (duplicate jobs, duplicate output, quota).

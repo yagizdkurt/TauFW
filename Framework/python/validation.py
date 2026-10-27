@@ -37,6 +37,7 @@ from dataclasses import dataclass
 from typing import Optional, Tuple
 
 from TauFW.Framework.bundle import path_rows, is_absolute
+from TauFW.Framework.user_settings import production_problems
 from TauFW.Framework.manifest import read_stage_dir, ManifestError
 from TauFW.Framework.stages import STAGES
 from TauFW.Framework.stages.local import fixed_directory
@@ -64,6 +65,8 @@ def check_recipe(path, files=None):
     pico = data.get('pico') if isinstance(data, dict) else None
     issues = list(issues) + _file_issues(pico.get('config') if isinstance(pico, dict) else None, stage_specs,
                                          bundle_dir)
+    if any(stage_spec.stage == 'production' for _, stage_spec in stage_specs):  # its settings (user_settings.py)
+        issues.extend(Issue('user config', problem) for problem in production_problems())
     name = data.get('name') if isinstance(data, dict) and isinstance(data.get('name'), str) else source
     return RecipeCheck(name=name, path=path, recipe=None if issues else recipe,
                        stages=tuple((s.id, s.stage, s.description) for _, s in stage_specs),

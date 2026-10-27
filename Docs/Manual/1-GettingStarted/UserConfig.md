@@ -1,7 +1,7 @@
 # Your user config
 
-**You'll learn:** what the user config file is, where it lives, how to mark it as checked, and how to read it from
-your own Python scripts.
+**You'll learn:** what the user config file is, where it lives, what its settings do, how to mark it as checked,
+and how to read it from your own Python scripts.
 **You need:** TauFW installed with [FastSetup](../FastSetup.md).
 
 Some settings belong to you, not to an analysis. Where your EOS area is, which batch queue you like, where your runs
@@ -16,10 +16,9 @@ Analyses/UserConfig.yaml
 
 Git ignores it, so you can't commit it by accident, and a `git pull` never overwrites it. Nobody else sees it.
 
-One honest note before you start: the file is new, and right now it doesn't hold any settings yet. The TauFW group
-is still deciding what goes in. So today the file is mostly a header, and the next sections show you how it works
-so you're ready when the settings arrive. Until then, production still takes its paths and batch settings from
-`PicoProducer/config/config.json`, as before.
+TauFW reads two kinds of settings from it: where your runs go, and your personal settings for production (your
+EOS folders, the batch system, the queue). It reads them when you run a recipe, with `taufw.py` or the menu. The
+plain `pico.py` commands don't read the file. They keep using `PicoProducer/config/config.json`, as before.
 
 ## Where it comes from
 
@@ -40,22 +39,105 @@ the file is and whether you still need to check it.
 
 ## Open it and check it
 
-Open the file in any editor. A new one looks like this:
+Open the file in any editor. On lxplus, a new one looks like this (here for the user `jdoe`):
 
 ```yaml
 # TauFW user configuration: your personal and machine settings.
 #
 # Made by the setup (or `python3 taufw.py userconfig`). Git ignores this file and nothing overwrites it.
-# Set reviewed to true once you checked the values below: until then, taufw.py check, plan and start warn.
-# The settings are added here as TauFW starts to read them.
+# Check the values below, then set reviewed to true: until then, taufw.py check, plan and start warn.
+# A line that starts with # is not set: TauFW uses its own default. Remove the # to set it.
+# Your own sections (e.g. mystudy:) are kept: read them with TauFW.Utilities.UserConfig.
+# Guessed for lxplus (user jdoe).
 
 taufw_user:
   version: 1           # the format of this file (set by TauFW, do not change)
   reviewed: false      # true: you checked this file
+
+runs:
+  # where your runs go when the recipe has no run_root and you give no --run-root
+  run_root: "/afs/cern.ch/work/j/jdoe/taufw_runs"
+
+production:
+  # the batch system: HTCondor, SLURM, ...
+  batch: "HTCondor"
+  # the queue (HTCondor: job flavour), when the recipe gives none
+  # queue: "workday"
+  # extra batch options, when the recipe gives none
+  # batchopts: ""
+  # the output of the jobs, before the merge
+  outdir: "/eos/user/j/jdoe/taufw/output/$ERA/$CHANNEL/$SAMPLE"
+  # the output of skim jobs
+  nanodir: "/eos/user/j/jdoe/taufw/samples/nano/$ERA/$DAS"
+  # a temporary directory of skim jobs
+  # tmpskimdir: "/tmp/user"
+  # processes that count events and check files at once, when the recipe gives none
+  # ncores: 4
+  hadd:
+    # another command to merge the files
+    # cmd: "python3 haddnano.py"
+    # files the merge opens at once
+    # maxopenfiles: 500
 ```
+
+The setup guessed the values that have no `#` in front. A line that starts with `#` is not set, and TauFW uses its
+own default for it. To set one, remove the `#` and change the value.
 
 The `taufw_user` block at the top is the header. Leave `version` alone, TauFW uses it to know which format the file
 is in.
+
+### Where the values come from
+
+The setup fills in what it can work out for you:
+
+- Your job output goes to a `taufw/` folder in your EOS area, so TauFW doesn't spread its folders all over your
+  EOS home.
+- Your runs go to your AFS work area, `/afs/cern.ch/work/<initial>/<username>/taufw_runs`. Not everyone has a work
+  area. If you don't, `run_root` stays a comment line, and you should pick a folder with enough space yourself.
+  Your AFS home is too small for runs.
+- If you already had a `PicoProducer/config/config.json` (because you used `pico.py` before), its values win over
+  the guesses. So if you once moved your job output somewhere else, recipes keep using that folder. The file says
+  so in a comment line at the top: `Taken from .../config.json: ...`.
+
+Outside lxplus nothing is guessed, all settings are comment lines, and PicoProducer keeps its own defaults.
+
+### What each setting does
+
+| Setting | What it does | If you don't set it |
+| --- | --- | --- |
+| `runs.run_root` | The folder where your runs are made, when the recipe has no `run_root` and you don't give `--run-root`. | Runs go to `taufw_runs/` in the folder you start from, with a warning. |
+| `production.batch` | The batch system. On lxplus it's `HTCondor`. | PicoProducer's guess for your machine. |
+| `production.queue` | The queue, for HTCondor the job flavour (`espresso`, `workday`, ...). | Nothing: the batch system's default. |
+| `production.batchopts` | Extra options for the batch system. | None. |
+| `production.outdir` | Where jobs write their output, before it's merged into tuples. | PicoProducer's default folder. |
+| `production.nanodir` | Where skim jobs write their output. | PicoProducer's default folder. |
+| `production.tmpskimdir` | A temporary folder for skim jobs. | None. |
+| `production.ncores` | How many files are checked at once, when TauFW counts events and validates job output. It's not the number of cores of a job. | 4. |
+| `production.hadd.cmd` | Another command to merge the files, instead of `hadd`. | `hadd`. |
+| `production.hadd.maxopenfiles` | How many files the merge opens at once. | 500. |
+
+### Who wins
+
+The recipe is shared, so it says what the analysis needs. Your user config says what you prefer. When both say
+something, the recipe wins:
+
+- `run_root`: `--run-root` on the command line first, then the recipe, then your user config.
+- `queue`, `batchopts`, `ncores`: the recipe's option first, then your user config.
+- `batch`, `outdir`, `nanodir`, `tmpskimdir`, `hadd`: these aren't recipe options. Your user config wins over
+  `PicoProducer/config/config.json`.
+
+You don't have to guess which one was used. `plan` tells you:
+
+<!-- TODO: real output of python3 taufw.py plan Analyses/example_mutau_short on lxplus, with a user config
+     (the "Run root: ... (user config)" and "PicoProducer config: ...; from your user config: ..." lines) -->
+
+And every run keeps a note of which settings came from your user config, in its `run.json`.
+
+One rough edge: don't change `outdir` while a run is still producing tuples. Jobs that are already running keep
+writing to the old folder, but a job that gets resubmitted writes to the new one, and the merge then can't find
+all the pieces. Change it between runs.
+
+### Mark it as checked
 
 `reviewed` is for you. It says whether you've looked at the file yet. As long as it's `false`, every
 `taufw.py check`, `plan` and `start` prints one extra warning line, reminding you that the file is there and still
@@ -70,7 +152,9 @@ taufw_user:
 
 If the file is missing, you'll get a similar one-line warning that tells you to run `python3 taufw.py userconfig`.
 If the file is broken (say, a YAML typo, or `reviewed: maybe`), the warning names the file and says what's wrong
-with it.
+with it. A setting with a wrong value, like `ncores: 0` or a `run_root` that starts with `~`, gets a warning line
+too. A wrong `production` setting is also a problem for any recipe with a production stage: `check` lists it, and
+`plan` and `start` stop with the same message before anything is submitted. A wrong `run_root` stops `start`.
 
 ## Reading it from your own scripts
 
@@ -145,8 +229,8 @@ Both give you a copy, so changing it in your script doesn't change anything else
 ### Adding your own settings
 
 You can put your own sections into the file, like `mystudy` above. TauFW keeps everything you write there. Pick a
-section name that's clearly yours (your study's name works well), so it won't clash with the settings TauFW adds
-later.
+section name that's clearly yours (your study's name works well), so it won't clash with `runs`, `production` or
+the settings TauFW adds later.
 
 One thing to think about: a [python step](../4-Concepts/Glossary.md) in an analysis bundle can read the user config
 too, but then the bundle only works for people who have the same keys in their own file. If you plan to share a

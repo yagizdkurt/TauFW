@@ -68,6 +68,7 @@ from TauFW.Framework.samples import sample_issues
 from TauFW.Framework.run_record import RunRecord, RunState
 from TauFW.Framework.run_lock import RunLock, RunLockError
 from TauFW.Framework.interrupts import deferred_interrupt
+from TauFW.Framework import user_settings
 from TauFW.Framework.reporting import FrameworkReporter
 from TauFW.Framework.validation import read_source
 from TauFW.Framework.stages import (STAGES, StageState, StageContext, StageNotImplemented, PreflightError,
@@ -141,8 +142,9 @@ class Framework:
 
     def start(self, recipe=None, run_root=None):
         """Create the run directory, copy the bundle files and write run.json, then call advance() once.
-        run_root: the parent of the run directory; it takes precedence over the recipe's run_root, and without
-        both it is taufw_runs/ (in the working directory). A run_root that is given (here or in the recipe) is
+        run_root: the parent of the run directory; it takes precedence over the recipe's run_root, then comes
+        runs.run_root of the user config (user_settings.py), and without any of them it is taufw_runs/ (in the
+        working directory). A run_root that is given (here or in the recipe) is
         first tried with a small file written and removed: if that fails, RunDirectoryError and nothing is made.
         Side effects: creates <run_root>/<name>_<time>/ with run.json, run.log and bundle/, and runs the first
         stage steps (the production stage, for example, submits its jobs)."""
@@ -152,7 +154,7 @@ class Framework:
             raise RecipeError(recipe.source, problems)
         for warning in warnings:
             self.reporter.warning(str(warning))
-        run_root = run_root or recipe.run_root
+        run_root = run_root or recipe.run_root or user_settings.run_root()
         if run_root:
             check_writable(run_root, "run root")
         record = RunRecord.create(recipe, run_root or DEFAULT_RUN_ROOT, pico_config=self._pico_config(recipe),
@@ -390,8 +392,12 @@ class Framework:
         production = recipe.first('production')
         stage = self.stages.get(production.id) if production else None
         config = getattr(getattr(stage, 'pico', None), 'config', None)
-        return {'path': getattr(config, '_path', recipe.pico_config_path),
-                'snapshot': dict(getattr(config, '_dict', {})) or None}
+        record = {'path': getattr(config, '_path', recipe.pico_config_path),
+                  'snapshot': dict(getattr(config, '_dict', {})) or None}
+        settings = getattr(stage, 'settings', None)
+        if settings and settings.used:  # only then: a run without them records what it did before
+            record['user_config'] = {'path': str(settings.path), 'settings': list(settings.used)}
+        return record
 
     def _now(self):
         return timestamp(self.clock())
@@ -420,7 +426,9 @@ class Framework:
         for stage_spec in recipe.stages:
             name, stage_id = stage_spec.stage, stage_spec.id
             if name == 'production':
-                stages[stage_id] = ProductionStage(pico or _picoproducer(recipe, reporter))
+                settings = user_settings.production_settings()
+                stages[stage_id] = ProductionStage(pico or _picoproducer(recipe, reporter, settings.overrides),
+                                                   settings)
             elif name == 'controlhists':
                 histogrammer = histogrammer or _histogrammer()
                 stages[stage_id] = ControlHistsStage(histogrammer)
@@ -589,11 +597,13 @@ def _jsonable(value):
     return json.loads(json.dumps(value))
 
 
-def _picoproducer(recipe, reporter):
-    """The PicoProducer of a recipe. It is imported only here, so the Framework can be imported (and tested)
-    without PicoProducer and ROOT."""
+def _picoproducer(recipe, reporter, overrides=None):
+    """The PicoProducer of a recipe, its configuration with the keys the user config replaces (overrides,
+    user_settings.py). It is imported only here, so the Framework can be imported (and tested) without
+    PicoProducer and ROOT."""
     from TauFW.PicoProducer.api import PicoProducer
-    return PicoProducer.from_config(recipe.pico_config_path, reporter=reporter.pico_reporter('production'))
+    return PicoProducer.from_config(recipe.pico_config_path, reporter=reporter.pico_reporter('production'),
+                                    overrides=overrides)
 
 
 def _fitter():

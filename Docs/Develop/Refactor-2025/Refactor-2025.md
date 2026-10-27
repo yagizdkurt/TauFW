@@ -1559,3 +1559,51 @@ config once it holds settings; its code lives in `Utilities/python/UserConfig/`.
   `taufw.py` tests (`checkout.reviewed_user_config`) point `$TAUFW_USER_CONFIG` at a reviewed file of their
   temporary directory, so the output of `taufw.py plan` (BBB `framework.production`) does not change: no re-lock.
 - Nothing reads a setting yet; PicoProducer, Histogrammer, Fitter and the scripts are unchanged.
+
+## 41. The user config's settings: run_root and the production settings
+
+**Date:** 2026-10-27
+**Status:** done
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#41-the-user-configs-settings-run_root-and-the-production-settings)
+
+**Details:** proposal to the group (2026-10-27) and user decisions the same day: the recipe wins over the user
+config; a new file takes over the values of an existing `PicoProducer/config/config.json`; a change of the user
+config between `start` and `advance` is a TODO; the job output of the lxplus guesses goes to a `taufw/` directory
+of the EOS area. Found while checking the PicoProducer API: a recipe's production never read `queue`, `batchopts`
+and `ncores` of the PicoProducer configuration (only `pico.py` takes them, as argparse defaults), so the user config
+gives them as request defaults, not as configuration keys. `storage.base` (first proposal) and `picodir` are not
+settings: the first would not move the directories made from it, the second is not read by recipes.
+
+- **Settings** (`Utilities/python/UserConfig/_template.py`, `SETTINGS`): `runs.run_root`; `production.batch`,
+  `queue`, `batchopts`, `outdir`, `nanodir`, `tmpskimdir`, `ncores`, `hadd.cmd`, `hadd.maxopenfiles`. Each has a
+  kind, checked by `manage.setting_problems(config, section)`: `run_root` absolute with nothing expanded (the
+  recipe's rule), the directories non-empty text, `ncores` and `maxopenfiles` whole numbers from 1. Other keys and
+  sections stay the user's.
+- **A new file** (`manage.create()`, `_guesses.py`): on lxplus `batch: HTCondor`,
+  `outdir: /eos/user/<u>/<user>/taufw/output/$ERA/$CHANNEL/$SAMPLE`,
+  `nanodir: /eos/user/<u>/<user>/taufw/samples/nano/$ERA/$DAS`, and `run_root: /afs/cern.ch/work/<u>/<user>/taufw_runs`
+  if that work area exists. The non-empty values of an existing `PicoProducer/config/config.json` win over the
+  guesses (read as JSON: Utilities never imports PicoProducer). Every other setting is a comment line with an
+  example; a comment line at the top says where the values came from. Elsewhere nothing is guessed.
+- **Precedence** (`Framework/python/user_settings.py`, the Framework's only reader; it uses `UserConfig.load()`):
+  - `run_root`: `--run-root` > recipe > `runs.run_root` > `taufw_runs/`. `Framework.start` takes it; the
+    recipe's "run_root: not set" warning is not given when the user config has one; `plan`/`start` print
+    `Run root: <dir> (user config)`; the menu also lists the runs of that directory.
+  - `batch`, `outdir`, `nanodir`, `tmpskimdir`, `hadd.cmd` (-> `haddcmd`), `hadd.maxopenfiles`
+    (-> `maxopenfiles`): replace those keys of the PicoProducer configuration (`config.json` or `pico.config`), in
+    memory, through the new `PicoProducer.from_config(..., overrides=)`.
+  - `queue`, `batchopts`, `ncores`: request defaults of the production stage (`ProductionStage(pico, settings)`),
+    used when the recipe leaves the option unset. `ProductionSpec.ncores` defaults to `None` (was 4); with neither,
+    the field is left out and the JobRequest default (4) applies, as before.
+- **Shown and recorded:** `plan` prints `PicoProducer config: <path>; from your user config: <dotted keys>`;
+  `run.json` gets `pico_config.user_config = {path, settings}`, only when a setting was used (a run without
+  settings writes what it wrote before).
+- **Wrong values:** `manage.check()` lists them as warnings (every command). For a recipe with a production stage,
+  `check_recipe` adds them as problems (`user config`), so `check` fails and the menu shows the recipe red;
+  `plan`/`start` stop with a `UserConfigError` in one line (taufw.py catches it). A wrong `run_root` stops `start`;
+  the warnings and `plan` treat it as not set. The menu's recipe previews include the user config in their file
+  signature, so they are read again after it changes.
+- **Unchanged:** `pico.py` and the scripts (they read `config.json` only); the run_root warning and the
+  `(default: no run_root in the recipe)` line keep their text (BBB `framework.production` records them).
+- **Tests:** every test of `Tests/Framework` runs with a neutral user config (`checkout.py` sets
+  `$TAUFW_USER_CONFIG` to a reviewed file without settings), so a developer's own file changes nothing.

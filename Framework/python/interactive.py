@@ -30,7 +30,9 @@ from TauFW.Framework.framework import Framework
 from TauFW.Framework.reporting import SilentReporter
 from TauFW.Framework.run_lock import read_lock
 from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation, Prefetch
+from TauFW.Utilities import UserConfig
 from TauFW.Utilities.UserConfig.manage import FILE_NAME as USER_CONFIG_NAME
+from TauFW.Framework.user_settings import run_root_or_none as user_run_root
 from TauFW.Utilities.Process import LOST, EventReader, OperationStore
 
 CHECKOUT = Path(__file__).resolve().parents[2]
@@ -111,9 +113,12 @@ class _Operations:
         return view
 
     def run_roots(self):
-        """Where runs are looked for: taufw_runs/ in the launch directory, and the run_root of every recipe in the
-        recipes directory (also of a recipe with problems, if its run_root can be read)."""
+        """Where runs are looked for: taufw_runs/ in the launch directory, runs.run_root of the user config, and the
+        run_root of every recipe in the recipes directory (also of a recipe with problems, if its run_root can be
+        read)."""
         roots = [self.launch_dir / DEFAULT_RUN_ROOT]
+        if user_run_root():
+            roots.append(Path(user_run_root()))
         for path in self.recipes():
             value = self._kept_value("root", path, _file_signature)
             if value is None:
@@ -441,11 +446,13 @@ def _file_signature(path):
 
 
 def _recipe_signature(path):
-    """The signature of every file a recipe's check reads: the recipe file, or every file of its bundle, and the
-    templates of Configs/ (its copies are compared with them). Hidden files and directories are skipped."""
+    """The signature of every file a recipe's check reads: the recipe file, or every file of its bundle, the
+    templates of Configs/ (its copies are compared with them) and the user config (its run_root and production
+    settings). Hidden files and directories are skipped."""
     path = Path(path)
     files = _tree(path) if path.is_dir() else [path]
-    return tuple((str(file), _file_signature(file)) for file in files + _tree(Path(CONFIGS_DIR)))
+    return tuple((str(file), _file_signature(file))
+                 for file in files + _tree(Path(CONFIGS_DIR)) + [UserConfig.location()])
 
 
 def _tree(directory):

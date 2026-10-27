@@ -200,15 +200,27 @@ class ProductionStage(Stage):
     # ============================= CONSTRUCTION ==============================
 
     def request(self, spec, context=None, **overrides):
-        """The PicoProducer request (JobRequest) built from the recipe options, with optional overrides. With a
-        run (context.run_dir), the tuples go to the stage's directory (tupledir, absolute)."""
-        fields = dict(spec.request_dict(), **overrides)
+        """The PicoProducer request (JobRequest) built from the recipe options, with optional overrides. A field the
+        recipe leaves unset (None: queue, batchopts, ncores) takes the stage's default (the user config,
+        user_settings.py), else PicoProducer's. With a run (context.run_dir), the tuples go to the stage's
+        directory (tupledir, absolute)."""
+        fields = spec.request_dict()
+        for field_name, value in self.defaults.items():
+            if fields.get(field_name) is None:
+                fields[field_name] = value
+        if fields.get('ncores') is None:  # in neither the recipe nor the user config: PicoProducer's default (4)
+            del fields['ncores']
+        fields.update(overrides)
         if context is not None and context.run_dir:
             fields['tupledir'] = os.path.abspath(context.stage_dir())
         return self.pico.request(**fields)
 
-    def __init__(self, pico):
+    def __init__(self, pico, settings=None):
+        """settings: the user config's settings of the stage (user_settings.ProductionSettings): its defaults are
+        the request fields for the options the recipe leaves unset ({'queue': 'workday', ...})."""
         self.pico = pico
+        self.settings = settings
+        self.defaults = dict(settings.defaults) if settings else {}
 
 
 # =============================================================================
@@ -253,7 +265,7 @@ class ProductionSpec:
     checkdas:     bool = False
     checkevts:    bool = True
     checkexpevts: Optional[bool] = None
-    ncores:       int = 4
+    ncores:       Optional[int] = None     # None: the user config's production.ncores, else 4 (PicoProducer)
     verbosity:    int = 0
     max_tries:    int = 3
     merge:        MergeSpec = field(default_factory=MergeSpec)

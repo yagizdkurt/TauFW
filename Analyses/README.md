@@ -348,10 +348,13 @@ run_root: /afs/cern.ch/work/u/user/taufw_runs
 ```
 
 - A run is `<run_root>/<name>_<YYYYmmdd-HHMMSS>/`. `start --run-root DIR` takes
-  precedence over the recipe; without both, the runs go to `taufw_runs/` in the
-  directory where you launch `taufw.py`.
+  precedence over the recipe, the recipe over `runs.run_root` of your user config
+  (`Analyses/UserConfig.yaml`, see [Your user config](../Docs/Manual/1-GettingStarted/UserConfig.md));
+  without any of them, the runs go to `taufw_runs/` in the directory where you
+  launch `taufw.py`. `plan` and `start` say which one they use: `(--run-root)`,
+  `(recipe)`, `(user config)` or `(default: ...)`.
 - Without `run_root` (or with `run_root: null`) the recipe is valid, but
-  `check`, `plan`, `start` and the menu warn. Runs can be large; on lxplus the
+  `check`, `plan`, `start` and the menu warn, unless your user config gives one. Runs can be large; on lxplus the
   default place is usually your AFS area, and the home directory's quota is
   small. A full quota stops a run midway. Choose a directory with enough space
   (e.g. under `/afs/cern.ch/work/`).
@@ -382,7 +385,10 @@ For a loose recipe file outside a bundle, only the files its options name are
 copied.
 
 `config: null` uses PicoProducer's normal default
-`PicoProducer/config/config.json`. That configuration supplies sample catalogs,
+`PicoProducer/config/config.json`. Your user config's `production` settings replace
+its storage and batch keys (`batch`, `outdir`, `nanodir`, `tmpskimdir`, `haddcmd`,
+`maxopenfiles`), and give `queue`, `batchopts` and `ncores` when the production
+stage does not; `plan` names the settings it took. That configuration supplies sample catalogs,
 channels, storage paths, and batch defaults; recipes select and override job
 settings rather than defining those catalogs themselves. See the
 [PicoProducer documentation](../PicoProducer/README.md) and

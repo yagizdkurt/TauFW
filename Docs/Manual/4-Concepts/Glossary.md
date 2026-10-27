@@ -140,9 +140,10 @@ The file `run.json` inside a *run* folder. It remembers where every stage is, so
 even from a different terminal or on a different day.
 
 **run_root**
-The folder where your *runs* are created. Set it in the recipe. On lxplus, pick a place with enough space, like
-your `/afs/cern.ch/work/...` area. The home directory is too small for tuples. If you don't set it, runs go to
-`taufw_runs/` in the folder you started from, and TauFW warns you about it.
+The folder where your *runs* are created. Set it in the recipe, or once for all your recipes in your *user
+config*. On lxplus, pick a place with enough space, like your `/afs/cern.ch/work/...` area. The home directory is
+too small for tuples. If neither sets it, runs go to `taufw_runs/` in the folder you started from, and TauFW warns
+you about it.
 
 **sample**
 One dataset. For example a Drell-Yan simulation sample, or one period of real data. Each era has a list of its
@@ -183,7 +184,7 @@ simulation by it to correct it.
 
 **user config**
 Your own settings file, `Analyses/UserConfig.yaml`. It holds things that belong to you rather than to an analysis,
-and git ignores it. FastSetup makes it, and `python3 taufw.py userconfig` makes it if you don't have one. See
+like your *run_root*, your EOS folders and your batch queue, and git ignores it. FastSetup makes it, and `python3 taufw.py userconfig` makes it if you don't have one. See
 [Your user config](../1-GettingStarted/UserConfig.md).
 
 **working point** (WP)

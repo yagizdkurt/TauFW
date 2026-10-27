@@ -10,6 +10,7 @@ from unittest import mock
 import checkout  # noqa: F401  (must precede TauFW.Utilities imports)
 from TauFW.Utilities import UserConfig
 from TauFW.Utilities.UserConfig import manage
+from TauFW.Utilities.UserConfig import _guesses
 
 REVIEWED = "taufw_user:\n  version: 1\n  reviewed: true\n"
 
@@ -56,11 +57,12 @@ class UserConfigTests(unittest.TestCase):
                          ["No user config %s: create it with `python3 taufw.py userconfig`" % (self.path)])
 
     def test_create_writes_once_and_never_overwrites(self):
-        self.assertTrue(manage.create(self.path))
+        self.assertTrue(manage.create(self.path, values={}))
         text = self.path.read_text(encoding="utf-8")
         config = UserConfig.load(self.path)
         self.assertTrue(config.exists)
-        self.assertEqual((config.version, config.reviewed, config.values), (1, False, {}))
+        self.assertEqual((config.version, config.reviewed), (1, False))
+        self.assertEqual([s.key for s in manage.SETTINGS if config.get(s.key) is not None], [])  # all commented
         self.assertEqual(manage.check(config),
                          ["User config %s is not reviewed yet: check its values, then set reviewed: true"
                           % (self.path)])
@@ -101,6 +103,66 @@ class UserConfigTests(unittest.TestCase):
         with mock.patch.dict(os.environ, {manage.ENVVAR: str(self.path)}):
             (warning,) = manage.check()
         self.assertIn("not a YAML mapping", warning)
+
+    def test_lxplus_guesses_keep_eos_tidy_and_need_the_afs_work_area(self):
+        """The job output goes to a taufw/ directory of the EOS area; run_root only if the AFS work area exists."""
+        missing = self.root / "no-config.json"
+        with mock.patch.object(_guesses.os.path, "isdir", return_value=True):
+            values, sources = _guesses.new_values(host="lxplus961.cern.ch", user="jdoe", pico_config=missing)
+        self.assertEqual(values, {
+            "production.batch": "HTCondor",
+            "production.outdir": "/eos/user/j/jdoe/taufw/output/$ERA/$CHANNEL/$SAMPLE",
+            "production.nanodir": "/eos/user/j/jdoe/taufw/samples/nano/$ERA/$DAS",
+            "runs.run_root": "/afs/cern.ch/work/j/jdoe/taufw_runs"})
+        self.assertEqual(sources, ["Guessed for lxplus (user jdoe)."])
+        with mock.patch.object(_guesses.os.path, "isdir", return_value=False):
+            values, _ = _guesses.new_values(host="lxplus961.cern.ch", user="jdoe", pico_config=missing)
+        self.assertNotIn("runs.run_root", values)
+        self.assertEqual(_guesses.new_values(host="mylaptop", user="jdoe", pico_config=missing), ({}, []))
+
+    def test_an_existing_picoproducer_config_wins_over_the_guesses(self):
+        pico = self.root / "config.json"
+        pico.write_text('{"outdir": "/eos/user/j/jdoe/mine/$ERA/$CHANNEL/$SAMPLE", "queue": "", "ncores": 8, '
+                        '"maxopenfiles": 500, "batch": "HTCondor", "eras": {"2018": "x.py"}}', encoding="utf-8")
+        with mock.patch.object(_guesses.os.path, "isdir", return_value=False):
+            values, sources = _guesses.new_values(host="lxplus961.cern.ch", user="jdoe", pico_config=pico)
+        self.assertEqual(values["production.outdir"], "/eos/user/j/jdoe/mine/$ERA/$CHANNEL/$SAMPLE")
+        self.assertEqual(values["production.nanodir"], "/eos/user/j/jdoe/taufw/samples/nano/$ERA/$DAS")  # guessed
+        self.assertEqual((values["production.ncores"], values["production.hadd.maxopenfiles"]), (8, 500))
+        self.assertNotIn("production.queue", values)  # empty: not taken over
+        self.assertEqual(sources[1], "Taken from %s: production.batch, production.hadd.maxopenfiles, "
+                                     "production.ncores, production.outdir." % (pico))
+        pico.write_text("not json", encoding="utf-8")
+        self.assertEqual(_guesses.new_values(host="x", user="jdoe", pico_config=pico), ({}, []))
+
+    def test_a_new_file_reads_back_what_was_written(self):
+        values = {"runs.run_root": "/afs/cern.ch/work/j/jdoe/taufw_runs", "production.queue": "workday",
+                  "production.outdir": "/eos/user/j/jdoe/taufw/output/$ERA/$CHANNEL/$SAMPLE",
+                  "production.hadd.maxopenfiles": 100}
+        self.assertTrue(manage.create(self.path, values=values, sources=["Guessed for lxplus (user jdoe)."]))
+        text = self.path.read_text(encoding="utf-8")
+        self.assertIn("# Guessed for lxplus (user jdoe).", text)
+        self.assertIn('  # batchopts: ""', text)  # not set: a comment line with an example
+        config = UserConfig.load(self.path)
+        for setting in manage.SETTINGS:
+            self.assertEqual(config.get(setting.key), values.get(setting.key), setting.key)
+        self.assertEqual(manage.setting_problems(config), [])
+
+    def test_wrong_settings_are_named_with_their_key(self):
+        self.write(REVIEWED + "runs:\n  run_root: ~/runs\nproduction:\n  outdir: 5\n  nanodir: ' '\n"
+                   "  ncores: 0\n  queue: workday\n  hadd:\n    maxopenfiles: true\nmystudy:\n  x: 5\n")
+        config = UserConfig.load(self.path)
+        self.assertEqual(manage.setting_problems(config), [
+            "runs.run_root: must be an absolute directory (got '~/runs')",
+            "production.outdir: must be text (got 5)",
+            "production.nanodir: must not be empty (got ' ')",
+            "production.ncores: must be a whole number from 1 (got 0)",
+            "production.hadd.maxopenfiles: must be a whole number from 1 (got True)"])
+        self.assertEqual(len(manage.setting_problems(config, "production")), 4)
+        self.assertEqual(manage.check(config)[0], "%s: runs.run_root: must be an absolute directory (got '~/runs')"
+                         % (self.path))
+        self.write(REVIEWED + "runs:\n  run_root: /afs/$USER/runs\n")
+        self.assertIn("nothing is expanded", manage.setting_problems(UserConfig.load(self.path))[0])
 
     def test_importable_before_cmsenv_as_a_top_level_package(self):
         """FastSetup imports it with Utilities/python on sys.path and no TauFW package."""
