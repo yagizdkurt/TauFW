@@ -22,6 +22,46 @@ Arrow keys, Home/End, Page Up/Page Down, Backspace and Delete edit the document.
 Tab inserts spaces up to the next two-column tab stop. Enter inserts a newline
 without automatic indentation, so multiline terminal pastes retain their indentation.
 
+## Read-only reference pane
+
+Pass `reference=path_to_readme` to show a Markdown or text file alongside any
+edited file. The caller chooses both paths and the title; Editor has no knowledge
+of the user config or the repository layout. The menu's user config action passes
+`Docs/Manual/1-GettingStarted/UserConfig.md` from its own checkout, including when
+`TAUFW_USER_CONFIG` points outside that checkout.
+
+```python
+result = edit_file(screen, "settings.yaml", title="Settings",
+                   validate=check_draft, reference="README.md")
+```
+
+At 110 columns or more, the editor uses about 60% of the width and the reference
+uses the rest. Below that, the editor opens alone and the reference takes the
+body's full width when selected. The existing minimum remains 40 x 10.
+
+- F6 switches focus; on a narrow terminal it switches the visible pane too.
+- F4 hides the reference or opens it with focus. Hiding returns to editing.
+- Up/Down and Page Up/Down move within the focused pane, independently.
+- In the reference, Left/Right scroll long code lines horizontally, Home goes
+  to the start and End goes to the last page. Typing, Tab and deletion are ignored.
+- Tab still indents in the editor. F2 saves the edited file from either pane;
+  Esc/F10/Ctrl-C leave with the usual unsaved-changes question.
+
+The focused pane's title has a `>` marker and its border is highlighted when
+colors are available. The edit cursor, reference position and hidden-pane choice
+survive toggling and resizing. Reflow keeps the reference near the same source
+location. Save errors and confirmation panels take priority over pane controls.
+
+Markdown presentation supports headings, soft-wrapped paragraphs, lists, inline
+code/emphasis, links shown with their targets, fenced code and pipe tables.
+Tables are shown as labelled fields to fit a narrow pane. Fenced code and plain
+text retain indentation and use horizontal scrolling. Other Markdown constructs
+remain source text; this is a terminal reader, not a full Markdown/browser engine.
+The file is read once when opened. An unavailable or invalid UTF-8 reference shows
+an error inside its pane without preventing editing or saving the main file.
+`_reference.py` owns reading, formatting and viewport position without importing
+curses; `_screen.py` owns layout, focus and key routing. No new dependencies.
+
 `EditResult.saved` means that at least one save succeeded during the session.
 `EditResult.error` describes an opening or unexpected editor failure. Ordinary
 save errors stay inside the editor without dropping the buffer. Cancelling or

@@ -761,7 +761,7 @@ class ConsoleUI:
         from ._preview import preview  # imported here: see test_run()
         self._run(lambda screen: preview(self.curses, screen))
 
-    def edit_file(self, path, validate=None):
+    def edit_file(self, path, validate=None, *, title="Text editor", reference=None):
         """Open the independent editor only on request; contain even its import/terminal errors."""
         try:
             from ..Editor import edit_file
@@ -772,7 +772,7 @@ class ConsoleUI:
                               active=self.styles["accent"] | self.curses.A_BOLD)
                 appearance = dict(styles=styles, banner=self._badge,
                                   banner_spans=((1, 2, "TauFW", "brand"), (2, 2, self.version, "version")))
-                return edit_file(screen, path, validate=validate, title="Modify User Config",
+                return edit_file(screen, path, validate=validate, title=title, reference=reference,
                                  appearance=appearance, curses_module=self.curses)
 
             result = self._run(draw)

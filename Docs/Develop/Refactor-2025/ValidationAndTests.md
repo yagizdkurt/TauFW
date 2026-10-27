@@ -708,3 +708,22 @@ Windows) and `check_import_boundaries` (known debt only, 0 new pairs) fail as be
 
 BBB: not run on Windows. `framework.production` writes no `bundle.sha256` (no bundle files) and no `retries` (no
 retry), so its run.json snapshot is unchanged; to confirm on lxplus without re-lock: [TODO.md](TODO.md) section 1.
+
+## 45. A read-only Markdown reference beside the terminal editor
+
+**Change:** [CL §45](Refactor-2025.md#45-a-read-only-markdown-reference-beside-the-terminal-editor)
+
+Focused Windows checks (2026-10-27, Python 3.13.8, no ROOT or real curses session):
+
+- In `Tests/Utilities`: `python -B -m unittest test_editor test_menu` — 85 tests OK. New editor cases exercise
+  independent scrolling and focus, ignored editing keys in the reference, F2 save from either pane, narrow-terminal
+  show/hide, resizing with both positions preserved, horizontal scrolling, 40-column and 110-column boundaries,
+  missing/invalid UTF-8 references, modal key priority, Markdown/code/table rendering, Unicode wrapping, reflow within
+  a paragraph, the actual UserConfig.md and an empty file. Existing standalone-import, save and cleanup checks pass.
+- In `Tests/Framework`: `python -B -m unittest test_interactive.MenuTests.test_user_config_editor_opens_the_override_and_reuses_config_validation`
+  — 1 test OK; the manual comes from this checkout even with an external config override. Menu tests check forwarding
+  the caller's title/reference and retaining the existing branding and exception boundary.
+- Inspected the simulated 120 x 24 frames with the actual manual: YAML on the left, wrapped manual on the right,
+  focus markers, separate line ranges and the pane controls. `git diff --check` passes.
+
+The real terminal/SSH key and resize check remains in [TODO.md](TODO.md) section 1. No batch or BBB run was needed.

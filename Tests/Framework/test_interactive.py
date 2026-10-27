@@ -360,6 +360,9 @@ class MenuTests(unittest.TestCase):
     def test_user_config_editor_opens_the_override_and_reuses_config_validation(self):
         from TauFW.Utilities.UserConfig import UserConfigError
         operations = self.menu(FakeUI()).operations
+        reference = operations.user_config_reference()
+        self.assertEqual(reference, interactive.CHECKOUT / "Docs/Manual/1-GettingStarted/UserConfig.md")
+        self.assertIn("# Your user config", reference.read_text(encoding="utf-8"))
         path = self.root / "personal.yaml"
         with mock.patch.dict(os.environ, {"TAUFW_USER_CONFIG": str(path)}):
             self.assertEqual(operations.user_config_path(), path)

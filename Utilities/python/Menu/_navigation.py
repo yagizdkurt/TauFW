@@ -25,7 +25,8 @@ failed stage of a FAILED run again, then to the end) start taufw.py behind the m
 or None), mark_seen(operation), needs_grid_proxy(recipe=, record=). running_operations() lists what runs behind the
 menu, stop_operation(operation) stops one.
 User config callbacks: user_config_path() creates the file if missing and names
-it; validate_user_config(draft_path) checks a candidate file before the editor saves it.
+it; user_config_reference() names its Markdown manual in the checkout;
+validate_user_config(draft_path) checks a candidate file before the editor saves it.
 The independent Editor owns file editing and saving; navigation only opens it.
 install_components() opens the existing interactive installer on the terminal and returns when it closes.
 version_status() returns plain installed/latest/status/checking/available/stale data; only the caller checks
@@ -376,7 +377,8 @@ class MenuNavigation:
         self.ui.grid_result(valid, output)
 
     def user_config(self):
-        self.ui.edit_file(self.operations.user_config_path(), self.operations.validate_user_config)
+        self.ui.edit_file(self.operations.user_config_path(), self.operations.validate_user_config,
+                          title="Modify User Config", reference=self.operations.user_config_reference())
 
     def install(self):
         self.ui.in_terminal(self.operations.install_components, pause=False)

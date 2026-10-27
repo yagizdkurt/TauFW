@@ -77,6 +77,11 @@ class _Operations:
         return path
 
     @staticmethod
+    def user_config_reference():
+        """The manual of this checkout, also when the config lives elsewhere."""
+        return CHECKOUT / "Docs" / "Manual" / "1-GettingStarted" / "UserConfig.md"
+
+    @staticmethod
     def validate_user_config(draft_path):
         """Reuse the normal YAML/header/value checks; reviewed: false is allowed while editing."""
         return user_config.setting_problems(UserConfig.load(draft_path))

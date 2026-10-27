@@ -1718,3 +1718,25 @@ section 6.
 **Unchanged:** `StageState.terminal`, `RunState.finished` and `advance()` (a FAILED stage still stops the run), the
 production stage and its `max_tries`, the run.json schema (3) and the manifest format (2), every BBB baseline
 (`framework.production` has no bundle files and no retry, so its run.json is the same).
+
+## 45. A read-only Markdown reference beside the terminal editor
+
+**Date:** 2026-10-27
+**Status:** done (real-terminal check open: [TODO.md](TODO.md) section 1)
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#45-a-read-only-markdown-reference-beside-the-terminal-editor)
+
+Modify User Config opens its YAML beside `Docs/Manual/1-GettingStarted/UserConfig.md`. Each pane keeps its own
+position. F6 switches focus; arrows and Page Up/Down act on that pane. F4 hides/opens the reference. At 110 columns
+or more, the editor/reference use about 60/40 of the width; smaller terminals show one pane at a time (F6 switches).
+F2 saves the YAML from either pane, Tab indents only while editing, and leaving still asks about unsaved changes.
+
+- `Editor.edit_file(..., reference=path)` and `ConsoleUI.edit_file(..., title=..., reference=...)` work for other
+  edited files and references too. Framework supplies the manual's checkout path independently of the config's
+  location or the launch directory. Editor does not import Menu, Framework or UserConfig.
+- `Editor/_reference.py` reads a UTF-8 file once, renders Markdown headings, prose, lists, links, fenced code and
+  pipe tables, and owns its viewport without curses. Tables become labelled fields; code retains indentation
+  and scrolls horizontally. Other constructs remain readable source. A missing/unreadable reference stays an
+  error in its pane and does not stop editing/saving. `_text.py` shares display-cell clipping and wrapping.
+- `_screen.py` handles layout, focus, resizing and key routing. Reference typing/deletion cannot change either
+  file; save errors and unsaved-change dialogs consume keys before the panes. Cursor visibility is restored.
+- The editor README, user-config manual and menu FAQ document the controls. No new dependencies or file-format changes.

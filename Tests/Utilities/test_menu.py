@@ -84,8 +84,10 @@ class ScreenTests(unittest.TestCase):
         ui, operations = mock.Mock(), idle_operations()
         ui.main_menu.side_effect = ["user_config", "exit"]
         operations.user_config_path.return_value = "/work/personal.yaml"
+        operations.user_config_reference.return_value = "/checkout/Docs/UserConfig.md"
         self.assertEqual(MenuNavigation(ui, operations).run(), 0)
-        ui.edit_file.assert_called_once_with("/work/personal.yaml", operations.validate_user_config)
+        ui.edit_file.assert_called_once_with("/work/personal.yaml", operations.validate_user_config,
+                                             title="Modify User Config", reference="/checkout/Docs/UserConfig.md")
         ui.operation_error.assert_not_called()
 
     def test_editor_failures_stay_in_the_menu_and_do_not_reopen_the_session(self):
@@ -139,7 +141,9 @@ class ScreenTests(unittest.TestCase):
                 ui = ConsoleUI(curses)
                 with mock.patch.object(ui, "colors_enabled", return_value=color), \
                         mock.patch("TauFW.Utilities.Editor.edit_file", return_value=EditResult()) as editor:
-                    self.assertFalse(ui.edit_file("personal.yaml"))
+                    self.assertFalse(ui.edit_file("personal.yaml", title="Settings", reference="README.md"))
+                self.assertEqual(editor.call_args.kwargs["title"], "Settings")
+                self.assertEqual(editor.call_args.kwargs["reference"], "README.md")
                 appearance = editor.call_args.kwargs["appearance"]
                 self.assertEqual(appearance["banner"], BADGE)
                 self.assertNotIn("large_banner", appearance)

@@ -1,69 +1,31 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Curses editor screen. Owns its window; never imports Menu or starts a session."""
 import textwrap
-import unicodedata
 
 from ._buffer import Buffer
+from ._reference import Reference
+from ._text import TAB_SIZE, _tail, _visible, _width
 
-TAB_SIZE = 2
 MIN_COLUMNS = 40
 MIN_ROWS = 10
+SPLIT_COLUMNS = 110
 HEADER_ROWS = 3
 FRAME_AND_FOOTER_ROWS = 5
 LARGE_BANNER_TEXT_ROWS = 16  # branding must still leave a useful page of text
 MODAL_COLUMNS = 76
 
 
-def _characters(text):
-    """Display text safely, expanding tabs without changing the buffer."""
-    column = 0
-    for character in text:
-        if character == "\t":
-            for _ in range(TAB_SIZE - column % TAB_SIZE):
-                yield " ", 1
-                column += 1
-        else:
-            character = character if character.isprintable() else "?"
-            width = 0 if unicodedata.combining(character) else (
-                2 if unicodedata.east_asian_width(character) in ("W", "F") else 1)
-            yield character, width
-            column += width
-
-
-def _width(text):
-    return sum(width for _, width in _characters(text))
-
-
-def _visible(text, offset, columns):
-    result, position = [], 0
-    for character, width in _characters(text):
-        end = position + width
-        if position >= offset + columns:
-            break
-        if position >= offset:
-            result.append(character if end <= offset + columns else " ")
-        elif end > offset:
-            result.append(" " * (end - offset))
-        position = end
-    return "".join(result)
-
-
-def _tail(text, columns):
-    """Keep the filename visible when its parent directories do not fit."""
-    if _width(text) <= columns:
-        return text
-    if columns <= 3:
-        return _visible(text, max(0, _width(text) - columns), columns)
-    return "..." + _visible(text, _width(text) - columns + 3, columns - 3)
-
-
 class Editor:
-    def __init__(self, parent, curses, document, title, validate, appearance=None):
+    def __init__(self, parent, curses, document, title, validate, appearance=None, reference=None):
         self.parent, self.curses, self.document = parent, curses, document
         self.title, self.validate = title, validate
         self.appearance = appearance or {}
         self.styles = dict(self.appearance.get("styles", {}))
         self.buffer = Buffer(document.text)
+        self.reference = Reference(reference) if reference is not None else None
+        self.reference_visible = True
+        self.reference_focus = False
+        self.cursor_visibility = 1
         self.window = None
         self.dimensions = None
         self.top = self.left = 0
@@ -176,31 +138,34 @@ class Editor:
         self.header(usable)
         cursor = None
         if usable:
-            name = self.document.path.name + (" *" if self.dirty else "")
-            top, left, self.page, columns = self.panel(self.frame_top, 1, height - self.frame_top - 3,
-                                                       width - 2, _tail(name, width - 8))
-            digits = max(2, len(str(len(self.buffer.lines))))
-            gutter = digits + 4  # pointer, line number, separator and space
-            columns = max(1, columns - gutter)
-            self.top = max(0, min(self.top, self.buffer.row))
-            self.top = max(self.top, self.buffer.row - self.page + 1)
-            column = _width(self.buffer.lines[self.buffer.row][:self.buffer.column])
-            self.left = max(0, min(self.left, column))
-            self.left = max(self.left, column - columns + 1)
-            for index, line in enumerate(self.buffer.lines[self.top:self.top + self.page], self.top):
-                row = top + index - self.top
-                active = index == self.buffer.row
-                number = (">" if active else " ") + str(index + 1).rjust(digits) + " | "
-                self.write(row, left, number, self.style("active" if active else "muted"))
-                self.write(row, left + gutter, _visible(line, self.left, columns),
-                           self.style("active") if active else 0)
-            cursor = (top + self.buffer.row - self.top, left + gutter + column - self.left)
-            self.draw_status()
+            body_height = height - self.frame_top - 3
+            split = self.reference and self.reference_visible and width >= SPLIT_COLUMNS
+            editor_width = (width - 2) * 3 // 5 if split else width - 2
+            if not self.reference_focus or split:
+                name = self.document.path.name + (" *" if self.dirty else "")
+                if self.reference and not self.reference_focus:
+                    name = "> " + name
+                rect = self.panel(self.frame_top, 1, body_height, editor_width, _tail(name, editor_width - 6),
+                                  "muted" if self.reference_focus else "accent")
+                cursor = self.draw_buffer(rect)
+                self.draw_status(editor_width if split else None)
+            if self.reference and (self.reference_focus or split):
+                left = editor_width + 2 if split else 1
+                panel_width = width - left - 1
+                name = ("> " if self.reference_focus else "") + self.reference.path.name + " (read only)"
+                rect = self.panel(self.frame_top, left, body_height, panel_width,
+                                  _tail(name, panel_width - 6), "accent" if self.reference_focus else "muted")
+                self.draw_reference(rect)
         else:
             self.page = 1
             self.write(min(2, max(0, height - 3)), 0,
                        "Enlarge terminal (at least %d x %d)." % (MIN_COLUMNS, MIN_ROWS), self.style("warning"))
-        self.write(height - 2, 1, "F2 Save | Esc Back | Tab Indent", self.style("accent"))
+        if self.reference:
+            self.write(height - 2, 1, "F2 Save | Esc Back | F4 Docs | F6 Pane", self.style("accent"))
+            hint = "Arrows/PgUp/Dn Scroll | Home/End" if self.reference_focus else "Arrows/PgUp/Dn Move | Tab Indent"
+            self.write(height - 1, 1, hint, self.style("muted"))
+        else:
+            self.write(height - 2, 1, "F2 Save | Esc Back | Tab Indent", self.style("accent"))
         if self.problem is not None:
             self.problem_offset, self.problem_page = self.overlay(
                 "Cannot save", ["Your edits are still here.", "", self.problem],
@@ -209,16 +174,57 @@ class Editor:
             self.overlay("Unsaved changes", ["Save your changes before leaving?", "",
                          "F2  Save and leave", "D   Discard unsaved changes", "Esc Keep editing"],
                          "F2 Save | D Discard | Esc Edit", "warning")
-        elif cursor is not None:
+        elif cursor is not None and not self.reference_focus:
             self.window.move(*cursor)
+        if self.reference:
+            visibility = int(cursor is not None and not self.reference_focus
+                             and not self.confirm and self.problem is None)
+            if visibility != self.cursor_visibility:
+                try:
+                    self.curses.curs_set(visibility)
+                except self.curses.error:
+                    pass
+                self.cursor_visibility = visibility
         self.window.refresh()
 
-    def draw_status(self):
+    def draw_buffer(self, rect):
+        top, left, self.page, columns = rect
+        digits = max(2, len(str(len(self.buffer.lines))))
+        gutter = digits + 4  # pointer, line number, separator and space
+        columns = max(1, columns - gutter)
+        self.top = max(0, min(self.top, self.buffer.row))
+        self.top = max(self.top, self.buffer.row - self.page + 1)
+        column = _width(self.buffer.lines[self.buffer.row][:self.buffer.column])
+        self.left = max(0, min(self.left, column))
+        self.left = max(self.left, column - columns + 1)
+        for index, line in enumerate(self.buffer.lines[self.top:self.top + self.page], self.top):
+            row = top + index - self.top
+            active = index == self.buffer.row
+            number = (">" if active else " ") + str(index + 1).rjust(digits) + " | "
+            self.write(row, left, number, self.style("active" if active else "muted"))
+            self.write(row, left + gutter, _visible(line, self.left, columns),
+                       self.style("active") if active else 0)
+        return top + self.buffer.row - self.top, left + gutter + column - self.left
+
+    def draw_reference(self, rect):
+        top, left, page, columns = rect
+        reference = self.reference
+        reference.layout(columns, page)
+        for index, (_, text, role) in enumerate(reference.rows[reference.top:reference.top + page]):
+            self.write(top + index, left, _visible(text, reference.left, columns), self.style(role))
+        position = "Lines %d-%d/%d" % (reference.top + 1, min(len(reference.rows), reference.top + page),
+                                       len(reference.rows))
+        if reference.left:
+            position += " | Col %d" % (reference.left + 1)
+        self.write(self.dimensions[0] - 3, left, _visible(position, 0, columns), self.style("muted"))
+
+    def draw_status(self, panel_width=None):
         height, width = self.dimensions
+        width = panel_width or width
         state = "Modified" if self.dirty else self.status or "Unchanged"
         role = "warning" if self.dirty else "good" if self.saved else "muted"
-        self.write(height - 3, 2, "Ln %d, Col %d | %s" % (
-            self.buffer.row + 1, self.buffer.column + 1, state), self.style(role))
+        self.write(height - 3, 2, _visible("Ln %d, Col %d | %s" % (
+            self.buffer.row + 1, self.buffer.column + 1, state), 0, width - 4), self.style(role))
         position = "Lines %d-%d/%d" % (self.top + 1, min(len(self.buffer.lines), self.top + self.page),
                                        len(self.buffer.lines))
         if width - _width(position) - 2 > 30 + len(state):
@@ -283,6 +289,25 @@ class Editor:
             return not self.confirm
         if save:
             self.save()
+        elif self.reference and key == curses.KEY_F4:
+            shown = self.reference_focus or (self.reference_visible and self.dimensions[1] >= SPLIT_COLUMNS)
+            self.reference_visible = not shown
+            self.reference_focus = not shown
+        elif self.reference and key == curses.KEY_F6:
+            self.reference_focus = not self.reference_focus
+            self.reference_visible = True
+        elif self.reference_focus:
+            reference = self.reference
+            if key in (curses.KEY_UP, curses.KEY_DOWN):
+                reference.move(rows=-1 if key == curses.KEY_UP else 1)
+            elif key in (curses.KEY_PPAGE, curses.KEY_NPAGE):
+                reference.move(rows=-reference.page if key == curses.KEY_PPAGE else reference.page)
+            elif key in (curses.KEY_LEFT, curses.KEY_RIGHT):
+                reference.move(columns=-4 if key == curses.KEY_LEFT else 4)
+            elif key == curses.KEY_HOME:
+                reference.top = reference.left = 0
+            elif key == curses.KEY_END:
+                reference.move(rows=len(reference.rows))
         elif key == curses.KEY_UP:
             buffer.vertical(-1)
         elif key == curses.KEY_DOWN:
