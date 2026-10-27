@@ -294,7 +294,7 @@ class ConsoleUI:
             while True:
                 screen.erase()
                 height, width = screen.getmaxyx()
-                self._header(screen, title)
+                self._header(screen, title, badge=True)
                 usable = width >= 64 and height >= 12
                 page = 1
                 if usable:
@@ -391,7 +391,7 @@ class ConsoleUI:
         return len(lines) + 3
 
     def choose(self, title, choices, welcome=None, descriptions=None, row_colors=None, position=None, live=None,
-               separators=()):
+               separators=(), badge=False):
         """The index of the choice, or None (Esc). position: {"selected": index}, where the focus starts and was
         left. live: seconds; without a key by then, REFRESH (the caller draws it again with new labels)."""
         position = position if position is not None else {}
@@ -405,7 +405,7 @@ class ConsoleUI:
                 screen.erase()
                 height, width = screen.getmaxyx()
                 if welcome is None:
-                    self._header(screen, title)
+                    self._header(screen, title, badge=badge)
                     start = 3
                 else:
                     start = self._entry_header(screen, welcome, len(choices) + len(separators) + 3)
@@ -852,7 +852,7 @@ class ConsoleUI:
                 labels[index] += " | %s: %s" % ("advancing" if operation.running else "advance", text)
         selected = self.choose("Select an existing run", labels + ["Enter another run directory", "Back"],
                                row_colors=colors + ["accent", "accent"], position=position,
-                               live=LIST_EVERY if live else None)
+                               live=LIST_EVERY if live else None, badge=True)
         if selected == REFRESH:
             return REFRESH, None
         if selected is None or selected == len(labels) + 1:
