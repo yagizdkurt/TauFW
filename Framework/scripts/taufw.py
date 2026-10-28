@@ -15,10 +15,11 @@
                                                           refused while another advance of the run is working
                                                           (--take-lock: take over a lost one of another machine)
   taufw.py retry   RUN_DIR [--wait [--poll S]] [--take-lock]
-                                                          a FAILED run: run its failed stage again (a local stage;
-                                                          the failed attempt is moved to logs/<id>/attempt<N>/),
-                                                          then continue like advance; the finished stages do not
-                                                          run again (CL §44)
+                                                          a FAILED run: run its failed stage again (a local stage:
+                                                          the failed attempt is moved to logs/<id>/attempt<N>/;
+                                                          production after max_tries: max_tries more tries for
+                                                          the failed chunks, CL §48), then continue like advance;
+                                                          the finished stages do not run again (CL §44)
   taufw.py status RUN_DIR                                saved and live state of a run (read-only)
   taufw.py init    NAME [--from RECIPE] [--root DIR]      new analysis bundle Analyses/NAME/ (with copies of the
                                                           files of RECIPE's bundle and of the module configs it
@@ -379,11 +380,15 @@ def _interval(value):
 def _finish(reporter, record):
     """Tell the user where the run is and how to continue it; return the exit code."""
     reporter.message("Run directory: %s" % (record.run_dir))
+    retry = retryable_stage(record)
     if not RunState(record.state).finished:
         reporter.message("Continue with: taufw.py advance %s" % (record.run_dir))
-    elif retryable_stage(record):
+    elif retry and retry[1] == 'production':  # CL §48: after max_tries
+        reporter.message("To resubmit the failed chunks of stage %s with more tries, run: taufw.py retry %s"
+                         % (retry[0], record.run_dir))
+    elif retry:
         reporter.message("Once the cause is fixed, run stage %s again with: taufw.py retry %s"
-                         % (retryable_stage(record)[0], record.run_dir))
+                         % (retry[0], record.run_dir))
     return 1 if record.state == RunState.FAILED else 0
 
 

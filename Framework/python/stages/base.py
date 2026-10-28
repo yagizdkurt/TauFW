@@ -12,13 +12,14 @@ The states of one stage:
     NEW ─▶ SUBMITTED ─▶ WAITING ─▶ MERGING ─▶ DONE
               ▲  │         │
               └──┴─────────┘ (resubmission)          FAILED, NOT_IMPLEMENTED: final
+                                                     FAILED ─▶ WAITING only by a retry, after max_tries (CL §48)
 
     local stage (controlhists, controlplots, shapes, fit, python):  NEW ─▶ DONE or FAILED, in one advance() call
                                                      FAILED ─▶ NEW only by a retry (taufw.py retry, CL §44)
 
-advance() never moves a FAILED stage. A retry is asked for explicitly: the Framework archives what the failed
-attempt left and sets the stage NEW again, for the stages with `retryable` (the local stages; production not yet,
-see Docs/Develop/Refactor-2025/TODO.md).
+advance() never moves a FAILED stage. A retry is asked for explicitly: the stage says to which state
+(Stage.retry_state; None: it cannot be retried) and what the retry adds to its record (retry_fields). A stage that
+starts again from NEW gets an empty output directory: the Framework archives what the failed attempt left.
 
 A stage declares what it reads and makes: `inputs` maps each of its input slots to the kind of data the slot
 takes (the fit: {'shapes': 'shapes'}), `outputs` lists the kinds it makes (shapes: ('shapes',)). A recipe
@@ -172,6 +173,10 @@ class Stage:
     planned_artifacts(spec, plan, context)          -> tuple         what the later stages see in a plan
     submits(stage_record)                           -> bool          whether the next step may submit jobs: then
                                                                      Ctrl-C waits until run.json records it
+    retry_state(stage_record)                       -> StageState    the state a retry sets the FAILED stage to,
+                                                                     or None (cannot be retried); a classmethod
+    retry_fields(spec, stage_record)                -> dict          what the retry adds to the stage's retries
+                                                                     entry in run.json
 
     `spec` is always the stage's Spec: the validated options of the stage from the recipe (for example a
     ProductionSpec). `stage_record` is the StageRecord of this stage in run.json. `context` is a StageContext
@@ -202,6 +207,16 @@ class Stage:
     def planned_artifacts(self, spec, plan, context=None):
         """The artifacts the later stages see in their plans: by default the plan's `artifacts` (none)."""
         return tuple(getattr(plan, 'artifacts', ()) or ())
+
+    @classmethod
+    def retry_state(cls, stage_record):
+        """The state taufw.py retry sets this FAILED stage to, or None if it cannot be retried (by default: NEW
+        for the stages with `retryable`). A classmethod: the menu asks before any stage is built (CL §44, §48)."""
+        return StageState.NEW if cls.retryable else None
+
+    def retry_fields(self, spec, stage_record):
+        """What a retry adds to the stage's retries entry in run.json, besides the Framework's keys (none)."""
+        return {}
 
     def __repr__(self):
         return "<%s %r>" % (self.__class__.__name__, self.name)

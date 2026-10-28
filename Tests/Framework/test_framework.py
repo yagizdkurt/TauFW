@@ -102,14 +102,61 @@ class StateMachineTests(FrameworkTestCase):
         self.assertEqual([h["event"] for h in stage.history], ["submitted", "resubmitted", "failed"])
         record = fw.advance(record)  # terminal: nothing more is called
         self.assertEqual(pico.names(), ["plan", "submit", "status", "resubmit", "status"])
-        # CL §44: a FAILED production stage cannot be retried yet (TODO); nothing is moved or called
-        self.assertEqual((failed_stage(record), retryable_stage(record)), (("production", "production"), None))
-        with self.assertRaises(RetryError) as context:
-            fw.retry(record)
-        self.assertIn("Stage production (production) cannot be retried yet: start a new run", str(context.exception))
-        self.assertEqual((record.stage("production").state, record.stage("production").retries), ("FAILED", []))
-        self.assertEqual(pico.names(), ["plan", "submit", "status", "resubmit", "status"])
-        self.assertEqual(RunRecord.load(record.run_dir).stage("production").state, "FAILED")
+
+    def test_retry_after_max_tries_gives_max_tries_more(self):
+        """CL §48: a production stage that FAILED after max_tries goes back to WAITING with max_tries more tries;
+        the next check resubmits the failed chunks. Nothing is moved; every retry raises the limit again."""
+        pico = fakes.FakePicoProducer(statuses=[fakes.failed("DY")])
+        fw = framework(pico)
+        record = fw.advance(fw.advance(fw.start(run_root=self.root)))  # tries 1 and 2 failed, max_tries=2
+        self.assertEqual(record.stage("production").state, "FAILED")
+        self.assertEqual((failed_stage(record), retryable_stage(record)), (("production", "production"),) * 2)
+        failure = record.stage("production").message
+        record = fw.retry(RunRecord.load(record.run_dir))  # WAITING, then the check resubmits: try 3 of 4
+        stage = record.stage("production")
+        self.assertEqual((stage.state, stage.attempt, record.state), ("SUBMITTED", 3, "WAITING"))
+        self.assertIn("try 3 of 4", stage.message)
+        self.assertEqual({key: value for key, value in stage.retries[0].items() if key != "time"},
+                         {"attempt": 1, "message": failure, "archive": None, "bundle_changed": None, "max_tries": 4})
+        self.assertEqual(pico.names(), ["plan", "submit", "status", "resubmit", "status", "status", "resubmit"])
+        self.assertEqual([h["event"] for h in stage.history], ["submitted", "resubmitted", "failed", "retry",
+                                                               "resubmitted"])
+        self.assertEqual([h["state"] for h in stage.history][-2:], ["WAITING", "SUBMITTED"])
+        self.assertIn("failed attempt 1 kept in place; max_tries now 4", stage.history[-2]["detail"])
+        self.assertFalse(os.path.exists(os.path.join(record.run_dir, "logs", "production")))  # nothing archived
+        record = fw.advance(fw.advance(record))  # try 3 failed -> try 4; try 4 failed: FAILED after 4 tries
+        self.assertEqual((record.stage("production").state, record.stage("production").attempt), ("FAILED", 4))
+        self.assertIn("after 4 tries", record.stage("production").message)
+        pico.statuses = [fakes.failed("DY"), fakes.complete("DY", "TT")]
+        record = fw.retry(record)  # the second retry: up to 6; try 5 is submitted
+        self.assertEqual([r["max_tries"] for r in record.stage("production").retries], [4, 6])
+        self.assertEqual([r["attempt"] for r in record.stage("production").retries], [1, 2])
+        self.assertIn("try 5 of 6", record.stage("production").message)
+        record = fw.advance(record)  # complete: merged
+        self.assertEqual((record.stage("production").state, record.state), ("DONE", "DONE"))
+        saved = RunRecord.load(record.run_dir).stage("production")
+        self.assertEqual((saved.retries, saved.attempt), (record.stage("production").retries, 5))
+
+    def test_other_production_failures_cannot_be_retried(self):
+        """CL §48: no samples, no job configs, a merged tuple that failed validation: refused, nothing changes."""
+        no_samples = framework(fakes.FakePicoProducer(samples=(), statuses=[fakes.Status()]))
+        no_configs = framework(fakes.FakePicoProducer(statuses=[fakes.Status()]))  # submitted; then no job configs
+        report = fakes.MergeReport(invalid=(("DY", "the merged file is missing or corrupt"),))
+        invalid = framework(fakes.FakePicoProducer(statuses=[fakes.complete("DY")], merge_report=report))
+        for index, (fw, advances, expected) in enumerate(((no_samples, 0, "no samples match the request"),
+                                                          (no_configs, 1, "no job configs found"),
+                                                          (invalid, 1, "merged tuple(s) failed validation"))):
+            record = fw.start(run_root=os.path.join(self.root, str(index)))  # the same clock: the same run id
+            for _ in range(advances):
+                record = fw.advance(record)
+            self.assertEqual(record.stage("production").state, "FAILED", expected)
+            self.assertIsNone(retryable_stage(record), expected)
+            with self.assertRaises(RetryError) as context:
+                fw.retry(record)
+            self.assertIn("Stage production (production) cannot be retried (%s" % (expected), str(context.exception))
+            self.assertIn("start a new run", str(context.exception))
+            saved = RunRecord.load(record.run_dir).stage("production")
+            self.assertEqual((saved.state, saved.retries), ("FAILED", []))
 
     def test_complete_merges_and_records_artifacts(self):
         pico = fakes.FakePicoProducer(statuses=[fakes.complete("DY", "TT")])

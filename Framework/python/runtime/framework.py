@@ -44,9 +44,11 @@ Pipeline map:
                  there, so later edits of the bundle never change a run (see bundle.py). Every advance compares
                  that copy with its start: a change is warned about once and recorded (run.json bundle.changed;
                  the manifests of the stages that run after it: bundle_changed), CL §44.
-    retry:       a FAILED stage stops the run; advance() never moves it. retry() (taufw.py retry) archives
-                 what the failed attempt left (logs/<id>/attempt<N>/), sets the stage NEW and advances: the
-                 finished stages do not run again. Only the local stages can be retried (production: a new run).
+    retry:       a FAILED stage stops the run; advance() never moves it. retry() (taufw.py retry) sets it back
+                 to the state the stage gives (Stage.retry_state) and advances: the finished stages do not run
+                 again. A local stage starts from NEW (what the failed attempt left goes to
+                 logs/<id>/attempt<N>/); production, after max_tries, goes on WAITING with max_tries more tries
+                 (CL §48; its other failures: a new run).
     samples:     plan() and start() compare the samples a production stage makes with those its readers' sample
                  model files ask for (samples.py): plan() lists the problems, start() refuses them (RecipeError).
 
@@ -195,10 +197,11 @@ class Framework:
 
     def retry(self, record, wait=False, poll=DEFAULT_POLL_SECONDS, take_lock=False):
         """Run the FAILED stage of a run again, then go on like advance(): the finished stages do not run again.
-        What the failed attempt left (logs/<id>/ and stages/<id>/) is moved to logs/<id>/attempt<N>/ and the
-        attempt is recorded in the stage's `retries` (run.json), with the bundle copy's changes since the start.
-        Only a stage with `retryable` (the local stages) can be retried; RetryError otherwise, or if the run has no
-        failed stage. Lock, wait, poll and side effects as in advance() (CL §44)."""
+        The stage goes back to the state its retry_state() gives: NEW for a local stage, whose failed attempt
+        (logs/<id>/ and stages/<id>/) is moved to logs/<id>/attempt<N>/ first; WAITING for a production stage after
+        max_tries (nothing moved; CL §48). The attempt is recorded in the stage's `retries` (run.json), with the
+        bundle copy's changes since the start and the stage's retry_fields(). RetryError if the stage cannot be
+        retried or the run has no failed stage. Lock, wait, poll and side effects as in advance() (CL §44)."""
         return self._locked(record, wait, poll, take_lock, retry=True)
 
     def _locked(self, record, wait, poll, take_lock, retry=False):
@@ -281,8 +284,8 @@ class Framework:
         A stage may take several steps in one call (for example MERGING -> DONE, then the next stage starts).
         For each stage, in order:
           - DONE:                     go on with the next stage.
-          - FAILED, NOT_IMPLEMENTED:  stop; advance() never moves this stage again (retry() sets a FAILED local
-                                      stage NEW first, CL §44).
+          - FAILED, NOT_IMPLEMENTED:  stop; advance() never moves this stage again (retry() moves a FAILED stage
+                                      first, CL §44, §48).
           - waiting for jobs:         take one step (a status check). If the stage still waits, stop: advance()
                                       must be called again later.
           - not ready (PreflightError): stop; the stage keeps its state, the reason is in its message and
@@ -384,35 +387,43 @@ class Framework:
     # ========================= RETRY AND BUNDLE CHECK ========================
 
     def _retry_failed(self, record):
-        """retry(): set the FAILED stage of the run NEW again. What its failed attempt left is moved to
-        logs/<id>/attempt<N>/ (_archive_attempt) and the attempt is added to the stage's retries; its message,
+        """retry(): set the FAILED stage of the run to its retry_state() again (NEW: what its failed attempt left is
+        moved to logs/<id>/attempt<N>/, _archive_attempt) and add the attempt to the stage's retries; its message,
         artifacts and last status are cleared (the history keeps them). run.json is saved. Raises RetryError."""
         failed = failed_stage(record)
         if failed is None:
             raise RetryError("Run %s has no failed stage (it is %s): nothing to retry. Continue it with: "
                              "taufw.py advance %s" % (record.run_id, record.state, record.run_dir))
         stage_id, name = failed
-        if not getattr(self._stage_for(stage_id), 'retryable', False):
-            raise RetryError("Stage %s (%s) cannot be retried yet: start a new run; it can reuse the finished stages "
-                             "of this one through {path: %s}" % (stage_id, name,
-                                                                 StageContext(run_dir=record.run_dir).stage_dir('<id>')))
-        stage_record = record.stage(stage_id)
+        stage, stage_record = self._stage_for(stage_id), record.stage(stage_id)
+        state = stage.retry_state(stage_record) if hasattr(stage, 'retry_state') else None
+        if state is None:
+            raise RetryError("Stage %s (%s) cannot be retried (%s): start a new run; it can reuse the finished stages "
+                             "of this one through {path: %s}"
+                             % (stage_id, name, stage_record.message or "failed",
+                                StageContext(run_dir=record.run_dir).stage_dir('<id>')))
         attempt = len(stage_record.retries) + 1
         context = StageContext(run_dir=record.run_dir, stage_id=stage_id)
-        archive = os.path.relpath(_archive_attempt(context.log_dir(), context.stage_dir(), attempt), record.run_dir)
+        archive = (os.path.relpath(_archive_attempt(context.log_dir(), context.stage_dir(), attempt), record.run_dir)
+                   if state is StageState.NEW else None)  # from NEW: an empty output directory; production keeps its own
         start = record.bundle.get('sha256')
         changed = (bundle_changes(start, bundle_hashes(os.path.join(record.run_dir, BUNDLE_DIR_NAME)))
                    if start is not None else None)  # None: a run without bundle hashes
-        stage_record.retries.append({'time': self._now(), 'attempt': attempt, 'message': stage_record.message,
-                                     'archive': archive, 'bundle_changed': changed})
-        stage_record.state = StageState.NEW.value
+        stage_spec = next(spec for spec in self._recipe_of(record).stages if spec.id == stage_id)
+        fields = stage.retry_fields(stage_spec.spec, stage_record) if hasattr(stage, 'retry_fields') else {}
+        stage_record.retries.append(dict({'time': self._now(), 'attempt': attempt, 'message': stage_record.message,
+                                          'archive': archive, 'bundle_changed': changed}, **fields))
+        stage_record.state = state.value
         stage_record.message = ""
         stage_record.artifacts = []
         stage_record.last_status = None
-        stage_record.log('retry', "failed attempt %d moved to %s" % (attempt, archive), time=self._now())
+        kept = "moved to %s" % (archive) if archive else "kept in place"
+        raised = "".join("; %s now %s" % (key, value) for key, value in fields.items())
+        stage_record.log('retry', "failed attempt %d %s%s" % (attempt, kept, raised), time=self._now())
         record.save(self.files)
-        self.reporter.message("Stage %s: retry; the failed attempt %d is in %s" % (stage_id, attempt, archive))
-        self.reporter.event('stage_state', stage=stage_id, state=StageState.NEW.value, message="retry")
+        self.reporter.message("Stage %s: retry from %s; the failed attempt %d is %s%s"
+                              % (stage_id, state.value, attempt, kept, raised))
+        self.reporter.event('stage_state', stage=stage_id, state=state.value, message="retry")
 
     def _check_bundle(self, record):
         """Compare the run's bundle copy with its hashes from the start (run.json bundle.sha256). A change not seen
@@ -632,9 +643,10 @@ def failed_stage(record):
 
 def retryable_stage(record):
     """(id, stage name) of the FAILED stage that retry() would run again, or None: no failed stage, or one that
-    cannot be retried yet (production)."""
+    cannot be retried (Stage.retry_state: e.g. production other than after max_tries)."""
     failed = failed_stage(record)
-    return failed if failed and getattr(STAGES.get(failed[1]), 'retryable', False) else None
+    stage_class = STAGES.get(failed[1]) if failed else None
+    return failed if stage_class and stage_class.retry_state(record.stage(failed[0])) is not None else None
 
 
 class RunDirectoryError(OSError):

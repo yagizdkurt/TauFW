@@ -770,3 +770,37 @@ New and changed unit tests (Windows, no ROOT):
 
 Results on Windows (2026-10-27, `python -m unittest discover`): `Tests/Framework` 248 OK, `Tests/Utilities` 255 OK
 (9 skipped), `Tests/contracts` OK. The menu on a real terminal: [TODO.md](TODO.md) section 1.
+
+## 48. Retry of a production stage that failed after max_tries; the menu's retry asks for the lock and the proxy
+
+**Change:** [CL §48](Refactor-2025.md#48-retry-of-a-production-stage-that-failed-after-max_tries-the-menus-retry-asks-for-the-lock-and-the-proxy)
+
+- `Tests/Framework/test_framework.py`:
+  - `test_failed_chunks_resubmit_until_max_tries`: as before, without the refused retry (CL §44's check moved to the
+    next two tests).
+  - `test_retry_after_max_tries_gives_max_tries_more`: `max_tries: 2`, tries 1 and 2 fail: FAILED,
+    `retryable_stage` = production. The retry: WAITING, the same advance checks and resubmits ("try 3 of 4");
+    retries entry `{attempt: 1, message, archive: null, bundle_changed: null, max_tries: 4}`; history
+    `submitted, resubmitted, failed, retry (WAITING, "kept in place; max_tries now 4"), resubmitted`; no
+    `logs/production/`. Tries 3 and 4 fail: FAILED "after 4 tries". A second retry: `max_tries` 4, 6; "try 5 of 6";
+    complete: DONE; run.json has both retries and attempt 5.
+  - `test_other_production_failures_cannot_be_retried`: no samples, no job configs (an empty status after the
+    submission), a merged tuple that failed validation: `retryable_stage` None, `RetryError` "cannot be retried
+    (<message>... start a new run", run.json unchanged (FAILED, no retries).
+- `Tests/Framework/test_interactive.py`: `test_grid_proxy_is_needed_while_production_may_submit` (FAILED after
+  max_tries: needed; after a failed merge: not); `test_retry_info_of_a_production_stage_gives_its_tries` (`tries`
+  (2, 4), after one retry (4, 6), a failed merge: None).
+- `Tests/Utilities/test_menu.py`: `test_continue_on_a_failed_run_offers_its_retry` (`retry_run(record,
+  take_lock=False)`); `test_a_retry_asks_for_the_lock_and_the_grid_proxy` (a held lock: back, no retry; a lost lock
+  of another machine: taken over, `take_lock=True`; a lost lock of this machine: no dialog; no proxy: back; renewed:
+  retry); `test_the_production_retry_choice_says_how_many_tries`.
+- `Tests/Utilities/test_run_screen.py`: `test_failed_card_says_whether_the_stage_can_be_retried` (the new production
+  text).
+
+Results on Windows (2026-10-28, `python -m unittest discover`): `Tests/Framework` 252 OK, `Tests/Utilities` 269 OK
+(9 skipped). `python Tests/run.py checks`: 13 of 16 pass; `check_root` (no ROOT), `check_import_boundaries` (known
+debt) and `unit.setup` (`test_setup_runner` cannot import the menu on Windows) fail the same way without this
+change.
+
+BBB: not run on Windows. `framework.production` never fails and never retries, so its run.json snapshot is
+unchanged; to confirm on lxplus without re-lock: [TODO.md](TODO.md) section 1.

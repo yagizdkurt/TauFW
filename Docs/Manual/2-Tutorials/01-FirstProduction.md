@@ -232,8 +232,18 @@ leaving it off is a good idea.
 
 - **A job keeps failing.** Look at its log under `PicoProducer/output/2022_postEE/mutau/<sample>/log/`. The most
   common cause is an expired grid proxy.
-- **The stage is `FAILED`.** For the production stage, the run is final, and editing the recipe won't revive it. Fix
-  the cause, then start a new run.
+- **The stage is `FAILED`.** If some chunks still failed after all their tries (the message ends with
+  "after 3 tries"), you can give them more tries without losing the jobs that worked. Fix the cause first (often the
+  grid proxy), then run:
+
+  ```bash
+  python3 taufw.py retry <run folder>
+  ```
+
+  or choose **Continue**, pick the run and choose **Retry production**. It allows as many tries again as your recipe's
+  `max_tries` (3 tries made: up to 6), resubmits only the failed chunks, and goes on like Continue. Nothing is moved
+  or deleted. For any other production failure (no samples found, a merged tuple that failed its check), editing
+  the recipe won't revive the run: fix the cause, then start a new run.
 
   The later stages you'll meet in the next tutorials (histograms, plots, the fit, Python steps) are different: when
   one of them fails, you can run just that stage again. Fix the cause first. If the fix is a file of your analysis,

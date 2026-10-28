@@ -61,8 +61,11 @@ FAQ = (
     ("Retries", 
      "Production waits until pending jobs finish before resubmitting "
      "failed or missing chunks. The recipe's max_tries defaults to three total "
-     "submissions, including the first; then the production stage FAILS and "
-     "the run is final (start a new run). A failed local stage (histograms, "
+     "submissions, including the first; then the production stage FAILS. "
+     "Continue then offers Retry: max_tries more tries for the failed chunks "
+     "(3 made, max_tries 3: up to 6); nothing is moved. Other production "
+     "failures (no samples, a merged tuple that failed validation) need a new "
+     "run. A failed local stage (histograms, "
      "plots, shapes, fit, python step) can run again: fix the cause, then "
      "Continue offers Retry (taufw.py retry). The finished stages are kept, "
      "the failed attempt is moved to logs/<id>/attempt<N>/, and run.json "

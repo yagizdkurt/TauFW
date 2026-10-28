@@ -1801,3 +1801,61 @@ With every new example the list grows, and a user's own analyses get lost among 
   describe what was done then).
 - **Unchanged:** the recipe format, `check`/`plan`/`start`/`advance`, run.json, every BBB baseline (no case uses
   the examples).
+
+## 48. Retry of a production stage that failed after max_tries; the menu's retry asks for the lock and the proxy
+
+**Date:** 2026-10-28
+**Status:** done (lxplus check open: [TODO.md](TODO.md) section 1)
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#48-retry-of-a-production-stage-that-failed-after-max_tries-the-menus-retry-asks-for-the-lock-and-the-proxy)
+
+**Why:** CL §44 left production out: a production stage whose chunks still failed after `max_tries` made the run
+final, and the finished jobs (often hours on condor) could only be reused by a new run. Its retry was the open item
+of [TODO.md](TODO.md) section 6.
+
+**What changed:**
+
+- **The stage decides (`stages/base.py`):** `Stage.retry_state(stage_record)` (a classmethod: the menu asks before any
+  stage is built) gives the state a retry sets the FAILED stage to, or None (it cannot be retried); the default is
+  NEW for the stages with `retryable` (the local stages, as in CL §44). `Stage.retry_fields(spec, stage_record)`
+  gives what the retry adds to the stage's retries entry (none by default). `retryable_stage(record)` and
+  `Framework.retry` ask these; `retryable` stays the flag of the local stages.
+- **Production (`stages/production.py`):** `retry_state` is WAITING only after `max_tries` (`tries_used_up`: the
+  stage was SUBMITTED or WAITING before FAILED, and the saved status has failed or missing chunks and none pending;
+  read from run.json, so it also works for runs started before this change). `retry_fields` gives
+  `{max_tries: <tries made> + <recipe max_tries>}`: 3 tries made with `max_tries: 3` allow up to 6 ("resubmitting
+  (try 4 of 6)"). `_check` takes the limit of the last retry (`max_tries(spec, stage_record)`). The next check after
+  the retry resubmits the failed chunks (PicoProducer's own next try). Every retry raises the limit again; there is no
+  retry limit.
+  - Refused (`RetryError`, "cannot be retried (<why>): start a new run"): no samples (FAILED from NEW), no job configs
+    (no samples in the status), a merged tuple that failed validation (FAILED from MERGING). A re-merge after a
+    failed validation is in [TODO.md](TODO.md) section 6: with `merge.clean` the valid samples' job files are gone,
+    so a merge again would record only the invalid ones.
+- **Framework (`runtime/framework.py`):** `_retry_failed` sets the state the stage gives. Only a stage that starts
+  again from NEW has its failed attempt moved to `logs/<id>/attempt<N>/`; a production retry moves nothing (the job
+  files, the merged tuples and `stages/<id>/` stay) and its entry has `archive: null`. The retries entry gets the
+  stage's fields (production: `max_tries`). The history's `retry` detail and the run.log line say what was raised
+  ("failed attempt 1 kept in place; max_tries now 6").
+- **`taufw.py`:** a FAILED run whose production can be retried ends with "To resubmit the failed chunks of stage X
+  with more tries, run: taufw.py retry RUN_DIR".
+- **Menu:**
+  - `retry_info` gives a production stage `tries` (made, limit after the retry); Continue > `Retry production` says
+    "Resubmit the failed chunks of production with 3 more tries (up to try 6) ... The job files and merged tuples stay
+    where they are."; the run list's details show "Tries: 3 made; a retry allows up to 6".
+  - `needs_grid_proxy` counts a FAILED production that a retry resubmits, and a retry checks the proxy like an
+    advance (it was not checked before a retry at all).
+  - **A retry shows a locked run like an advance** (`_navigation.py` `_take_lock`, used by both): a held lock: back;
+    a lost lock of another machine can be taken over (`retry_run(record, take_lock)`: `--take-lock`). Before, a
+    retry of a locked run ended in taufw.py with RunLockError and no way to take a lost lock over.
+  - The run screen's card of a failed production stage: "If its chunks still failed after max_tries, Continue offers
+    Retry <stage> (more tries); other production failures need a new run." The FAQ "Retries" entry says the same.
+    `_preview.py`: a scenario "failed production: retry with more tries".
+- **Docs:** `Framework/README.md`, `Docs/Manual/2-Tutorials/01-FirstProduction.md`, `BackwardCompatibility.md` 9.3,
+  `run_record.py` (the retries keys).
+
+**Decisions (with the user, 2026-10-28):** each retry gives `max_tries` more tries (A1, not one more each time);
+only the failure after `max_tries` for now, the failed merge stays refused (B2); the menu's lock dialog for a retry
+in the same change (C).
+
+**Unchanged:** `advance()` (a FAILED stage still stops the run), `decide_next`, the local stages' retry (CL §44: NEW,
+archived), the run.json schema (3; `max_tries` and `archive: null` only in retries entries, which only a retry
+writes), every BBB baseline (`framework.production` never fails, so its run.json is the same).

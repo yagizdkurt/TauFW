@@ -19,9 +19,10 @@ files, validates values, or invokes commands. Grid callbacks are grid_proxy_vali
 None when voms-proxy-init cannot read the password from stdin, and renew_grid_proxy_in_terminal() (it asks on the
 plain terminal, ConsoleUI.in_terminal). Test callbacks are test_catalog(), start_tests(family, cases, title, expected), which
 returns the TauFW.Utilities.Process.Operation that the test screen follows, and tests_operation(), the last test
-run (or None). Run callbacks: start_run(recipe), advance_run(record, wait, take_lock) and retry_run(record) (the
-failed stage of a FAILED run again, then to the end) start taufw.py behind the menu and return its Operation (kind
-"run"); retry_info(record) is what a retry would do (dict(stage, type, message, changed), or None: no retry); run_operations() (the advances for the main menu), run_operation(run_dir)
+run (or None). Run callbacks: start_run(recipe), advance_run(record, wait, take_lock) and retry_run(record, take_lock)
+(the failed stage of a FAILED run again, then to the end) start taufw.py behind the menu and return its Operation
+(kind "run"); retry_info(record) is what a retry would do (dict(stage, type, message, changed[, tries]), or None: no
+retry); run_operations() (the advances for the main menu), run_operation(run_dir)
 (the advance of a run that runs now), run_advances(run_dirs) (for the run list), run_lock(run_dir) (its advance lock
 or None), mark_seen(operation), needs_grid_proxy(recipe=, record=). running_operations() lists what runs behind the
 menu, stop_operation(operation) stops one.
@@ -308,16 +309,19 @@ class MenuNavigation:
                     if action == "inspect":
                         self.inspect(record)
                         continue
-                    if action == "retry":  # a FAILED local stage: again, then to the end (CL §44)
-                        self._follow_run(self.operations.retry_run(record))
-                        return
-                    break
-                take_lock = False
-                lock = self.operations.run_lock(record.run_dir)
-                if lock is not None and not (lock.get("lost") and lock.get("local")):
-                    if self.ui.run_lock(record.run_id, lock) != "take":
+                    if action != "retry":
                         break
-                    take_lock = True
+                    take_lock = self._take_lock(record)  # a retry takes the run's lock too
+                    if take_lock is None:
+                        break
+                    if not self._grid_ready(self.operations.needs_grid_proxy(record=record)):  # production resubmits
+                        continue
+                    # the failed stage again, then to the end (CL §44; production after max_tries: CL §48)
+                    self._follow_run(self.operations.retry_run(record, take_lock=take_lock))
+                    return
+                take_lock = self._take_lock(record)
+                if take_lock is None:
+                    break
                 action = chosen if chosen in ("wait", "advance") else self.ui.continue_actions(record.run_id)
                 chosen = None
                 if action == "back":
@@ -326,6 +330,14 @@ class MenuNavigation:
                     continue
                 self._follow_run(self.operations.advance_run(record, wait=action == "wait", take_lock=take_lock))
                 return
+
+    def _take_lock(self, record):
+        """Before an advance or a retry: False (no lock, or a lost one of this machine, which taufw.py takes over
+        itself), True (the user takes over a lost lock: --take-lock), None (locked: back)."""
+        lock = self.operations.run_lock(record.run_dir)
+        if lock is None or (lock.get("lost") and lock.get("local")):
+            return False
+        return True if self.ui.run_lock(record.run_id, lock) == "take" else None
 
     def _follow_run(self, operation):
         """Show an advance; once it ended, its result was seen (the main menu stops listing it)."""

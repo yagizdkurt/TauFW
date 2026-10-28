@@ -1026,8 +1026,9 @@ class ConsoleUI:
         return self.prompt("Run directory (relative to %s)" % launch_dir)
 
     def terminal_run_actions(self, state, retry=None):
-        """A run that cannot advance: "inspect", "back", or with retry (dict(stage, type, message, changed): its
-        failed stage can run again, CL §44) also "retry"."""
+        """A run that cannot advance: "inspect", "back", or with retry (dict(stage, type, message, changed; a
+        production stage also tries: (made, limit after the retry)): its failed stage can run again, CL §44, §48)
+        also "retry"."""
         if not retry:
             return self._action("Run is %s; it cannot advance." % state,
                                 ["Inspect status", "Back"], ["inspect", "back"])
@@ -1039,11 +1040,18 @@ class ConsoleUI:
                 "%s %s" % (path, change) for path, change in changed.items())
         else:
             bundle = "The run's bundle copy is as it started."
+        if retry.get("tries"):  # production after max_tries (CL §48)
+            made, limit = retry["tries"]
+            what = ("Resubmit the failed chunks of %s with %d more tries (up to try %d), then go on to the end; the "
+                    "finished stages are kept. It failed with: %s. %s The job files and merged tuples stay where they "
+                    "are." % (stage, limit - made, limit, retry.get("message") or "?", bundle))
+        else:
+            what = ("Run %s again once its cause is fixed, then go on to the end; the finished stages are kept. It "
+                    "failed with: %s. %s The failed attempt is kept in logs/%s/attempt<N>/."
+                    % (stage, retry.get("message") or "?", bundle, stage))
         return self._action("Run failed at %s" % stage, ["Retry %s" % stage, "Inspect status", "Back"],
                             ["retry", "inspect", "back"],
-                            descriptions=["Run %s again once its cause is fixed, then go on to the end; the finished "
-                                          "stages are kept. It failed with: %s. %s The failed attempt is kept in "
-                                          "logs/%s/attempt<N>/." % (stage, retry.get("message") or "?", bundle, stage),
+                            descriptions=[what,
                                           "Show the saved state of every stage.",
                                           "Choose another run."])
 

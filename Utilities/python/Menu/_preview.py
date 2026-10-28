@@ -620,6 +620,10 @@ SCENARIOS = [
              lambda ui, directory: ui.terminal_run_actions("FAILED", retry=dict(
                  stage="sf_tauid", type="python", message="1 command(s) ran: sf_tauid: exit code 1",
                  changed={"sf/tauid.json": "added"}))),
+    Scenario("Continue", "failed production: retry with more tries",
+             lambda ui, directory: ui.terminal_run_actions("FAILED", retry=dict(
+                 stage="production", type="production",
+                 message="2 chunk(s) still failed or missing after 3 tries", changed={}, tries=(3, 6)))),
     Scenario("Start a run", "detailed plan (taufw.py plan behind the menu)", _command_output("plan")),
     Scenario("Inspect", "run status, HTCondor answers after 4 s", _command_output("status")),
     Scenario("Tests", "menu, last run failed",

@@ -912,11 +912,52 @@ class ScreenTests(unittest.TestCase):
                 operations.retry_info.assert_called_with(record)
                 self.assertEqual(operations.retry_run.called, retried)
                 if retried:
-                    operations.retry_run.assert_called_once_with(record)
+                    operations.retry_run.assert_called_once_with(record, take_lock=False)
                     ui.run_progress.assert_called_once_with("Run example", operations.retry_run.return_value)
                 self.assertEqual(operations.start_command.called, inspected)
                 operations.advance_run.assert_not_called()
                 ui.continue_actions.assert_not_called()
+
+    def test_a_retry_asks_for_the_lock_and_the_grid_proxy(self):
+        """CL §48: a retry shows a locked run like an advance (a lost lock can be taken over), and a production
+        retry, which resubmits, needs a valid grid proxy."""
+        for lock, lock_answer, proxy, proxy_answers, retried, take in (
+                ({"host": "other", "pid": 7}, "back", False, [], False, None),            # held: back
+                ({"host": "other", "lost": True}, "take", False, [], True, True),          # lost elsewhere: taken
+                ({"host": "here", "lost": True, "local": True}, None, False, [], True, False),  # taufw.py takes it
+                (None, None, True, ["back"], False, None),                                 # no proxy: back
+                (None, None, True, ["renew"], True, False)):                               # renewed
+            with self.subTest(lock=lock, proxy=proxy, proxy_answers=proxy_answers):
+                ui, operations, record = self.runs_menu()
+                record.state = "FAILED"
+                operations.can_advance.return_value = False
+                operations.retry_info.return_value = dict(stage="production", type="production", message="x",
+                                                          changed={}, tries=(3, 6))
+                operations.run_lock.return_value = lock
+                ui.run_lock.return_value = lock_answer
+                operations.needs_grid_proxy.return_value = proxy
+                operations.grid_proxy_valid.side_effect = [False, True]
+                ui.grid_proxy_needed.side_effect = proxy_answers
+                ui.terminal_run_actions.side_effect = ["retry", "back"]
+                operations.retry_run.return_value = mock.Mock(running=False, data=dict(run_id="example"))
+                MenuNavigation(ui, operations).continue_run()
+                self.assertEqual(ui.run_lock.called, bool(lock) and not lock.get("local"))
+                self.assertEqual(operations.retry_run.called, retried)
+                if retried:
+                    operations.retry_run.assert_called_once_with(record, take_lock=take)
+                if lock is None:
+                    operations.needs_grid_proxy.assert_called_with(record=record)
+
+    def test_the_production_retry_choice_says_how_many_tries(self):
+        ui = ConsoleUI(mock.Mock())
+        with mock.patch.object(ui, "choose", side_effect=[0]) as choose:
+            retry = dict(stage="production", type="production", message="2 chunk(s) still failed", changed={},
+                         tries=(3, 6))
+            self.assertEqual(ui.terminal_run_actions("FAILED", retry=retry), "retry")
+        description = choose.call_args.kwargs["descriptions"][0]
+        self.assertIn("Resubmit the failed chunks of production with 3 more tries (up to try 6)", description)
+        self.assertIn("It failed with: 2 chunk(s) still failed.", description)
+        self.assertNotIn("attempt<N>", description)
 
     def test_the_retry_choice_says_what_it_does(self):
         ui = ConsoleUI(mock.Mock())

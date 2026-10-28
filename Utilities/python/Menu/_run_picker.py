@@ -11,6 +11,7 @@ ACTION_HELP = {
     "wait": "Check jobs every 10 minutes and advance until done or failed. You can leave the progress screen.",
     "advance": "Check jobs once, resubmit failed chunks, merge or run the next stages, then stop.",
     "retry": "Run the failed stage again, then continue to the end. Finished stages and the failed log are kept.",
+    "retry_production": "Resubmit the failed chunks with more tries, then continue to the end. Job files stay.",
     "inspect": "Show the saved stage states and live job counts without changing the run.",
 }
 
@@ -59,13 +60,16 @@ def _details(ui, screen, rect, view, mode, focused, action, offset):
     for index, (_, label) in enumerate(choices):
         lines.append(("> " if focused and index == action else "  ") + label)
         colors.append("accent" if focused and index == action else None)
+    retry, lock = view.get("retry"), view.get("lock")
     if focused and choices:
-        help_text = ACTION_HELP.get(choices[action][0])
+        key = choices[action][0]
+        help_text = ACTION_HELP.get("retry_production" if key == "retry" and retry.get("tries") else key)
         if help_text:
             lines += ["", help_text]
-    retry, lock = view.get("retry"), view.get("lock")
     if retry:
         lines += ["", "Failed: " + retry.get("message", "")]
+        if retry.get("tries"):
+            lines += ["Tries: %d made; a retry allows up to %d" % tuple(retry["tries"])]
         changed = retry.get("changed")
         lines += ["Bundle changes: " + (", ".join("%s %s" % pair for pair in changed.items()) if changed else
                                       "unknown" if changed is None else "none")]

@@ -20,6 +20,11 @@ configuration).
 The policy is set in the recipe: max_tries (default 3), merge.clean (default false), merge.force (default false).
 decide_next() only looks at numbers and changes nothing, so the policy is tested without a batch system.
 
+Retry (taufw.py retry, CL §48): a stage that FAILED because chunks still failed after max_tries goes back to
+WAITING with max_tries more tries (the new limit is in its retries entry in run.json, `max_tries`); the next check
+resubmits the failed chunks. Nothing is moved: the job files and the stage's directory stay. The other failures
+(no samples, no job configs, a merged tuple that failed validation) cannot be retried: start a new run.
+
 Inputs:  ProductionSpec (the recipe options), the stage's record (state, attempt), a PicoProducer.
 Outputs: a StageOutcome. Through PicoProducer: job files, batch jobs, and the merged tuples in <run_dir>/stages/<id>/.
 
@@ -28,6 +33,7 @@ Public API:
   ProductionSpec, SplitSpec, MergeSpec   recipe options
   decide_next(counts, attempt, max_tries) -> (Action, reason)
   Action, StatusCounts, counts(status)
+  max_tries(spec, stage_record), tries_used_up(stage_record)   the limit of tries; a FAILED stage that can be retried
 """
 import os
 from dataclasses import dataclass, field
@@ -36,7 +42,7 @@ from typing import NamedTuple, Optional, Tuple
 from TauFW.Framework.stages.base import Stage, StageState, StageOutcome, StageContext
 
 __all__ = ['ProductionStage', 'ProductionSpec', 'SplitSpec', 'MergeSpec', 'decide_next', 'Action', 'StatusCounts',
-           'counts']
+           'counts', 'max_tries', 'tries_used_up']
 
 
 # =============================================================================
@@ -85,6 +91,27 @@ def counts(status):
     """The StatusCounts of a PicoProducer StageStatus."""
     return StatusCounts(nsamples=len(status.samples), npending=status.npending, nfailed=status.nfailed,
                         complete=status.complete)
+
+
+def max_tries(spec, stage_record):
+    """The stage's limit of tries: the recipe's max_tries, or the one its last retry set (CL §48)."""
+    raised = [entry['max_tries'] for entry in stage_record.retries if 'max_tries' in entry]
+    return raised[-1] if raised else spec.max_tries
+
+
+def tries_used_up(stage_record):
+    """Whether a FAILED stage failed in a status check (it was SUBMITTED or WAITING) whose saved status has failed
+    or missing chunks and none pending: decide_next's "still failed or missing after N tries". Not: no samples
+    (FAILED from NEW), no job configs (no samples in the status), a failed merge (FAILED from MERGING)."""
+    history = stage_record.history
+    if StageState(stage_record.state) is not StageState.FAILED or len(history) < 2:
+        return False
+    if history[-2].get('state') not in (StageState.SUBMITTED.value, StageState.WAITING.value):
+        return False
+    samples = (stage_record.last_status or {}).get('samples') or ()
+    nfailed = sum(len(sample.get('failed') or ()) + len(sample.get('missing') or ()) for sample in samples)
+    npending = sum(len(sample.get('pending') or ()) for sample in samples)
+    return nfailed > 0 and npending == 0
 
 
 # =============================================================================
@@ -154,6 +181,16 @@ class ProductionStage(Stage):
         """Quick local test on the first sample of every era and channel (no run record)."""
         return self.pico.run_local(self.request(spec, maxevts=maxevts, nfiles=nfiles, nsamples=1))
 
+    @classmethod
+    def retry_state(cls, stage_record):
+        """WAITING if the stage failed because chunks still failed after max_tries (see tries_used_up), else None:
+        the other failures would fail the same way again."""
+        return StageState.WAITING if tries_used_up(stage_record) else None
+
+    def retry_fields(self, spec, stage_record):
+        """The retry's new limit: max_tries more tries after those made (3 tries made, max_tries 3: up to 6)."""
+        return {'max_tries': stage_record.attempt + spec.max_tries}
+
     # =========================================================================
     # ================================= STEPS =================================
 
@@ -169,7 +206,7 @@ class ProductionStage(Stage):
     def _check(self, spec, stage_record, request):
         """SUBMITTED or WAITING: check the jobs, then wait, resubmit, merge or fail (see decide_next)."""
         status = self.pico.status(request)
-        action, reason = decide_next(counts(status), stage_record.attempt, spec.max_tries)
+        action, reason = decide_next(counts(status), stage_record.attempt, max_tries(spec, stage_record))
         status_dict = status.to_dict()
         if action is Action.WAIT:
             return StageOutcome(StageState.WAITING, reason, "waiting", status=status_dict)

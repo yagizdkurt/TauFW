@@ -144,10 +144,12 @@ class RunProgressTests(unittest.TestCase):
         self.assertEqual(ntuples["seconds"], 93600.0)  # the finished stage keeps its time
 
     def test_failed_card_says_whether_the_stage_can_be_retried(self):
-        """CL §44: a failed local stage is retried from Continue; a failed production stage ends the run."""
+        """CL §44: a failed local stage is retried from Continue; CL §48: production only after max_tries."""
         for stage, kind, then in (("plots", "plotter", "Fix the cause, then Continue offers Retry plots: the "
                                                        "finished stages are kept."),
-                                  ("ntuples", "production", "A failed production stage is final: start a new run.")):
+                                  ("ntuples", "production", "If its chunks still failed after max_tries, Continue "
+                                                            "offers Retry ntuples (more tries); other production "
+                                                            "failures need a new run.")):
             with self.subTest(kind=kind):
                 data = dict(DATA, stages=[dict(s, state="NEW") for s in DATA["stages"]])
                 run = RunProgress(data)

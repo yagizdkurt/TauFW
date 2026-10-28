@@ -1,7 +1,7 @@
 # Refactor-2025: still to do
 
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-**Last updated:** 2026-10-27
+**Last updated:** 2026-10-28
 
 Everything the `Refactor-2025` branch has left open: checks that need lxplus, the rest of the `common` → `Utilities`
 move, old output kept on purpose, open bugs, and planned next steps. The [change log](Refactor-2025.md) ("CL §N")
@@ -72,6 +72,15 @@ The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go he
       appear side by side; F5 switches focus and Up/Down/PgUp/PgDn move each independently. F4 hides/opens the
       manual. At 80 columns it opens full width with F4/F5 and F5 returns to editing. Resize while reading;
       check cursor visibility, long code with Left/Right, Tab indentation, F2 save and Esc with unsaved edits.
+
+- [ ] **Retry of a production stage after max_tries (CL §48):** a short production run (e.g. `max_tries: 1`) where
+      a chunk fails (a sample with a bad file, or `condor_rm` one job and remove its output): the run ends FAILED
+      "... after 1 tries" and `taufw.py` names `taufw.py retry`. Menu > Continue: "Run failed at production" with
+      `Retry production`, "with 1 more tries (up to try 2)"; the grid-proxy check comes first when the proxy is gone.
+      The retry resubmits only the failed chunks (PicoProducer try 2, `condor_q`), nothing is moved (job files,
+      `stages/production/`), run.json `retries` has `archive: null`, `max_tries: 2`; once the jobs end, the run merges
+      and goes on. While a retry runs, a second Continue > Retry shows the lock dialog. `python3 Tests/run.py bbb
+      check` 24/24 without re-lock (`framework.production`).
 
 - [ ] **Retry of a failed stage (CL §44):** a run of `Analyses/Examples/cmsdas26_ztt` whose `sf_tauid` fails (rename `sf/` in the run's bundle
       copy before it runs, or start with it missing); put the file back into `<run>/bundle/`; menu > Continue >
@@ -269,14 +278,14 @@ Parts 1–5 are done (CL §5–§8; the Part 2 changelog section was removed).
 
 ## 6. Framework
 
-- [ ] **Retry of a FAILED production stage (CL §44 left it out).** `taufw.py retry` refuses it today ("start a new
-      run"). Going back to NEW would submit every sample again (`ProductionStage._submit`), so production needs its
-      own rule, e.g. a `Stage.retry_state(stage_record)` hook: `max_tries` reached -> WAITING with `max_tries` more
-      tries (recorded in `retries`, so the limit is raised in the open; the next advance resubmits only the failed
-      chunks); a merged tuple that failed validation -> MERGING (merge again, maybe with `merge.force`); "no samples
-      match the request" -> still refused (the recipe in run.json is fixed, it would fail the same way). Then the
-      menu's grid-proxy check applies to a retry too (`needs_grid_proxy` counts a FAILED production stage as
-      finished), and the FAQ "Retries" text and the run card change.
+- [ ] **Retry of a production stage whose merged tuple failed validation (CL §48 left it out, decision B2).** The
+      retry after `max_tries` is done (CL §48); a failed merge is still refused. Rule: `retry_state` -> MERGING when
+      the stage was MERGING before FAILED. Problem first: with `merge.clean` the valid samples' job directories are
+      removed after their merge (`cleanup_commands`, `jobdir` per sample), so a merge again finds only the invalid
+      samples (`iter_submitted` reads the job configs) and the stage's artifacts would lose the valid ones (DY merged
+      and valid, TT invalid: after the retry only TT). Keep the earlier artifacts of the samples not in `invalid` and
+      add the new merge's. Also: validation runs only with `merge.clean`, and merging the same job output again only
+      helps against a broken hadd/EOS write, not an event-count mismatch.
 - [ ] **Files a python step needs, checked before it runs (option (d) of the CL §44 discussion).** A python step
       that opens a file the bundle lacks fails while it runs (FAILED; CL §44 makes it retryable). A recipe option such
       as `requires: [sf/*.json]` (bundle-relative patterns), checked in `PythonStage.preflight`, would keep the step

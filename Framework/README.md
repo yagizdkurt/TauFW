@@ -261,7 +261,9 @@ A stage that is not implemented yet (none at the moment) reports `NOT_IMPLEMENTE
 Run states (`RunState`): `NEW`, `RUNNING` (e.g. a local stage is not ready yet), `WAITING` (a stage waits for jobs),
 `DONE`, `FAILED` (a stage failed), `BLOCKED` (stopped at a stage that is not implemented). `DONE`, `FAILED` and
 `BLOCKED` are final: advancing again changes nothing (a `FAILED` local stage can be retried, above; a `FAILED`
-production stage cannot yet). `taufw.py` exits with 1 if the run failed.
+production stage too, when its chunks still failed after `max_tries`: `taufw.py retry` gives it `max_tries` more
+tries, resubmits only the failed chunks and moves nothing; its other failures need a new run, CL §48). `taufw.py`
+exits with 1 if the run failed.
 
 The run's bundle copy (`<run dir>/bundle/`) is checked at every `advance` and `retry`: `start` records the sha256 of
 its files (`run.json` `bundle.sha256`), and a change (a file added, edited or removed, e.g. a fix before a retry) is

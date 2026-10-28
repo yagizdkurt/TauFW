@@ -189,7 +189,8 @@ class RunProgress(ScreenModel):
         if self.run_state == "BLOCKED":
             return "Blocked at %s" % name, [("Stage %s is not implemented yet." % name, "warning"), where]
         if stage is not None and stage["state"] == "FAILED":
-            then = ("A failed production stage is final: start a new run." if stage["type"] == "production" else
+            then = ("If its chunks still failed after max_tries, Continue offers Retry %s (more tries); other "
+                    "production failures need a new run." % name if stage["type"] == "production" else
                     "Fix the cause, then Continue offers Retry %s: the finished stages are kept." % name)
             return "Failed at %s" % name, [(stage["message"] or "The stage failed.", "error"), (then, None), where]
         return "Failed", [("taufw.py ended with exit code %s; see Output (L)." % self.returncode, "error"), where]

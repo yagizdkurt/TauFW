@@ -16,8 +16,9 @@ bundle files copied to <run_dir>/bundle/ when the run started (empty for a run w
 Retries and bundle changes (CL §44); these keys are only written when they have something to say:
   stage "retries":  one entry per `taufw.py retry` of the stage: {time, attempt (1: the first failed attempt),
                     message (why it failed), archive (where its logs and output were moved, relative to the run
-                    directory: logs/<id>/attempt<N>), bundle_changed (the bundle copy's changes since the start, as
-                    in "changed"; null: not known)}
+                    directory: logs/<id>/attempt<N>; null: nothing moved, production), bundle_changed (the bundle
+                    copy's changes since the start, as in "changed"; null: not known); production also
+                    max_tries (the raised limit of tries, CL §48)}
   bundle "sha256":  {relative path: sha256} of the bundle copy when the run started (only with bundle files)
   bundle "changed": one entry per change of the bundle copy that an advance saw (it warns once per change):
                     {time, files: {path: added|changed|removed} since the start, digest (bundle.hashes_digest)}. A

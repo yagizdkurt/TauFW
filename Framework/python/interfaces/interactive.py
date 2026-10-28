@@ -34,6 +34,7 @@ from TauFW.Framework.recipes.bundle import bundle_changes, bundle_hashes
 from TauFW.Framework.runtime.framework import Framework, retryable_stage
 from TauFW.Framework.runtime.reporting import SilentReporter
 from TauFW.Framework.runtime.run_lock import read_lock
+from TauFW.Framework.stages.production import ProductionSpec
 from TauFW.Framework.version import VersionChecker
 from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation, Prefetch
 from TauFW.Utilities import UserConfig
@@ -386,22 +387,29 @@ class _Operations:
         argv = ["advance", record.run_dir] + (["--wait"] if wait else []) + (["--take-lock"] if take_lock else [])
         return self._run_of(record, argv)
 
-    def retry_run(self, record):
-        """`taufw.py retry RUN_DIR --wait` behind the menu: the failed stage again, then to the end (CL §44)."""
-        return self._run_of(record, ["retry", record.run_dir, "--wait"])
+    def retry_run(self, record, take_lock=False):
+        """`taufw.py retry RUN_DIR --wait` behind the menu: the failed stage again, then to the end (CL §44);
+        take_lock: take over the lock of a lost advance (--take-lock)."""
+        return self._run_of(record, ["retry", record.run_dir, "--wait"] + (["--take-lock"] if take_lock else []))
 
     @staticmethod
     def retry_info(record):
         """What the menu shows before a retry of a FAILED run, as plain data: dict(stage, type, message, changed),
-        changed: the bundle copy's changes since the start ({path: added|changed|removed}; None: not known), or
-        None if the run has no stage that can be retried (no failed stage, or a production stage)."""
+        changed: the bundle copy's changes since the start ({path: added|changed|removed}; None: not known); a
+        production stage also tries: (tries made, the limit after the retry) (CL §48). None if the run has no
+        stage that can be retried (no failed stage, or one whose retry_state refuses it)."""
         found = retryable_stage(record)
         if found is None:
             return None
         start = record.bundle.get("sha256")
         changed = (bundle_changes(start, bundle_hashes(os.path.join(record.run_dir, BUNDLE_DIR_NAME)))
                    if start is not None else None)
-        return dict(stage=found[0], type=found[1], message=record.stage(found[0]).message, changed=changed)
+        saved = record.stage(found[0])
+        info = dict(stage=found[0], type=found[1], message=saved.message, changed=changed)
+        if found[1] == "production":  # the limit retry_fields() will write: max_tries more tries
+            options = next(stage for stage in record.recipe.get("stages", ()) if stage.get("id") == found[0])
+            info["tries"] = (saved.attempt, saved.attempt + options.get("max_tries", ProductionSpec.max_tries))
+        return info
 
     def _run_of(self, record, argv):
         """taufw.py argv (advance or retry) of a run behind the menu, with the run's stages as run.json has them,
@@ -473,12 +481,14 @@ class _Operations:
 
     def needs_grid_proxy(self, recipe=None, record=None):
         """Whether starting the recipe, or advancing the run, may submit jobs (a production stage that is not
-        finished): the batch jobs read their input with the grid proxy, and taufw.py behind the menu cannot
-        ask for the certificate password."""
+        finished, or a FAILED one that a retry resubmits, CL §48): the batch jobs read their input with the grid
+        proxy, and taufw.py behind the menu cannot ask for the certificate password."""
         if record is not None:
-            return any(stage.get("stage") == "production" and
-                       record.stage(stage.get("id")).state not in ("DONE", "FAILED", "NOT_IMPLEMENTED")
-                       for stage in record.recipe.get("stages", ()))
+            retry = retryable_stage(record)
+            return (retry is not None and retry[1] == "production") or any(
+                stage.get("stage") == "production" and
+                record.stage(stage.get("id")).state not in ("DONE", "FAILED", "NOT_IMPLEMENTED")
+                for stage in record.recipe.get("stages", ()))
         return Recipe.load(str(recipe)).first("production") is not None
 
     def _start_run(self, title, argv, data):

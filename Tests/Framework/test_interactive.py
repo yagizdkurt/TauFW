@@ -323,6 +323,30 @@ class MenuTests(unittest.TestCase):
         for state, needed in (("NEW", True), ("WAITING", True), ("MERGING", True), ("DONE", False)):
             record.stage("ntuples").state = state
             self.assertEqual(operations.needs_grid_proxy(record=record), needed)
+        stage = record.stage("ntuples")  # CL §48: FAILED after max_tries: a retry resubmits; a failed merge: no
+        stage.state, stage.attempt = "FAILED", 3
+        stage.last_status = {"samples": [{"name": "DY", "pending": [], "failed": [1], "missing": []}]}
+        for before, needed in (("WAITING", True), ("MERGING", False)):
+            stage.history = [{"event": "x", "state": before}, {"event": "failed", "state": "FAILED"}]
+            self.assertEqual(operations.needs_grid_proxy(record=record), needed, before)
+
+    def test_retry_info_of_a_production_stage_gives_its_tries(self):
+        """CL §48: after max_tries, retry_info says how many tries a retry allows; a failed merge: no retry."""
+        production = {"stage": "production", "id": "ntuples", "inputs": None, "eras": ["2018"],
+                      "channels": ["mutau"], "samples": ["DY"], "max_tries": 2}
+        record = RunRecord.create(Recipe.from_dict({"name": "p", "stages": [production]}),
+                                  str(self.root / "taufw_runs"), now=datetime(2026, 10, 1))
+        stage = record.stage("ntuples")
+        stage.state, stage.attempt, stage.message = "FAILED", 2, "1 chunk(s) still failed or missing after 2 tries"
+        stage.last_status = {"samples": [{"name": "DY", "pending": [], "failed": [], "missing": [0]}]}
+        stage.history = [{"event": "resubmitted", "state": "SUBMITTED"}, {"event": "failed", "state": "FAILED"}]
+        self.assertEqual(interactive._Operations.retry_info(record),
+                         dict(stage="ntuples", type="production", message=stage.message, changed=None, tries=(2, 4)))
+        stage.retries = [{"attempt": 1, "max_tries": 4}]  # retried once and failed again after 4: up to 6
+        stage.attempt = 4
+        self.assertEqual(interactive._Operations.retry_info(record)["tries"], (4, 6))
+        stage.history[-2]["state"] = "MERGING"
+        self.assertIsNone(interactive._Operations.retry_info(record))
 
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
