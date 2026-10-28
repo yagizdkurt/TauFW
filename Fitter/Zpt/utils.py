@@ -2,7 +2,6 @@
 # Author: Izaak Neutelings (May 2021)
 # Description: Help functions for Z pT measurment
 from config.samples import *
-from TauFW.common.tools.file import ensuredir
 from TauFW.common.tools.root import ensureTFile, ensureTDirectory
 from TauFW.Utilities.Drawing.Stack import Stack, Plot, close
 from TauFW.Utilities.Drawing import LOG

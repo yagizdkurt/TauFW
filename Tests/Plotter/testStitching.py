@@ -2,9 +2,10 @@
 # Author: Izaak Neutelings (July 2020)
 # Description: Test joining or stitching of Sample objects
 #   python3 test/testStitching.py -v2
-from TauFW.Plotter.sample.utils import LOG, STYLE, setera, CMSStyle, ensuredir,\
+from TauFW.Plotter.sample.utils import LOG, STYLE, setera, CMSStyle,\
                                        join, Sample, MergedSample, SampleSet
 from pseudoSamples import makesamples
+from TauFW.Utilities.FIO import FileIO
 
 
 def printsamples(samples,title=None):
@@ -66,7 +67,7 @@ def main():
   nevts    = 50000
   snames   = [n[0] for n in sampleset]
   scales   = {n[0]: n[2] for n in sampleset} # relative contribtions to pseudo data
-  outdir   = ensuredir('plots')
+  outdir   = FileIO().make_directory('plots')
   indir    = outdir
   filedict = makesamples(nevts,sample=snames,scales=scales,outdir=outdir,lumi=lumi)
   samples  = [ ]

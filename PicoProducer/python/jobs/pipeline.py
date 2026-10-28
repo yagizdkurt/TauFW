@@ -34,7 +34,7 @@ Public API:
 import os, re, glob
 from datetime import datetime
 from dataclasses import dataclass
-from TauFW.common.tools.file import ensuredir
+from TauFW.Utilities.FIO import FileIO
 from TauFW.common.tools.utils import chunkify
 from TauFW.common.tools.log import Logger
 from TauFW.PicoProducer.batch.factory import getbatch
@@ -353,9 +353,9 @@ class SamplePlan:
 
 def _make_jobdirs(layout):
   """Create the job, config and log directories."""
-  ensuredir(layout.jobdir)
-  ensuredir(layout.cfgdir)
-  ensuredir(layout.logdir)
+  FileIO().make_directory(layout.jobdir)
+  FileIO().make_directory(layout.cfgdir)
+  FileIO().make_directory(layout.logdir)
 
 
 def _write_joblist(reporter,joblist,commands,verbosity):

@@ -2,8 +2,8 @@
 # Description: Configuration of JEC/JER versions
 import os, re
 from TauFW.PicoProducer import datadir
-from TauFW.common.tools.file import ensurefile
 from TauFW.common.tools.utils import getyear
+from TauFW.Utilities.FIO import FileIO
 
 
 def getjson(era,dtype='data'):
@@ -40,7 +40,7 @@ def getjson(era,dtype='data'):
           json = 'Cert_314472-325175_13TeV_PromptReco_Collisions18_JSON.txt'
      
     assert json!=None, "getjson: Did not find certified run JSON for era %r, year %r"%(era,year)
-  json = ensurefile(datadir,'json',str(year),json)
+  json = FileIO().require_file(os.path.join(datadir,'json',str(year),json))
   return json
   
 

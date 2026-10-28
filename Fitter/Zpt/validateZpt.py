@@ -9,6 +9,7 @@ from TauFW.Utilities.Math import float_range
 from ROOT import gROOT, gSystem
 gROOT.Macro('weights/zptweight.C+')
 from ROOT import loadZptWeights
+from TauFW.Utilities.FIO import FileIO
 
 baseline = "q_1*q_2<0 && pt_2>20 && iso_1<0.15 && iso_2<0.15 && idMedium_1 && idMedium_2 && !extraelec_veto && !extramuon_veto && metfilter && m_ll>20"
 #baseline = "q_1*q_2<0 && pfRelIso04_all_1<0.15 && pfRelIso04_all_2<0.15 && !extraelec_veto && !extramuon_veto && m_vis>20" # old
@@ -102,7 +103,7 @@ def plot(era,channel,weight="",tag="",title="",outdir="plots",parallel=True,pdf=
   Unroll.SetBins(hist2D,verb) # set bin axes for Unroll.GetBin
   
   # PLOT
-  outdir   = ensuredir(repkey(outdir,CHANNEL=channel,ERA=era))
+  outdir   = FileIO().make_directory(repkey(outdir,CHANNEL=channel,ERA=era))
   exts     = ['png','pdf'] if pdf else ['png'] # extensions
   for selection in selections:
     if 'mgt200' in tag and 'm_vis>' not in selection.selection: continue

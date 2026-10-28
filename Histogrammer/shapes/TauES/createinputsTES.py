@@ -9,7 +9,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)),"..","..
 # from config.samples import *
 from config.samples_v15 import *
 from TauFW.Utilities.Drawing import LOG as PLOG
-from TauFW.common.tools.file import ensuredir
+from TauFW.Utilities.FIO import FileIO
 from TauFW.Histogrammer.shapes.inputs import createinputs, plotinputs
 from TauFW.Histogrammer.shapes.rebinning import rebinning
 from TauFW.Histogrammer.sample.tupledir import script_default_tuples # LEGACY: picodir without --tuples (CL §37)
@@ -43,8 +43,8 @@ def main(args):
   inclusive = args.inclusive
   plot      = True
   outbase   = getattr(args, 'outbase', None) or 'input_pt_less_region'  # separate tree per tagger (e.g. input_pt_less_region_pnet)
-  outdir    = ensuredir(f"{outbase}/againstjet_{againstjet}/againstelectron_{againstelectron}")
-  plotdir   = ensuredir(outdir,"plots")
+  outdir    = FileIO().make_directory(f"{outbase}/againstjet_{againstjet}/againstelectron_{againstelectron}")
+  plotdir   = FileIO().make_directory(os.path.join(outdir,"plots"))
   analysis  = 'ztt'
 
   print("Using configuration file: %s"%setupConfFile  )
@@ -311,7 +311,7 @@ def main(args):
             fname = os.path.join(os.path.dirname(fname), 'rebinning', os.path.basename(fname))  # BUGS F07: was <outbase>/rebinning/
         else:
             print("WARNING: No observable/region groups found. Skipping plotting.")
-        plotdir   = ensuredir(plotdir,"rebinning")
+        plotdir   = FileIO().make_directory(os.path.join(plotdir,"rebinning"))
         pname  = "%s/%s_$OBS_%s-$BIN-%s$TAG%s.png"%(plotdir,analysis,chshort,era,tag)
         run_plotinputs_all(fname,varprocs,obs_region_groups,text=text,
                    pname=pname,tag=tag,group=groups, parallel=parallel)

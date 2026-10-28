@@ -2,7 +2,7 @@
 # Author: Izaak Neutelings (Februari 2021)
 import os, sys, re
 #sys.path.append('../plots')
-from TauFW.common.tools.file import ensuredir
+from TauFW.Utilities.FIO import FileIO
 from TauFW.common.tools.utils import repkey
 from TauFW.Utilities.Drawing import LOG
 from TauFW.Utilities.Drawing.Stack import Stack # Var
@@ -105,7 +105,7 @@ def main(args):
                       fname    = "$DIR/$ANALYSIS$BIN_$ETA_dm$DM_PostFitShape.root"
                       pname    = "$DIR/$ANALYSIS_$OBS_$CHANNEL-$BIN-$ERA-$ETA-dm$DM-$REG-$TAG_$FIT.png"
                       indir  = "output/%s/%s"%(era,analysis)
-                      outdir = ensuredir("plots/%s"%era)
+                      outdir = FileIO().make_directory("plots/%s"%era)
                       xtitle = title_dict.get(obs)
                       fname_ = repkey(fname,DIR=indir,ANALYSIS=analysis,OBS=obs,CHANNEL=channel,ETA=eta,DM=idm,BIN=bin,ERA=era,TAG=tag)
                       pname_ = repkey(pname,DIR=outdir,ANALYSIS=analysis,OBS=obs,CHANNEL=channel,ETA=eta,DM=idm,BIN=bin,ERA=era,REG=reg,TAG=tag)

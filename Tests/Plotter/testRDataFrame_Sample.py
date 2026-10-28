@@ -4,7 +4,7 @@
 import os, re
 import time
 import ROOT; ROOT.PyConfig.IgnoreCommandLineOptions = True # to avoid conflict with argparse
-from TauFW.common.tools.file import ensuredir
+from TauFW.Utilities.FIO import FileIO
 from TauFW.common.tools.string import took
 from TauFW.Plotter.sample.ResultDict import ResultDict, RDF # for containing RDataFRame RResultPtr
 from TauFW.Plotter.sample.SampleSet import SampleSet
@@ -257,7 +257,7 @@ def main(args):
   reuse     = args.reuse
   ncores    = args.ncores
   parallel  = ncores>=2
-  outdir    = ensuredir('plots/test')
+  outdir    = FileIO().make_directory('plots/test')
   rungraphs = True #and False # RDF.RunGraphs should be faster
   merge     = [ # to test MergedSample.getrdframe
     'DY',  # = sum(DY*Jets)

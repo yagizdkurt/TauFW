@@ -5,6 +5,7 @@
 from utils import *
 gROOT.Macro('weights/zptweight.C+')
 from ROOT import loadZptWeights, kRed
+from TauFW.Utilities.FIO import FileIO
 
 ptitle   = "p_{T}(#mu#mu) [GeV]"
 mtitle   = "m_{#mu#mu} [GeV]"
@@ -28,7 +29,7 @@ def measureZpt(samples,outdir='weights',plotdir=None,parallel=True,tag=""):
   gtitle   = "Gen-level weight"
   fname    = "%s/zpt_weights_$CAT%s.root"%(outdir,tag)
   pname    = "%s/zpt_$CAT%s.png"%(plotdir or outdir,tag)
-  outdir   = ensuredir(outdir) #repkey(outdir,CHANNEL=channel,ERA=era))
+  outdir   = FileIO().make_directory(outdir) #repkey(outdir,CHANNEL=channel,ERA=era))
   logx     = True #and False
   logy     = True #and False
   logz     = True #and False
@@ -189,8 +190,8 @@ def main(args):
   for era in eras:
     tag_   = tag+'_'+era
     setera(era) # set era for plot style and lumi-xsec normalization
-    outdir_  = ensuredir(repkey(outdir,ERA=era))
-    plotdir_ = ensuredir(repkey(plotdir,ERA=era))
+    outdir_  = FileIO().make_directory(repkey(outdir,ERA=era))
+    plotdir_ = FileIO().make_directory(repkey(plotdir,ERA=era))
     samples  = getsampleset(channel,era,fname=fname,dyweight="",dy="mass")
     measureZpt(samples,outdir=outdir_,plotdir=plotdir_,parallel=parallel,tag=tag_)
     samples.close() # close all sample files to clean memory

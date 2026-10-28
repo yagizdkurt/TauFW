@@ -11,14 +11,14 @@ Public API:
 """
 
 # ===== Imports =====
-import sys, glob
+import os, sys, glob
 import importlib
 from fnmatch import fnmatch
 from TauFW.PicoProducer import basedir
-from TauFW.common.tools.file import ensurefile
 from TauFW.common.tools.string import repkey, quotestrs
 from TauFW.PicoProducer.settings.store import getconfig
 from TauFW.PicoProducer.storage.log import LOG
+from TauFW.Utilities.FIO import FileIO
 
 __all__ = ['getsamples', 'print_no_samples']
 
@@ -37,7 +37,7 @@ def getsamples(era,channel="",tag="",dtype=[],filter=[],veto=[],dasfilter=[],das
   vetoes   = veto    if not veto    or isinstance(veto,list)    else [veto]
   dasveto  = dasveto if not dasveto or isinstance(dasveto,list) else [dasveto]
   dtypes   = dtype   if not dtype   or isinstance(dtype,list)   else [dtype]
-  sampfile = ensurefile("samples",repkey(CONFIG.eras[era],ERA=era,CHANNEL=channel,TAG=tag))
+  sampfile = FileIO().require_file(os.path.join("samples",repkey(CONFIG.eras[era],ERA=era,CHANNEL=channel,TAG=tag)))
   samppath = sampfile.replace('.py','').replace('/','.')
   LOG.verb("datasets.catalog.getsamples: sampfile=%r"%(sampfile),verb,1)
   LOG.verb("datasets.catalog.getsamples: samppath=%r"%(samppath),verb,3)

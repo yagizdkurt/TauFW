@@ -162,6 +162,12 @@ class FileIO:
         """False means confirmed absence; access and transport errors propagate."""
         return self._kind(normalize(location)) is not None
 
+    def require_file(self, location: StrPath) -> str:
+        """Return the location; raise FileNotFoundError when absent, IsADirectoryError for a directory."""
+        location = normalize(location)
+        self._require(location, "file")
+        return location
+
     def list_directory(self, location: StrPath, pattern: str = "*") -> list[str]:
         """Return sorted direct child locations, including directories, filtered by basename."""
         location = normalize(location)
@@ -195,8 +201,8 @@ class FileIO:
     # =========================================================================
     # ========================== FILESYSTEM CHANGES ===========================
 
-    def make_directory(self, location: StrPath, *, parents: bool = True, exist_ok: bool = True) -> None:
-        """Create only the explicitly requested directory and, optionally, its parents."""
+    def make_directory(self, location: StrPath, *, parents: bool = True, exist_ok: bool = True) -> str:
+        """Create only the explicitly requested directory and, optionally, its parents; return the location."""
         location = normalize(location)
         if not remote_scheme(location):
             local.make_directory(location, parents, exist_ok)
@@ -204,6 +210,7 @@ class FileIO:
             remote.make_directory(location, parents, self._timeout)
         elif not exist_ok:
             raise FileExistsError(location)
+        return location
 
     def copy_file(self, source: StrPath, destination: StrPath, *, overwrite: bool = False) -> None:
         """Copy one file to an explicit filename; never interpret destination as a directory."""

@@ -14,8 +14,8 @@ import os
 from fnmatch import fnmatch # for glob pattern
 from TauFW.common.tools.utils import execute, ensurelist
 from TauFW.common.tools.string import isglob # BUGS S07: was missing
-from TauFW.common.tools.file import ensuredir, rmfile
 from TauFW.PicoProducer.storage.log import LOG
+from TauFW.Utilities.FIO import FileIO
 
 __all__ = ['StorageSystem', 'Local']
 
@@ -188,7 +188,8 @@ class StorageSystem(object):
     if tmpdir: # create temporary dir for hadd target, and copy after
       if not isinstance(tmpdir,str):
         tmpdir = self.tmpdir
-      tmpdir  = ensuredir(tmpdir,verb=verb)
+      if tmpdir: # '' (e.g. T2_DESY): hadd in the current directory
+        FileIO().make_directory(tmpdir)
       htarget = os.path.join(tmpdir,os.path.basename(target))
     if isinstance(sources,str):
       sources = [ sources ]
@@ -215,7 +216,7 @@ class StorageSystem(object):
     if tmpdir: # copy hadd target and remove temporary file
       cpout = self.cp(htarget,target,dry=dryrun,verb=verb)
       if not dryrun:
-        rmfile(htarget)
+        FileIO().remove_file(htarget,missing_ok=True)
     return out
   
   def rm(self,*paths,**kwargs):

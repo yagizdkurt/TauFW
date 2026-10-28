@@ -7,7 +7,7 @@
 from time import time
 import os, re
 from array import array
-from TauFW.common.tools.file import ensuredir
+from TauFW.Utilities.FIO import FileIO
 from ROOT import gROOT, gSystem, gDirectory, TFile, TTree, TH1D, TH2D, gRandom, TColor
 from TauFW.Utilities.Drawing import LOG
 from TauFW.Plotter.plot.MultiDraw import MultiDraw
@@ -159,7 +159,7 @@ def main():
   nevts      = 100000
   predefine  = True #and False # initialize histogram before calling filling
   sample     = 'ZTT' #'Data'
-  outdir     = ensuredir('plots/test')
+  outdir     = FileIO().make_directory('plots/test')
   filedict   = makesamples(nevts,sample=sample,outdir=outdir)
   print(filedict)
   file, tree = filedict[sample]

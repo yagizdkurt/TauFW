@@ -27,12 +27,12 @@ Public API:
 # ===== Imports =====
 import os, re, glob, json
 from dataclasses import dataclass
-from TauFW.common.tools.file import getline
 from TauFW.common.tools.string import alphanum_key
 from TauFW.common.tools.log import Logger, color
 from TauFW.PicoProducer.batch.factory import getbatch
 from TauFW.PicoProducer.jobs.chunking import evtsplitexp
 from TauFW.PicoProducer.jobs.reporting import Reporter
+from TauFW.Utilities.FIO import FileIO
 from TauFW.PicoProducer.storage.factory import getstorage
 from TauFW.PicoProducer.storage.validation import isvalid, itervalid
 
@@ -93,11 +93,17 @@ def check_sample(sample,config,reporter=None,outdir=None,channel=None,tag=None,c
   classifier = Classifier(jobcfg,filenevts,checkexpevts,reporter,verbosity)
   classifier.report_settings(checkqueue,jobs)
   if jobs:
+    joblines = None # lines of the job list (SGE, SLURM: line i has the arguments of task i+1), read once
     for job in jobs:
       if verbosity>=3:
         reporter.line(">>> Found job %r, status=%r, args=%r"%(job,job.getstatus(),job.args.rstrip()))
       if job.getstatus() in ['q','r']:
-        jobarg = str(job.args) if 'HTCondor' in config.batch else getline(jobcfg['joblist'],job.taskid-1)
+        if 'HTCondor' in config.batch:
+          jobarg = str(job.args)
+        else:
+          if joblines is None:
+            joblines = FileIO().read_lines(jobcfg['joblist'])
+          jobarg = joblines[job.taskid-1]
         classifier.add_pending(job,jobarg)
   outfiles = storage.getfiles(filter=classifier.patterns,verb=verbosity-1) # get output files
   if skim:

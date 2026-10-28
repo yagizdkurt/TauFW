@@ -2,7 +2,7 @@
 # Author: @oponcet (Sept 2024)
 import os, sys, re
 #sys.path.append('../plots')
-from TauFW.common.tools.file import ensuredir
+from TauFW.Utilities.FIO import FileIO
 from TauFW.common.tools.root import ensureTFile #, gethist
 from TauFW.common.tools.utils import repkey
 from TauFW.Utilities.Drawing import LOG
@@ -47,7 +47,7 @@ def drawpostfit(fname,region,procs,**kwargs):
   fits      = ['prefit','postfit']
   file      = ensureTFile(fname,'READ')
   if outdir:
-    ensuredir(outdir)
+    FileIO().make_directory(outdir)
   if text != "":
       print(text)
       text = "#mu#tau_{h}: " + text

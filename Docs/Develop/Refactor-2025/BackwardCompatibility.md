@@ -289,7 +289,25 @@ chunks = partition([1, 2, 3], parts=2)
 processor = ParallelProcessor(max_parallel=4)
 ```
 
-Remaining `common.tools.{string,utils,file,root,log,RDataFrame}` modules still exist. The planned future Utilities migration must not be described as already implemented.
+### 5.5 File helpers (`common.tools.file`, CL §50)
+
+| Old interface | Replacement | Important difference |
+|---|---|---|
+| `ensuredir(*paths, verb=0, empty=False)` | `FileIO().make_directory(path)` (`TauFW.Utilities.FIO`), which now returns the location | One path: join parts with `os.path.join`. No `$VAR` expansion, no `>>> Making directory` message, no `empty=`. An empty path raises `ValueError` (old: returned `''`). A failed creation raises (old: printed and continued). |
+| `ensurefile(*paths, fatal=True)` | `FileIO().require_file(path)` | Raises `FileNotFoundError` (an `IOError`) or `IsADirectoryError`; no `fatal=False` warning mode |
+| `rmfile(paths, verb=0)` | `FileIO().remove_file(path, missing_ok=True)`, with `FileIO().expand_paths([...])` for globs | One path per call; no messages |
+| `getline(fname, i)` | `FileIO().read_lines(fname)[i]` | No trailing newline; out of range raises `IndexError` (old: `''`) |
+| `ensureinit(*paths, by=...)` | Private helper in `PicoProducer/python/cli/config.py` | Only `pico.py` used it |
+| `writetemplate`, `expandfiles` | `FileIO().write_template`, `FileIO().expand_paths` | Removed (no callers); the FileIO versions have their own rules (literal `$NAME`/`${NAME}`, sorted globs) |
+| `ensuremodule(modname, package)` | **Unchanged**, still in `common.tools.file` | Left for a later look (TODO.md section 2) |
+
+**Kept for scripts outside the repository (BACKWARD COMPATIBILITY, delete at the migration point, TODO.md
+section 8):** `ensuredir` stays importable from `TauFW.Histogrammer.sample.utils` (so also `TauFW.Plotter.sample.utils`)
+and from `TauFW.PicoProducer.workers` (so also `TauFW.PicoProducer.processors`). It joins the parts, makes the
+directory with FileIO and returns the path (`''` stays `''`); `verb` and `empty` are ignored. Importing it from
+`TauFW.common.tools.file` fails. Nothing in the repository uses these aliases.
+
+Remaining `common.tools.{string,utils,root,log,RDataFrame}` modules and `common.tools.file.ensuremodule` still exist. The planned future Utilities migration must not be described as already implemented.
 
 ## 6. PicoProducer behavior changes
 

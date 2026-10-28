@@ -121,6 +121,18 @@ FileIO()
                                   excluded_lines=["remove"], appended_lines=["last"])
         self.assertEqual(self.files.read_text(destination), "C:\\new\\1 C:\\new\\1\n$NAME_LONG\n$UNKNOWN\nlast\n")
 
+    def test_make_directory_and_require_file_return_the_location(self):
+        nested = self.directory / "a" / "b"
+        self.assertEqual(self.files.make_directory(nested), str(nested))
+        self.assertEqual(self.files.make_directory(str(nested)), str(nested))  # exists already
+        path = nested / "file.txt"
+        with self.assertRaises(FileNotFoundError):
+            self.files.require_file(path)
+        self.files.write_text(path, "value")
+        self.assertEqual(self.files.require_file(path), str(path))
+        with self.assertRaises(IsADirectoryError):
+            self.files.require_file(nested)
+
     def test_directory_listing_globs_copy_move_and_explicit_removal(self):
         nested = self.directory / "nested"
         self.files.make_directory(nested)

@@ -4,12 +4,12 @@
 import os, re
 from collections import OrderedDict
 from TauFW.common.tools.utils import ensurelist, repkey, lreplace #, rreplace
-from TauFW.common.tools.file import ensuredir
 from TauFW.common.tools.root import ensureTDirectory, ensureTFile, gethist
 from TauFW.common.tools.log import color
 from TauFW.Utilities.Drawing import LOG
 from TauFW.Utilities.Drawing.hist_tools import deletehist, grouphists
 from TauFW.Utilities.CLI import CLI
+from TauFW.Utilities.FIO import FileIO
 from TauFW.Utilities.Drawing.Stack import Stack
 from TauFW.Utilities.Drawing.Plot import Plot
 from TauFW.Utilities.Expressions import joincuts
@@ -73,7 +73,8 @@ def createinputs(fname,sampleset,obsset,bins,syst="",**kwargs):
   
   # FILE LOGISTICS: prepare file and directories
   files = { }
-  ensuredir(outdir)
+  if outdir: # '' (the default): the current directory
+    FileIO().make_directory(outdir)
   fname = os.path.join(outdir,fname)
   if shift: # shift observable name
     if isinstance(shift,str): # shift only variable by adding tag, e.g. shift='_ResUp'
@@ -174,7 +175,7 @@ def plotinputs(fname,varprocs,obsset,bins,**kwargs):
   text      = kwargs.pop('text',   "$BIN"              )
   verbosity = kwargs.get('verb',   0                   )
   printmean = kwargs.get('printmean', kwargs.get('mean', False))
-  ensuredir(outdir)
+  FileIO().make_directory(outdir)
   print(">>>\n>>> "+color(" plotting... ",'magenta',bold=True,ul=True))
   if 'Nom' not in varprocs:
     LOG.warning("plotinputs: Cannot make plots because did not find nominal process templates 'Nom'.")

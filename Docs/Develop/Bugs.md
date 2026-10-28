@@ -95,6 +95,7 @@ including latent and off-Framework defects, stay here.
 |---|---|---|---|---|---|---|---|
 | W01 | `workers/skimjob.py:24` (was `processors/`) | `-E/--opts` is parsed and never used | latent | no | S5 | Won't fix (Part 5B): pico.py passes the same `--opts` to every worker; skimjob accepts and ignores them | none |
 | W02 | `workers/picojob.py:3` (was `processors/`) | Description line was copied from skimjob | latent | no | S5 | Part 5B: the description says what picojob.py does | none |
+| W03 | `workers/skimjob.py:175` (was `processors/`) | After the copy to the storage, `rmfile(outfiles)` got the outputs as one space-separated string (`' '.join(outflist)`, right for `store.cp`), so with more than one input file per job it looked for a single file of that name and removed nothing (only a `verb=2` "Did not find" message). On batch nodes the scratch is cleaned anyway; local runs kept the files | wrong | no | CL §50 | CL §50: each file of `outflist` is removed with `FileIO().remove_file(..., missing_ok=True)` | Local skim runs with a copy directory and several files per job no longer leave the outputs in the output directory |
 
 <a id="picoproducer-analysis-modules-and-writers"></a>
 

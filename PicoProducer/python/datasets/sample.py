@@ -27,7 +27,7 @@ import gzip
 from copy import deepcopy
 from fnmatch import fnmatch
 from TauFW.common.tools.utils import repkey, ensurelist, isglob
-from TauFW.common.tools.file import ensuredir
+from TauFW.Utilities.FIO import FileIO
 from TauFW.Utilities.CLI import CLI
 from TauFW.PicoProducer.settings.defaults import user
 from TauFW.PicoProducer.storage.log import LOG
@@ -355,7 +355,7 @@ class Sample(object):
     writeevts = kwargs.pop('nevts',False) # also write nevents to file
     skipempty = kwargs.pop('skipempty',False) # do not write files with zero events
     listname  = repkey(listname,ERA=self.era,GROUP=self.group,SAMPLE=self.name)
-    ensuredir(os.path.dirname(listname))
+    FileIO().make_directory(os.path.dirname(listname))
     filenevts = self.getfilenevts(checkfiles=True,**kwargs) if writeevts else None
     treename  = kwargs.pop('tree','Events') # do not pass to Sample.getfiles
     kwargs.pop('ncores') # do not pass to Sample.getfiles

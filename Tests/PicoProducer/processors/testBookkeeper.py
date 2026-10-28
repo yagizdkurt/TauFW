@@ -15,7 +15,8 @@ import ROOT; ROOT.PyConfig.IgnoreCommandLineOptions = True
 from PhysicsTools.NanoAODTools.postprocessing.framework.postprocessor import PostProcessor
 from PhysicsTools.NanoAODTools.postprocessing.framework.eventloop import Module
 from PhysicsTools.NanoAODTools.postprocessing.framework.datamodel import Collection
-from TauFW.PicoProducer.workers import moddir, ensuredir
+from TauFW.PicoProducer.workers import moddir
+from TauFW.Utilities.FIO import FileIO
 from TauFW.common.tools.utils import getyear
 from argparse import ArgumentParser
 parser = ArgumentParser()
@@ -32,7 +33,7 @@ args = parser.parse_args()
 
 
 # SETTING
-outdir    = ensuredir(args.outdir)  # directory to create output
+outdir    = FileIO().make_directory(args.outdir)  # directory to create output
 firstevt  = args.firstevt           # index of first event to run
 maxevts   = args.maxevts            # maximum number of events to run
 nfiles    = -1 if maxevts>0 else -1 # maximum number of files to run

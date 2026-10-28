@@ -3,7 +3,7 @@
 # Description: Test script for Plot.drawlegend
 #   test/testLegend.py -v2 && eog plots/testLegend*.png
 from TauFW.Utilities.Drawing import LOG
-from TauFW.common.tools.file import ensuredir
+from TauFW.Utilities.FIO import FileIO
 from TauFW.Utilities.Drawing.hist_tools import deletehist
 from TauFW.Utilities.Drawing.Plot import Plot, CMSStyle
 from testPlot import createhists
@@ -13,7 +13,7 @@ from ROOT import TH1D, gRandom
 def plothist(xtitle,hists,ratio=False,logy=False,norm=False,tag="",**kwargs):
   
   # SETTING
-  outdir   = ensuredir("plots/")
+  outdir   = FileIO().make_directory("plots/")
   fname    = outdir+"testLegend"
   rrange   = 0.5
   header   = "Gaussians"     # legend header

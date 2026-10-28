@@ -3,8 +3,9 @@
 # Description: Simple plotting script for pico analysis tuples
 #   test/plotPico.py -v2
 import re
-from TauFW.Plotter.sample.utils import LOG, STYLE, setera, ensuredir,\
+from TauFW.Plotter.sample.utils import LOG, STYLE, setera,\
                                        getsampleset, Var
+from TauFW.Utilities.FIO import FileIO
 
 def makesamples(channel,era,fname):
   LOG.header("makesamples")
@@ -72,7 +73,7 @@ def plotSampleSet(channel,sampleset,tag="",outdir="plots"):
   text = "#mu#tau_{h} baseline" if channel=='mutau' else "e#tau_{h} baseline"
   
   # PLOT
-  outdir   = ensuredir(outdir)
+  outdir   = FileIO().make_directory(outdir)
   parallel = True #and False
   fname    = "%s/plotPico_$VAR%s"%(outdir,tag)
   for selection in selections:

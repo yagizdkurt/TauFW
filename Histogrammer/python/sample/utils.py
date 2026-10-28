@@ -2,7 +2,8 @@
 # Author: Izaak Neutelings (June 2020)
 import os, re, glob
 from TauFW.common.tools.utils import isnumber, islist, ensurelist, unpacklistargs, quotestrs, repkey, getyear
-from TauFW.common.tools.file import ensuredir, ensuremodule
+from TauFW.common.tools.file import ensuremodule # stays in common for now (CL §50)
+from TauFW.Utilities.FIO import FileIO
 from TauFW.common.tools.root import ensureTFile, loadmacro
 from TauFW.common.tools.log import Logger, color
 from TauFW.Histogrammer.spec.Variable import Variable, Var, ensurevar
@@ -635,7 +636,18 @@ def selectbranches(tree,selections,verb=0):
       tree.SetBranchStatus(branch,1)
   #print("selectbranches: DONE")
   return tree
-  
+
+
+# ===== BACKWARD COMPATIBILITY, CLEANUP =====
+# Delete at the migration point (Docs/Develop/Refactor-2025/TODO.md section 8, CL §50). Only for analysis configs
+# outside the repository that import ensuredir from here (or from TauFW.Plotter.sample.utils); the repository itself
+# uses FileIO().make_directory.
+def ensuredir(*paths,**kwargs):
+  """The old TauFW.common.tools.file.ensuredir: join the paths, make the directory and return it ('' stays '').
+  The old keyword arguments (verb, empty) are ignored."""
+  path = os.path.join(*paths)
+  return FileIO().make_directory(path) if path else path
+
 
 from TauFW.Histogrammer.sample.Sample import *
 from TauFW.Histogrammer.sample.MergedSample import MergedSample

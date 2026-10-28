@@ -51,6 +51,14 @@ Items marked **(verify)** may already be done; check before working on them.
 
 The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go here until they are run.
 
+- [ ] **`common.tools.file` to FileIO (CL §50):** with `cmsenv`, `python3 Tests/run.py all`: `normal` passes as
+      before and `bbb check` 24/24 without re-lock; `python3 -c "from TauFW.Plotter.sample.utils import ensuredir;
+      from TauFW.PicoProducer.processors import ensuredir"` (the aliases import). PicoProducer: `pico.py channel test
+      Run3_DEV.ModuleMuTau` in a checkout without `python/analysis/Run3_DEV/__init__.py` makes it with "# Generated
+      by pico.py ..."; a local skim run (`pico.py run -c skim...`) with two input files per job and a copy directory
+      removes both outputs after the copy (before CL §50 both stayed); `pico.py status` and `hadd` of a short
+      production as before. Not testable on lxplus: the job-list reading of `status` for SGE/SLURM (`jobs/status.py`).
+
 - [ ] **Setup components of recipes (CL §49):** menu > Install components with Combine unselected (the others
       as before): after the installation `Framework/python/_internal/setup_manifest.json` lists the selected IDs
       without `combine`. Start a new run: `tes_id_2025` is yellow, its preview has "stages[3] (fit): needs Combine +
@@ -129,11 +137,16 @@ The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go he
 
 ## 2. Moving `common/python/tools/` into `TauFW.Utilities`
 
-Done: `parallel`, `LoadingBar` (§4), `math` (§4), `Table` (§4). Rules for the rest:
+Done: `parallel`, `LoadingBar` (§4), `math` (§4), `Table` (§4), `file` except `ensuremodule` (§50). Rules for the rest:
 
-- re-implement in Utilities style (no file move), same logic, update every caller, delete the old module, no shims;
-- terminal output byte for byte the same; old quirks go in a `LEGACY, CLEAN UP LATER` (or
-  `BACKWARD COMPATIBILITY, CLEANUP`) section;
+- re-implement in Utilities style (no file move), update every caller, delete the old module; use the existing
+  Utilities (`FileIO`, `CLI`, `Process`, ...) where they fit;
+- since §50 (user, 2026-10-28) cleanup comes first: decide each function with the user; an old quirk (message, silent
+  error, unused option) may go when no BBB case records it; output a BBB case records stays byte for byte, its
+  quirks in a `LEGACY, CLEAN UP LATER` (or `BACKWARD COMPATIBILITY, CLEANUP`) section;
+- a name that scripts outside the repository import from a hub (`Histogrammer.sample.utils`,
+  `PicoProducer.workers`, ...) keeps a `BACKWARD COMPATIBILITY, CLEANUP` alias over the new code, listed in
+  section 8 for the migration point; the repository itself does not use it;
 - record golden output from the old code before deleting it, and run the BBB `common.*` cases locally;
 - deleting a `Tests/` script also means updating `Tests/inventory.json`, `Tests/migration.json` (+ the count in
   `check_harness.py`), `Tests/LEGACY_BROKEN_CASES.md` and `Tests/README.md`; editing a moved test needs an
@@ -145,7 +158,7 @@ Done: `parallel`, `LoadingBar` (§4), `math` (§4), `Table` (§4). Rules for the
 |---|---|---|
 | `string.py` | ~15 direct | `utils.py` star-imports it, and `Plotter/python/sample/utils.py` and `PicoProducer/python/analysis/utils.py` re-export it again (the drawing library has its own copies of `quotestrs` and `repkey` in `Utilities/python/Drawing/_internal/`): `repkey` is used in ~48 files, `getyear` in ~21. Trace every star-import chain. Best done together with `utils.py`. |
 | `utils.py` | ~23 | `execute` (`shell=True`, architecture finding A05) should map onto `Utilities.Process.ProcessRunner`; used by `batch/base.py`, `datasets/das.py`, `jobs/merge.py`, `storage/base.py`. Untangle from `string.py` first. |
-| `file.py` | ~32 | `ensuredir` is in ~76 files. Maps onto `FileIO`. Imports `log` and `utils`; `past.builtins`; `ensuremodule` is the channel loader's dynamic import. |
+| `file.py` | 4 (`ensuremodule`) | Done in §50 except `ensuremodule` (and the `ensurefile` it calls), left on purpose (user 2026-10-28: needs more research before it is touched). Callers: `Histogrammer/python/sample/utils.py` (for `SampleSet.gethists(method=...)`, which loads `Histogrammer.methods.<method>`; only `QCD_OSSS` exists) and `PicoProducer/python/analysis/utils.py` (`ensuremodule`/`getmodule` of the channel module named in the config: `cli/config.py`, `jobs/worker_command.py` check it early, `workers/picojob.py` loads it on the batch node); `Tests/Plotter/testMethods.py` (old `Plotter.methods`). A name-based import is needed there (module names are strings in config/recipes); open: a plain `importlib` in each stage, or a shared helper. Then delete `common/python/tools/file.py`. |
 | `root.py` | ~21 | ROOT (`ensureTFile` in ~29 files, `gethist`, `loadmacro`); maps onto `FileIO` ROOT methods. `rootname()` has no callers. |
 | `log.py` | ~41 | The core of what is left; do it last. `past.builtins.long`. |
 | `RDataFrame.py` | 2 (Plotter) | Plotter/ROOT only: belongs in Plotter, not Utilities. Import-time side effects (`gInterpreter.Declare`, `RDF` patches, thread settings; A01/A09). |
@@ -534,6 +547,14 @@ Other limitations ([Analyses/README.md](../../../Analyses/README.md) "Current li
       fit scripts' `--lumi`/`--cme` become required when run by the Framework. Before that point, a new lumi value
       (brilcalc) goes into the template and the table together in one commit, with the `plotter.sample_model` re-lock
       as a physics change in the CL, or the equality test fails (plan 22 K6, user 2026-10-19).
+- [ ] **Backward compatibility to delete at the migration point (CL §50, `common.tools.file` to FileIO):** the two
+      `ensuredir` aliases, each in a `BACKWARD COMPATIBILITY, CLEANUP` section: at the end of
+      `Histogrammer/python/sample/utils.py` (also reached as `TauFW.Plotter.sample.utils`) and of
+      `PicoProducer/python/workers/__init__.py` (also reached as `TauFW.PicoProducer.processors`). Nothing in the
+      repository uses them (check with `grep -rn "ensuredir(" --include=*.py` outside Legacy: only files with their own
+      `def ensuredir` may remain); Legacy scripts that take `ensuredir` from `Plotter.sample.utils` break then (Legacy
+      policy). Also remove the "Kept for scripts outside the repository" paragraph of
+      [BackwardCompatibility.md](BackwardCompatibility.md) section 5.5.
 - [ ] **Backward compatibility to delete at the migration point (CL §21, Plotter -> Histogrammer):** the 13 alias
       modules in `Plotter/python/{sample,plot,methods}/` (and their 13 entries in
       `Tests/import_boundary_allowlist.json`, `Tests/Histogrammer/compat/`), the legacy `Plotter/plot.py` and

@@ -4,7 +4,7 @@
 #   test/testStack.py -v2 && eog plots/testStacks*.png
 from array import array
 from TauFW.Utilities.Drawing import LOG
-from TauFW.common.tools.file import ensuredir
+from TauFW.Utilities.FIO import FileIO
 from TauFW.Utilities.CLI import CLI
 from TauFW.Utilities.Drawing.Stack import Stack, CMSStyle
 from ROOT import TH1D, gRandom, TColor, kBlack, kWhite, kBlue, kOrange, kMagenta
@@ -23,7 +23,7 @@ def plotstack(xname,xtitle,datahist,exphists,ratio=False,logy=False,logx=False,f
   """Plot Stack objects for a given data hisogram and list of MC histograms."""
   
   # SETTING
-  outdir   = ensuredir("plots/test")
+  outdir   = FileIO().make_directory("plots/test")
   fname    = "%s/testStack_%s"%(outdir,xname)
   if ratio:
     fname += "_ratio"

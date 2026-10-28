@@ -9,6 +9,7 @@ from utils import *
 from TauFW.Utilities.Drawing.Plot2D import Plot2D, addoverflow, capoff
 gSystem.Load('RooUnfold/libRooUnfold.so')
 from ROOT import TNamed, RooUnfoldResponse, RooUnfoldBinByBin, RooUnfoldBayes
+from TauFW.Utilities.FIO import FileIO
 
 ptitle   = "p_{#kern[-0.1]{#lower[-0.1]{T}}}(#mu#mu)" # [GeV]"
 mtitle   = "m_{#mu#mu}" # [GeV]"
@@ -40,7 +41,7 @@ def measureZptmass_unfold(samples,outdir='weights',plotdir=None,parallel=True,ta
   hname       = basename+systag
   fname       = "%s/%s_weights_$CAT%s.root"%(outdir,basename,tag)
   pname       = "%s/%s_$CAT%s.png"%(plotdir or outdir,hname,tag)
-  outdir      = ensuredir(outdir) #repkey(outdir,CHANNEL=channel,ERA=era))
+  outdir      = FileIO().make_directory(outdir) #repkey(outdir,CHANNEL=channel,ERA=era))
   stitle      = "Z boson unfolding weight"
   stitle_reco = "Z boson reco. weight"
   width       = 1200 # canvas width for 1D unrolled plots
@@ -427,7 +428,7 @@ def measureZpt_unfold(samples,outdir='weights',plotdir=None,parallel=True,tag=""
   hname    = 'zpt'
   fname    = "%s/%s_weights_$CAT%s.root"%(outdir,hname,tag)
   pname    = "%s/%s_$CAT%s.png"%(plotdir or outdir,hname,tag)
-  outdir   = ensuredir(outdir) #repkey(outdir,CHANNEL=channel,ERA=era))
+  outdir   = FileIO().make_directory(outdir) #repkey(outdir,CHANNEL=channel,ERA=era))
   stitle   = "Z boson unfolding weight"
   stitle_reco = "Z boson reco. weight"
   addof    = True #and False
@@ -653,8 +654,8 @@ def main(args):
     ###  print(">>> baseline = %r"%(baseline))
     setera(era) # set era for plot style and lumi-xsec normalization
     tag_     = tag+'_'+era
-    outdir_  = ensuredir(repkey(outdir,ERA=era))
-    plotdir_ = ensuredir(repkey(plotdir,ERA=era))
+    outdir_  = FileIO().make_directory(repkey(outdir,ERA=era))
+    plotdir_ = FileIO().make_directory(repkey(plotdir,ERA=era))
     samples  = getsampleset(channel,era,fname=fname,dyweight="",dy=dytype)
     if 1 in methods:
       measureZpt_unfold(samples,outdir=outdir_,plotdir=plotdir_,parallel=parallel,

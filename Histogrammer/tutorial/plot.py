@@ -12,6 +12,7 @@ from TauFW.Histogrammer.sample.tupledir import script_default_tuples # LEGACY: p
 from TauFW.Utilities.Drawing import LOG as PLOG
 from TauFW.Utilities.Drawing.Plot import Plot, deletehist
 import yaml
+from TauFW.Utilities.FIO import FileIO
 
 
 def plot(sampleset,setup,parallel=True,tag="",extratext="",outdir="plots",era="",
@@ -79,7 +80,7 @@ def plot(sampleset,setup,parallel=True,tag="",extratext="",outdir="plots",era=""
   variables  = filtervars(variables,varfilter)  # filter variable list with -V/--var flag
   
   # PLOT
-  outdir = ensuredir(repkey(outdir,CHANNEL=channel,ERA=era))
+  outdir = FileIO().make_directory(repkey(outdir,CHANNEL=channel,ERA=era))
   exts   = ['png','pdf','root'] if pdf else ['png','root'] # extensions
   for selection in selections:
     print(">>> Selection %r: %r"%(selection.title,selection.selection))

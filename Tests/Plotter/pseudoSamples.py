@@ -5,7 +5,7 @@ import numpy as np
 from ROOT import TFile, TTree, TH1D, gRandom, TColor, kBlack, kWhite, kBlue, kOrange, kMagenta
 from TauFW.Utilities.Drawing import LOG
 from TauFW.common.tools.utils import ensurelist
-from TauFW.common.tools.file import ensuredir
+from TauFW.Utilities.FIO import FileIO
 from TauFW.Plotter.sample.utils import join
 
 coldict = { # HTT / TauPOG colors
@@ -215,7 +215,7 @@ def makesamples(nevts=10000,**kwargs):
   }
   
   # PREPARE TREES
-  ensuredir(outdir)
+  FileIO().make_directory(outdir)
   filedict = { }
   histdict = { }
   m_vis    = np.zeros(1,dtype='f')

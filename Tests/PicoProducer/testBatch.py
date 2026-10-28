@@ -4,7 +4,7 @@
 #   test/testBatch.py HTCondor -v2
 import os, platform
 from time import sleep
-from TauFW.common.tools.file import ensuredir
+from TauFW.Utilities.FIO import FileIO
 from TauFW.PicoProducer.storage.log import LOG
 from TauFW.PicoProducer.batch.factory import getbatch
 
@@ -27,8 +27,8 @@ def testBatch(path,verb=0):
   time      = args.time      # maximum time for the batch system
   batchopts = args.batchopts # extra options for the batch system
   #prompt    = args.prompt    # ask user confirmation before submitting
-  outdir    = ensuredir("testBatch")
-  logdir    = ensuredir("testBatch/log")
+  outdir    = FileIO().make_directory("testBatch")
+  logdir    = FileIO().make_directory("testBatch/log")
   jobname   = "testBatch"
   tasklist  = os.path.join(outdir,"testBatch.txt")
   

@@ -3,7 +3,7 @@
 # Description: Test script for Ratio class
 #   test/testRatio.py -v2 && eog plots/testRatio*.png
 from TauFW.Utilities.Drawing import LOG
-from TauFW.common.tools.file import ensuredir
+from TauFW.Utilities.FIO import FileIO
 from TauFW.Utilities.Drawing.Plot import Plot, CMSStyle
 from TauFW.Plotter.plot.Variable import Variable
 from TauFW.Utilities.Drawing.Stack import Stack
@@ -16,7 +16,7 @@ def plothist(hists,ratio=False,num=False):
   """Plot comparison of histograms."""
   
   # SETTING
-  outdir   = ensuredir("plots/")
+  outdir   = FileIO().make_directory("plots/")
   fname    = outdir+"testRatio_%dhist_ratio%r"%(len(hists),ratio)
   if num!=None:
     fname += "_num%r"%(num)
@@ -41,7 +41,7 @@ def plotstack(xname,xtitle,datahist,exphists,ratio=False,fraction=False,logy=Fal
   """Plot Stack objects for a given data hisogram and list of MC histograms."""
   
   # SETTING
-  outdir   = ensuredir("plots")
+  outdir   = FileIO().make_directory("plots")
   fname    = "%s/testRatio_stack_%s"%(outdir,xname)
   if ratio:
     fname += "_ratio"

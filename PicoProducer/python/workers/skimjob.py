@@ -5,10 +5,11 @@ import os, glob
 import time; time0 = time.time()
 import ROOT; ROOT.PyConfig.IgnoreCommandLineOptions = True
 from PhysicsTools.NanoAODTools.postprocessing.framework.postprocessor import PostProcessor
-from TauFW.PicoProducer.workers import moddir, ensuredir
+from TauFW.PicoProducer.workers import moddir
 from TauFW.PicoProducer.corrections.era_config import getjson, getperiod #, getjmecalib
 from TauFW.common.tools.utils import getyear
 from argparse import ArgumentParser
+from TauFW.Utilities.FIO import FileIO
 parser = ArgumentParser()
 parser.add_argument('-i', '--infiles',   dest='infiles',   default=[ ], nargs='+')
 parser.add_argument('-o', '--outdir',    dest='outdir',    default='.')
@@ -33,7 +34,7 @@ era       = args.era                # era of data run (e.g. 'UL2016')
 year      = getyear(era)            # year of data run (e.g. '2016')
 period    = ""                      # period of data run (A-H)
 dtype     = args.dtype              # data type ('data', 'mc', 'embed')
-outdir    = ensuredir(args.outdir)  # directory to create output
+outdir    = FileIO().make_directory(args.outdir)  # directory to create output
 copydir   = args.copydir            # directory to copy output to at end
 firstevt  = args.firstevt           # index of first event to run
 maxevts   = args.maxevts            # maximum number of events to run
@@ -168,11 +169,11 @@ if len(outflist)!=len(infiles): # sanity check
 # COPY
 if copydir and outdir!=copydir:
   from TauFW.PicoProducer.storage.factory import getstorage
-  from TauFW.common.tools.file import rmfile
   store = getstorage(copydir,verb=2)
   store.cp(outfiles)
   print(">>> Removing %s..."%(outfiles))
-  rmfile(outfiles,verb=2)
+  for outfile in outflist: # one by one: outfiles is one string with spaces (was not removed if >1 file)
+    FileIO().remove_file(outfile,missing_ok=True)
 
 # DONE
 print(">>> skimjob.py done after %.1f seconds"%(time.time()-time0))

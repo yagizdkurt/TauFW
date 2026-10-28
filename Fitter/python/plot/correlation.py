@@ -7,6 +7,7 @@ from ROOT import gROOT, gPad, gStyle, Double, TFile, TCanvas, TLegend, TLatex, T
                  kBlack, kGray, kBlue, kRed, kGreen, kYellow, kOrange, kMagenta, kTeal, kAzure, kBlackBody
 import TauFW.Utilities.Drawing.CMSStyle as CMSStyle
 from math import log10, ceil, floor
+from TauFW.Utilities.FIO import FileIO
 gROOT.SetBatch(True)
 gStyle.SetOptTitle(0)
 
@@ -37,7 +38,7 @@ def plotCorrelationHist(fname,**kwargs):
   tag        = kwargs.get('tag',    ""         )
   ptag       = kwargs.get('ptag',   ""         )
   logy       = kwargs.get('logy',   True       )
-  ensuredir(outdir)
+  FileIO().make_directory(outdir)
   pname = "%s/correlation-%s%s%s"%(outdir,name,tag,ptag)
   colors = [ kBlue, kRed, kGreen, kMagenta, kOrange, kTeal, kAzure+2, kYellow-3 ]
   if not isinstance(pois,list):

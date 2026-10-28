@@ -2,7 +2,7 @@
 # Author: Izaak Neutelings (Februari 2021)
 import os, sys, re
 #sys.path.append('../plots')
-from TauFW.common.tools.file import ensuredir
+from TauFW.Utilities.FIO import FileIO
 from TauFW.common.tools.root import ensureTFile #, gethist
 from TauFW.common.tools.utils import repkey
 from TauFW.Utilities.Drawing import LOG
@@ -36,7 +36,7 @@ def drawpostfit(fname,bin,procs,**kwargs):
   ymax      = None
   file      = ensureTFile(fname,'READ')
   if outdir:
-    ensuredir(outdir)
+    FileIO().make_directory(outdir)
   if era:
     CMSStyle.setCMSEra(era)
   

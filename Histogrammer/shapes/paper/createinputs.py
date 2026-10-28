@@ -8,6 +8,7 @@ from config.samples import *
 from TauFW.Utilities.Drawing import LOG as PLOG
 from TauFW.Histogrammer.shapes.inputs import createinputs, plotinputs, preparesysts
 from TauFW.Histogrammer.sample.tupledir import script_default_tuples # LEGACY: picodir without --tuples (CL §37)
+from TauFW.Utilities.FIO import FileIO
 tauidsfs  = { # DM-dependent tau eff. SF
   '2016': {  0: (0.898769, 0.027698),
              1: (0.913407, 0.018917),
@@ -43,7 +44,7 @@ def main(args):
   analysis  = 'ztt_tid' # $PROCESS_$ANALYSIS
   tag       = ""
   fileexp   = "$OUTDIR/$ANALYSIS_$OBS_$CHANNEL-$ERA$TAG.inputs.root"
-  outdir    = ensuredir("input")
+  outdir    = FileIO().make_directory("input")
   plotdir   = "input/plots/$ERA"
   
   for era in eras:
@@ -219,7 +220,7 @@ def main(args):
         # control plots of the histogram inputs
         
         if plot:
-          plotdir_ = ensuredir(repkey(plotdir,ERA=era,CHANNEL=channel))
+          plotdir_ = FileIO().make_directory(repkey(plotdir,ERA=era,CHANNEL=channel))
           pname    = repkey(fileexp,OUTDIR=plotdir_,ANALYSIS=analysis,CHANNEL=chshort+"-$BIN",ERA=era,TAG='$TAG'+tag).replace('.root','.png')
           text     = "%s: $BIN"%(channel.replace("mu","#mu").replace("tau","#tau_{h}"))
           groups   = [ ] #(['^TT','ST'],'Top'),]

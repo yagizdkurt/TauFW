@@ -16,6 +16,7 @@ from TauFW.Utilities.Drawing.Plot import Plot, deletehist
 import TauFW.Utilities.Drawing.SampleStyle as STYLE
 import os
 import yaml
+from TauFW.Utilities.FIO import FileIO
 SETUPS = os.path.join(os.path.dirname(os.path.abspath(__file__)),"..","Configs","Histogrammer","setups") # channel setups (CL §20)
 
 def plot(sampleset,setup,region,parallel=True,tag="",extratext="",outdir="plots",era="",
@@ -129,7 +130,7 @@ def plot(sampleset,setup,region,parallel=True,tag="",extratext="",outdir="plots"
   variables  = filtervars(variables,varfilter)  # filter variable list with -V/--var flag
   
   # PLOT
-  outdir = ensuredir(repkey(outdir,CHANNEL=channel,ERA=era))
+  outdir = FileIO().make_directory(repkey(outdir,CHANNEL=channel,ERA=era))
   exts   = ['png','pdf'] if pdf else ['png'] # extensions
   for selection in selections:
     print(">>> Selection %r: %r"%(selection.title,selection.selection))

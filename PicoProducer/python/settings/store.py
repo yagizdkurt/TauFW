@@ -18,10 +18,10 @@ Public API:
 import os, json
 from collections import OrderedDict
 from TauFW.PicoProducer import basedir
-from TauFW.common.tools.file import ensuredir
 from TauFW.common.tools.log import Logger
 from TauFW.PicoProducer.settings.defaults import getdefaultconfig
 from TauFW.PicoProducer.settings.model import Config
+from TauFW.Utilities.FIO import FileIO
 
 __all__ = ['getconfig', 'loadconfig', 'setdefaultconfig']
 
@@ -46,7 +46,9 @@ def getconfig(verb=0,refresh=False,write=False):
     return CONFIG
   
   # SETTING
-  cfgdir   = ensuredir(basedir,"config") if write else os.path.join(basedir,"config")
+  cfgdir   = os.path.join(basedir,"config")
+  if write:
+    FileIO().make_directory(cfgdir)
   cfgname  = os.path.join(cfgdir,"config.json")
   bkpname  = os.path.join(cfgdir,"config.json.bkp") # back up to recover config if reset
   cfgdict  = cfgdefaults.copy()
@@ -136,7 +138,7 @@ def setdefaultconfig(verb=0):
   """Set configuration to default values."""
   global CONFIG
   cfgdefaults = getdefaultconfig(verb=verb)
-  cfgdir  = ensuredir(basedir,"config")
+  cfgdir  = FileIO().make_directory(os.path.join(basedir,"config"))
   cfgname = os.path.join(cfgdir,"config.json")
   cfgdict = cfgdefaults.copy()
   if os.path.isfile(cfgname):

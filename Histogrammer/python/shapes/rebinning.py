@@ -2,7 +2,7 @@ import ROOT as r
 import numpy as np
 import os
 from math import sqrt
-from TauFW.common.tools.file import ensuredir
+from TauFW.Utilities.FIO import FileIO
 from TauFW.common.tools.string import repkey
 
 class rebinning():
@@ -54,7 +54,7 @@ class rebinning():
    
    def regular_binning(self):
         inputdir = os.path.dirname(self.input)
-        output_dir = ensuredir(os.path.join(inputdir, 'rebinning'))
+        output_dir = FileIO().make_directory(os.path.join(inputdir, 'rebinning'))
         outputfile = r.TFile(os.path.join(output_dir, os.path.basename(self.input)), 'recreate')
         print('outputfile {} created'.format(outputfile))
         for dirname in [key.GetName() for key in self.inputfile.GetListOfKeys()]:
@@ -86,7 +86,7 @@ class rebinning():
 
    def subtract_nonZTT(self):
       inputdir = os.path.dirname(self.input)
-      output_dir = ensuredir(os.path.join(inputdir, 'subtract_nonztt'))
+      output_dir = FileIO().make_directory(os.path.join(inputdir, 'subtract_nonztt'))
       outputfile = r.TFile(os.path.join(output_dir, os.path.basename(self.input)), 'recreate')
       print('outputfile {} created'.format(outputfile))
       for dirname in [key.GetName() for key in self.inputfile.GetListOfKeys()]:

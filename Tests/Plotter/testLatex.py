@@ -3,7 +3,7 @@
 # Description: Test SampleStyle.py
 #   test/testLatex.py -v2 && eog plots/testLatex.png
 from TauFW.Utilities.Drawing import LOG
-from TauFW.common.tools.file import ensuredir
+from TauFW.Utilities.FIO import FileIO
 from TauFW.Utilities.Drawing.labels import makelatex
 from ROOT import TCanvas, TPaveText
 
@@ -12,7 +12,7 @@ def checklatex(texts,tag=""):
   """Check legend entries: colors, titles, ..."""
   # https://root.cern.ch/doc/master/classTPaveText.html
   LOG.header("checklegend"+tag.replace('_',' '))
-  output = ensuredir('plots')
+  output = FileIO().make_directory('plots')
   fname  = "%s/testLatex%s"%(output,tag)
   xdim   = 500
   ydim   = 50*(len(texts)+2.5)

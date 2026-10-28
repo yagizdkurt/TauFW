@@ -822,3 +822,20 @@ unchanged; to confirm on lxplus without re-lock: [TODO.md](TODO.md) section 1.
 - `Tests/run.py all` on Windows: the Framework units pass; `unit.setup` (`test_setup_runner`: `Menu/_run_preview.py`
   relative import, fails the same before this change), `check_import_boundaries` (known debt, 0 new pairs) and
   `check_root` (no ROOT) fail as before.
+
+## 50. `common.tools.file` to FileIO: ensuredir, ensurefile, rmfile, getline, ensureinit
+
+**Change:** [CL §50](Refactor-2025.md#50-commontoolsfile-to-fileio-ensuredir-ensurefile-rmfile-getline-ensureinit)
+
+- `Tests/Utilities/test_file_io.py` `test_make_directory_and_require_file_return_the_location`: nested directory
+  made and its path returned (also when it exists); `require_file` of a missing file (FileNotFoundError), of a file
+  (the path) and of a directory (IsADirectoryError).
+- By hand (Windows): the `TauFW.PicoProducer.workers.ensuredir` alias joins three parts, makes the directory, returns
+  the path; `ensuredir("")` returns `''`. Every changed file compiles, except three that are Python 2 and did not
+  compile before either (`Fitter/Zpt/utils.py`, `Fitter/Zpt/config/samples.py`, `Histogrammer/shapes/HighPT/createinputs.py`
+  print statements); every new `FileIO` import comes before its first use.
+- `Tests/run.py all` on Windows: unit suites pass (Utilities 270, Framework 255, Setup 65, Histogrammer, Fitter,
+  Plotter, contracts, tools); `check_harness` passes after the `migration.json` notes; `check_import_boundaries`
+  fails as on HEAD (known debt; the report is the same apart from line numbers, checked in a HEAD worktree);
+  `check_root` and all `normal`/BBB cases need ROOT (lxplus). One run of `unit.framework` failed in
+  `test_run_lock` (`PermissionError` on the lock rename, Windows); it passed in two reruns and nothing there changed.

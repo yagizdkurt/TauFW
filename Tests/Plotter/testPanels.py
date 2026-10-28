@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # Author: Izaak Neutelings (June 2020)
 # Description: Study behavior of text size in multipad canvases in ROOT
-from TauFW.common.tools.file import ensuredir
+from TauFW.Utilities.FIO import FileIO
 from ROOT import gROOT, gPad, TCanvas, TH1D
 gROOT.SetBatch(True)
 
@@ -12,7 +12,7 @@ def plotpanels(ratio,**kwargs):
   width   = kwargs.get('width',   800   )
   height  = kwargs.get('height',  750   )
   lmargin = kwargs.get('lmargin', 1.    )
-  outdir  = ensuredir("plots/")
+  outdir  = FileIO().make_directory("plots/")
   fname   = 'multipad_%sx%s_%s'%(width,height,str(ratio))
   fname   = outdir+fname.replace('.','p')+'.png'
   

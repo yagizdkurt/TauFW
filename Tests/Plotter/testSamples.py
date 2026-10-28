@@ -2,7 +2,7 @@
 # Author: Izaak Neutelings (July 2020)
 # Description: Test the Sample class
 #   test/testSamples.py -v2
-from TauFW.Plotter.sample.utils import LOG, STYLE, setera, CMSStyle, ensuredir,\
+from TauFW.Plotter.sample.utils import LOG, STYLE, setera, CMSStyle,\
                                        Sample, MergedSample, SampleSet
 #import TauFW.Utilities.Drawing.SampleStyle as STYLE
 #from TauFW.Utilities.Drawing.SampleStyle import getcolor, sample_colors
@@ -13,6 +13,7 @@ from TauFW.Plotter.plot.Variable import Variable #as Var
 from TauFW.Utilities.Drawing.Stack import Stack
 from TauFW.Utilities.Drawing import LOG as PLOG
 from pseudoSamples import getsamples
+from TauFW.Utilities.FIO import FileIO
 
 selections = [
   ('pt_1>30 && pt_2>30 && abs(eta_1)<2.4 && abs(eta_2)<2.4', 'weight'),
@@ -45,7 +46,7 @@ def plotsamples_stack(datasample,expsamples,outdir="plots/test",tag=""):
   LOG.header("plotsamples_stack")
   
   # MAKE 1D HISTS
-  ensuredir(outdir)
+  FileIO().make_directory(outdir)
   fname = "%s/testSamples_$VAR%s.png"%(outdir,tag)
   for selection, weight in selections:
     histdict = { }

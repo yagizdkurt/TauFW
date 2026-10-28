@@ -5,7 +5,7 @@ from TauFW.Plotter.sample.utils import setera
 from TauFW.Utilities.Drawing.Plot import Plot, close #, getconstanthist
 from TauFW.Plotter.plot.Variable import Var
 from TauFW.Utilities.Drawing import LOG
-from TauFW.common.tools.file import ensuredir
+from TauFW.Utilities.FIO import FileIO
 from TauFW.common.tools.root import ensureTFile, ensureTDirectory
 from TauFW.common.tools.string import repkey
 from ROOT import gStyle, gROOT, gSystem, gDirectory, kRed, kBlue, kDashed
@@ -23,7 +23,7 @@ def compareZptmass(fname,outdir=None,tag="",verb=0):
   file     = ensureTFile(fname,'READ')
   hname    = 'zptmass'
   pname    = "%s/compare_%s_$CAT%s.png"%(outdir,hname,tag)
-  outdir   = ensuredir(outdir) #repkey(outdir,CHANNEL=channel,ERA=era))
+  outdir   = FileIO().make_directory(outdir) #repkey(outdir,CHANNEL=channel,ERA=era))
   title    = "m_{mumu} > 110 GeV"
   stitle   = "Z boson unfolding weight"
   width    = 1200 # canvas width for 1D unrolled plots

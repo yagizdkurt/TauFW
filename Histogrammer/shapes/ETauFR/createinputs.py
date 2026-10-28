@@ -9,6 +9,7 @@ from config.samples_v12 import *
 from TauFW.Utilities.Drawing import LOG as PLOG
 from TauFW.Histogrammer.shapes.inputs import createinputs, plotinputs, preparesysts
 from TauFW.Histogrammer.sample.tupledir import script_default_tuples # LEGACY: picodir without --tuples (CL §37)
+from TauFW.Utilities.FIO import FileIO
 
 
 def main(args):
@@ -20,7 +21,7 @@ def main(args):
   analysis  = 'zee_fr' # $PROCESS_$ANALYSIS
   tag       = args.tag
   fileexp   = "$OUTDIR/$ANALYSIS_$OBS_$CHANNEL-$ERA$TAG.inputs.root"
-  outdir    = ensuredir("input")
+  outdir    = FileIO().make_directory("input")
   plotdir   = "input/plots/$ERA"
   fesVar    = args.fesVar
   
@@ -334,7 +335,7 @@ def main(args):
       # control plots of the histogram inputs
       
       if plot:
-        plotdir_ = ensuredir(repkey(plotdir,ERA=era,CHANNEL=channel))
+        plotdir_ = FileIO().make_directory(repkey(plotdir,ERA=era,CHANNEL=channel))
         pname    = repkey(fileexp,OUTDIR=plotdir_,ANALYSIS=analysis,CHANNEL=chshort+"-$BIN",ERA=era,TAG='$TAG'+tag).replace('.root','.png')
         text     = "%s: $BIN"%(channel.replace("mu","#mu").replace("tau","#tau_{h}"))
         groups   = [ ] #(['^TT','ST'],'Top'),]

@@ -20,6 +20,7 @@ from TauFW.Histogrammer.controlhists import stack_entry, write_control_hists, no
 import TauFW.Histogrammer.sample.utils as GLOB # the cme of the normalisation (setera), for --hists (CL §26)
 from TauFW.Histogrammer.sample.tupledir import script_default_tuples # LEGACY: picodir without --tuples (CL §37)
 import yaml
+from TauFW.Utilities.FIO import FileIO
 SETUPS = os.path.join(os.path.dirname(os.path.abspath(__file__)),"..","Configs","Histogrammer","setups") # channel setups (CL §20)
 
 
@@ -109,7 +110,7 @@ def plot(sampleset,setup,parallel=True,tag="",extratext="",outdir="plots",era=""
   
   # PLOT
   if draw:
-    outdir = ensuredir(repkey(outdir,CHANNEL=channel,ERA=era))
+    outdir = FileIO().make_directory(repkey(outdir,CHANNEL=channel,ERA=era))
   exts   = ['png','pdf'] if pdf else ['png'] # extensions
   entries = [ ] # --hists: the histograms of every stack, as filled
   for selection in selections:

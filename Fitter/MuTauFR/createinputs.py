@@ -3,12 +3,13 @@
 # Based on createinputs.py created by Izaak N.
 # Description: Create input histograms for datacards
 #   ./createinputs.py -c mutau -y UL2017
-import sys
+import os, sys
 from collections import OrderedDict
 sys.path.append("../../Histogrammer/") # for config.samples (Plotter/ until CL §21)
 from config.samples import *
 from TauFW.Utilities.Drawing import LOG as PLOG
 from TauFW.Plotter.plot.datacard import createinputs, plotinputs
+from TauFW.Utilities.FIO import FileIO
 
 
 def main(args):
@@ -17,8 +18,8 @@ def main(args):
   parallel  = args.parallel
   verbosity = args.verbosity
   plot      = True
-  outdir    = ensuredir("input")
-  plotdir   = ensuredir(outdir,"plots")
+  outdir    = FileIO().make_directory("input")
+  plotdir   = FileIO().make_directory(os.path.join(outdir,"plots"))
   analysis  = 'MuTauFR' # $PROCESS_$ANALYSIS
   tag       = ""
   

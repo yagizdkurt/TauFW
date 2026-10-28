@@ -3,7 +3,7 @@
 # Description: Test script for Plot class
 #   python3 test/testPlot.py -v2 && eog plots/test/testPlot*.png
 from TauFW.Utilities.Drawing import LOG
-from TauFW.common.tools.file import ensuredir
+from TauFW.Utilities.FIO import FileIO
 from TauFW.Utilities.Drawing.hist_tools import deletehist
 from TauFW.Utilities.Drawing.Plot import Plot, CMSStyle
 from TauFW.common.tools.root import rootrepr
@@ -16,7 +16,7 @@ def testPlot_init(xtitle,hists,norm=False,clone=False):
   from TauFW.Plotter.plot.Variable import Var
   
   # SETTING
-  outdir = ensuredir("plots/test/")
+  outdir = FileIO().make_directory("plots/test/")
   fname  = outdir+"testPlot_init"
   if clone:
     fname += "_clone" # clone each histogram
@@ -60,7 +60,7 @@ def plothist(xtitle,hists,ratio=False,logy=False,logx=False,norm=False,cwidth=No
   """Plot comparison of histograms."""
   
   # SETTING
-  outdir   = ensuredir("plots/test/")
+  outdir   = FileIO().make_directory("plots/test/")
   fname    = outdir+"testPlot"+pre
   if ratio:
     fname += "_ratio"

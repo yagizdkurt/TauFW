@@ -27,7 +27,7 @@
 import os, sys, re, shutil, json
 import ROOT; ROOT.PyConfig.IgnoreCommandLineOptions = True
 from filterRunsJSON import getJSON, getRuns, cleanPeriods, getPeriodRunNumbers, filterJSONByRunNumberRange
-from TauFW.common.tools.file import ensuredir
+from TauFW.Utilities.FIO import FileIO
 from TauFW.common.tools.root import ensureTFile, gethist
 from TauFW.common.tools.utils import repkey, getyear, islist
 from TauFW.PicoProducer import datadir
@@ -247,7 +247,7 @@ def compareMCProfiles(samples,channel,era,tag="",xmax=100):
   
   hname   = 'pileup'
   htitle  = 'MC average'
-  outdir  = ensuredir("plots")
+  outdir  = FileIO().make_directory("plots")
   avehist = None
   hists   = [ ]
   if tag and tag[0]!='_':
@@ -302,7 +302,7 @@ def compareDataMCProfiles(datahists,mchist,era="",minbiases=0.0,tag="",rmin=0.6,
   """Compare data/MC profiles."""
   print(">>> compareDataMCProfiles()")
   mctitle = "MC average"
-  outdir  = ensuredir("plots")
+  outdir  = FileIO().make_directory("plots")
   if islist(datahists): # multiple datahists
     if all(islist(x) for x in datahists): # datahists = [(minbias1,datahist1),...]
       minbiases = [m for m,h in datahists]

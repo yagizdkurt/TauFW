@@ -2,13 +2,14 @@
 # Author: Izaak Neutelings (July 2020)
 # Description: Test the SampleSet class
 #   python3 test/testSampleSet.py -v2
-from TauFW.Plotter.sample.utils import LOG, STYLE, setera, CMSStyle, ensuredir,\
+from TauFW.Plotter.sample.utils import LOG, STYLE, setera, CMSStyle,\
                                        Sample, MergedSample, SampleSet
 #from TauFW.Plotter.sample.SampleSet import SampleSet
 from TauFW.Plotter.plot.Variable import Variable #as Var
 from TauFW.Utilities.Drawing.Stack import Stack
 from TauFW.Utilities.Drawing import LOG as PLOG
 from pseudoSamples import makesamples
+from TauFW.Utilities.FIO import FileIO
 
 selections = [
   ('pt_1>30 && pt_2>30 && abs(eta_1)<2.4 && abs(eta_2)<2.4', 'weight'),
@@ -125,7 +126,7 @@ def plotSampleSet(samples,tag="",singlevar=False,outdir='plots/test/'):
     print(result)
   
   # PLOT
-  ensuredir(outdir)
+  FileIO().make_directory(outdir)
   fname  = "%s/testSamplesSet_$VAR%s.png"%(outdir,tag)
   for selection, weight in selections:
     if singlevar:
@@ -157,7 +158,7 @@ def main(args):
   nevts      = args.nevts
   snames     = [n[0] for n in sampleset]
   scales     = {n[0]: n[2] for n in sampleset} # relative contribtions to pseudo data
-  outdir     = ensuredir('plots/test')
+  outdir     = FileIO().make_directory('plots/test')
   indir      = outdir
   #CMSStyle.setCMSEra(2018)
   setera(2018,lumi)

@@ -12,7 +12,7 @@
 #   compareJSON.py --diff ../json/2017/Cert_294927-306462_13TeV_PromptReco_Collisions17_JSON.txt ../json/2017/Cert_294927-306462_13TeV_UL2017_Collisions17_GoldenJSON.txt
 import os, sys, re, json
 from TauFW.PicoProducer import datadir
-from TauFW.common.tools.file import ensuredir
+from TauFW.Utilities.FIO import FileIO
 #from TauFW.common.tools.utils import getyear
 year_rexp = re.compile(r"(?<!\d)(20\d{2})(?!\d)")
 range_rexp = re.compile(r"(?<!\d)(\d{6})-(\d{6})(?!\d)")
@@ -156,7 +156,7 @@ def getPeriodRunNumbers(era,datasets=None):
 
 def filterJSONByRunNumberRange(jsoninname,era="",period=None,rrange=None,start=None,end=None,outdir='json',verb=0):
   """Split a given JSON file by start and end run number."""
-  outdir = ensuredir(outdir)
+  outdir = FileIO().make_directory(outdir)
   if period:
     datasets = getRuns(era)
     start, end = getPeriodRunNumbers(period,datasets)
@@ -263,7 +263,7 @@ def main(args):
     elif periods:
       periods = cleanPeriods(periods)
       jname   = injson or getJSON(era)
-      outdir  = ensuredir("json")
+      outdir  = FileIO().make_directory("json")
       for period in periods:
         jsonout = filterJSONByRunNumberRange(jname,era,period=period,outdir=outdir,verb=verbosity)
     elif rrange:

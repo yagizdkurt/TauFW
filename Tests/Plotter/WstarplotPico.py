@@ -6,7 +6,7 @@ import re
 import sys
 import os 
 from TauFW.Plotter.sample.utils import getsampleset, setera
-from TauFW.common.tools.file import ensuredir
+from TauFW.Utilities.FIO import FileIO
 from TauFW.common.tools.log import LOG
 from TauFW.Plotter.plot.Variable import Var
 import TauFW.Utilities.Drawing.SampleStyle as STYLE
@@ -55,7 +55,7 @@ def plotSampleSet(channel,sampleset,tag="",outdir="plots"):
   text = "#mu#nu baseline" 
 
   # PLOT
-  outdir   = ensuredir(outdir)
+  outdir   = FileIO().make_directory(outdir)
   parallel = True #and False
   fname    = "%s/plotPico_$VAR%s"%(outdir,tag)
   for selection in selections:

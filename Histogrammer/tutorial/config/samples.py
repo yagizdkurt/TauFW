@@ -1,7 +1,7 @@
 ##Author: Paola Mastrapasqua (Feb 2024)
 # Description: Common configuration file for creating pico sample set plotting scripts
 import re
-from TauFW.Histogrammer.sample.utils import LOG, STYLE, ensuredir, repkey, joincuts, joinweights, ensurelist,\
+from TauFW.Histogrammer.sample.utils import LOG, STYLE, repkey, joincuts, joinweights, ensurelist,\
                                        setera, getyear, loadmacro, Sel, Var
 from TauFW.Histogrammer.sample.utils import getsampleset as _getsampleset
 import json
