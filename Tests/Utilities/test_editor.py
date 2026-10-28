@@ -8,12 +8,12 @@ import unittest
 from unittest import mock
 
 import checkout
-from TauFW.Utilities.Editor import edit_file
-from TauFW.Utilities.Editor._buffer import Buffer
-from TauFW.Utilities.Editor._file import Document
-from TauFW.Utilities.Editor._reference import Reference
-from TauFW.Utilities.Editor._screen import _visible, _width
-from TauFW.Utilities.Editor._text import _wrap
+from TauFW.Utilities.Internal.Editor import edit_file
+from TauFW.Utilities.Internal.Editor._buffer import Buffer
+from TauFW.Utilities.Internal.Editor._file import Document
+from TauFW.Utilities.Internal.Editor._reference import Reference
+from TauFW.Utilities.Internal.Editor._screen import _visible, _width
+from TauFW.Utilities.Internal.Editor._text import _wrap
 
 
 class TerminalError(Exception):
@@ -366,7 +366,7 @@ class EditorTests(unittest.TestCase):
                 self.assertEqual(self.path.read_bytes(), original)
                 self.assertEqual(document.text, "# keep this comment\nvalue: old\n")
                 self.assertEqual(list(self.root.iterdir()), [self.path])
-        with mock.patch("TauFW.Utilities.Editor._file.os.replace", side_effect=OSError("disk unavailable")):
+        with mock.patch("TauFW.Utilities.Internal.Editor._file.os.replace", side_effect=OSError("disk unavailable")):
             with self.assertRaisesRegex(OSError, "disk unavailable"):
                 Document(self.path).save("changed")
         self.assertEqual(self.path.read_bytes(), original)
@@ -477,7 +477,7 @@ class EditorTests(unittest.TestCase):
         code = ("import sys; sys.path.insert(0, sys.argv[1]); import Editor; "
                 "assert 'curses' not in sys.modules; "
                 "assert not any(n.startswith('TauFW') for n in sys.modules)")
-        result = subprocess.run([sys.executable, "-B", "-c", code, str(checkout.SOURCE)],
+        result = subprocess.run([sys.executable, "-B", "-c", code, str(checkout.SOURCE / "Internal")],
                                 capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
 

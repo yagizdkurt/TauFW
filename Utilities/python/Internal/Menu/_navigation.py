@@ -18,7 +18,7 @@ files, validates values, or invokes commands. Grid callbacks are grid_proxy_vali
 (the main menu may get a kept answer; fresh before a run), renew_grid_proxy(password) -> (valid, output), valid
 None when voms-proxy-init cannot read the password from stdin, and renew_grid_proxy_in_terminal() (it asks on the
 plain terminal, ConsoleUI.in_terminal). Test callbacks are test_catalog(), start_tests(family, cases, title, expected), which
-returns the TauFW.Utilities.Process.Operation that the test screen follows, and tests_operation(), the last test
+returns the Utilities.Internal.Operations.Operation that the test screen follows, and tests_operation(), the last test
 run (or None). Run callbacks: start_run(recipe), advance_run(record, wait, take_lock) and retry_run(record, take_lock)
 (the failed stage of a FAILED run again, then to the end) start taufw.py behind the menu and return its Operation
 (kind "run"); retry_info(record) is what a retry would do (dict(stage, type, message, changed[, tries]), or None: no

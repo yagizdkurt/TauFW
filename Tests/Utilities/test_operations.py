@@ -11,9 +11,9 @@ import unittest
 from unittest import mock
 
 import checkout  # noqa: F401  (must precede TauFW.Utilities imports)
-from TauFW.Utilities.Process import EVENTS_ENV, Operation, OperationStore
-from TauFW.Utilities.Process import _operations, _supervisor
-from TauFW.Utilities.Process._operations import DONE, FAILED, LOST, RUNNING, STOPPED, STOPPING
+from TauFW.Utilities.Internal.Operations import EVENTS_ENV, Operation, OperationStore
+from TauFW.Utilities.Internal.Operations import _operations, _supervisor
+from TauFW.Utilities.Internal.Operations._operations import DONE, FAILED, LOST, RUNNING, STOPPED, STOPPING
 
 EMIT = ("import json, os\n"
         "with open(os.environ['%s'], 'a') as stream:\n"

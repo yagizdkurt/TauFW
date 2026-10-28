@@ -36,7 +36,7 @@ import time
 
 from ._menu import _clock
 from ._operation_screen import ScreenModel, follow, summary_model
-from ..Process._operations import DONE, FAILED, LOST, RUNNING, STOPPED, STOPPING
+from ..Operations._operations import DONE, FAILED, LOST, RUNNING, STOPPED, STOPPING
 
 __all__ = ["RunProgress", "follow_run", "run_summary"]
 

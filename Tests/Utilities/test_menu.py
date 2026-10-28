@@ -11,7 +11,7 @@ import unittest
 from unittest import mock
 
 import checkout
-from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation, Prefetch
+from TauFW.Utilities.Internal.Menu import ConsoleUI, MenuNavigation, Prefetch
 
 
 def idle_operations():
@@ -36,7 +36,7 @@ def idle_operations():
 
 
 class FakeOperation:
-    """A test run behind the menu (TauFW.Utilities.Process.Operation stand-in) with its events in a file; each
+    """A test run behind the menu (Utilities.Internal.Operations.Operation stand-in) with its events in a file; each
     one is an operation of its own (path: the menus keep what they read per path)."""
     kind = "tests"
     numbers = itertools.count()
@@ -94,7 +94,7 @@ class ScreenTests(unittest.TestCase):
         ui.operation_error.assert_not_called()
 
     def test_editor_failures_stay_in_the_menu_and_do_not_reopen_the_session(self):
-        from TauFW.Utilities.Editor import EditResult
+        from TauFW.Utilities.Internal.Editor import EditResult
 
         class CursesError(Exception):
             pass
@@ -105,7 +105,7 @@ class ScreenTests(unittest.TestCase):
                 curses, screen = self.curses([1002] * 4 + [10, 10, 27])
                 curses.error = CursesError
                 ui, operations = ConsoleUI(curses), idle_operations()
-                with mock.patch("TauFW.Utilities.Editor.edit_file") as editor:
+                with mock.patch("TauFW.Utilities.Internal.Editor.edit_file") as editor:
                     if isinstance(outcome, Exception):
                         editor.side_effect = outcome
                     else:
@@ -134,8 +134,8 @@ class ScreenTests(unittest.TestCase):
                 ui.edit_file("unused")
 
     def test_editor_receives_existing_branding_and_styles_without_owning_the_palette(self):
-        from TauFW.Utilities.Editor import EditResult
-        from TauFW.Utilities.Menu.banner import BADGE, VERSION
+        from TauFW.Utilities.Internal.Editor import EditResult
+        from TauFW.Utilities.Internal.Menu.banner import BADGE, VERSION
         for color in (False, True):
             with self.subTest(color=color):
                 curses, screen = self.curses([])
@@ -143,7 +143,7 @@ class ScreenTests(unittest.TestCase):
                 curses.A_DIM, curses.COLOR_MAGENTA, curses.COLOR_YELLOW = 64, 5, 3
                 ui = ConsoleUI(curses)
                 with mock.patch.object(ui, "colors_enabled", return_value=color), \
-                        mock.patch("TauFW.Utilities.Editor.edit_file", return_value=EditResult()) as editor:
+                        mock.patch("TauFW.Utilities.Internal.Editor.edit_file", return_value=EditResult()) as editor:
                     self.assertFalse(ui.edit_file("personal.yaml", title="Settings", reference="README.md"))
                 self.assertEqual(editor.call_args.kwargs["title"], "Settings")
                 self.assertEqual(editor.call_args.kwargs["reference"], "README.md")
@@ -573,7 +573,7 @@ class ScreenTests(unittest.TestCase):
             ui.operation_error.assert_not_called()
 
     def test_entry_banners_welcome_text_and_compact_layout(self):
-        from TauFW.Utilities.Menu.banner import FULL, decay_frame
+        from TauFW.Utilities.Internal.Menu.banner import FULL, decay_frame
         for installer in (False, True):
             with self.subTest(installer=installer):
                 curses, screen = self.curses([27])
@@ -583,7 +583,7 @@ class ScreenTests(unittest.TestCase):
                     ui.setup_checklist([("combine", "Combine")], ["combine"])
                     welcome = "Welcome to TauFW fast installer!"
                 else:
-                    with mock.patch("TauFW.Utilities.Menu._menu.time.monotonic", return_value=0):
+                    with mock.patch("TauFW.Utilities.Internal.Menu._menu.time.monotonic", return_value=0):
                         ui.main_menu()
                     welcome = "Welcome to TauFW!"
                 calls = screen.addnstr.call_args_list
@@ -593,7 +593,7 @@ class ScreenTests(unittest.TestCase):
                 self.assertIn("Tau analysis framework", drawn[len(FULL) - 4])
                 self.assertIn("V0.0", drawn[len(FULL) - 3])
                 self.assertTrue(all(call.args[0] < 41 for call in calls[:-1]))
-        from TauFW.Utilities.Menu.banner import BOXED
+        from TauFW.Utilities.Internal.Menu.banner import BOXED
         for dimensions in ((31, 80), (32, 80), (32, 65)):
             with self.subTest(dimensions=dimensions):
                 curses, screen = self.curses([27])
@@ -627,7 +627,7 @@ class ScreenTests(unittest.TestCase):
                     return answer
 
                 screen.getch.side_effect = key
-                with mock.patch("TauFW.Utilities.Menu._menu.time.monotonic", side_effect=lambda: now[0]), \
+                with mock.patch("TauFW.Utilities.Internal.Menu._menu.time.monotonic", side_effect=lambda: now[0]), \
                      mock.patch.object(ui, "colors_enabled", return_value=colors):
                     self.assertEqual(ui.main_menu(), "continue")
                 headers = [tuple(line[:78] for line in frame[:len(full)]) for frame in frames]
@@ -645,7 +645,7 @@ class ScreenTests(unittest.TestCase):
                 screen.timeout.assert_called_with(-1)
 
     def test_main_banner_survives_live_refresh_and_replays_after_leaving_the_menu(self):
-        from TauFW.Utilities.Menu._menu import LIVE_EVERY
+        from TauFW.Utilities.Internal.Menu._menu import LIVE_EVERY
         ui, screen, frames = self.rendered_terminal([], (43, 80))
         now = [0]
 
@@ -654,7 +654,7 @@ class ScreenTests(unittest.TestCase):
             return -1
 
         screen.getch.side_effect = timeout
-        with mock.patch("TauFW.Utilities.Menu._menu.time.monotonic", side_effect=lambda: now[0]):
+        with mock.patch("TauFW.Utilities.Internal.Menu._menu.time.monotonic", side_effect=lambda: now[0]):
             self.assertEqual(ui.main_menu(live=True), "refresh")
             self.assertAlmostEqual(now[0], LIVE_EVERY, places=2)
             count = len(frames)
@@ -669,7 +669,7 @@ class ScreenTests(unittest.TestCase):
         self.assertEqual(frames[-1], frames[0])
 
     def test_main_banner_resize_uses_the_same_animation_clock(self):
-        from TauFW.Utilities.Menu.banner import BOXED, decay_frame
+        from TauFW.Utilities.Internal.Menu.banner import BOXED, decay_frame
         ui, screen, frames = self.rendered_terminal([], (43, 80))
         now = [0]
         events = iter(((0.4, (31, 80)), (0.8, (43, 80)), (1.3, (43, 80))))
@@ -681,7 +681,7 @@ class ScreenTests(unittest.TestCase):
 
         keys = iter((resize, resize, resize, lambda: 27))
         screen.getch.side_effect = lambda: next(keys)()
-        with mock.patch("TauFW.Utilities.Menu._menu.time.monotonic", side_effect=lambda: now[0]):
+        with mock.patch("TauFW.Utilities.Internal.Menu._menu.time.monotonic", side_effect=lambda: now[0]):
             self.assertEqual(ui.main_menu(), "exit")
         self.assertEqual(tuple(line[:64] for line in frames[1][:len(BOXED)]), BOXED)
         self.assertEqual(tuple(line[:78] for line in frames[2][:len(ui._full_banner)]),
@@ -689,7 +689,7 @@ class ScreenTests(unittest.TestCase):
         self.assertEqual(tuple(line[:78] for line in frames[3][:len(ui._full_banner)]), ui._full_banner)
 
     def test_interaction_colors_preserve_banner_text_and_logo(self):
-        from TauFW.Utilities.Menu.banner import FULL, INTERACTIONS
+        from TauFW.Utilities.Internal.Menu.banner import FULL, INTERACTIONS
         self.assertTrue(all(line.isascii() for line in FULL))
         for enabled in (True, False):
             with self.subTest(colors=enabled):
@@ -756,7 +756,7 @@ class ScreenTests(unittest.TestCase):
         curses.wrapper.assert_not_called()
 
     def test_setup_launcher_writes_selection_only_after_start(self):
-        from TauFW.Utilities.Menu import setup_menu
+        from TauFW.Utilities.Internal.Menu import setup_menu
         ui = mock.Mock()
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "selection"
@@ -1046,8 +1046,8 @@ sys.modules['curses'] = None
 sys.modules['TauFW.Framework'] = None
 sys.path.insert(0, %r)
 import checkout
-from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation
-import TauFW.Utilities.Menu as menu
+from TauFW.Utilities.Internal.Menu import ConsoleUI, MenuNavigation
+import TauFW.Utilities.Internal.Menu as menu
 assert menu.__all__ == ['ConsoleUI', 'MenuNavigation', 'Prefetch']
 assert not any(name.startswith('TauFW.Framework.') for name in sys.modules)
 assert sys.modules['curses'] is None

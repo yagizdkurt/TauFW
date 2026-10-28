@@ -51,8 +51,8 @@ options.
               names an earlier stage.
     requires: the optional setup components the stage needs besides those its type always needs (Stage.requires:
               fit -> combine), by their IDs in the installer: tauidsfs, htt, combine, run2-jme
-              (Utilities.Installer.COMPONENTS). E.g. a python step that runs combine, or a production stage whose
-              channel module imports TauIDSFs:
+              (Utilities.Internal.Installer.COMPONENTS). E.g. a python step that runs combine, or a production stage
+              whose channel module imports TauIDSFs:
                 requires: [combine]
               An unknown ID is a problem. A component the installation did not select is a warning
               (recipe_warnings): FastSetup.sh records the selection in Framework/python/_internal/setup_manifest.json;
@@ -106,7 +106,7 @@ from TauFW.Framework.recipes.configs import copy_warnings
 from TauFW.Framework.defaults import RECIPE_NAME, DEFAULT_RUN_ROOT, SETUP_MANIFEST, default_file_io
 from TauFW.Framework.user_settings import run_root_or_none as user_run_root
 from TauFW.Framework.stages import STAGES, ORDER, RETIRED, MOVED_CONFIGS, SpecError, spec_from_dict
-from TauFW.Utilities.Installer import COMPONENTS, read_setup_manifest
+from TauFW.Utilities.Internal.Installer import COMPONENTS, read_setup_manifest
 
 __all__ = ['Recipe', 'StageSpec', 'Issue', 'RecipeError', 'recipe_warnings']
 
@@ -377,8 +377,8 @@ def _stage_entry(entry, index, bundle_dir, issues):
 
 
 def _check_requires(entry, where, issues):
-    """The `requires` of a stage: a list of setup component IDs (Utilities.Installer.COMPONENTS); () if not given
-    (or invalid: then an issue)."""
+    """The `requires` of a stage: a list of setup component IDs (Utilities.Internal.Installer.COMPONENTS); ()
+    if not given (or invalid: then an issue)."""
     value = entry.get('requires')
     if value is None:
         return ()

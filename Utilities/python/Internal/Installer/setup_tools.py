@@ -63,8 +63,9 @@ def main(argv=None):
         print("Recorded the selected components in %s" % args.path)
     elif args.command == "userconfig":  # imported here: the other commands need only Installer
         if __package__:
-            from ..UserConfig import manage
-        else:
+            from ...UserConfig import manage
+        else:  # UserConfig is in Utilities/python, beside Internal
+            sys.path.insert(1, str(Path(__file__).resolve().parents[2]))
             from UserConfig import manage
         path = Path(args.path) if args.path else manage.location()
         print(("Created %s" if manage.create(path) else "Kept %s") % path)

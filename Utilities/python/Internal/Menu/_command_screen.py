@@ -1,7 +1,7 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """The screen of a read-only command behind the menu (`taufw.py plan`, `taufw.py status`): its plain output.
 
-The command is a TauFW.Utilities.Process.Operation (its supervisor runs it, so
+The command is a TauFW.Utilities.Internal.Operations.Operation (its supervisor runs it, so
 a slow command, e.g. a status that asks HTCondor, never stops the menu from
 drawing); the screen is the operation screen (_operation_screen.py) with
 CommandOutput as its model, which has no items: only the Output view.
@@ -20,7 +20,7 @@ menu. With refresh, R runs the command again once it ended. No Framework
 imports belong here (see _test_run.py).
 """
 from ._operation_screen import ScreenModel, follow
-from ..Process._operations import DONE, RUNNING
+from ..Operations._operations import DONE, RUNNING
 
 __all__ = ["CommandOutput", "follow_command"]
 

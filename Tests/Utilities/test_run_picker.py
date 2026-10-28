@@ -5,8 +5,8 @@ from types import SimpleNamespace
 from unittest import mock
 
 import checkout  # noqa: F401
-from TauFW.Utilities.Menu import ConsoleUI
-from TauFW.Utilities.Menu._run_preview import RunPreview
+from TauFW.Utilities.Internal.Menu import ConsoleUI
+from TauFW.Utilities.Internal.Menu._run_preview import RunPreview
 
 
 class RunPickerTests(unittest.TestCase):
@@ -25,7 +25,7 @@ class RunPickerTests(unittest.TestCase):
     def test_loading_does_not_capture_run_navigation_or_escape(self):
         ui, screen = self.terminal([1002, -1, 1001, 27])
         preview = mock.Mock(return_value=dict(loading=True))
-        with mock.patch("TauFW.Utilities.Menu._loading.time.monotonic", return_value=0.6):
+        with mock.patch("TauFW.Utilities.Internal.Menu._loading.time.monotonic", return_value=0.6):
             self.assertEqual(ui.select_run(self.summaries, preview=preview), ("back", None))
         self.assertEqual([call.args[0] for call in preview.call_args_list], [0, 1, 1, 0])
         drawn = [call.args[2] for call in screen.addnstr.call_args_list]

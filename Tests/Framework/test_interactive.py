@@ -17,7 +17,7 @@ import checkout
 from TauFW.Framework import Recipe, RunRecord
 from TauFW.Framework.interfaces.interactive import Menu, run_menu
 from TauFW.Framework.interfaces import interactive
-from TauFW.Utilities.Menu import ConsoleUI
+from TauFW.Utilities.Internal.Menu import ConsoleUI
 
 
 class FakeUI(ConsoleUI):
@@ -412,7 +412,7 @@ class MenuTests(unittest.TestCase):
                 operations.validate_user_config(draft)
 
     def test_editor_save_refreshes_recipe_previews_and_run_root_without_restarting(self):
-        from TauFW.Utilities.Editor._file import Document
+        from TauFW.Utilities.Internal.Editor._file import Document
         operations = self.menu(FakeUI()).operations
         path, recipe = self.root / "personal.yaml", self.recipes / "example.yml"
         self.recipe_file(recipe)

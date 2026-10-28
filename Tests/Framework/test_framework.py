@@ -15,7 +15,7 @@ import fakes
 from TauFW.Framework import (Framework, Recipe, RecipeError, RunRecord, SilentReporter, StageState,
                              RunDirectoryError, EventReporter, FrameworkReporter, RetryError)
 from TauFW.Framework.runtime.framework import failed_stage, retryable_stage
-from TauFW.Utilities.Process import EVENTS_ENV, EventReader, EventWriter
+from TauFW.Utilities.Internal.Operations import EVENTS_ENV, EventReader, EventWriter
 from TauFW.Framework.stages import ProductionStage, StageOutcome, decide_next, Action
 from TauFW.Framework.stages.production import StatusCounts
 
@@ -606,7 +606,7 @@ class RecipeRequiresTests(FrameworkTestCase):
             'selected when TauFW was installed: choose "Install components" in the menu and select them'])
 
     def test_setup_manifest_round_trip(self):
-        from TauFW.Utilities.Installer import read_setup_manifest, write_setup_manifest
+        from TauFW.Utilities.Internal.Installer import read_setup_manifest, write_setup_manifest
         path = os.path.join(self.root, "setup_manifest.json")
         self.assertIsNone(read_setup_manifest(path))
         write_setup_manifest(path, ["combine", "tauidsfs"])

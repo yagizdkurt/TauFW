@@ -1,15 +1,21 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 # Utilities
 
-Independent terminal, menu presentation, file I/O, process, numeric and installer helpers, and the drawing library
-for CMS-style ROOT plots. Like the other TauFW packages, the source lives under `Utilities/python/`, and `scram b` exposes it as `TauFW.Utilities` after `cmsenv`.
+Independent terminal, file I/O, process, path, numeric and user-config helpers, and the drawing library for
+CMS-style ROOT plots. Like the other TauFW packages, the source lives under `Utilities/python/`, and `scram b` exposes it as `TauFW.Utilities` after `cmsenv`.
+
+`Utilities/python` holds two kinds of packages:
+
+- **For your analysis code and scripts:** `CLI`, `FIO`, `Math`, `Expressions`, `Drawing`, `HistFile`, `Paths`,
+  `Process`, `UserConfig`. The stages use these too.
+- **`Internal/`: TauFW's own tools**, the menu, the terminal editor, the installer and the operations behind the
+  menu. You do not need them; the Framework uses them. See [Internal/README.md](python/Internal/README.md).
 
 ```python
 from TauFW.Utilities.CLI import CLI
 from TauFW.Utilities.FIO import FileIO
 from TauFW.Utilities.Math import float_range, partition
 from TauFW.Utilities.Expressions import joincuts, joinweights
-from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation
 from TauFW.Utilities.Process import Command, ParallelProcessor, ProcessRunner
 from TauFW.Utilities.Drawing.Plot import Plot      # also Stack, Plot2D, CMSStyle, hist_tools, labels, SampleStyle
 ```
@@ -18,23 +24,10 @@ The package `__init__.py` files contain the public exports, so they are tracked 
 
 ## Package boundaries
 
-CLI and FIO each export one class; Menu exports `ConsoleUI` and `MenuNavigation`; Process exports `Command`, `CommandResult`, `ProcessRunner` and `ParallelProcessor`, and for the menu `EventWriter`, `EventReader`, `LogTail`, `BackgroundProcess`, `Operation` and `OperationStore`; Math exports plain functions (`_math.py`); HistFile exports `write_histfile`, `read_histfile` and their records (`_histfile.py`); UserConfig exports the reading side, `load`, `location`, `Config` and `UserConfigError` (`_config.py`), and its module `manage` the tools' side, `create`, `check`, `setting_problems` and `SETTINGS`. `_cli.py`, `_file_io.py`, and `_menu.py` implement those entry points; CLI and FIO use `_internal/` for formatting, filesystem, serialization, command, transport and ROOT functions. Application code should import only the owning package's public class. Underscores and `__all__` document Python's private API convention; they do not prevent access to internal modules.
+CLI and FIO each export one class; Process exports `Command`, `CommandResult`, `CommandPlan`, `RunReport`, `ProcessRunner` and `ParallelProcessor`, with `output_dir_problems` and `tuple_pattern_problems`; Math exports plain functions (`_math.py`); HistFile exports `write_histfile`, `read_histfile` and their records (`_histfile.py`); UserConfig exports the reading side, `load`, `location`, `Config` and `UserConfigError` (`_config.py`), and its module `manage` the tools' side, `create`, `check`, `setting_problems` and `SETTINGS`. `_cli.py` and `_file_io.py` implement those entry points; CLI and FIO use `_internal/` for formatting, filesystem, serialization, command, transport and ROOT functions. Application code should import only the owning package's public class. Underscores and `__all__` document Python's private API convention; they do not prevent access to internal modules.
 
-These packages do not import existing analysis/startup modules or Framework. Construction is silent and does not open files, change directories, read configuration or launch commands; only `ProcessRunner.run`/`run_all`, `ParallelProcessor.start`, `BackgroundProcess.start` and `OperationStore.start` launch processes. There are no global utility instances, base classes or service registries. Pass instances explicitly to future framework components.
+These packages do not import existing analysis/startup modules or Framework. Construction is silent and does not open files, change directories, read configuration or launch commands; only `ProcessRunner.run`/`run_all` and `ParallelProcessor.start` launch processes. There are no global utility instances, base classes or service registries. Pass instances explicitly to future framework components.
 The drawing library is the exception; see [Drawing](#drawing-cms-style-root-plots).
-
-## Installer helpers
-
-`python/Installer` owns the Python operations used by `FastSetup.sh`: safe
-directory renames, Python implementation/origin checks, native binding checks
-and HTT ROOT-file verification. Its public helpers are `rename_directory`,
-`verify_modules` and `verify_htt_files`. Imports are silent and do not load ROOT
-or analysis packages until verification is requested.
-
-FastSetup calls `python/Installer/setup_tools.py` directly before and after the
-checkout moves, so these helpers work before `cmsenv` or `scram b`. Bash retains
-the shell environment, Git downloads, installation sequencing and recovery state.
-See [FastSetup](../Docs/Guide/FastSetup.md#installer-and-menu-organization) for details.
 
 ## User config
 
@@ -101,87 +94,6 @@ terminal.print_warning("A sample was skipped")
 Interactive progress updates flush immediately and overwrite their line. Redirected intermediate progress is suppressed until completion or an explicit finish. Finish a partial task in `finally` if the surrounding operation can fail. Reporting and failure control are separate: application code raises its own exceptions. CLI does not parse arguments, launch general processes or persist messages to files.
 
 Code moved here from `common/python/tools` keeps its old output byte for byte (and `Math` its old results). Those old output formats sit in a separate `# ===== BACKWARD COMPATIBILITY, CLEANUP =====` section of the module (`CLI/_internal/loading_bar.py`, `Process/_parallel.py`), or `# ===== LEGACY, CLEAN UP LATER =====` (`CLI/_internal/table.py`), so they can be modernized later in their own commit, with a BBB re-lock where baselines record them.
-
-## Menu presentation
-
-`TauFW.Utilities.Menu` exports `ConsoleUI` and `MenuNavigation`. Change terminal appearance, screen
-wording, option labels, keyboard handling, and menu messages in
-`python/Menu/_menu.py`. Edit the ordered help topics and explanations in
-`python/Menu/faq.py`. The pre-install FastSetup checklist launches through
-`python/Menu/setup_menu.py` and uses `ConsoleUI.setup_checklist()`; installation
-sequencing remains in Bash. Space/Enter toggles components and activates Start install.
-Shared ASCII branding lives in `python/Menu/banner.py`. The Framework supplies
-the actual release label through `ConsoleUI.set_version()` and plain version
-status to `main_menu(version=...)`; Utilities never reads a manifest or makes
-an HTTP request. Standalone installer/preview screens use the `V0.0` fallback.
-Entry screens show their welcome messages beneath the
-banner; smaller terminals use compact branding so controls remain visible.
-The full main-menu banner reveals its decay tracks once over 1.2 seconds on
-entry, then stays complete. Returning from another screen replays it; background
-refreshes and resizing keep its progress. Input remains available throughout.
-The installer and smaller banner layouts are static.
-Change screen transitions, back behavior, refresh loops,
-and operation recovery in `python/Menu/_navigation.py`. Source section banners
-group the related responsibilities. `python/Menu/_preview.py` is the UI preview
-(Tests > UI preview, `ConsoleUI.preview()`): every screen with made-up data; add a
-`Scenario` there for a new screen. A screen that follows an operation behind the
-menu is `python/Menu/_operation_screen.py` (`follow(ui, screen, title, process,
-model)`) with a `ScreenModel` subclass for its items and words; the test screen's
-model is `TestRun` in `python/Menu/_test_run.py`, the run screen's (an advance; not
-wired yet) `RunProgress` in `python/Menu/_run_screen.py`, with `run_summary()` for the
-menus' run line, run chooser and run list.
-
-`ConsoleUI.open(parser)` lazily loads curses on an interactive Linux terminal.
-It returns a UI, or `None` after explaining the failure and showing CLI help.
-The menu shares one `curses.wrapper` session between its screens. A screen opened
-on its own uses a wrapper of its own; terminal programs temporarily suspend the session.
-
-Application screens return named actions: `main_menu()` returns `start`,
-`continue`, `inspect`, `tests`, `grid_certificate`, `user_config`, `help`, or `exit`; recipe confirmation, status, and run
-continuation return their corresponding action or `back`. Recipe/run selectors
-return `(action, index)`, with `select` identifying a supplied item and `manual`
-or `back` carrying `None`. Path and polling prompts return text or `None` on Esc.
-Run selectors accept `(run_id, state, updated)` summaries; `state=None` marks an
-unreadable run. Framework retains the records and paths behind those summaries.
-
-Discovery, validation, record access, callback arguments, and command dispatch
-stay in `Framework/python/interfaces/interactive.py`. Menu imports no Framework modules.
-Workflow operations continue to use their existing CLI reporting.
-
-Testing screens use `tests_menu()`, `test_family(title)`, and
-`test_selection(title, items, review=False)`. Items contain `id`, `description`,
-and `dependencies`; selection returns ordered IDs after Run or `None` on Back.
-Navigation calls the supplied operations object's `test_catalog()` and
-`execute_tests(family, cases)` methods. The Framework adapter owns catalog reads,
-checkout paths and test subprocesses; Utilities imports no test modules.
-
-`MenuNavigation(ui, operations)` owns the user journey and accepts an operations
-object supplied by the caller. The object provides `launch_dir`, `recipes()`
-(sorted recipe Paths), `runs()` (sorted `(created, path, summary)` rows),
-`resolve_path(value)`, `load_run(path)`, `can_advance(record)`,
-`validate_poll(value)` (positive integer or `ValueError`), and
-`execute(command, **values)` (CLI return code). Records expose `run_id`,
-`run_dir`, and `state`. Navigation handles command errors, interruptions, and
-pauses; Framework supplies command defaults and decides whether a run can advance.
-
-`Framework.interactive.Menu(...)` remains a construction entry point and returns
-a `MenuNavigation` wired to Framework operations. Its `start()`, `inspect()`,
-`continue_run()`, and `run()` methods now live in Utilities/Menu.
-
-## Terminal editor
-
-`python/Editor` is a self-contained UTF-8 file editor with no Menu, Framework,
-UserConfig or other TauFW dependencies. It edits on a caller-owned curses screen,
-with F2 to save and Esc to return. It keeps comments, checks a candidate file
-through an optional validator, detects external content changes and saves with
-a temporary file followed by atomic replacement. Save failures keep the buffer.
-See [Editor/README.md](python/Editor/README.md) for the API and isolation limits.
-
-The menu loads Editor only for **Modify User Config**. Its Framework adapter
-supplies `user_config_path()` (creates a missing config) and
-`validate_user_config(draft_path)` (the existing YAML, header and value checks).
-Editor handles neither recipe nor production logic. `ConsoleUI.edit_file()`
-converts editor failures into action errors so ordinary failures return to the menu.
 
 ## File I/O
 
@@ -266,33 +178,6 @@ results[-1].ok, results[-1].log, results[-1].missing
 `ProcessRunner(execute=None, clock=time.time, env=None)` runs each `Command(label, argv, cwd, expects=(), timeout=None)` without a shell. Standard output and errors go to one log file per command (`NN_<label>.log` under `logdir`), framed by a header (cwd, command line, start time) and a footer (exit code, duration, missing outputs). `PYTHONUNBUFFERED=1` keeps Python output in order; `env` adds variables.
 
 A `CommandResult` is `ok` only when the exit code is 0 **and** every `expects` glob (relative to `cwd`) matches a file modified after the command started. Many analysis scripts call tools through `os.system` and exit 0 when those tools fail, and output trees are shared between runs, so neither the exit code nor an old file is trusted. A timeout gives returncode -1, a missing program 127. `run_all` stops after the first result that is not ok and calls `progress(index, total, command, result)` before (result `None`) and after each command. `execute(argv, cwd, stream, timeout, env) -> returncode` can be injected; tests pass a fake.
-
-## Operations behind the menu
-
-```python
-store = OperationStore(".artifacts/menu/operations")
-operation = store.start("tests", "Normal tests", [sys.executable, "-B", "Tests/run.py", "normal"], cwd=".",
-                        data={"expected": ["plotter.unroll"]})
-operation.state()                  # RUNNING, STOPPING, DONE, FAILED, STOPPED or LOST
-operation.events.read(), operation.output.read()   # new events / output lines since the last read
-operation.cancel()                 # stop it (from any menu, on any machine that sees the directory)
-store.latest("tests"), store.running(), store.prune("tests", keep=5)
-```
-
-An operation is a command that runs behind the menu and outlives its screen and the menu itself (CL §18).
-`OperationStore.start` makes `<root>/<kind>-<time>/`, writes `operation.json` (kind, title, argv, cwd, `data` for
-its screen, host, user, start time) and starts `_supervisor.py` by its path, in a session of its own. The
-supervisor (standard library only) starts the command in its own process group with its output in `output.log`
-and `$TAUFW_EVENTS` naming `events.jsonl`; writes `heartbeat.json` every 5 s; on the file `stop` sends SIGINT, then
-SIGTERM after 3 s and SIGKILL after 8 s (`escalate=False`: SIGINT only; the file `kill`: SIGKILL at once); and at
-the end writes `exit.json` (exit code, 130 when stopped, 128+N after signal N). JSON files are renamed into place.
-
-`Operation.load(directory)` reads one again; every new object reads `events`/`output` from the top. `state()`:
-`exit.json` decides DONE/FAILED/STOPPED; without it RUNNING (STOPPING once `stop` exists), or LOST when no
-heartbeat came for 120 s, or at once when the supervisor's process is gone on this machine. Running on after the
-login session ends is not a goal: such an operation becomes LOST. `remote` and `host` tell where it runs.
-`BackgroundProcess` (`_background.py`) is the simpler form without a supervisor, for a command that lives only as
-long as its screen.
 
 ## Parallel Python calls
 

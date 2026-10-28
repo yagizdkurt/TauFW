@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch
 
 REPO = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location(
-    "setup_runner", REPO / "Utilities/python/Installer/setup_runner.py")
+    "setup_runner", REPO / "Utilities/python/Internal/Installer/setup_runner.py")
 runner = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(runner)
 

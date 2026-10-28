@@ -9,7 +9,7 @@ messages go:
                                   file, also writes a plain-text copy to run.log
   SilentReporter()                prints nothing and keeps the messages in .messages (for tests and library use)
   EventReporter(reporter, writer) passes everything on to `reporter` unchanged, and also writes it as events
-                                  (TauFW.Utilities.Process.EventWriter) for the menu's screens
+                                  (TauFW.Utilities.Internal.Operations.EventWriter) for the menu's screens
 
 pico_reporter(stage) wraps a reporter so that PicoProducer can use it. PicoProducer's messages then go to the same
 terminal and run.log, tagged with the stage name.
@@ -162,8 +162,9 @@ class FrameworkReporter(Reporter):
 
 class EventReporter(Reporter):
     """Passes every call on to another reporter (its output does not change), and writes the messages and the
-    Framework's events to an events file through writer.emit(kind, **fields) (TauFW.Utilities.Process.EventWriter).
-    PicoProducer's own lines (raw) are not events: they stay in the output only."""
+    Framework's events to an events file through writer.emit(kind, **fields)
+    (TauFW.Utilities.Internal.Operations.EventWriter). PicoProducer's own lines (raw) are not events: they stay in the
+    output only."""
 
     def header(self, title):
         self.reporter.header(title)

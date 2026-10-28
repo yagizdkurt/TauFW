@@ -7,8 +7,8 @@ import unittest
 from unittest import mock
 
 import checkout  # noqa: F401  (must precede TauFW.Utilities imports)
-from TauFW.Utilities.Process import EVENTS_ENV, BackgroundProcess
-from TauFW.Utilities.Process import _background
+from TauFW.Utilities.Internal.Operations import EVENTS_ENV, BackgroundProcess
+from TauFW.Utilities.Internal.Operations import _background
 
 EMIT = ("import json, os\n"
         "with open(os.environ['%s'], 'a') as stream:\n"

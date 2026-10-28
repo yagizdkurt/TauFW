@@ -59,7 +59,7 @@ try:
     from TauFW.Framework.recipes.configs import LOCK_NAME, lock_changes, update
     from TauFW.Framework.defaults import (DEFAULT_RUN_ROOT, DEFAULT_POLL_SECONDS, ANALYSES_DIR, CONFIGS_DIR,
                                           default_file_io)
-    from TauFW.Utilities.Process import EVENTS_ENV, EventWriter
+    from TauFW.Utilities.Internal.Operations import EVENTS_ENV, EventWriter
     from TauFW.Utilities import UserConfig
     from TauFW.Utilities.UserConfig import manage as user_config
     from TauFW.Framework import user_settings

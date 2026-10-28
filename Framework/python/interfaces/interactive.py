@@ -2,7 +2,7 @@
 """Framework adapters for the Utilities menu navigation.
 
 Discovery, path resolution, record access, validation, and CLI dispatch belong
-here. Presentation and screen transitions live in TauFW.Utilities.Menu. Every
+here. Presentation and screen transitions live in TauFW.Utilities.Internal.Menu. Every
 command runs behind the menu as taufw.py (OperationStore): start/advance/retry
 (kind "run"), plan/status (kind "command", read only) and the tests; the
 menu's own process reads recipes, run.json, check_recipe and a dry plan. The
@@ -36,11 +36,11 @@ from TauFW.Framework.runtime.reporting import SilentReporter
 from TauFW.Framework.runtime.run_lock import read_lock
 from TauFW.Framework.stages.production import ProductionSpec
 from TauFW.Framework.version import VersionChecker
-from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation, Prefetch
+from TauFW.Utilities.Internal.Menu import ConsoleUI, MenuNavigation, Prefetch
 from TauFW.Utilities import UserConfig
 from TauFW.Utilities.UserConfig import manage as user_config
 from TauFW.Framework.user_settings import run_root_or_none as user_run_root
-from TauFW.Utilities.Process import LOST, EventReader, OperationStore
+from TauFW.Utilities.Internal.Operations import LOST, EventReader, OperationStore
 
 CHECKOUT = Path(__file__).resolve().parents[3]
 OPERATIONS_DIR = CHECKOUT / ".artifacts" / "menu" / "operations"  # what runs behind the menu (git-ignored)
@@ -338,7 +338,7 @@ class _Operations:
             raise RuntimeError("Invalid test catalog from Tests/run.py; check the checkout: %s" % error) from error
 
     def start_tests(self, family, cases, title=None, expected=()):
-        """Start Tests/run.py behind the menu; return its TauFW.Utilities.Process.Operation (its output and its
+        """Start Tests/run.py behind the menu; return its Utilities.Internal.Operations.Operation (its output and its
         events, Tests/support/events.py, are in its directory under .artifacts/menu/operations/). title and
         expected (the case ids shown as waiting) are kept with it, for its screen in a later menu. One test run
         at a time: RuntimeError while one runs (Tests/run.py and its logs are shared). The oldest records are

@@ -20,6 +20,7 @@ PACKAGES = STAGES + ("Framework", "Utilities", "common")
 EXCLUDED = {"Legacy", "legacy", "LegacyAnalyses", "Tests", "__pycache__"}
 IMPLICIT_ROOTS = {"config", "plot", "sample"}
 APIS = {"TauFW." + stage + ".api" for stage in STAGES}
+INTERNAL = "TauFW.Utilities.Internal"  # TauFW's own tools (menu, editor, installer, operations): not for the stages
 
 
 @dataclass(frozen=True)
@@ -105,7 +106,7 @@ def imported_modules(node):
         return []  # Relative imports stay inside the owning package.
     module = node.module or ""
     parts = module.split(".")
-    if module == "TauFW" or (len(parts) == 2 and parts[0] == "TauFW" and parts[1] in STAGES):
+    if module in ("TauFW", "TauFW.Utilities") or (len(parts) == 2 and parts[0] == "TauFW" and parts[1] in STAGES):
         return [module + "." + alias.name for alias in node.names if alias.name != "*"] or [module]
     if module in IMPLICIT_ROOTS:
         return [module + "." + alias.name for alias in node.names if alias.name != "*"] or [module]
@@ -121,7 +122,11 @@ def inspect_source(source, relative_file, root):
         for module in imported_modules(node):
             parts = module.split(".")
             target = None
-            if len(parts) >= 2 and parts[0] == "TauFW" and parts[1] in STAGES:
+            if module == INTERNAL or module.startswith(INTERNAL + "."):
+                # the stages and the public Utilities packages never use Internal; the Framework and Internal do
+                if importer in STAGES or (importer == "Utilities" and "Internal" not in path.parts):
+                    target = "Utilities.Internal"
+            elif len(parts) >= 2 and parts[0] == "TauFW" and parts[1] in STAGES:
                 if parts[1] != importer and not (importer == "Framework" and module in APIS):
                     target = parts[1]
             elif importer in STAGES and parts[0] in IMPLICIT_ROOTS:
@@ -277,6 +282,19 @@ class DetectorTests(unittest.TestCase):
         self.assertEqual(len(self.inspect("from TauFW.Histogrammer.sample import model", "Framework/x.py")[0]), 1)
         self.assertEqual([item.target for item in self.inspect("import TauFW.Histogrammer.spec.Variable")[0]],
                          ["Histogrammer"])  # the Fitter (default importer) takes files, not the Histogrammer
+
+    def test_utilities_internal_is_framework_only(self):
+        """The menu, editor, installer and operations (Utilities/python/Internal) are TauFW's own tools: the stages
+        and the public Utilities packages never import them; the Framework and Internal itself do."""
+        source = ("from TauFW.Utilities.Internal.Menu import ConsoleUI\nfrom TauFW.Utilities import Internal\n"
+                  "from TauFW.Utilities.Process import Command\nfrom TauFW.Utilities import FIO\n")
+        found, _, _ = self.inspect(source, "PicoProducer/python/x.py")
+        self.assertEqual([(item.module, item.target) for item in found],
+                         [("TauFW.Utilities.Internal.Menu", "Utilities.Internal"),
+                          ("TauFW.Utilities.Internal", "Utilities.Internal")])
+        self.assertEqual(len(self.inspect(source, "Utilities/python/Drawing/x.py")[0]), 2)
+        self.assertEqual(self.inspect(source, "Framework/python/x.py")[0], [])
+        self.assertEqual(self.inspect(source, "Utilities/python/Internal/Menu/x.py")[0], [])
 
     def test_implicit_and_local_modules(self):
         with tempfile.TemporaryDirectory() as directory:

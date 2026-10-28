@@ -51,6 +51,12 @@ Items marked **(verify)** may already be done; check before working on them.
 
 The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go here until they are run.
 
+- [ ] **Utilities Internal (CL §51):** after `git pull`, `find Utilities/python -name __pycache__ -prune -exec rm -rf {} +`,
+      `scram b`, then `python3 -c "from TauFW.Utilities.Internal.Menu import ConsoleUI; from TauFW.Utilities.Process
+      import ProcessRunner"`. `python3 Tests/run.py all` as before. FastSetup in a new checkout (the component
+      checklist, the install screen, the user config made at the end). `python3 taufw.py`: main menu, Tests (a run
+      followed to the end, then again from the main menu), Modify User Config (the editor), a run's Continue screen.
+
 - [ ] **`common.tools.file` to FileIO (CL §50):** with `cmsenv`, `python3 Tests/run.py all`: `normal` passes as
       before and `bbb check` 24/24 without re-lock; `python3 -c "from TauFW.Plotter.sample.utils import ensuredir;
       from TauFW.PicoProducer.processors import ensuredir"` (the aliases import). PicoProducer: `pico.py channel test

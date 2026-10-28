@@ -1962,3 +1962,48 @@ output of these helpers), and each function was decided one by one.
 `PicoProducer/utils/convertGENSIM.py`, `Tau_Trigger_SF`, `Tests/Plotter/testCMSStyle.py`/`testTLaTeX.py`,
 `Tests/PicoProducer/compat/test_processors_compat.py`); the storage method `StorageSystem.ensuredir` (remote, a
 different thing); Legacy (gets `ensuredir` from the Plotter alias).
+
+## 51. Utilities: TauFW's own tools move to `Utilities/python/Internal`
+
+**Date:** 2026-10-28
+**Status:** done (lxplus check open: [TODO.md](TODO.md) section 1)
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#51-utilities-taufws-own-tools-move-to-utilitiespythoninternal)
+
+**Why:** `Utilities/python` mixed two kinds of packages: libraries for analysis code and the stages (CLI, FIO, Math,
+Drawing, ...) and TauFW's own tools that only the Framework uses (the menu, the editor, the installer, the
+operations behind the menu). Someone opening the folder could not tell which ones were theirs. Measured before the
+move: nothing outside the Framework, Utilities and `Tests/` imported Menu, Editor, Installer or the operation half
+of Process.
+
+**What changed:**
+
+- **Moved (`git mv`, contents unchanged apart from imports):** `Menu/`, `Editor/`, `Installer/` ->
+  `Utilities/python/Internal/`; `Process/_events.py`, `_background.py`, `_operations.py`, `_supervisor.py` ->
+  `Utilities/python/Internal/Operations/` (`_supervisor.py` runs by its path, so it stays next to `_operations.py`).
+  Imports: `TauFW.Utilities.Internal.Menu`, `.Editor`, `.Installer`, `.Operations`.
+- **`TauFW.Utilities.Process`** keeps `Command`, `CommandResult`, `CommandPlan`, `RunReport`, `ProcessRunner`,
+  `ParallelProcessor`, `output_dir_problems`, `tuple_pattern_problems`. `EVENTS_ENV`, `EventWriter`, `EventReader`,
+  `LogTail`, `BackgroundProcess`, `Operation`, `OperationStore` and the states are exported by
+  `TauFW.Utilities.Internal.Operations`. No aliases at the old names (user decision): no script or stage used them.
+- **`UserConfig` stays public and whole** (user decision): `load()` is for everyone; `manage` stays a module of it.
+- **Before `cmsenv`:** FastSetup runs `Utilities/python/Internal/Installer/setup_runner.py` and `setup_tools.py`
+  (`Utilities/FastSetup.sh`, two paths). The scripts still put their parent folder (now `Internal/`) on `sys.path`,
+  so Menu and Installer import each other as before; `setup_tools.py userconfig` adds `Utilities/python` as well, for
+  UserConfig.
+- **Callers:** the Framework (`interfaces/interactive.py`, `recipes/recipe.py`, `runtime/reporting.py`,
+  `scripts/taufw.py`, a comment in `stages/base.py`), `Tests/run.py`, `Tests/Setup/*`, and the Utilities and Framework
+  unit tests (imports and `mock.patch` targets).
+- **Import boundary:** `Tests/check_import_boundaries.py` fails when a stage or a public Utilities package imports
+  `TauFW.Utilities.Internal` (`from TauFW.Utilities import Internal` included); the Framework and Internal itself
+  may. Relative imports are not checked (as before). Detector test `test_utilities_internal_is_framework_only`.
+- **Docs:** `Utilities/README.md` says which packages are for analysis code and which are Internal; the menu, editor,
+  installer and operations sections moved to the new `Utilities/python/Internal/README.md`. `Framework/README.md`
+  and `Internal/Editor/README.md` paths updated. Earlier changelog sections and audits keep the old paths (history).
+
+**Note for existing checkouts:** after `git pull`, run
+`find Utilities/python -name __pycache__ -prune -exec rm -rf {} +`. A leftover `Utilities/python/Menu/__pycache__/`
+makes `TauFW.Utilities.Menu` an empty namespace package, so an old import fails with "cannot import name" instead of
+"No module named".
+
+**Unchanged:** every BBB baseline (nothing that writes output changed); the stages, analysis scripts and the public
+Utilities packages; the menu's behaviour.

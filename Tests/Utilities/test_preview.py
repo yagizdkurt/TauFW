@@ -5,9 +5,9 @@ import unittest
 from unittest import mock
 
 import checkout  # noqa: F401  (must precede TauFW.Utilities imports)
-from TauFW.Utilities.Menu import ConsoleUI, MenuNavigation
-from TauFW.Utilities.Menu import _preview
-from TauFW.Utilities.Menu._preview import SCENARIOS, Scenario, _tests
+from TauFW.Utilities.Internal.Menu import ConsoleUI, MenuNavigation
+from TauFW.Utilities.Internal.Menu import _preview
+from TauFW.Utilities.Internal.Menu._preview import SCENARIOS, Scenario, _tests
 
 LEFT, RIGHT = 1010, 1011
 

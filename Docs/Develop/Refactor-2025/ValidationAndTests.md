@@ -839,3 +839,20 @@ unchanged; to confirm on lxplus without re-lock: [TODO.md](TODO.md) section 1.
   fails as on HEAD (known debt; the report is the same apart from line numbers, checked in a HEAD worktree);
   `check_root` and all `normal`/BBB cases need ROOT (lxplus). One run of `unit.framework` failed in
   `test_run_lock` (`PermissionError` on the lock rename, Windows); it passed in two reruns and nothing there changed.
+
+## 51. Utilities: TauFW's own tools move to `Utilities/python/Internal`
+
+**Change:** [CL §51](Refactor-2025.md#51-utilities-taufws-own-tools-move-to-utilitiespythoninternal)
+
+- `Tests/check_import_boundaries.py` `test_utilities_internal_is_framework_only`: a stage and a public Utilities
+  package importing `TauFW.Utilities.Internal...` (also `from TauFW.Utilities import Internal`) are violations; the
+  Framework and Internal itself are not.
+- By hand (Windows): every module under `Internal/` and `Process/` imports as a `TauFW.Utilities...` package (36
+  modules); `TauFW.Utilities.Menu`, `.Editor` and `.Installer` no longer exist. Before `cmsenv`, by path as FastSetup
+  runs them: `setup_tools.py environment`, `setup_tools.py userconfig --path <new file>` (created, then kept),
+  `setup_menu.py --help`, `setup_runner.py --help`. A repository grep finds no old path or import outside earlier
+  changelog sections, audits, LocalR and Legacy.
+- `Tests/run.py checks` on Windows, before and after: the same 14 of 16 pass (Utilities 270, Framework 255, Setup
+  65, ...); `check_import_boundaries` fails as before with the same report (known debt, 0 new pairs) and
+  `check_root` needs ROOT. One test needed its path changed: `test_editor` imports Editor standalone from
+  `Utilities/python/Internal`.

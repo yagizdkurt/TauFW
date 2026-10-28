@@ -12,9 +12,9 @@ if __package__:
 else:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from Menu import ConsoleUI
-if __package__ and "." in __package__:  # TauFW.Utilities.Menu
+if __package__ and "." in __package__:  # TauFW.Utilities.Internal.Menu
     from ..Installer import COMPONENTS  # (ID, label) of every optional component
-else:  # a script, or Menu imported from Utilities/python by the installer (before scram b)
+else:  # a script, or Menu imported from Utilities/python/Internal by the installer (before scram b)
     from Installer import COMPONENTS
 
 

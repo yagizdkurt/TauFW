@@ -8,8 +8,8 @@ from pathlib import Path
 from unittest import mock
 
 import checkout  # noqa: F401  (must precede TauFW.Utilities imports)
-from TauFW.Utilities.Process import EVENTS_ENV, EventReader, EventWriter, LogTail
-from TauFW.Utilities.Process import _events
+from TauFW.Utilities.Internal.Operations import EVENTS_ENV, EventReader, EventWriter, LogTail
+from TauFW.Utilities.Internal.Operations import _events
 
 
 def tests_events_module():

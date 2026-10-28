@@ -127,12 +127,12 @@ to return afterward. Ctrl+C returns to the menu without cancelling submitted
 batch jobs. Resume using the saved run record. Existing CLI subcommands and
 explicit `--help` keep working without curses or an interactive terminal.
 
-Menu presentation lives in `Utilities/python/Menu/`: `_menu.py` owns rendering,
+Menu presentation lives in `Utilities/python/Internal/Menu/`: `_menu.py` owns rendering,
 wording, screen choices, and terminal lifecycle; `_navigation.py` owns screen
 transitions, back behavior, refresh loops, and operation feedback; `faq.py` owns
 help content.
 `_test_run.py` is the test screen. What runs behind the menu is an operation
-(`Utilities/python/Process/_operations.py`, `_supervisor.py`): a directory under `.artifacts/menu/operations/`
+(`Utilities/python/Internal/Operations/_operations.py`, `_supervisor.py`): a directory under `.artifacts/menu/operations/`
 that a supervisor process fills while it runs the command, and that any menu reads again (CL §18).
 `python/interfaces/interactive.py` keeps recipe/run discovery, validation, record access,
 read-only recipe previews and plan preparation, test runs (`start_tests`, `tests_operation`), and command
@@ -387,7 +387,7 @@ The public imports remain `from TauFW.Framework import Framework, Recipe, ...`.
 Internal module imports use their package paths, for example
 `TauFW.Framework.recipes.recipe` and `TauFW.Framework.runtime.run_record`.
 Future recipe creation/editing logic belongs in `recipes/` when needed; terminal
-widgets stay in `TauFW.Utilities.Menu` and `TauFW.Utilities.Editor`, with Framework
+widgets stay in `TauFW.Utilities.Internal.Menu` and `TauFW.Utilities.Internal.Editor`, with Framework
 callbacks supplied through `interfaces/`.
 
 | File | Contents |

@@ -608,7 +608,7 @@ class ConsoleUI:
         return back if selected is None else REFRESH if selected == REFRESH else actions[selected]
 
     def main_menu(self, proxy_valid=False, tests=None, runs=(), live=False, version=None, config_reviewed=True):
-        """tests: the last test run (a TauFW.Utilities.Process.Operation) or None; its state is shown next to
+        """tests: the last test run (a Utilities.Internal.Operations.Operation) or None; its state is shown next to
         Tests ("Tests (Running 12/40)"). runs: the advances to show (Operations of kind "run": those behind the
         menu and those that ended unseen): one is a line of its own, "Run tes_2025 (3/5 plots)" (action "run"),
         more are "Runs (2 active)" (action "runs"). live: something runs behind the menu; without a key for
@@ -796,7 +796,7 @@ class ConsoleUI:
         return self._run(draw)
 
     def test_run(self, title, process, expected=()):
-        """Follow a test run (a TauFW.Utilities.Process.Operation) until the user leaves; the run goes on behind
+        """Follow a test run (a Utilities.Internal.Operations.Operation) until the user leaves; the run goes on behind
         the menu. Return its exit code (None while it runs). expected: the case ids shown as waiting before they
         start."""
         # Imported here: FastSetup imports Menu on its own before TauFW is built, and never shows this screen.

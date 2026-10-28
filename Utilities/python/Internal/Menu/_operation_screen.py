@@ -7,7 +7,7 @@ screen (_test_run.py) and, next, the run screen. What it shows comes from a mode
     model.log(item) ───────────────▶ Details / item log view (Enter), read only while the item is on screen
     process.state() ───────────────▶ the state line (model.states, + "on <host>"), then model.summary()
 
-The process is a TauFW.Utilities.Process.Operation (or a stand-in with
+The process is a TauFW.Utilities.Internal.Operations.Operation (or a stand-in with
 state(), events, output, returncode, elapsed(), cancel(), kill(), remote and
 host). The screen draws every FRAME seconds and never waits for the operation.
 Leaving it (Esc) never stops the operation; S or Ctrl-C asks (model.stop_question,
@@ -29,8 +29,8 @@ import re
 import textwrap
 
 from ._menu import _clock
-from ..Process import EventReader, LogTail
-from ..Process._operations import ACTIVE, DONE, FAILED, LOST, RUNNING, STOPPED, STOPPING
+from ..Operations import EventReader, LogTail
+from ..Operations._operations import ACTIVE, DONE, FAILED, LOST, RUNNING, STOPPED, STOPPING
 
 __all__ = ["ScreenModel", "follow", "printable", "summary_model"]
 

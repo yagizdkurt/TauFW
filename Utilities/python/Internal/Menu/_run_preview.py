@@ -7,7 +7,7 @@ replace the new preview. Closing requests cancellation without joining the worke
 import threading
 import time
 
-from ..Process._operations import ACTIVE
+from ..Operations._operations import ACTIVE
 
 
 class RunPreview:

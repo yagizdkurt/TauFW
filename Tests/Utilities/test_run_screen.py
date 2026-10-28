@@ -5,9 +5,9 @@ import unittest
 from unittest import mock
 
 import checkout  # noqa: F401  (must precede TauFW.Utilities imports)
-from TauFW.Utilities.Menu import ConsoleUI
-from TauFW.Utilities.Menu._preview import _advance
-from TauFW.Utilities.Menu._run_screen import RunProgress, LOST_TEXT, run_summary
+from TauFW.Utilities.Internal.Menu import ConsoleUI
+from TauFW.Utilities.Internal.Menu._preview import _advance
+from TauFW.Utilities.Internal.Menu._run_screen import RunProgress, LOST_TEXT, run_summary
 
 T = 1000.0
 DATA = dict(run_id="tes_2025", run_dir="/eos/runs/tes_2025",
