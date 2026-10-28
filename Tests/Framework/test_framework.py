@@ -567,6 +567,61 @@ class RecipeTests(FrameworkTestCase):
         self.assertEqual(str(raised.exception), "%s: cannot read the recipe: no such file" % (missing))
 
 
+class RecipeRequiresTests(FrameworkTestCase):
+    """The setup components a stage needs (Stage.requires, `requires:`) against the setup manifest."""
+    SHAPES = {"stage": "shapes", "id": "shapes", "inputs": {"tuples": fakes.EXTERNAL}, "eras": [2025],
+              "jet_wps": ["Tight"], "ele_wps": ["Tight"]}
+    FIT = {"stage": "fit", "id": "fit", "inputs": {"shapes": "shapes"}}
+    STEP = {"stage": "python", "id": "step", "inputs": None, "file": "/abs/step.py", "requires": ["combine", "htt"]}
+
+    def warnings(self, installed, stages):
+        with mock.patch("TauFW.Framework.recipes.recipe.installed_components", return_value=installed):
+            recipe = Recipe.from_dict({"name": "x", "stages": stages})
+        return [str(w) for w in recipe.warnings if w.where.startswith("stages[")]
+
+    def test_requires_is_checked_and_kept(self):
+        recipe = Recipe.from_dict({"name": "x", "stages": [self.SHAPES, self.FIT, self.STEP]})
+        self.assertEqual(recipe.stage("fit").requires, ())
+        self.assertEqual(recipe.stage("fit").needs, ("combine",))  # the fit stage's own
+        self.assertEqual(recipe.stage("step").needs, ("combine", "htt"))
+        self.assertEqual(recipe.to_dict()["stages"][2]["requires"], ["combine", "htt"])
+        self.assertNotIn("requires", recipe.stage("step").options)
+        self.assertEqual(Recipe.from_dict(recipe.to_dict()).to_dict(), recipe.to_dict())
+        with self.assertRaises(RecipeError) as raised:
+            Recipe.from_dict({"name": "x", "stages": [dict(self.STEP, requires=["combin"])]}, source="r.yml")
+        self.assertEqual(str(raised.exception), "r.yml: stages[0] (python).requires: unknown setup component "
+                                                "'combin' (known: tauidsfs, htt, combine, run2-jme)")
+        with self.assertRaises(RecipeError) as raised:
+            Recipe.from_dict({"name": "x", "stages": [dict(self.STEP, requires="combine")]})
+        self.assertIn("requires: must be a list of setup components", str(raised.exception))
+
+    def test_warning_for_components_not_installed(self):
+        stages = [self.SHAPES, self.FIT, self.STEP]
+        self.assertEqual(self.warnings(frozenset({"combine", "htt"}), stages), [])
+        self.assertEqual(self.warnings(None, stages), [])  # no setup manifest: nothing is known, nothing checked
+        self.assertEqual(self.warnings(frozenset({"tauidsfs"}), stages), [
+            'stages[1] (fit): needs Combine + CombineHarvester, which was not selected when TauFW was installed: '
+            'choose "Install components" in the menu and select it',
+            'stages[2] (python): needs Combine + CombineHarvester and HTT lepton efficiencies, which were not '
+            'selected when TauFW was installed: choose "Install components" in the menu and select them'])
+
+    def test_setup_manifest_round_trip(self):
+        from TauFW.Utilities.Installer import read_setup_manifest, write_setup_manifest
+        path = os.path.join(self.root, "setup_manifest.json")
+        self.assertIsNone(read_setup_manifest(path))
+        write_setup_manifest(path, ["combine", "tauidsfs"])
+        self.assertEqual(read_setup_manifest(path), frozenset({"tauidsfs", "combine"}))
+        with open(path) as stream:
+            self.assertEqual(json.load(stream), {"schema_version": 1, "components": ["tauidsfs", "combine"]})
+        write_setup_manifest(path, [])  # a later installation without any component replaces it
+        self.assertEqual(read_setup_manifest(path), frozenset())
+        with self.assertRaises(ValueError):
+            write_setup_manifest(path, ["nope"])
+        with open(path, "w") as stream:
+            stream.write("{broken")
+        self.assertIsNone(read_setup_manifest(path))
+
+
 class ReporterTests(FrameworkTestCase):
     def setUp(self):
         super().setUp()

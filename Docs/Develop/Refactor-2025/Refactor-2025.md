@@ -1859,3 +1859,48 @@ in the same change (C).
 **Unchanged:** `advance()` (a FAILED stage still stops the run), `decide_next`, the local stages' retry (CL §44: NEW,
 archived), the run.json schema (3; `max_tries` and `archive: null` only in retries entries, which only a retry
 writes), every BBB baseline (`framework.production` never fails, so its run.json is the same).
+
+## 49. Recipes name the setup components they need; the menu warns if the installation did not select one
+
+**Date:** 2026-10-28
+**Status:** done (lxplus check open: [TODO.md](TODO.md) section 1)
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#49-recipes-name-the-setup-components-they-need-the-menu-warns-if-the-installation-did-not-select-one)
+
+**Why:** the installer offers optional components (TauIDSFs, HTT efficiencies, Combine + CombineHarvester,
+standalone NanoAODTools), but the selection was not kept anywhere, and a recipe did not say what it needs. A recipe
+with a fit (or a python step that runs combine) on an installation without Combine was found out only when that stage
+ran: it stopped "not ready" in the middle of the pipeline.
+
+**What changed:**
+
+- **Setup manifest (`Utilities/FastSetup.sh`, `Utilities/python/Installer`):** at the end of a successful
+  installation (after the verification), FastSetup.sh writes the selected components to
+  `Framework/python/_internal/setup_manifest.json` of the installed checkout (`setup_tools.py manifest`):
+  `{"schema_version": 1, "components": ["tauidsfs", "htt", "combine"]}`. Every installation replaces it (also
+  Install components of the menu, which runs FastSetup.sh). Not tracked (`*.json` of .gitignore). A write failure is
+  a setup warning, not an error. `COMPONENTS` (ID, label) moved from `Menu/setup_menu.py` to `Installer`
+  (`setup_menu`, `setup_runner` import it); `write_setup_manifest` / `read_setup_manifest` (None: no file or not a
+  manifest).
+- **Stages (`stages/base.py`, `stages/fit.py`):** `Stage.requires`: the components a stage type always needs; the
+  fit stage: `('combine',)`. The other stage types need none of their own (production depends on the channel module
+  of the PicoProducer config, which the recipe does not know: declared, not derived).
+- **Recipes (`recipes/recipe.py`):** a stage may have `requires: [combine, ...]` (a stage key, like `description`;
+  not an option): the components the recipe adds for that stage, e.g. a python step that runs combine. An unknown ID
+  or a value that is not a list is a recipe problem. `StageSpec.requires` (as written, saved in run.json's recipe
+  copy) and `StageSpec.needs` (the type's and the recipe's).
+- **Warning (`recipe_warnings`):** for every stage that needs a component the manifest does not list:
+  `stages[3] (fit): needs Combine + CombineHarvester, which was not selected when TauFW was installed: choose
+  "Install components" in the menu and select it`. A warning, not a problem: the recipe can still start (the fit's
+  preflight still stops it if combine is missing). Without a manifest (installed before this change, or not with
+  FastSetup.sh, or the unit tests) nothing is checked. So it shows wherever the recipe warnings show: the recipe list
+  of the menu (yellow), its preview, `taufw.py check`, `plan`, `start`.
+- **Examples:** `cmsdas26_ztt` step `xsec_fit` (python, runs combine): `requires: [combine]`. `tes_id_2025` needs
+  nothing written (its fit stage needs combine by itself).
+
+**Decisions (with the user, 2026-10-28):** the selection is recorded by the installer (not looked up on disk);
+production's TauIDSFs/HTT needs are only declared; no manifest: no check; the python steps declare theirs with
+`requires:`, the classic stages in code.
+
+**Unchanged:** the setup record (`.git/taufw-setup-state`, `taufw-setup-v1`), the preflight checks, the run.json schema
+(the recipe copy has `requires` only if the recipe has it), every BBB baseline (no manifest in the BBB checkout, and
+no BBB recipe has a fit or `requires`).

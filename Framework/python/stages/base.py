@@ -189,6 +189,8 @@ class Stage:
     null_inputs = {}  # input slot -> what null means for it; the other slots must name an earlier stage
     outputs = ()    # kinds of data the stage makes; None: any kind (python steps)
     retryable = False  # a FAILED stage may be set NEW again by taufw.py retry (CL §44): the local stages
+    requires = ()   # optional setup components (Utilities.Installer.COMPONENTS) the stage always needs, e.g.
+                    # ('combine',); a recipe adds more per stage with `requires:` (recipe.py)
 
     def plan(self, spec, context=None):
         raise StageNotImplemented(self.name)

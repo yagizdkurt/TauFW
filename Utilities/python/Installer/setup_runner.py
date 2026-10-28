@@ -20,11 +20,11 @@ import time
 
 if __package__:
     from ..Menu import ConsoleUI
-    from ..Menu.setup_menu import COMPONENTS
+    from ._installer import COMPONENTS
 else:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from Menu import ConsoleUI
-    from Menu.setup_menu import COMPONENTS
+    from Installer import COMPONENTS
 
 
 STAGES = ("Preflight", "CMSSW environment", "Dependencies", "Build", "Verification")

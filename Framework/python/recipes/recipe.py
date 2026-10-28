@@ -23,7 +23,8 @@
         inputs: {plots: plots}        # any names; null: no inputs
         file: steps/check_yields.py
 
-Every stage has the keys `stage`, `id` and `inputs`, and may have `description`; the other keys are its options.
+Every stage has the keys `stage`, `id` and `inputs`, and may have `description` and `requires`; the other keys are its
+options.
 
     id:       letters, digits, '_', '.', '-' (not '.' or '..'); unique. It names the stage's directories in the run:
               <run_dir>/stages/<id>/ (output) and <run_dir>/logs/<id>/ (logs).
@@ -48,6 +49,14 @@ Every stage has the keys `stage`, `id` and `inputs`, and may have `description`;
               Nothing is connected implicitly: a stage sees only the artifacts of its inputs.
     order:    the stages run in the order they are written (the user's choice); the only rule is that an input
               names an earlier stage.
+    requires: the optional setup components the stage needs besides those its type always needs (Stage.requires:
+              fit -> combine), by their IDs in the installer: tauidsfs, htt, combine, run2-jme
+              (Utilities.Installer.COMPONENTS). E.g. a python step that runs combine, or a production stage whose
+              channel module imports TauIDSFs:
+                requires: [combine]
+              An unknown ID is a problem. A component the installation did not select is a warning
+              (recipe_warnings): FastSetup.sh records the selection in Framework/python/_internal/setup_manifest.json;
+              without that file (no installation by FastSetup.sh) nothing is checked.
 pico.config is read only by a production stage (its PicoProducer configuration); in a recipe without one it must be
 null or left out (CL §37: the other stages never read it, their tuples are named in the inputs). Any stage may appear any number of times (with its own id), except
               production: at most once (its job files are outside the run, and a run has one pico.config).
@@ -75,7 +84,8 @@ Recipe.from_dict() / Recipe.load() raise one RecipeError that lists them all, e.
 validation.py adds the checks of the files a recipe names (for the menu and `taufw.py check`).
 A warning is not a problem: the recipe can run. recipe_warnings() lists them (Recipe.warnings for a valid recipe);
 `taufw.py check`, `plan`, `start` and the menu show them. Besides the run_root warnings, a bundle file copied from a
-template of Configs/ gets a warning while its template has a newer version (configs.copy_warnings).
+template of Configs/ gets a warning while its template has a newer version (configs.copy_warnings), and a stage gets
+one if it needs a setup component the installation did not select.
 
 Inputs:  a recipe file or bundle directory, or a dict (e.g. the copy of the recipe saved in run.json).
 Outputs: Recipe and StageSpec records (frozen), Issues. Nothing is written.
@@ -93,9 +103,10 @@ from dataclasses import dataclass, field
 from typing import Optional, Tuple
 from TauFW.Framework.recipes.bundle import leaves_bundle, is_bundle, is_absolute, path_rows
 from TauFW.Framework.recipes.configs import copy_warnings
-from TauFW.Framework.defaults import RECIPE_NAME, DEFAULT_RUN_ROOT, default_file_io
+from TauFW.Framework.defaults import RECIPE_NAME, DEFAULT_RUN_ROOT, SETUP_MANIFEST, default_file_io
 from TauFW.Framework.user_settings import run_root_or_none as user_run_root
 from TauFW.Framework.stages import STAGES, ORDER, RETIRED, MOVED_CONFIGS, SpecError, spec_from_dict
+from TauFW.Utilities.Installer import COMPONENTS, read_setup_manifest
 
 __all__ = ['Recipe', 'StageSpec', 'Issue', 'RecipeError', 'recipe_warnings']
 
@@ -106,7 +117,7 @@ __all__ = ['Recipe', 'StageSpec', 'Issue', 'RecipeError', 'recipe_warnings']
 
 TOP_KEYS   = ('name', 'run_root', 'pico', 'stages')      # allowed keys at the top of a recipe
 PICO_KEYS  = ('config',)                                 # allowed keys under 'pico:'
-STAGE_KEYS = ('stage', 'id', 'description', 'inputs')    # keys of every stage that are not its options
+STAGE_KEYS = ('stage', 'id', 'description', 'inputs', 'requires')  # keys of every stage that are not its options
 NAMEEXP    = re.compile(r"^[A-Za-z0-9_.-]+$")  # allowed run names, stage ids and input names (directory names)
 URLEXP     = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://")  # a URL, e.g. root://eosuser.cern.ch//eos/...
 
@@ -126,6 +137,7 @@ class StageSpec:
     inputs:      input slot -> stage id, None, {path: directory} or {external: pattern}, as written;
                  None: `inputs: null`
     description: free text from the recipe ("" if none); shown, never used for anything else
+    requires:    the setup components the recipe adds for this stage, as written (() if none); see `needs`
     """
     stage:       str
     id:          str
@@ -133,6 +145,12 @@ class StageSpec:
     options:     dict = field(default_factory=dict)
     inputs:      Optional[dict] = None
     description: str = ""
+    requires:    Tuple[str, ...] = ()
+
+    @property
+    def needs(self):
+        """Every setup component the stage needs: those of its type (Stage.requires), then the recipe's."""
+        return _needs(self.stage, self.requires)
 
     @property
     def connections(self):
@@ -270,6 +288,8 @@ class Recipe:
             if s.description:
                 entry.append(('description', s.description))
             entry.append(('inputs', copy.deepcopy(s.inputs)))
+            if s.requires:
+                entry.append(('requires', list(s.requires)))
             stages.append(dict(entry + list(copy.deepcopy(s.options).items())))
         top = [('name', self.name)] + ([('run_root', self.run_root)] if self.run_root is not None else [])
         return dict(top + [('pico', {'config': self.pico_config}), ('stages', stages)])
@@ -339,6 +359,7 @@ def _stage_entry(entry, index, bundle_dir, issues):
     if description is not None and not isinstance(description, str):
         issues.append(Issue(where + ".description", "must be text (got %r)" % (description,)))
     inputs = _check_inputs(entry, name, where, bundle_dir, issues)
+    requires = _check_requires(entry, where, issues)
     options = {k: v for k, v in entry.items() if k not in STAGE_KEYS}
     result = _Entry(index=index, stage=name, id=stage_id, inputs=inputs, where=where)
     try:
@@ -350,8 +371,39 @@ def _stage_entry(entry, index, bundle_dir, issues):
     _check_paths(spec, where, bundle_dir, issues)
     if stage_id is not None:
         result.stage_spec = StageSpec(stage=name, id=stage_id, spec=spec, options=copy.deepcopy(options),
-                                      inputs=copy.deepcopy(inputs), description=description or "")
+                                      inputs=copy.deepcopy(inputs), description=description or "",
+                                      requires=requires)
     return result
+
+
+def _check_requires(entry, where, issues):
+    """The `requires` of a stage: a list of setup component IDs (Utilities.Installer.COMPONENTS); () if not given
+    (or invalid: then an issue)."""
+    value = entry.get('requires')
+    if value is None:
+        return ()
+    known = [name for name, _ in COMPONENTS]
+    if not isinstance(value, list) or not all(isinstance(name, str) for name in value):
+        issues.append(Issue(where + ".requires", "must be a list of setup components, e.g. [combine] (known: %s)"
+                            % (', '.join(known))))
+        return ()
+    unknown = [name for name in value if name not in known]
+    if unknown:
+        issues.append(Issue(where + ".requires", "unknown setup component %s (known: %s)"
+                            % (', '.join(repr(name) for name in unknown), ', '.join(known))))
+        return ()
+    return tuple(dict.fromkeys(value))
+
+
+def _needs(stage, requires):
+    """The setup components of a stage type (Stage.requires) and those a recipe adds, without repeats."""
+    return tuple(dict.fromkeys(tuple(getattr(STAGES.get(stage), 'requires', ())) + tuple(requires)))
+
+
+def installed_components():
+    """The setup components FastSetup.sh installed (a frozenset), or None if it recorded none (then nothing is
+    checked)."""
+    return read_setup_manifest(SETUP_MANIFEST)
 
 
 def _check_paths(spec, where, bundle_dir, issues):
@@ -662,6 +714,31 @@ def recipe_warnings(data, bundle_dir=None):
                                   % (entry['tag'], entry['tag'])))
     if is_bundle(bundle_dir):
         warnings.extend(Issue(relative, message) for relative, message in copy_warnings(bundle_dir))
+    warnings.extend(_component_warnings(stages))
+    return warnings
+
+
+def _component_warnings(stages):
+    """A warning for every stage that needs a setup component the installation did not select (none without a
+    setup manifest). An invalid `requires` is a problem, not looked at here."""
+    installed = installed_components()
+    if installed is None:
+        return []
+    labels = dict(COMPONENTS)
+    warnings = []
+    for index, entry in enumerate(stages):
+        if not isinstance(entry, dict) or entry.get('stage') not in STAGES:
+            continue
+        written = entry.get('requires') or []
+        if not isinstance(written, list) or not all(isinstance(name, str) and name in labels for name in written):
+            written = []
+        missing = [labels[name] for name in _needs(entry['stage'], written) if name not in installed]
+        if missing:
+            one = len(missing) == 1
+            warnings.append(Issue("stages[%d] (%s)" % (index, entry['stage']),
+                                  "needs %s, which %s not selected when TauFW was installed: choose \"Install "
+                                  "components\" in the menu and select %s"
+                                  % (' and '.join(missing), "was" if one else "were", "it" if one else "them")))
     return warnings
 
 

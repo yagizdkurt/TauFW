@@ -9,7 +9,7 @@ from datetime import datetime
 
 __all__ = ['DEFAULT_RUN_ROOT', 'RUN_RECORD_NAME', 'RUN_LOG_NAME', 'DEFAULT_POLL_SECONDS', 'TIME_FORMAT',
            'RECIPE_NAME', 'BUNDLE_DIR_NAME', 'LOGS_DIR_NAME', 'STAGES_DIR_NAME', 'MANIFEST_NAME', 'ANALYSES_DIR',
-           'EXAMPLES_DIR_NAME', 'CONFIGS_DIR',
+           'EXAMPLES_DIR_NAME', 'CONFIGS_DIR', 'SETUP_MANIFEST',
            'timestamp', 'default_file_io']
 
 
@@ -31,6 +31,8 @@ ANALYSES_DIR         = os.path.join(os.path.dirname(os.path.dirname(os.path.dirn
                        os.path.realpath(__file__)))), "Analyses")  # the analysis bundles of this checkout
 EXAMPLES_DIR_NAME    = "Examples"           # the example analyses: Analyses/Examples/<name>/, apart from the list
 CONFIGS_DIR          = os.path.join(os.path.dirname(ANALYSES_DIR), "Configs")  # the config templates (configs.py)
+SETUP_MANIFEST       = os.path.join(os.path.dirname(os.path.realpath(__file__)), "_internal",
+                       "setup_manifest.json")  # the optional components FastSetup.sh installed (not tracked)
 
 
 # =============================================================================

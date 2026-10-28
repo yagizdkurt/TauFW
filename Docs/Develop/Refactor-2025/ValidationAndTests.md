@@ -804,3 +804,21 @@ change.
 
 BBB: not run on Windows. `framework.production` never fails and never retries, so its run.json snapshot is
 unchanged; to confirm on lxplus without re-lock: [TODO.md](TODO.md) section 1.
+
+## 49. Recipes name the setup components they need; the menu warns if the installation did not select one
+
+**Change:** [CL §49](Refactor-2025.md#49-recipes-name-the-setup-components-they-need-the-menu-warns-if-the-installation-did-not-select-one)
+
+- `Tests/Framework/test_framework.py` `RecipeRequiresTests`:
+  - `test_requires_is_checked_and_kept`: fit `needs` ('combine',) with no `requires`; a python step's `requires`
+    is kept (not an option), in `to_dict` and round trip; `combin` and a string are recipe problems.
+  - `test_warning_for_components_not_installed`: all installed or no manifest: no warning; without combine and htt:
+    one warning for the fit, one naming both for the python step.
+  - `test_setup_manifest_round_trip`: write/read, an empty selection, an unknown ID (ValueError), a broken file
+    (None).
+- By hand (Windows): `setup_tools.py manifest --path ... combine htt` writes the file, without IDs an empty list, an
+  unknown ID is an argparse error; `check_recipe` of `tes_id_2025` and `cmsdas26_ztt` with a manifest without
+  combine gives the warning at `stages[3] (fit)` and `stages[12] (python)`; `mutau_short` none.
+- `Tests/run.py all` on Windows: the Framework units pass; `unit.setup` (`test_setup_runner`: `Menu/_run_preview.py`
+  relative import, fails the same before this change), `check_import_boundaries` (known debt, 0 new pairs) and
+  `check_root` (no ROOT) fail as before.

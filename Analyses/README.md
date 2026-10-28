@@ -165,7 +165,7 @@ Only these top-level keys are supported:
 | `run_root` | Optional, with a warning | The parent directory of the runs: a run is `<run_root>/<name>_<time>/`. See [Where the runs go](#where-the-runs-go-run_root). |
 | `pico` | Optional | Mapping with only `config`; omitting it uses PicoProducer's default configuration. |
 | `pico.config` | `null` | PicoProducer configuration file path, read only by a production stage: a recipe without one must leave it `null` (CL §37). See the path rules below. |
-| `stages` | Required | Non-empty list of stage mappings. Each entry needs `stage`, `id` and `inputs`, may have `description`, and has that stage's options. |
+| `stages` | Required | Non-empty list of stage mappings. Each entry needs `stage`, `id` and `inputs`, may have `description` and `requires` (setup components the stage needs, e.g. `[combine]`: `tauidsfs`, `htt`, `combine`, `run2-jme`; the menu warns if the installation did not select one; a fit stage needs `combine` without it), and has that stage's options. |
 
 The stages run in the order they are written; the order is your choice. The
 usual one is:

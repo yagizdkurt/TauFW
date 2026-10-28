@@ -1,8 +1,55 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Python operations used by FastSetup; optional tools load only when checked."""
 import importlib
+import json
 import os
 from pathlib import Path
+import tempfile
+
+
+# =============================================================================
+# ==== Optional components ====
+
+# The optional components of the setup checklist: (ID, label). Recipes name the IDs (`requires:`).
+COMPONENTS = (
+    ("tauidsfs", "TauIDSFs"),
+    ("htt", "HTT lepton efficiencies"),
+    ("combine", "Combine + CombineHarvester"),
+    ("run2-jme", "Standalone NanoAODTools (Run 2 JEC/JER)"),
+)
+
+
+def write_setup_manifest(path, components):
+    """Record the components a successful installation selected: {"schema_version": 1, "components": [...]}.
+    Replaces the file atomically; an unknown component ID is an error."""
+    known = [name for name, _ in COMPONENTS]
+    unknown = [name for name in components if name not in known]
+    if unknown:
+        raise ValueError("Unknown setup component: " + ", ".join(unknown))
+    path = Path(path)
+    data = {"schema_version": 1, "components": [name for name in known if name in components]}
+    handle, stage = tempfile.mkstemp(dir=str(path.parent), prefix=path.name + ".")
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8") as stream:
+            json.dump(data, stream, indent=2)
+            stream.write("\n")
+        os.replace(stage, str(path))
+    except BaseException:
+        if os.path.exists(stage):
+            os.remove(stage)
+        raise
+
+
+def read_setup_manifest(path):
+    """The component IDs the installation selected (a frozenset), or None if the file is missing or not a
+    setup manifest (then nothing is known about the components)."""
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict) or data.get("schema_version") != 1 or not isinstance(data.get("components"), list):
+        return None
+    return frozenset(name for name in data["components"] if isinstance(name, str))
 
 
 # =============================================================================

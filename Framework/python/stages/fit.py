@@ -55,6 +55,7 @@ class FitStage(LocalStage):
     inputs = {'shapes': 'shapes'}
     null_inputs = {}  # a shapes stage, or another run's with {path: <run_dir>/stages/<id>} (R4); never null (CL §37)
     outputs = ('fit', 'corrections')
+    requires = ('combine',)  # combine, text2workspace.py and CombineHarvester (Fitter preflight_fit)
     group = 'fitter'  # taufw.py init names a copied config <group>_<name> if its name is taken
     # Spec = FitSpec: set at the bottom of this file.
 

@@ -12,16 +12,10 @@ if __package__:
 else:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from Menu import ConsoleUI
-
-# =============================================================================
-# ============================== SETUP COMPONENTS =============================
-
-COMPONENTS = (
-    ("tauidsfs", "TauIDSFs"),
-    ("htt", "HTT lepton efficiencies"),
-    ("combine", "Combine + CombineHarvester"),
-    ("run2-jme", "Standalone NanoAODTools (Run 2 JEC/JER)"),
-)
+if __package__ and "." in __package__:  # TauFW.Utilities.Menu
+    from ..Installer import COMPONENTS  # (ID, label) of every optional component
+else:  # a script, or Menu imported from Utilities/python by the installer (before scram b)
+    from Installer import COMPONENTS
 
 
 def main(argv=None):

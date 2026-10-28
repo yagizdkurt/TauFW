@@ -51,6 +51,13 @@ Items marked **(verify)** may already be done; check before working on them.
 
 The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go here until they are run.
 
+- [ ] **Setup components of recipes (CL §49):** menu > Install components with Combine unselected (the others
+      as before): after the installation `Framework/python/_internal/setup_manifest.json` lists the selected IDs
+      without `combine`. Start a new run: `tes_id_2025` is yellow, its preview has "stages[3] (fit): needs Combine +
+      CombineHarvester ... choose "Install components" in the menu and select it"; [Examples] > `cmsdas26_ztt`
+      the same for `stages[12] (python)`; `python3 taufw.py check Analyses/tes_id_2025` prints it. Install again
+      with Combine: the warnings are gone. A checkout installed before this change (no manifest): no warning.
+
 - [ ] **Examples under [Examples] (CL §47):** `python3 taufw.py` > Start a new run: the list has `tes_id_2025` (and
       your own analyses), no `example_*`; the rows end `Enter another recipe path`, `[Examples]`, `Back`.
       `[Examples]` lists `broken` (red), `cmsdas26_ztt`, `mutau_long`, `mutau_short`, then `Back` (back to the recipe

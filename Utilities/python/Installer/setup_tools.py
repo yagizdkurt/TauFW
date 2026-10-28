@@ -6,10 +6,12 @@ from pathlib import Path
 import sys
 
 if __package__:
-    from . import rename_directory, verify_modules, verify_htt_files, python_environment_warnings
+    from . import (COMPONENTS, rename_directory, verify_modules, verify_htt_files, write_setup_manifest,
+                   python_environment_warnings)
 else:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from Installer import rename_directory, verify_modules, verify_htt_files, python_environment_warnings
+    from Installer import (COMPONENTS, rename_directory, verify_modules, verify_htt_files, write_setup_manifest,
+                           python_environment_warnings)
 
 
 # =============================================================================
@@ -36,6 +38,10 @@ def main(argv=None):
     userconfig = commands.add_parser("userconfig", help="Write a new user config if there is none; print its path.")
     userconfig.add_argument("--path", help="The file (default: $TAUFW_USER_CONFIG, else Analyses/UserConfig.yaml).")
 
+    manifest = commands.add_parser("manifest", help="Record the components this installation selected.")
+    manifest.add_argument("--path", required=True, help="The setup manifest (Framework/python/_internal/).")
+    manifest.add_argument("components", nargs="*", choices=[name for name, _ in COMPONENTS])
+
     args = parser.parse_args(argv)
     if args.command == "environment":
         for warning in python_environment_warnings():
@@ -52,6 +58,9 @@ def main(argv=None):
         verify_modules(args.specs, args.root, args.instantiate)
     elif args.command == "htt":
         verify_htt_files(args.directory, args.files)
+    elif args.command == "manifest":
+        write_setup_manifest(args.path, args.components)
+        print("Recorded the selected components in %s" % args.path)
     elif args.command == "userconfig":  # imported here: the other commands need only Installer
         if __package__:
             from ..UserConfig import manage

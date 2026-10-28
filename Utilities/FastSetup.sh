@@ -51,6 +51,7 @@ readonly HTT_URL=https://github.com/CMS-HTT/LeptonEfficiencies
 readonly COMBINE_URL=https://github.com/cms-analysis/HiggsAnalysis-CombinedLimit.git
 readonly HARVESTER_URL=https://github.com/cms-analysis/CombineHarvester.git
 readonly HTT_PATH=PicoProducer/data/lepton/HTT # relative to the TauFW checkout
+readonly SETUP_MANIFEST=Framework/python/_internal/setup_manifest.json # relative to the checkout
 readonly NANOAODTOOLS_FILES=(
   python/postprocessing/framework/postprocessor.py
   python/postprocessing/modules/jme/jetmetHelperRun2.py
@@ -140,6 +141,7 @@ main() {
   banner 'Verification'
   verify_install
   create_user_config       # Analyses/UserConfig.yaml, never replaced
+  write_setup_manifest     # the selected components, for the recipe checks
   publish_setup_record
   if [[ -n ${FASTSETUP_EVENT_FD:-} ]]; then
     local summary
@@ -753,6 +755,24 @@ create_user_config() {
     user_config=$path
   else
     warn "Could not create the user config $path: run python3 taufw.py userconfig later."
+  fi
+}
+
+# =============================================================================
+# ==== Setup manifest ====
+
+# The components this installation selected and verified; recipes that need
+# another one get a warning in the menu and in taufw.py check.
+write_setup_manifest() {
+  local selected=() line
+  if $tauidsfs; then selected+=(tauidsfs); fi
+  if $htt; then selected+=(htt); fi
+  if $combine; then selected+=(combine); fi
+  if $run2_jme; then selected+=(run2-jme); fi
+  if line=$(installer_python manifest --path "$repo_dir/$SETUP_MANIFEST" "${selected[@]}"); then
+    log "$line"
+  else
+    warn "Could not record the selected components in $repo_dir/$SETUP_MANIFEST: recipes are not checked for them."
   fi
 }
 

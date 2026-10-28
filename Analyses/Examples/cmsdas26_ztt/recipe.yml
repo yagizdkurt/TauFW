@@ -305,6 +305,8 @@ stages:
     id: xsec_fit
     description: Combine fits of r(mutau) and r(mumu), impacts, NLL scans, result plots
     inputs: {mutau: card_mutau, mumu: card_mumu}
+    requires: [combine]     # setup components the step needs: written for a python step (a fit stage needs combine
+                            # without it); the menu warns if the installation did not select one
     file: steps/xsec_fit.py
     options:
       era: '2024'
