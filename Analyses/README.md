@@ -360,7 +360,7 @@ run_root: /afs/cern.ch/work/u/user/taufw_runs
 
 - A run is `<run_root>/<name>_<YYYYmmdd-HHMMSS>/`. `start --run-root DIR` takes
   precedence over the recipe, the recipe over `runs.run_root` of your user config
-  (`Analyses/UserConfig.yaml`, see [Your user config](../Docs/Manual/1-GettingStarted/UserConfig.md));
+  (`Analyses/UserConfig.yaml`, see [Your user config](../Docs/Guide/1-GettingStarted/UserConfig.md));
   without any of them, the runs go to `taufw_runs/` in the directory where you
   launch `taufw.py`. `plan` and `start` say which one they use: `(--run-root)`,
   `(recipe)`, `(user config)` or `(default: ...)`.
@@ -403,7 +403,7 @@ stage does not; `plan` names the settings it took. That configuration supplies s
 channels, storage paths, and batch defaults; recipes select and override job
 settings rather than defining those catalogs themselves. See the
 [PicoProducer documentation](../PicoProducer/README.md) and
-[public API](../Docs/Manual/PicoProducer/API.md). A bundle may carry its own copy:
+[public API](../Docs/Guide/PicoProducer/API.md). A bundle may carry its own copy:
 
 ```yaml
 pico:
@@ -777,7 +777,7 @@ can exceed the WP lists in this recipe.
 
 Set up the Linux CMS/CMSSW environment first (see
 [installation](../README.md#installation) and
-[FastSetup](../Docs/Manual/FastSetup.md)). After `cmsenv` and `scram b`, `taufw.py`
+[FastSetup](../Docs/Guide/FastSetup.md)). After `cmsenv` and `scram b`, `taufw.py`
 is available on `PATH`; from the repository root you can also use
 `python3 taufw.py`. Fits require ROOT, the Combine tools, and CombineHarvester
 for the fit step. Local-stage preflight reports missing prerequisites.

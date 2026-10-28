@@ -6,7 +6,7 @@
 # Automates the manual installation in README.md. It creates (or reuses) the
 # reference CMSSW release, moves this checkout to <release>/src/TauFW, installs
 # the extra tools and builds everything with SCRAM. The steps are listed in
-# main() below; usage is in `bash Utilities/FastSetup.sh --help` and Docs/Manual/FastSetup.md.
+# main() below; usage is in `bash Utilities/FastSetup.sh --help` and Docs/Guide/FastSetup.md.
 #
 # Existing dependency checkouts are validated and kept unchanged. New downloads
 # are staged before publication; cross-filesystem copies keep the original.
@@ -190,7 +190,7 @@ otherwise it is detected from /etc/os-release. CMS_SETUP may override
 
 Measured-SF edits and TauPOG-internal correction production remain manual.
 Fresh downloads use fixed versions and shallow histories. Cross-filesystem
-copies keep the original checkout. See Docs/Manual/FastSetup.md for recovery details.
+copies keep the original checkout. See Docs/Guide/FastSetup.md for recovery details.
 EOF
 }
 

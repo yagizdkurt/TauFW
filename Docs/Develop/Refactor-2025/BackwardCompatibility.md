@@ -197,7 +197,7 @@ These commands use existing default tuple/sample configuration unless explicit o
 | `processors.Bookkeeper` | `workers.Bookkeeper` | Same module/class through an alias, with `FutureWarning` |
 | `processors.moddir` | `workers.moddir` | Re-export points to **workers**, where branch-selection files live |
 
-The new `PicoProducer` API exposes `plan`, `iter_plan`, `submit`, `resubmit`, `status`, `merge`, `clean`, `run_local`, request/result records and explicit reporting. It replaces the old globally configured control-plane functions; it is **not** a signature-compatible rename of `preparejobs`, `checkchunks` or `getmodule`. See [public API](../../Manual/PicoProducer/API.md) and [jobs exports](../../../PicoProducer/python/jobs/__init__.py).
+The new `PicoProducer` API exposes `plan`, `iter_plan`, `submit`, `resubmit`, `status`, `merge`, `clean`, `run_local`, request/result records and explicit reporting. It replaces the old globally configured control-plane functions; it is **not** a signature-compatible rename of `preparejobs`, `checkchunks` or `getmodule`. See [public API](../../Guide/PicoProducer/API.md) and [jobs exports](../../../PicoProducer/python/jobs/__init__.py).
 
 API reporting is silent by default; callers wanting familiar terminal messages must supply a reporter. File-touching API calls temporarily change process CWD to PicoProducer and restore it. They are not thread-safe. Callers that relied on importing `pico.common` to change CWD must make their own path policy explicit.
 

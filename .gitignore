@@ -64,7 +64,7 @@ Fitter/Zpt/weights
 
 # Documentation images are kept despite the global PNG rule.
 !Docs/Extra/**/*.png
-Docs/Manual/STYLE.md
+Docs/Guide/STYLE.md
 
 # What runs behind the menu (Utilities/python/Process/_operations.py).
 .artifacts/

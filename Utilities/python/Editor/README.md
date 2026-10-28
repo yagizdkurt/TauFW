@@ -27,7 +27,7 @@ without automatic indentation, so multiline terminal pastes retain their indenta
 Pass `reference=path_to_readme` to show a Markdown or text file alongside any
 edited file. The caller chooses both paths and the title; Editor has no knowledge
 of the user config or the repository layout. The menu's user config action passes
-`Docs/Manual/1-GettingStarted/UserConfig.md` from its own checkout, including when
+`Docs/Guide/1-GettingStarted/UserConfig.md` from its own checkout, including when
 `TAUFW_USER_CONFIG` points outside that checkout.
 
 ```python

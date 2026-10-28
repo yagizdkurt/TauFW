@@ -64,7 +64,7 @@ The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go he
       list); an empty line parts the recipes from the menu's own rows, and the runs of Continue/Inspect from
       `Enter another run directory`; `View detailed plan` of `mutau_short` works; a started example goes back to the main menu.
       `python3 taufw.py check Analyses/Examples/broken` (4 problems, exit 1) and `plan Analyses/Examples/mutau_short`
-      as before. Paste their outputs again into `Docs/Manual/1-GettingStarted/FirstSession.md` and `UserConfig.md`
+      as before. Paste their outputs again into `Docs/Guide/1-GettingStarted/FirstSession.md` and `UserConfig.md`
       (only the paths were changed by hand). Run `Analyses/Examples/cmsdas26_ztt` once (about 1.5 h; its steps were
       reorganized without a change of logic, checked on Windows only): `stages/xsec_fit/results.txt` as in
       `reference/cmsdas26/README.md` and the `tagger_roc` PNGs with the MD5 of `reference/cmsdas26/`.
@@ -272,7 +272,7 @@ Parts 1–5 are done (CL §5–§8; the Part 2 changelog section was removed).
       `config_example.json`, the TauES_ID helper scripts; a migration guide for users' `config.json` (old to new
       channel strings).
 - [ ] Absolute configured and job-config paths (changes `pico.jobs` baselines; the reason the API is not
-      thread-safe, see [API.md](../../Manual/PicoProducer/API.md) "Known limitations").
+      thread-safe, see [API.md](../../Guide/PicoProducer/API.md) "Known limitations").
 - [ ] Lower-level messages (catalogs, storage, DAS, event counting) still bypass the reporter; workers still read the
       global config through `picojob.py -c`. (API.md)
 - [ ] `batch/base.py:32` builds the submit template path from the working directory; take it from the package path.

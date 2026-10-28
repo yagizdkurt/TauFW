@@ -224,13 +224,13 @@ class EditorTests(unittest.TestCase):
         paragraph.layout(48, 5)
         self.assertIn(first_word, " ".join(row[1] for row in paragraph.rows[paragraph.top:paragraph.top + 2]))
 
-    def test_actual_user_config_manual_and_empty_file_are_readable(self):
-        path = checkout.SOURCE.parents[1] / "Docs/Manual/1-GettingStarted/UserConfig.md"
+    def test_actual_user_config_guide_and_empty_file_are_readable(self):
+        path = checkout.SOURCE.parents[1] / "Docs/Guide/1-GettingStarted/UserConfig.md"
         reference = Reference(path)
         reference.layout(40, 16)
         self.assertFalse(reference.error)
         text = "\n".join(row[1] for row in reference.rows)
-        self.assertIn("# TauFW user configuration", text)
+        self.assertIn("taufw_user:", text)
         self.assertIn("Setting: runs.run_root", text)
         empty = Reference(self.reference(""))
         empty.layout(30, 5)

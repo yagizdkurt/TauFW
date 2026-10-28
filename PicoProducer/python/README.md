@@ -2,7 +2,7 @@
 
 | Package | Contents |
 |---|---|
-| [`api/`](api) | the public API: `PicoProducer` (plan, submit, status, resubmit, merge, run_local) and its records; see [Docs/Manual/PicoProducer/API.md](../../Docs/Manual/PicoProducer/API.md) |
+| [`api/`](api) | the public API: `PicoProducer` (plan, submit, status, resubmit, merge, run_local) and its records; see [Docs/Guide/PicoProducer/API.md](../../Docs/Guide/PicoProducer/API.md) |
 | [`analysis/`](analysis) | analysis modules run on nanoAOD (event selection, reconstruction) and their tree writers |
 | [`batch/`](batch) | batch systems (HTCondor, SLURM, SGE): submit task lists, query the queue; submit templates |
 | [`corrections/`](corrections) | corrections: energy scales, weights, scale factors, ... |

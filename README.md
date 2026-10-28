@@ -8,23 +8,27 @@ Framework for tau analysis using NanoAOD at CMS. The main packages are
    the old `Plotter` names working.
 4. [`Fitter`](Fitter): Tools for measurements and fits in combine.
 
-The [`Framework`](Framework) package runs these steps as one pipeline from a recipe file, see
-[Running a pipeline](#running-a-pipeline).
+The [`Framework`](Framework) package runs these steps as one pipeline from a recipe file.
 
 Historical studies and retired component workflows are kept in the root
 [Legacy archive](Legacy/README.md).
 
+## Where to start
+
+Start with the [Getting Started guide](Docs/Guide/README.md#where-to-start) for setup,
+your first session, and your first production.
+
 ## Installation
 
 ### Automatic
-Run this in the repo. See the [FastSetup documentation](Docs/Manual/FastSetup.md) for details.
+Run this in the repo. See the [FastSetup documentation](Docs/Guide/FastSetup.md) for details.
 ```bash
 source setup.sh
 ```
 
 ### Manual
 
-See the [manual installation guide](Docs/Manual/ManualInstallation.md) for manual setup.
+See the [manual installation guide](Docs/Guide/ManualInstallation.md) for manual setup.
 
 ## Opening the framework
 

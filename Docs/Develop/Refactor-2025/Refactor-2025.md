@@ -84,7 +84,7 @@ and distinguish runnable tests from existing broken or legacy cases.
 
 **Date:** 2026-10-12
 **Commit:** `41c7c0e`
-**Details:** [Docs/Manual/FastSetup.md](../../Manual/FastSetup.md)
+**Details:** [Docs/Guide/FastSetup.md](../../Guide/FastSetup.md)
 **Tests/Validation:** [ValidationAndTests.md:42](ValidationAndTests.md#2-fastsetup-script)
 
 ### What & Why
@@ -267,7 +267,7 @@ Do case-only renames on Linux with `git mv`, or verify tracked spelling on Windo
 ## 7. PicoProducer cleanup: job pipelines
 
 **Date:** 2026-10-13
-**Details:** [Docs/Develop/Bugs.md#picoproducer](../Bugs.md#picoproducer), [API](../../Manual/PicoProducer/API.md)
+**Details:** [Docs/Develop/Bugs.md#picoproducer](../Bugs.md#picoproducer), [API](../../Guide/PicoProducer/API.md)
 **Tests/Validation:** [ValidationAndTests.md:87](ValidationAndTests.md#7-picoproducer-cleanup-job-pipelines)
 
 ### A. Job pipelines
@@ -295,7 +295,7 @@ unless forced.
 ## 8. PicoProducer cleanup: public API, command line, workers
 
 **Date:** 2026-10-13
-**Details:** [API](../../Manual/PicoProducer/API.md), [I/O contract](../../Manual/PicoProducer/IO.md),
+**Details:** [API](../../Guide/PicoProducer/API.md), [I/O contract](../../Guide/PicoProducer/IO.md),
 [bugs](../Bugs.md#picoproducer)
 **Tests/Validation:** [ValidationAndTests.md:104](ValidationAndTests.md#8-picoproducer-cleanup-public-api-command-line-workers)
 
@@ -1705,7 +1705,7 @@ found while the step runs made the run final.
   (`_Operations.retry_run`, `retry_info`). A FAILED production run keeps the old dialog. The run screen's result card
   says "Fix the cause, then Continue offers Retry <stage>: the finished stages are kept." (production: "A failed
   production stage is final: start a new run."). The FAQ "Retries" entry says the same.
-- **Docs:** `Docs/Manual/2-Tutorials/01-FirstProduction.md` (a FAILED stage), `BackwardCompatibility.md` 9.3, the
+- **Docs:** `Docs/Guide/2-Tutorials/01-FirstProduction.md` (a FAILED stage), `BackwardCompatibility.md` 9.3, the
   comment of `Analyses/tes_id_2025/recipe.yml`.
 
 **Decisions (with the user, 2026-10-27):** an explicit retry (b), not Continue resetting the stage (a) and not only a
@@ -1725,7 +1725,7 @@ production stage and its `max_tries`, the run.json schema (3) and the manifest f
 **Status:** done (real-terminal check open: [TODO.md](TODO.md) section 1)
 **Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#45-a-read-only-markdown-reference-beside-the-terminal-editor)
 
-Modify User Config opens its YAML beside `Docs/Manual/1-GettingStarted/UserConfig.md`. Each pane keeps its own
+Modify User Config opens its YAML beside `Docs/Guide/1-GettingStarted/UserConfig.md`. Each pane keeps its own
 position. F5 switches focus; arrows and Page Up/Down act on that pane. F4 hides/opens the reference. At 110 columns
 or more, the editor/reference use about 60/40 of the width; smaller terminals show one pane at a time (F5 switches).
 F2 saves the YAML from either pane, Tab indents only while editing, and leaving still asks about unsaved changes.
@@ -1849,7 +1849,7 @@ of [TODO.md](TODO.md) section 6.
   - The run screen's card of a failed production stage: "If its chunks still failed after max_tries, Continue offers
     Retry <stage> (more tries); other production failures need a new run." The FAQ "Retries" entry says the same.
     `_preview.py`: a scenario "failed production: retry with more tries".
-- **Docs:** `Framework/README.md`, `Docs/Manual/2-Tutorials/01-FirstProduction.md`, `BackwardCompatibility.md` 9.3,
+- **Docs:** `Framework/README.md`, `Docs/Guide/2-Tutorials/01-FirstProduction.md`, `BackwardCompatibility.md` 9.3,
   `run_record.py` (the retries keys).
 
 **Decisions (with the user, 2026-10-28):** each retry gives `max_tries` more tries (A1, not one more each time);

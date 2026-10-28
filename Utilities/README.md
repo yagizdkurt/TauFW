@@ -34,7 +34,7 @@ or analysis packages until verification is requested.
 FastSetup calls `python/Installer/setup_tools.py` directly before and after the
 checkout moves, so these helpers work before `cmsenv` or `scram b`. Bash retains
 the shell environment, Git downloads, installation sequencing and recovery state.
-See [FastSetup](../Docs/Manual/FastSetup.md#installer-and-menu-organization) for details.
+See [FastSetup](../Docs/Guide/FastSetup.md#installer-and-menu-organization) for details.
 
 ## User config
 

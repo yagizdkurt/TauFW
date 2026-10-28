@@ -97,7 +97,7 @@ You'll mostly touch the first two. The rest you'll get to know over time.
 | `Utilities/` | Shared code: drawing style, the menu, helpers |
 | `Tests/` | Automated tests |
 | `Legacy/` | Old code we keep around for reference. You can ignore it |
-| `Docs/` | This Manual, plus docs for developers |
+| `Docs/` | This Guide, plus docs for developers |
 
 ## What's next
 

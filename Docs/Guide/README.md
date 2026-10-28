@@ -1,4 +1,4 @@
-# TauFW Manual
+# TauFW Guide
 
 Welcome! This is the place to start if you're new to TauFW.
 TauFW is the framework the CMS Tau group uses to go from NanoAOD all the way to a fit result!
@@ -34,11 +34,11 @@ For shell commands and their output, see [Using FW with commands](4-Concepts/Usi
 | `Troubleshooting.md` | Error messages and what to do about them *(coming soon)* | something broke |
 | `PicoProducer/` | Reference for the PicoProducer Python API and its files | you're writing code against PicoProducer |
 
-The Manual is still being written. Pages marked *coming soon* don't exist yet.
+The Guide is still being written. Pages marked *coming soon* don't exist yet.
 
 ## Other docs in the repository
 
-The Manual is the gentle introduction. When you need every option and every detail, these are the full
+The Guide is the gentle introduction. When you need every option and every detail, these are the full
 references:
 
 - [Analyses/README.md](../../Analyses/README.md): everything about writing recipes and analysis bundles.

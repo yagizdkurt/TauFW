@@ -81,8 +81,8 @@ class _Operations:
 
     @staticmethod
     def user_config_reference():
-        """The manual of this checkout, also when the config lives elsewhere."""
-        return CHECKOUT / "Docs" / "Manual" / "1-GettingStarted" / "UserConfig.md"
+        """The guide of this checkout, also when the config lives elsewhere."""
+        return CHECKOUT / "Docs" / "Guide" / "1-GettingStarted" / "UserConfig.md"
 
     @staticmethod
     def validate_user_config(draft_path):
