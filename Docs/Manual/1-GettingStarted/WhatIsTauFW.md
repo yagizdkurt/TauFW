@@ -1,11 +1,6 @@
 # What is TauFW?
 
-TauFW is the code the CMS Tau group uses for tau measurements. Things like the tau energy scale or tau ID scale
-factors. It takes CMS data and simulation in the NanoAOD format, and at the end of the chain it gives you fitted
-numbers, plus a lot of plots along the way.
-
-This page gives you the big picture. There are no commands to run here. Once you know what the pieces are, the
-tutorials will make a lot more sense.
+TauFW is the code the CMS Tau group uses for tau measurements. This page gives you the big picture. There are no commands to run here. Once you know what the pieces are, the tutorials will make a lot more sense.
 
 ## The chain, from NanoAOD to a result
 
@@ -55,9 +50,6 @@ in the format Combine expects. The Histogrammer makes them too.
 the numbers you're measuring. Today the main workflow is the combined fit of the tau energy scale (TES) and the tau
 ID scale factor, with a Z→μμ control region.
 
-You don't have to run the whole chain every time. If someone already made the pico tuples you need, you can start
-at step 2. If the shapes already exist, you can go straight to the fit.
-
 ## The Framework ties it together
 
 Each of those steps is its own package, and you can still run each one by hand with its own scripts. People did that
@@ -106,16 +98,6 @@ You'll mostly touch the first two. The rest you'll get to know over time.
 | `Tests/` | Automated tests |
 | `Legacy/` | Old code we keep around for reference. You can ignore it |
 | `Docs/` | This Manual, plus docs for developers |
-
-## A few words you'll see a lot
-
-- **Era**: a data-taking period with its own conditions, like `2022_postEE`. Samples, corrections and luminosity
-  all depend on the era.
-- **Channel**: which final state you select, like `mutau` (a muon and a hadronic tau) or `mumu`.
-- **Sample**: one dataset, like Drell-Yan or ttbar simulation, or one run period of real data.
-- **Working point (WP)**: how tight the tau ID cut is, like `Medium` or `VTight`.
-
-There are more in the [Glossary](../4-Concepts/Glossary.md).
 
 ## What's next
 
