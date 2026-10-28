@@ -400,6 +400,34 @@ def progress(ui, screen, worker):
             worker.cancel()
 
 
+def text_setup(args):
+    """Keep component selection available when curses or the terminal is unavailable."""
+    if not sys.stdin.isatty() or not sys.stdout.isatty():
+        print("Use --non-interactive to run setup without a terminal.", file=sys.stderr)
+        return 1
+    print("The setup screen is unavailable. Using plain text questions instead.")
+    print("Press Enter to keep each default; Ctrl+C cancels before installation.")
+    selected = []
+    try:
+        for name, label in COMPONENTS:
+            default = name in args.selected
+            while True:
+                answer = input("Install %s? [%s] " % (label, "Y/n" if default else "y/N")).strip().lower()
+                if answer in ("", "y", "yes", "n", "no"):
+                    break
+                print("Please answer yes or no.")
+            if answer in ("y", "yes") or (not answer and default):
+                selected.append(name)
+        if input("Start installation? [y/N] ").strip().lower() not in ("y", "yes"):
+            print("Setup cancelled; no installation changes were made.")
+            return 130
+    except (KeyboardInterrupt, EOFError):
+        print("\nSetup cancelled; no installation changes were made.")
+        return 130
+    arguments = args.arguments[1:] if args.arguments[:1] == ["--"] else args.arguments
+    os.execvp("bash", ["bash", args.script, *worker_arguments(arguments, selected)])
+
+
 def main(argv=None):
     parser = ArgumentParser(description="Persistent interactive FastSetup screen.")
     parser.add_argument("--script", required=True)
@@ -408,7 +436,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     ui = ConsoleUI.open(parser)
     if ui is None:
-        return 1
+        return text_setup(args)
     worker = None
     failure = None
 
@@ -449,7 +477,7 @@ def main(argv=None):
     if failure:
         print(failure, file=sys.stderr)
         if worker is None:
-            print("Use --non-interactive to run setup without the screen.", file=sys.stderr)
+            return text_setup(args)
     return status
 
 

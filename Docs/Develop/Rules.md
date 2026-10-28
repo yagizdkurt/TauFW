@@ -8,8 +8,3 @@ These rules are **mandatory for all merge requests**.
 - **Run all tests before pushing anything.**
 - All personal analysis scripts **must go into `Analyses/Year/Name/...`**.
 - **Before pushing legacy code**, read the [legacy code policy](LegacyCode.md) and **follow its requirements**.
-
-## Optional coding guidelines
-
-See [Basic coding guidelines](HowToCodeGood.md) for recommended coding practices.
-These are **guidelines, not strict rules**.

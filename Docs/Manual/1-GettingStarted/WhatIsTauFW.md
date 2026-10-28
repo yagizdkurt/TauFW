@@ -86,7 +86,8 @@ the logs and a record of where each stage is. Production takes hours, so TauFW d
 the jobs and stops. Later, maybe tomorrow, you tell it to continue. It checks the jobs, resubmits the ones that
 failed, and moves on to the next stage once everything is done.
 
-You can do all of this from the command line (`python3 taufw.py ...`) or from a simple menu in the terminal.
+You can follow your analysis from the menu in the terminal. For shell commands, see
+[Using FW with commands](../4-Concepts/UsingFWWithCommands.md).
 
 ## Where things are in the repository
 

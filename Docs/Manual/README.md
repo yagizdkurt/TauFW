@@ -21,13 +21,15 @@ If you've never used TauFW before, go through these in order:
 Keep the **[Glossary](4-Concepts/Glossary.md)** open in another tab. TauFW has a lot of its own words (bundle,
 stage, chunk, era...) and they're all explained there in plain language.
 
+For shell commands and their output, see [Using FW with commands](4-Concepts/UsingFWWithCommands.md).
+
 ## What's in here
 
 | Folder | What you'll find | Read it when... |
 | --- | --- | --- |
 | `1-GettingStarted/` | The big picture and your first steps | you're brand new |
 | `2-Tutorials/` | Step-by-step lessons with real commands and real output | you want to learn by doing |
-| `3-HowTo/` | Short answers to "how do I...?" questions | you know the basics and need to get something done |
+| [3-HowTo/](3-HowTo/README.md) | Short answers to "how do I...?" questions | you know the basics and need to get something done |
 | `4-Concepts/` | How things work under the hood, and why | something surprised you and you want to understand it |
 | `Troubleshooting.md` | Error messages and what to do about them *(coming soon)* | something broke |
 | `PicoProducer/` | Reference for the PicoProducer Python API and its files | you're writing code against PicoProducer |

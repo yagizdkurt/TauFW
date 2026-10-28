@@ -18,6 +18,51 @@ spec.loader.exec_module(runner)
 
 
 class RunnerTests(unittest.TestCase):
+    def test_missing_curses_uses_text_selection_and_preserves_options(self):
+        with patch.dict(sys.modules, {"curses": None}), \
+                patch.object(runner.sys, "platform", "linux"), \
+                patch.object(runner.sys.stdin, "isatty", return_value=True), \
+                patch.object(runner.sys.stdout, "isatty", return_value=True), \
+                patch("builtins.input", side_effect=["invalid", "", "no", "yes", "", "yes"]), \
+                patch("builtins.print"), patch.object(runner.ArgumentParser, "print_help"), \
+                patch.object(runner.os, "execvp") as launch:
+            runner.main(["--script", "/clone with spaces/Utilities/FastSetup.sh",
+                         "--selected", "tauidsfs", "htt", "--",
+                         "--jobs", "7", "--cmssw-dir", "/release with spaces", "--skip-combine"])
+        launch.assert_called_once_with("bash", ["bash", "/clone with spaces/Utilities/FastSetup.sh",
+                                               "--jobs", "7", "--cmssw-dir", "/release with spaces",
+                                               "--non-interactive", "--skip-htt"])
+
+    def test_text_selection_cancellation_never_installs(self):
+        for answers in (["", "", "", "", "no"], [EOFError], [KeyboardInterrupt]):
+            with self.subTest(answers=answers), \
+                    patch.object(runner.ConsoleUI, "open", return_value=None), \
+                    patch.object(runner.sys.stdin, "isatty", return_value=True), \
+                    patch.object(runner.sys.stdout, "isatty", return_value=True), \
+                    patch("builtins.input", side_effect=answers), patch("builtins.print"), \
+                    patch.object(runner.os, "execvp") as launch:
+                self.assertEqual(runner.main(["--script", "/clone/Utilities/FastSetup.sh"]), 130)
+                launch.assert_not_called()
+
+    def test_screen_initialization_failure_uses_text_before_starting_worker(self):
+        ui = Mock()
+        ui.curses.wrapper.side_effect = RuntimeError("terminal unavailable")
+        with patch.object(runner.ConsoleUI, "open", return_value=ui), \
+                patch.object(runner, "text_setup", return_value=130) as fallback, \
+                patch.object(runner, "Worker") as launch, patch("builtins.print"):
+            self.assertEqual(runner.main(["--script", "/clone/Utilities/FastSetup.sh"]), 130)
+        fallback.assert_called_once()
+        launch.assert_not_called()
+
+    def test_text_fallback_without_terminal_does_not_prompt_or_install(self):
+        with patch.object(runner.ConsoleUI, "open", return_value=None), \
+                patch.object(runner.sys.stdin, "isatty", return_value=False), \
+                patch("builtins.input") as prompt, patch("builtins.print"), \
+                patch.object(runner.os, "execvp") as launch:
+            self.assertEqual(runner.main(["--script", "/clone/Utilities/FastSetup.sh"]), 1)
+        prompt.assert_not_called()
+        launch.assert_not_called()
+
     def state(self):
         worker = runner.Worker.__new__(runner.Worker)
         worker.stage = None

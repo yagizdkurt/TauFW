@@ -601,10 +601,6 @@ Other limitations ([Analyses/README.md](../../../Analyses/README.md) "Current li
       "`PicoProducer/utils/compare{Nano,Pico}.py`" of §3
       names files that are no longer in the repository; `Tests/README.md` (import boundaries) quotes the totals of
       2026-10-14 (24 / 22 / 20), today 30 / 28 / 26 (CL §21).
-- [ ] Changelog sections for commits that have none **(verify)**: `b61700f` (`sample_monitor.py` deleted), `e8400fc`
-      (`runTESvar.py`, `runShapevar.py` deleted), `cd735b6` (`getTESvariations.py`, `nanoV10branch.txt`, TESvar shell
-      scripts), `623a040`/`d801879` (`Legacy/OldAnalysis/` by year), `d5db827` (`LegacyCode.md`, `HowToCodeGood.md`),
-      `749dfb3`/`b8309cb` (console menu).
 - [ ] Changelog §11 onwards have no `---` separators. Cosmetic.
 - [ ] The PicoProducer foundations cleanup moved the forks and generator studies to `PicoProducer/python/legacy/`; several are now in
       `Legacy/OldAnalysis/` (A11, W03). Add a note if wanted.

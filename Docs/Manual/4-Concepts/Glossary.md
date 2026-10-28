@@ -6,9 +6,10 @@ in *italics* have their own entry.
 ---
 
 **advance**
-"Do whatever can be done now." You run `python3 taufw.py advance <run folder>` on an existing *run*. TauFW checks
+"Do whatever can be done now." Continue an existing *run*. TauFW checks
 where each *stage* is and pushes it forward as far as it can: it checks batch jobs, resubmits failed ones, merges
-finished ones and starts the next stages. When there's nothing left to do right now, it stops.
+finished ones and starts the next stages. When there's nothing left to do right now, it stops. See
+[the advance command](UsingFWWithCommands.md#inspecting-and-continuing-a-run).
 
 **analysis bundle** (or just *bundle*)
 A folder under `Analyses/` with everything one analysis needs: the `recipe.yml`, the config files it uses and any
@@ -111,8 +112,9 @@ channel needs, plus a *cutflow* histogram. There's one per sample, era and chann
 The package that makes *pico tuples* from NanoAOD. Its old command-line tool, `pico.py`, still works.
 
 **plan**
-`python3 taufw.py plan <bundle>` shows what a recipe *would* do: which samples, how many jobs, which commands, which
-files. Nothing is submitted or written. Run it before every `start`.
+A preview of what a recipe *would* do: which samples, how many jobs, which commands, which
+files. Nothing is submitted or written. Review it before starting a run. See
+[Planning a recipe](UsingFWWithCommands.md#planning-a-recipe).
 
 **Plotter**
 The package that draws plots from histogram files. It doesn't read tuples.
@@ -128,7 +130,8 @@ do for you, like making a summary table of fit results.
 
 **recipe**
 The `recipe.yml` file in a *bundle*. It says which *stages* to run, in which order, with which options. TauFW checks
-the whole recipe for mistakes before anything runs. `python3 taufw.py check <bundle>` lists every problem at once.
+the whole recipe for mistakes before anything runs. See
+[Checking a recipe](UsingFWWithCommands.md#checking-a-recipe) for the command.
 
 **run**
 One execution of a *recipe*. Each run gets its own folder, `<run_root>/<recipe name>_<date-time>/`, with the outputs
@@ -184,7 +187,8 @@ simulation by it to correct it.
 
 **user config**
 Your own settings file, `Analyses/UserConfig.yaml`. It holds things that belong to you rather than to an analysis,
-like your *run_root*, your EOS folders and your batch queue, and git ignores it. FastSetup makes it, and `python3 taufw.py userconfig` makes it if you don't have one. See
+like your *run_root*, your EOS folders and your batch queue, and git ignores it. FastSetup makes it; you can also
+create it through **Modify User Config** or the [user config command](UsingFWWithCommands.md#creating-your-user-config). See
 [Your user config](../1-GettingStarted/UserConfig.md).
 
 **working point** (WP)

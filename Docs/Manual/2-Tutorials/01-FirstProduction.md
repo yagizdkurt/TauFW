@@ -12,11 +12,8 @@ In this tutorial you'll make mutau pico tuples for the 2022_postEE Drell-Yan and
 Don't edit the examples in `Analyses/` directly. Other people use them too, and you'll want a clean version to look
 back at. Make your own bundle from the example instead:
 
-```bash
-python3 taufw.py init my_first_production --from Analyses/Examples/mutau_short
-```
-
-<!-- TODO: real output of the init command -->
+Follow [Creating an analysis bundle](../4-Concepts/UsingFWWithCommands.md#creating-an-analysis-bundle)
+with the name `my_first_production` and the example `Analyses/Examples/mutau_short`.
 
 This creates `Analyses/my_first_production/` with a copy of the recipe. The recipe's `name` is now
 `my_first_production`, the same as the folder. The long comments from the example aren't copied, so the new
@@ -26,7 +23,7 @@ This creates `Analyses/my_first_production/` with a copy of the recipe. The reci
 
 ## 2. Tell TauFW where to put the runs
 
-Remember the `run_root` warning from your first session? Let's fix it now. Production puts its merged tuples inside
+Production puts its merged tuples inside
 the run folder, and that can easily be tens of GB. Your lxplus home folder only holds a few GB. Your work area
 (`/afs/cern.ch/work/<first letter>/<username>/`) has a lot more space, so use that.
 
@@ -48,148 +45,51 @@ run_root: /afs/cern.ch/work/y/ydinckur/taufw_runs
 Write the full path. TauFW doesn't expand `~` or `$USER` inside a recipe, on purpose, so a recipe means the same
 thing no matter who runs it.
 
-Now check the recipe again. The warning should be gone:
-
-```bash
-python3 taufw.py check Analyses/my_first_production
-```
-
-<!-- TODO: real output of check, with run_root set -->
+Choose **Start a new run** and select `Analyses/my_first_production`. TauFW checks the recipe while you
+review it. Fix any problems before starting. For a separate command-line check, see
+[Checking a recipe](../4-Concepts/UsingFWWithCommands.md#checking-a-recipe).
 
 ## 3. Test it on a few events first
 
-340 jobs is a lot to send off without trying first. `plan --local` runs the production code right here on your lxplus
-machine, on one file and just a few events. If something's broken, you find out in seconds, not after hours of
-failing batch jobs.
-
-```console
-$ python3 taufw.py plan Analyses/my_first_production --local -m 50
->>> === [production] 2022_postEE, mutau ===
->>> DYto2L-4Jets_MLL-50
->>> Executing: python3 .../TauFW/PicoProducer/python/workers/picojob.py -y 2022_postEE -c mutau -M ModuleMuTauSimple -o output -d 'mc' -t '_mutau_2022_postEE_DYto2L-4Jets_MLL-50' -m 50 -i root://cms-xrd-global.cern.ch//eos/cms/store/group/phys_tau/irandreo/Run3_22_postEE_new/DYto2L-4Jets_MLL-50/nano_0.root --opts 'useT1=False' 'zpt=True'
---------------------------------------------------------------------------------
->>> era          = '2022_postEE'
->>> channel      = 'mutau'
->>> modname      = 'ModuleMuTauSimple'
->>> dtype        = 'mc'
->>> maxevts      = 50
->>> outfname     = 'output/pico_mutau_2022_postEE_DYto2L-4Jets_MLL-50.root'
-...
---------------------------------------------------------------------------------
-Pre-select 50 entries out of 50 (100.00%)
-Processed 50 preselected entries from root://.../DYto2L-4Jets_MLL-50/nano_0.root (50 entries). Finally selected 0 entries
-Total time 1.0 sec. to process 50 events. Rate = 49.3 Hz.
->>> picojob.py done after 3.1 seconds
-
->>> TTTo2L2Nu
->>> Executing: python3 .../workers/picojob.py -y 2022_postEE -c mutau -M ModuleMuTauSimple ... --opts 'useT1=False' 'toppt=True'
-...
-Processed 50 preselected entries from root://.../TTTo2L2Nu/nano_0.root (50 entries). Finally selected 1 entries
-Total time 0.9 sec. to process 50 events. Rate = 52.8 Hz.
->>> picojob.py done after 3.1 seconds
-```
-
-`-m 50` means 50 events. Leave it out and you get 100.
-
-A few things worth noticing here:
-
-- It ran two samples, not nine. The local test takes the first sample for each pattern in `samples:`, so one for
-  `"DY*"` and one for `"TT*"`.
-- The block between the dashed lines shows exactly what the job was told: the era, the channel, the analysis module
-  (`ModuleMuTauSimple`), MC or data, and where the output goes. If something looks wrong in your real jobs later,
-  this is a good place to start looking.
-- The `--opts` at the end are options picked per sample. Drell-Yan gets `zpt=True` (the Z pT reweighting) and ttbar
-  gets `toppt=True` (the top pT reweighting). These come from the sample catalog. You didn't have to set them.
-- "Finally selected 0 entries" for Drell-Yan isn't a bug. Out of 50 random Drell-Yan events, it's normal that none
-  has a good muon and a good tau. What matters is that the job ran to the end without errors.
-
-The test output is written to `PicoProducer/output/`. It isn't part of any run. You can open it in ROOT to see what a
-pico tuple looks like inside:
-
-```bash
-root -l PicoProducer/output/pico_mutau_2022_postEE_TTTo2L2Nu.root
-```
-
-<!-- TODO: real ROOT session: .ls, and tree->Print() or tree->Show(0) -->
-
-Once you're done looking, you can delete these test files. Nothing else uses them.
+Before submitting 340 jobs, try the production code on a few events. Follow
+[Testing production locally](../4-Concepts/UsingFWWithCommands.md#testing-production-locally)
+with `Analyses/my_first_production` and 50 events. That section shows the command, real output,
+and what to check. The test writes to `PicoProducer/output/` and doesn't create a run.
 
 ## 4. Look at the plan
 
-Run the normal plan once more, now with your own recipe:
-
-```bash
-python3 taufw.py plan Analyses/my_first_production
-```
-
-You saw this table in your first session. The only difference is the `Run root` line, which should now show your work
-area. Check it before you go on.
-
-<!-- TODO: real output, just the Bundle/Run root/PicoProducer config lines -->
+In **Start a new run**, select your recipe and choose **View detailed plan**. Check the samples, job counts,
+and the `Run root` line, which should show your work area. See
+[Planning a recipe](../4-Concepts/UsingFWWithCommands.md#planning-a-recipe) for how to read the table
+and the equivalent command.
 
 ## 5. Start the run
 
-This is the real thing:
+Return to the recipe review, choose **Start run**, and confirm.
 
-```bash
-python3 taufw.py start Analyses/my_first_production
-```
+TauFW creates a run folder under `<run_root>/my_first_production_<date>-<time>/` and copies your bundle
+into it. From then on, the run reads that copy. Editing the original recipe won't change an existing run.
+Production submits its jobs to HTCondor; you can follow the run from the menu while they work.
 
-<!-- TODO: real output of start -->
-
-Here's what happened:
-
-1. TauFW made a new run folder: `<run_root>/my_first_production_<date>-<time>/`. The exact path is in the output.
-   **Copy it somewhere.** You'll need it for every command from now on.
-2. It copied your bundle into the run folder. From now on the run only reads that copy. If you edit your recipe
-   later, this run won't change. That's on purpose, so a run always matches the recipe it was started with.
-3. It submitted the 340 jobs to HTCondor and stopped.
-
-That last point surprises people. `start` doesn't wait for the jobs to finish. They take hours, and there's no
-reason to keep your terminal busy that long. You can log out now if you want.
+Save the run folder path so you can find its files later. For starting from a shell, see
+[Starting a run](../4-Concepts/UsingFWWithCommands.md#starting-a-run).
 
 ## 6. Check on it
 
-Whenever you're curious, ask for the status. Use your own run folder here:
-
-```bash
-python3 taufw.py status /afs/cern.ch/work/y/ydinckur/taufw_runs/my_first_production_20261027-103000
-```
-
-<!-- TODO: real output of status while jobs are running -->
-
-`status` only looks. It never submits anything and never changes the run, so you can run it as often as you like.
-
-You can also use **Inspect run status** in the menu. It finds your runs for you, so you don't have to type the path.
+Choose **Inspect run status** and select your run. This only looks: it doesn't submit jobs or change the run.
 
 ## 7. Push it forward
 
-Once some time has passed, tell TauFW to continue:
+Choose **Continue an existing run** and select your run. You can advance it once or keep checking repeatedly.
 
-```bash
-python3 taufw.py advance /afs/cern.ch/work/y/ydinckur/taufw_runs/my_first_production_20261027-103000
-```
+- If jobs are still running, TauFW waits for them.
+- If some jobs failed, it resubmits those while attempts remain. The recipe's `max_tries: 3` gives each job
+  three chances in total before the stage fails.
+- Once all chunks succeed, TauFW merges them into one pico tuple per sample and marks the stage `DONE`.
 
-`advance` does whatever can be done right now:
-
-- If jobs are still running, it says so and stops. Come back later.
-- If some jobs failed, it resubmits just those. The recipe says `max_tries: 3`, so each job gets three chances in
-  total before TauFW gives up on the whole stage.
-- If all jobs of all samples are done, it merges them: the many small outputs of each sample are added into one pico
-  tuple per sample. Then the stage is `DONE`.
-
-<!-- TODO: real output of advance, ideally one with a resubmission and one with the merge -->
-
-If you don't want to keep coming back by hand, let it wait:
-
-```bash
-python3 taufw.py advance <run folder> --wait --poll 900
-```
-
-This checks every 900 seconds (15 minutes) and keeps going until the run is done or something fails. It only works
-while your terminal stays open, so use it inside `screen` or `tmux` if you plan to log out.
-
-In the menu, **Continue an existing run** does the same thing. You can pick one `advance` or the repeated checking.
+See [Continue an existing run](../3-HowTo/ContinueRun.md) for picking it up after logging out.
+The equivalent commands and polling options are in
+[Inspecting and continuing a run](../4-Concepts/UsingFWWithCommands.md#inspecting-and-continuing-a-run).
 
 ## 8. Your pico tuples
 
@@ -210,9 +110,9 @@ my_first_production_20261027-103000/
 There's one file per sample. Each one has the analysis `tree` and a `cutflow` histogram, which counts events through
 the selection and stores the sum of weights for normalisation.
 
-Here's what `status` says about a finished run:
+The status view shows when the run is `DONE`:
 
-<!-- TODO: real output of status on a DONE run -->
+<!-- TODO: real screenshot of Inspect run status on a DONE run -->
 
 ## A note about disk space
 
@@ -234,31 +134,22 @@ leaving it off is a good idea.
   common cause is an expired grid proxy.
 - **The stage is `FAILED`.** If some chunks still failed after all their tries (the message ends with
   "after 3 tries"), you can give them more tries without losing the jobs that worked. Fix the cause first (often the
-  grid proxy), then run:
-
-  ```bash
-  python3 taufw.py retry <run folder>
-  ```
-
-  or choose **Continue**, pick the run and choose **Retry production**. It allows as many tries again as your recipe's
+  grid proxy), then choose **Continue an existing run**, pick the run and choose **Retry production**. It allows as many tries again as your recipe's
   `max_tries` (3 tries made: up to 6), resubmits only the failed chunks, and goes on like Continue. Nothing is moved
   or deleted. For any other production failure (no samples found, a merged tuple that failed its check), editing
   the recipe won't revive the run: fix the cause, then start a new run.
 
   The later stages you'll meet in the next tutorials (histograms, plots, the fit, Python steps) are different: when
   one of them fails, you can run just that stage again. Fix the cause first. If the fix is a file of your analysis,
-  put it into the run's own copy, `<run folder>/bundle/` (the run never reads your analysis folder again). Then
-  run:
-
-  ```bash
-  python3 taufw.py retry <run folder>
-  ```
-
-  In the menu, Continue on that run offers **Retry**. The stages that already finished don't run again. The failed
+  put it into the run's own copy, `<run folder>/bundle/` (the run never reads your analysis folder again).
+  Choose **Continue an existing run**, pick the run and choose **Retry**. The stages that already finished don't run again. The failed
   attempt's logs and files move to `logs/<stage>/attempt1/`, so you can still read them. If you changed the
   `bundle/` copy, TauFW warns once and writes that down in `run.json`, so anyone reading the run later can see it.
-- **You pressed Ctrl+C.** That's fine. Your batch jobs keep running. Just run `advance` on the same run folder again.
+- **You pressed Ctrl+C.** Your submitted batch jobs keep running. Choose **Continue an existing run**
+  and select the same run to carry on.
 
+For the retry command and which failures it can recover, see
+[Retrying a failed stage](../4-Concepts/UsingFWWithCommands.md#retrying-a-failed-stage).
 More in Troubleshooting *(coming soon)*.
 
 ## What's next

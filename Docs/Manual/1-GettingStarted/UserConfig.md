@@ -1,7 +1,5 @@
 # Your user config
 
-**You'll learn:** what the user config file is, where it lives, what its settings do, how to mark it as checked,
-and how to read it from your own Python scripts.
 **You need:** TauFW installed with [FastSetup](../FastSetup.md).
 
 Some settings belong to you, not to an analysis. Where your EOS area is, which batch queue you like, where your runs
@@ -26,20 +24,9 @@ FastSetup makes the file for you, near the end of the installation. Its summary 
 
 <!-- TODO: real output of the FastSetup summary on lxplus, with the "User config" line -->
 
-If you installed TauFW before the user config existed, you don't have the file yet. Make it with:
-
-```bash
-python3 taufw.py userconfig
-```
-
-```console
-$ python3 taufw.py userconfig
->>> New user config: /afs/cern.ch/user/y/ydinckur/CMSSW_14_1_0_pre4/src/TauFW/Analyses/UserConfig.yaml
->>> Warning: User config /afs/cern.ch/user/y/ydinckur/CMSSW_14_1_0_pre4/src/TauFW/Analyses/UserConfig.yaml is not reviewed yet: check its values, then set reviewed: true
-```
-
-You can run this as often as you like. If the file is already there, it doesn't touch it. It just tells you where
-the file is and whether you still need to check it.
+If the file is missing, choose **Modify User Config** in the menu to create it.
+For the command and its output, see
+[Creating your user config](../4-Concepts/UsingFWWithCommands.md#creating-your-user-config).
 
 ## Open it and check it
 
@@ -142,27 +129,12 @@ something, the recipe wins:
 - `batch`, `outdir`, `nanodir`, `tmpskimdir`, `hadd`: these aren't recipe options. Your user config wins over
   `PicoProducer/config/config.json`.
 
-You don't have to guess which one was used. `plan` tells you. Here's a real one, trimmed, from someone who had just
-made the file:
+Choose **View detailed plan** when reviewing a recipe to see the run root and which production settings
+came from your user config. For a command-line plan and how to read it, see
+[Planning a recipe](../4-Concepts/UsingFWWithCommands.md#planning-a-recipe).
 
-```console
-$ python3 taufw.py plan Analyses/Examples/mutau_short
-...
->>> Warning: User config /afs/cern.ch/user/y/ydinckur/CMSSW_14_1_0_pre4/src/TauFW/Analyses/UserConfig.yaml is not reviewed yet: check its values, then set reviewed: true
->>> Warning: run_root: not set: the runs go to taufw_runs/ in the directory taufw.py is started from, ...
->>> Bundle: /afs/cern.ch/user/y/ydinckur/CMSSW_14_1_0_pre4/src/TauFW/Analyses/Examples/mutau_short
->>> Run root: /afs/cern.ch/user/y/ydinckur/CMSSW_14_1_0_pre4/src/TauFW/taufw_runs (default: no run_root in the recipe)
->>> PicoProducer config: PicoProducer/config/config.json (default); from your user config: production.batch, production.hadd.maxopenfiles, production.nanodir, production.ncores, production.outdir
-...
-```
-
-The `PicoProducer config` line lists the settings that came from the user config. Here that's more than the setup
-guesses: `ncores` and `hadd.maxopenfiles` were taken over from an old `config.json`.
-
-The run root is still the default here. This user has no AFS work area, so the setup left `run_root` as a comment
-line, and the runs would land in the TauFW folder in the AFS home. That's exactly the case to fix: put a folder with
-enough space into `run_root`. Once it's set, the `run_root` warning goes away and the line reads
-`Run root: <your folder> (user config)`.
+If the run root still points into your AFS home, set `run_root` to a folder with enough space before starting
+production. Once it's set, the warning about the default run root goes away.
 
 And every run keeps a note of which settings came from your user config, in its `run.json`.
 
@@ -183,7 +155,8 @@ taufw_user:
   reviewed: true
 ```
 
-If the file is missing, you'll get a similar one-line warning that tells you to run `python3 taufw.py userconfig`.
+If the file is missing, you'll get a similar one-line warning. Open **Modify User Config** to create it, or use
+the [user config command](../4-Concepts/UsingFWWithCommands.md#creating-your-user-config).
 If the file is broken (say, a YAML typo, or `reviewed: maybe`), the warning names the file and says what's wrong
 with it. A setting with a wrong value, like `ncores: 0` or a `run_root` that starts with `~`, gets a warning line
 too. A wrong `production` setting is also a problem for any recipe with a production stage: `check` lists it, and
@@ -280,7 +253,8 @@ TauFW checkout and want them to share one file, point the `TAUFW_USER_CONFIG` va
 export TAUFW_USER_CONFIG=/afs/cern.ch/user/j/jdoe/TauFWUserConfig.yaml
 ```
 
-Use a full path. Then `python3 taufw.py userconfig` makes that file if it doesn't exist yet, and everything,
+Use a full path. Then the [user config command](../4-Concepts/UsingFWWithCommands.md#creating-your-user-config)
+makes that file if it doesn't exist yet, and everything,
 including your scripts, reads it instead. `UserConfig.location()` in Python tells you which file is being used.
 
 ## What's next

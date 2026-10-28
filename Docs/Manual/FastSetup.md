@@ -5,11 +5,8 @@ in the [manual installation guide](ManualInstallation.md) around an existing Tau
 
 ## Requirements
 
-Run from a standalone TauFW clone on a Linux CMS node or container with bash
-4.4 or newer, Python 3, CMS software (normally via CVMFS), Git and network
-access. The interactive checklist also requires Python curses. Linked Git
-worktree checkouts are not supported. A main clone that owns linked worktrees
-is also rejected when it would need to move; use a separate clone instead.
+Run from a standalone TauFW clone on lxplus.
+
 The script detects EL8/EL9 for
 `SCRAM_ARCH`, or respects an explicitly set `el8_amd64_gcc12` or
 `el9_amd64_gcc12`. `CMS_SETUP` can override the default CMS setup script,
@@ -18,8 +15,6 @@ The script detects EL8/EL9 for
 ## Usage
 
 ```bash
-git clone https://github.com/cms-tau-pog/TauFW TauFW
-cd TauFW
 source setup.sh
 ```
 
@@ -131,7 +126,8 @@ Near the end, the installer also writes your user config, `Analyses/UserConfig.y
 (or the file `$TAUFW_USER_CONFIG` names), with your EOS folders and batch system guessed for lxplus. It never
 replaces a file that is already there, and the result screen names it. Check it once and set `reviewed: true`; see
 [Your user config](1-GettingStarted/UserConfig.md). If the file could not be written, the setup warns and goes on:
-make it later with `python3 taufw.py userconfig`.
+make it later through **Modify User Config** or follow
+[Creating your user config](4-Concepts/UsingFWWithCommands.md#creating-your-user-config).
 
 In each new session, source the wrapper from that checkout (or use its full path):
 

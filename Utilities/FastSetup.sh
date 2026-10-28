@@ -183,7 +183,7 @@ Options:
   -h, --help        Show this help.
 Values can also be given as --cmssw-dir=PATH and --jobs=N.
 
-Requires Linux with bash 4.4+, Python 3 (with curses for the checklist),
+Requires Linux with bash 4.4+, Python 3 (plain text questions if curses is unavailable),
 CMS software (normally via CVMFS), Git and network access. SCRAM_ARCH may be set to ${SUPPORTED_ARCHS[0]} or ${SUPPORTED_ARCHS[1]};
 otherwise it is detected from /etc/os-release. CMS_SETUP may override
 /cvmfs/cms.cern.ch/cmsset_default.sh.
