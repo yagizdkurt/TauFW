@@ -1,9 +1,9 @@
 # TauFW analysis bundle: the CMSDAS 2026 tau long exercise (Z -> tau_mu tau_h cross-section on 2024 data), redone
 # with the new framework. Goal: the same results as the exercise, which was made on the lite version of TauFW
 # (the long-ex repository; it is not on lxplus, so everything this bundle needs is in this directory).
-#   python3 taufw.py check  Analyses/Examples/cmsdas26_ztt
-#   python3 taufw.py plan   Analyses/Examples/cmsdas26_ztt
-#   python3 taufw.py start  Analyses/Examples/cmsdas26_ztt
+#   taufw check  Analyses/Examples/cmsdas26_ztt
+#   taufw plan   Analyses/Examples/cmsdas26_ztt
+#   taufw start  Analyses/Examples/cmsdas26_ztt
 # Status: steps 1-9 reproduce the exercise (run CDTest_20261027-155341, made when this bundle was Analyses/CDTest;
 # see reference/cmsdas26/README.md).
 #

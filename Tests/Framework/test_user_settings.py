@@ -188,5 +188,41 @@ class CheckAndCommandLineTests(UserSettingsTestCase):
                       [text for kind, text in self.reporter.messages if kind == "warning"])
 
 
+
+class OpenMenuOnStartTests(UserSettingsTestCase):
+    """CL §53: `source taufw.sh` ends with `taufw --on-start`: the menu, unless the user config says
+    open_menu_on_start: false."""
+
+    def setUp(self):
+        super().setUp()
+        spec = importlib.util.spec_from_file_location("taufw_cli", str(checkout.TAUFW_SCRIPT))
+        self.cli = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.cli)
+
+    def test_the_setting(self):
+        for text, expected in ((None, True), (HEADER, True), (HEADER + "open_menu_on_start: true\n", True),
+                               (HEADER + "open_menu_on_start: false\n", False),
+                               (HEADER + "open_menu_on_start: no thanks\n", True),  # wrong: the menu shows it
+                               ("taufw_user: [broken\n", True)):                     # unreadable: likewise
+            with self.subTest(text=text):
+                if text is None:
+                    if os.path.exists(self.path):
+                        os.remove(self.path)
+                else:
+                    self.user_config(text)
+                self.assertIs(user_settings.open_menu_on_start(), expected)
+
+    def test_on_start_opens_the_menu_or_says_how(self):
+        with mock.patch("TauFW.Framework._internal.interfaces.interactive.run_menu", return_value=0) as menu:
+            self.user_config(HEADER)
+            self.assertEqual(self.cli.main(["--on-start"]), 0)
+            self.assertEqual(menu.call_count, 1)
+            self.user_config(HEADER + "open_menu_on_start: false\n")
+            with mock.patch("sys.stdout") as stdout:
+                self.assertEqual(self.cli.main(["--on-start"]), 0)
+            self.assertEqual(menu.call_count, 1)
+            self.assertIn("taufw --help", "".join(call.args[0] for call in stdout.write.call_args_list))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -3,11 +3,11 @@
 # This is a validation demo, not a pipeline intended to submit jobs or make plots.
 #
 # Inspect without running anything (after setting up the TauFW environment):
-#   python3 taufw.py check Analyses/Examples/broken
+#   taufw check Analyses/Examples/broken
 # Expected: four problems, with exit code 1 because this recipe is invalid (and the warning that run_root is not
 # set, which alone would not fail).
 #
-# Menu: python3 taufw.py -> Start a new run -> [Examples] -> broken.
+# Menu: taufw -> Start a new run -> [Examples] -> broken.
 # The menu discovers Analyses/Examples/*/recipe.yml automatically, even invalid recipes;
 # its preview shows the problems below. No menu registration is needed.
 # Stage indexes in diagnostics are zero-based: stages[0] is production, etc.

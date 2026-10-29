@@ -89,7 +89,7 @@ and distinguish runnable tests from existing broken or legacy cases.
 
 ### What & Why
 
-- Added [setup.sh](../../../setup.sh) that automates installation and standardizes the ref env used for BBB tests.
+- Added [setup.sh](../../../taufw.sh) (now `taufw.sh`, CL §53) that automates installation and standardizes the ref env used for BBB tests.
 
 ---
 
@@ -2066,3 +2066,49 @@ name" instead of "No module named".
 **Unchanged:** every BBB baseline (nothing that writes output changed); the stages, analysis scripts, the Utilities
 libraries and the example recipes (`taufw.py check`/`plan` of every bundle in `Analyses/` print the same before and
 after); the menu's behaviour.
+
+## 53. One entry point: `source taufw.sh`, then the command `taufw`
+
+**Date:** 2026-10-29
+**Status:** done (lxplus check open: [TODO.md](TODO.md) section 1)
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#53-one-entry-point-source-taufwsh-then-the-command-taufw)
+
+**Why:** TauFW had two entry points: `source setup.sh` (install once, then activate and open the menu) and the
+40-line `taufw.py` at the repository root, which only ran `Framework/scripts/taufw.py` and had to be called as
+`python3 taufw.py` from the checkout. Users had to know both, and which directory to be in. User decisions
+(2026-10-29): one door, `source taufw.sh`; the root `taufw.py` goes; `setup.sh` is deleted without a forwarding
+file (nobody uses the new setup yet: the docs are migrated at once); the menu opens on start unless the user config
+says `open_menu_on_start: false`.
+
+**What changed:**
+
+- **`setup.sh` -> `taufw.sh`** (`git mv`, same logic). After the activation it defines the shell function `taufw`
+  (`python3 "$TAUFW_BASE/Framework/scripts/taufw.py" "$@"`, exported with `export -f` to child shells) and exports
+  `$TAUFW_BASE` (the installed checkout), then runs `taufw --on-start`. The other helpers are still removed
+  before it returns. The installation record check looks for `taufw.sh` instead of `setup.sh` (the record's fields
+  are unchanged, so an existing installation stays valid after `git pull`).
+- **The root `taufw.py` is deleted.** `taufw` works from any directory; relative recipe and run paths are relative
+  to that directory, as before. A script without the shell function calls
+  `python3 "$TAUFW_BASE/Framework/scripts/taufw.py"`. The menu and BBB already ran `Framework/scripts/taufw.py`.
+- **`taufw --on-start`** (`Framework/scripts/taufw.py`): opens the menu, or prints
+  `TauFW is active. The menu: taufw; the commands: taufw --help` when the user config sets
+  `open_menu_on_start: false`. New setting in `UserConfig/_template.py` (boolean, default true, written as a
+  comment line in new files) and its reader `user_settings.open_menu_on_start()`: a missing file, a missing key, an
+  unreadable file or a wrong value all open the menu (the menu shows the problem).
+- **What TauFW tells the user to type:** `taufw advance RUN`, `taufw retry RUN`, `taufw userconfig`
+  (`UserConfig.CREATE_COMMAND`), `Take it over with: taufw advance ... --take-lock`, the menu's help texts, the
+  header of a new user config, FastSetup's messages (`source .../taufw.sh`, `taufw userconfig`); argparse's program
+  name is `taufw`. Descriptions of the program (docstrings, the recipe warning "the directory taufw.py is started
+  from", which a BBB baseline records) keep `taufw.py`.
+- **Docs:** `README.md`, the Guide (FastSetup, FirstSession, UserConfig with the new setting, ContinueRun, Glossary,
+  UsingFWWithCommands), `Analyses/README.md` and the example recipes' comments, `Framework/README.md` (quick start:
+  the `taufw` function), `Configs/README.md`, `Tests/README.md`, `Utilities/README.md`, Bugs.md, TODO.md,
+  BackwardCompatibility.md, `contracts/pico-tuples.md`: `source taufw.sh`, `taufw COMMAND`. `Utilities/IOInventory.md`:
+  the `setup.sh` row is the regenerated `taufw.sh` row, the root `taufw.py` is no longer listed. Earlier changelog
+  sections and audits keep the old names (history); the link of §2 points to `taufw.sh`.
+
+**Note for existing checkouts:** after `git pull`, `source taufw.sh` (no reinstall). An old terminal that still has
+no `taufw` function: source it again.
+
+**Unchanged:** every BBB baseline; the Framework's behaviour; FastSetup's installation steps; the output of
+`taufw check` and `plan` for every bundle in `Analyses/`.

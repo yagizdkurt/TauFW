@@ -1,6 +1,6 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-"""The Framework's settings from the user config (TauFW.Utilities.UserConfig): the default run root, and the
-personal settings of a production stage.
+"""The Framework's settings from the user config (TauFW.Utilities.UserConfig): the default run root, the
+personal settings of a production stage, and whether taufw.sh opens the menu.
 
 Precedence: the command line and the recipe come first, then the user config, then the module's own default
 (run_root: taufw_runs/; PicoProducer: its configuration, PicoProducer/config/config.json or pico.config). The file
@@ -15,8 +15,8 @@ from collections import namedtuple
 from TauFW.Utilities import UserConfig
 from TauFW.Utilities.UserConfig import manage
 
-__all__ = ['run_root', 'run_root_or_none', 'production_settings', 'production_problems', 'ProductionSettings',
-           'PICO_CONFIG_KEYS', 'REQUEST_KEYS']
+__all__ = ['run_root', 'run_root_or_none', 'production_settings', 'production_problems', 'open_menu_on_start',
+           'ProductionSettings', 'PICO_CONFIG_KEYS', 'REQUEST_KEYS']
 
 PICO_CONFIG_KEYS = {  # setting -> key of the PicoProducer configuration it replaces
     "production.batch": 'batch', "production.outdir": 'outdir', "production.nanodir": 'nanodir',
@@ -79,6 +79,18 @@ def production_problems():
     except UserConfig.UserConfigError as error:
         return [str(error)]
     return ["%s: %s" % (config.path, problem) for problem in manage.setting_problems(config, "production")]
+
+
+def open_menu_on_start():
+    """The user config's open_menu_on_start: False only when it is set to false. True when it is not set, and also
+    when the file cannot be read or the value is wrong: the menu then shows the problem (manage.check())."""
+    try:
+        config = UserConfig.load()
+    except UserConfig.UserConfigError:
+        return True
+    if manage.setting_problems(config, "open_menu_on_start"):
+        return True
+    return config.get("open_menu_on_start", True) is not False
 
 
 # =============================================================================

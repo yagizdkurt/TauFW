@@ -20,7 +20,8 @@ stages:   production ──────▶ controlhists ────▶ controlp
 
 For bundles, recipe structure, path rules and Python steps, see the [analysis guide](../Analyses/README.md).
 
-After `cmsenv` and `scram b`, the package is importable as `TauFW.Framework` and `taufw.py` is on the `PATH`.
+After `source taufw.sh` (it runs `cmsenv`; FastSetup ran `scram b`), the package is importable as
+`TauFW.Framework` and your shell has the command `taufw`.
 
 ## Concepts
 
@@ -34,7 +35,7 @@ The words below are used everywhere in the code and in this README.
 | **stage id** | The name of a stage in a run, required for every stage (`id:`): `run.json` records, the stage's directories (`stages/<id>/`, `logs/<id>/`) and upstream artifacts are keyed by it, and `inputs:` refer to it. Unique; letters, digits, `_`, `.`, `-` (not `.` or `..`). Any stage may have any id. | `StageSpec.id` |
 | **inputs** | Required for every stage: which earlier stage's output each input slot reads (`inputs: {shapes: shapes}`), or `null` for a stage without slots. A slot is connected to the id of an earlier stage that makes that kind of data; a `tuples` slot may name tuples made outside TauFW (`{external: <pattern>}`); `null` is for old recipes only (the tuples in `$PICODIR`, the shapes already in `Fitter/`). Nothing is connected implicitly. | `Stage.inputs`, `Stage.outputs`, `StageSpec.inputs` |
 | **description** | Optional free text of a stage, shown by `plan` and in the menu; nothing depends on it. | `StageSpec.description` |
-| **validation** | Every problem of a recipe at once (structure, ids, inputs, order, the files it names), before anything runs: `taufw.py check`, the menu's recipe list (red) and preview. `Recipe.load` raises one `RecipeError` that lists all of them. A **warning** (e.g. no `run_root`) is not a problem: the recipe runs; `check`, `plan`, `start` and the menu preview show it. | `check_recipe` (`validation.py`), `Recipe.parse`, `recipe_warnings` |
+| **validation** | Every problem of a recipe at once (structure, ids, inputs, order, the files it names), before anything runs: `taufw check`, the menu's recipe list (red) and preview. `Recipe.load` raises one `RecipeError` that lists all of them. A **warning** (e.g. no `run_root`) is not a problem: the recipe runs; `check`, `plan`, `start` and the menu preview show it. | `check_recipe` (`validation.py`), `Recipe.parse`, `recipe_warnings` |
 | **local stage** | A stage that runs commands on this machine, one after the other, and finishes in one `advance` (`controlhists`, `controlplots`, `shapes`, `fit`: the package's scripts; `python`: the step runner). | `LocalStage` (`stages/local.py`) |
 | **stage context** | What a stage may know about its run: the run directory (for its logs), its inputs and the artifacts of those input stages that are `DONE`, the run's PicoProducer config and its bundle copy. | `StageContext` (`stages/base.py`) |
 | **preflight** | The check, before a local stage runs, that its environment is ready (`cmsenv`, ROOT, `combine`, configs). A problem leaves the stage `NEW`. | `PreflightError` |
@@ -68,11 +69,14 @@ The words below are used everywhere in the code and in this README.
 
 ## Quick start
 
-From the TauFW repository root, use `python3 taufw.py` (or `python3 taufw.py --help`).
-This root launcher delegates to `Framework/scripts/taufw.py` and uses the same
-CMSSW environment as the installed command.
+After `source taufw.sh`, use `taufw` (or `taufw --help`) from any directory. `taufw` is a shell function
+that `taufw.sh` defines (and exports to child shells): it runs `Framework/scripts/taufw.py` of the activated
+checkout, `$TAUFW_BASE`. A script that runs without it calls
+`python3 "$TAUFW_BASE/Framework/scripts/taufw.py"`. Relative recipe and run paths are relative to the
+directory you run it in. `source taufw.sh` opens the menu unless your user config says
+`open_menu_on_start: false` (CL §53).
 
-Run `taufw.py` without arguments in an interactive Linux terminal to open the
+Run `taufw` without arguments in an interactive Linux terminal to open the
 optional console menu (Python's standard-library `curses`; no extra dependency).
 Use Up/Down to move, Enter to select, and Esc to go back or exit the main menu.
 
@@ -96,7 +100,7 @@ Use Up/Down to move, Enter to select, and Esc to go back or exit the main menu.
   or accepts another run directory. Choose one advance or repeated checking;
   polling defaults to 600 seconds. Terminal runs offer status inspection instead.
   The list shows a `RUNNING` run that no advance works on now (none behind the menu, no live advance lock) as
-  `PAUSED`: it goes on with the next advance. `run.json` and `taufw.py status` still say `RUNNING`.
+  `PAUSED`: it goes on with the next advance. `run.json` and `taufw status` still say `RUNNING`.
 - **Inspect run status** shows the existing read-only status output, with Refresh
   and Back actions. Its state line is the command's: `READING STATUS` while it reads, then only the time; the run's
   state is in the output.
@@ -145,17 +149,17 @@ and navigation changes stay in Utilities. Source section banners document both s
 boundary.
 
 ```bash
-taufw.py check   Analyses/Examples/mutau_short                  # every problem of the recipe; nothing is written
-taufw.py check   Analyses/Examples/broken                       # a deliberately broken recipe: 4 problems, exit 1
-taufw.py plan    Analyses/Examples/mutau_short                  # each stage's plan and files; nothing is written
-taufw.py plan    Analyses/Examples/mutau_short --local          # quick local test: 100 events of one file per sample
-taufw.py start   Analyses/Examples/mutau_short                  # creates taufw_runs/<name>_<time>/, submits the jobs
-taufw.py advance taufw_runs/mutau_2022_postEE_short_20261013-120000  # check; resubmit failed chunks; merge when complete
-taufw.py status  taufw_runs/mutau_2022_postEE_short_20261013-120000  # recorded and live state (read-only)
-taufw.py advance taufw_runs/... --wait --poll 900              # keep advancing every 15 minutes until done
-taufw.py retry   taufw_runs/...                                # a FAILED local stage again (cause fixed), then go on
-taufw.py plan    Analyses/tes_id_2025                          # the commands of the hists, plots, shapes, fit and python steps
-taufw.py init    my_tes --from Analyses/tes_id_2025            # new bundle Analyses/my_tes/: a copy of its files
+taufw check   Analyses/Examples/mutau_short                  # every problem of the recipe; nothing is written
+taufw check   Analyses/Examples/broken                       # a deliberately broken recipe: 4 problems, exit 1
+taufw plan    Analyses/Examples/mutau_short                  # each stage's plan and files; nothing is written
+taufw plan    Analyses/Examples/mutau_short --local          # quick local test: 100 events of one file per sample
+taufw start   Analyses/Examples/mutau_short                  # creates taufw_runs/<name>_<time>/, submits the jobs
+taufw advance taufw_runs/mutau_2022_postEE_short_20261013-120000  # check; resubmit failed chunks; merge when complete
+taufw status  taufw_runs/mutau_2022_postEE_short_20261013-120000  # recorded and live state (read-only)
+taufw advance taufw_runs/... --wait --poll 900              # keep advancing every 15 minutes until done
+taufw retry   taufw_runs/...                                # a FAILED local stage again (cause fixed), then go on
+taufw plan    Analyses/tes_id_2025                          # the commands of the hists, plots, shapes, fit and python steps
+taufw init    my_tes --from Analyses/tes_id_2025            # new bundle Analyses/my_tes/: a copy of its files
 ```
 
 The same from Python:
@@ -208,8 +212,8 @@ disables persistence. The HTTPS request has a three-second socket timeout and
 a 64 KiB response limit; opening or leaving the menu never waits for it.
 
 ```bash
-taufw.py version                   # installed version only; no network or cache writes
-taufw.py version --check           # explicitly refresh the remote manifest; no code download
+taufw version                   # installed version only; no network or cache writes
+taufw version --check           # explicitly refresh the remote manifest; no code download
 export TAUFW_NO_VERSION_CHECK=1    # disable remote checks, including version --check
 ```
 
@@ -248,7 +252,7 @@ The local stages (`controlhists`, `controlplots`, `shapes`, `fit`, `python`) tak
 | preflight finds a problem (no `cmsenv`, ROOT or `combine` missing, a config file missing, no shapes for the fit; a python step's file or function missing) | the stage stays `NEW`; the problem is its message and in its history; fix it and run `advance` again |
 | every command exits with 0 **and** writes its expected outputs | `DONE`, with the artifacts |
 | a command exits with another code, or does not write an expected output | `FAILED`; the message names the command, the exit code or the missing output, and the log; the last 20 log lines are printed |
-| the stage is `FAILED` and its cause is fixed | `taufw.py retry <run dir>` (menu: Continue > Retry): the failed attempt moves to `logs/<stage id>/attempt<N>/`, the stage is `NEW` again, then the run goes on like `advance`; the finished stages do not run again; `run.json` records the retry in the stage's `retries` (CL §44) |
+| the stage is `FAILED` and its cause is fixed | `taufw retry <run dir>` (menu: Continue > Retry): the failed attempt moves to `logs/<stage id>/attempt<N>/`, the stage is `NEW` again, then the run goes on like `advance`; the finished stages do not run again; `run.json` records the retry in the stage's `retries` (CL §44) |
 
 Each command's output goes to `<run dir>/logs/<stage id>/NN_<label>.log`, and `run.json` lists every command with its exit
 code and duration (`last_status.commands`). The expected outputs must be written by the command itself (modified
@@ -261,8 +265,8 @@ A stage that is not implemented yet (none at the moment) reports `NOT_IMPLEMENTE
 Run states (`RunState`): `NEW`, `RUNNING` (e.g. a local stage is not ready yet), `WAITING` (a stage waits for jobs),
 `DONE`, `FAILED` (a stage failed), `BLOCKED` (stopped at a stage that is not implemented). `DONE`, `FAILED` and
 `BLOCKED` are final: advancing again changes nothing (a `FAILED` local stage can be retried, above; a `FAILED`
-production stage too, when its chunks still failed after `max_tries`: `taufw.py retry` gives it `max_tries` more
-tries, resubmits only the failed chunks and moves nothing; its other failures need a new run, CL §48). `taufw.py`
+production stage too, when its chunks still failed after `max_tries`: `taufw retry` gives it `max_tries` more
+tries, resubmits only the failed chunks and moves nothing; its other failures need a new run, CL §48). `taufw`
 exits with 1 if the run failed.
 
 The run's bundle copy (`<run dir>/bundle/`) is checked at every `advance` and `retry`: `start` records the sha256 of
@@ -295,7 +299,7 @@ of the user config; default `taufw_runs/` in the working directory; see
 ## User config
 
 `Analyses/UserConfig.yaml` (or the file `$TAUFW_USER_CONFIG` names) holds the personal settings of the user: made by
-FastSetup or `taufw.py userconfig`, ignored by git, read with `TauFW.Utilities.UserConfig` (changelog §40, §41).
+FastSetup or `taufw userconfig`, ignored by git, read with `TauFW.Utilities.UserConfig` (changelog §40, §41).
 The Framework reads it in `python/_internal/user_settings.py`, the same way as a user's script, and always after the command
 line and the recipe:
 
@@ -401,11 +405,11 @@ creation/editing logic belongs in `_internal/recipes/`; the terminal widgets sta
 |---|---|
 | `python/_internal/runtime/framework.py` | `Framework`: `plan`, `start`, `advance`, `retry`, `run`, `status`, `make_bundle`; stage dispatch; construction (`from_recipe`, `from_record`) |
 | `python/_internal/recipes/recipe.py` | `Recipe`, `StageSpec`, `Issue`, `RecipeError`: load and validate recipes (a bundle directory or a file): structure, stage ids, inputs (stage ids, `{path}`, `{external}`), at most one production; every problem at once |
-| `python/_internal/recipes/validation.py` | `check_recipe`, `RecipeCheck`: everything `recipe.py` checks plus the files a recipe names (and the stage directories of `{path}` inputs, `read_source`), without raising (`taufw.py check`, the menu) |
+| `python/_internal/recipes/validation.py` | `check_recipe`, `RecipeCheck`: everything `recipe.py` checks plus the files a recipe names (and the stage directories of `{path}` inputs, `read_source`), without raising (`taufw check`, the menu) |
 | `python/_internal/runtime/manifest.py` | `write_manifest`, `read_stage_dir`, `StageDir`, `ManifestError`: the stage manifests (format 2) |
-| `python/_internal/recipes/bundle.py` | the path rule (absolute, bundle file, outside the bundle, `Configs/` template, channel name; `is_absolute`), the run's bundle copy, new bundles (`taufw.py init`) |
+| `python/_internal/recipes/bundle.py` | the path rule (absolute, bundle file, outside the bundle, `Configs/` template, channel name; `is_absolute`), the run's bundle copy, new bundles (`taufw init`) |
 | `python/_internal/recipes/samples.py` | `sample_issues`: before a run, the samples a production stage makes (PicoProducer's catalogs) vs those its readers' `samples` files ask for (Histogrammer API); `plan` lists, `start` refuses the problems |
-| `python/_internal/recipes/configs.py` | the config templates of `Configs/`: headers (`taufw_config`: id, version, schema), `configs.lock`, `update` (`taufw.py configs update`), the warnings for old copies in a bundle |
+| `python/_internal/recipes/configs.py` | the config templates of `Configs/`: headers (`taufw_config`: id, version, schema), `configs.lock`, `update` (`taufw configs update`), the warnings for old copies in a bundle |
 | `python/_internal/runtime/step_runner.py` | runs a python step in its own process (standard library only): `context.json` → `run(ctx)` → `result.json` |
 | `python/_internal/runtime/run_record.py` | `RunRecord`, `RunState`, `StageRecord`: `run.json`, crash-safe save |
 | `python/_internal/runtime/run_lock.py` | the advance lock, lost-lock detection and takeover |
@@ -438,12 +442,12 @@ BBB check/lock also default to quiet output; see the [test runner instructions](
 
 - `python -m unittest discover -s Tests/Framework` (any Python 3.9+, no ROOT): the state machine with a fake
   PicoProducer (submit, wait, resubmit until `max_tries`, merge, not-implemented stages, errors), `decide_next`,
-  `run.json` round trip and crash-safe save, recipe validation, and `taufw.py`; the local stages with fake
+  `run.json` round trip and crash-safe save, recipe validation, and `taufw`; the local stages with fake
   Histogrammer, Plotter and Fitter APIs (`test_stages.py`: the whole pipeline, repeated stages, preflight, failures, fit
   points, planned artifacts, inputs from another run, controlplots drawing the files of controlhists); bundles (`test_bundle.py`: the path rule, stage ids, `{path}` inputs, the
-  run's bundle copy, `taufw.py init`); manifests (`test_manifest.py`); recipe checks with files
+  run's bundle copy, `taufw init`); manifests (`test_manifest.py`); recipe checks with files
   (`test_validation.py`); python steps (`test_python_step.py`: real step files run by `step_runner.py`).
 - `Tests/Fitter/api`, `Tests/Histogrammer/api`, `Tests/Plotter/api`: the commands of the APIs equal those of
   `run_inputs.sh`, `run_workflow_zmm.sh`, `fillhists.py` and `draw.py`, and outputs are checked (fake process runner, no ROOT).
-- BBB case `framework.production` (lxplus): `taufw.py plan/start/advance/status` against the fake HTCondor of the
+- BBB case `framework.production` (lxplus): `taufw plan/start/advance/status` against the fake HTCondor of the
   PicoProducer BBB harness, with a resubmission and a merge; snapshots the normalized `run.json` and the merged tuples.

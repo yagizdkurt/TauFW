@@ -46,7 +46,7 @@ machine, Python API, and run-record internals, see the
 
 ### Examples
 
-The examples are in `Analyses/Examples/`: ready-made recipes to learn from or to copy (`taufw.py init
+The examples are in `Analyses/Examples/`: ready-made recipes to learn from or to copy (`taufw init
 <name> --from Analyses/Examples/<example>`). The menu lists them apart from the analyses, under
 **[Examples]** of its recipe list.
 
@@ -54,7 +54,7 @@ The examples are in `Analyses/Examples/`: ready-made recipes to learn from or to
 | --- | --- | --- |
 | [mutau_short](Examples/mutau_short/recipe.yml) | `production` | Produce `2022_postEE` mutau tuples for sample names matching `DY*` or `TT*`: a quick production example (no plots: a few MC samples without data are not enough for them). |
 | [mutau_long](Examples/mutau_long/recipe.yml) | `production` → `controlhists` → `controlplots` | Produce every `2022_postEE` mutau tuple the control plots read (data and the 22 MC samples of its `v15_2022_postEE.yml`), then the plots; `plan` checks that production makes every sample the plots ask for. A full production: tens of GB, hours of batch jobs. |
-| [broken](Examples/broken/recipe.yml) | (invalid on purpose) | A demonstration of the validation: `taufw.py check Analyses/Examples/broken` lists its four problems; the menu shows it in red. Do not fix it. |
+| [broken](Examples/broken/recipe.yml) | (invalid on purpose) | A demonstration of the validation: `taufw check Analyses/Examples/broken` lists its four problems; the menu shows it in red. Do not fix it. |
 | [cmsdas26_ztt](Examples/cmsdas26_ztt/README.md) | `controlhists` → `controlplots` → python steps (ROC curves, tau ID SF and TES applied, datacards, Combine fits) | The CMSDAS 2026 tau long exercise: the Z→τ_μτ_h and Z→μμ cross sections on 2024 data, from the pre-made tuples on EOS; reproduces the exercise's results (r(μτ) = 0.970, r(μμ) = 0.964). An example of an analysis made of Python steps. Its scale factors are the exercise team's own, not official ones. |
 
 Each bundle carries copies of the Histogrammer and Fitter configs it uses, next to
@@ -70,11 +70,11 @@ command line.
 
 ## Writing your first analysis
 
-Make a bundle with `taufw.py init`:
+Make a bundle with `taufw init`:
 
 ```bash
-python3 taufw.py init my_mutau                          # Analyses/my_mutau/ with an example Python step
-python3 taufw.py init my_tes --from Analyses/tes_id_2025  # a copy of a bundle or recipe file, with copies of
+taufw init my_mutau                          # Analyses/my_mutau/ with an example Python step
+taufw init my_tes --from Analyses/tes_id_2025  # a copy of a bundle or recipe file, with copies of
                                                         # the templates it uses next to recipe.yml
 ```
 
@@ -150,7 +150,7 @@ explicit working-point example [below](#choosing-fit-working-points-and-steps).
 ## File format and validation
 
 A bundle's recipe is its `recipe.yml`; the commands take the bundle directory
-(`taufw.py plan Analyses/tes_id_2025`). A loose recipe file works too:
+(`taufw plan Analyses/tes_id_2025`). A loose recipe file works too:
 recipes accept `.yml`, `.yaml`, or `.json`. YAML is convenient for comments; JSON
 uses the same mappings, lists, and values, without comments. Use YAML booleans
 `true`/`false`, `null` for optional unset values, and lists for collections. Quote
@@ -205,7 +205,7 @@ inputs name.
 Inputs are given, never found (CL §37): a slot is never `null`. Until then
 `tuples: null` meant the tuples in `$PICODIR` of the PicoProducer configuration
 and `shapes: null` the shapes in `Fitter/input_pt_less_region/`; both are now a
-recipe error that names what to write instead. `taufw.py plan` shows each input
+recipe error that names what to write instead. `taufw plan` shows each input
 on the `Inputs:` line, e.g. `tuples <- production`, `shapes <- /afs/.../stages/shapes
 (run ..., stage shapes (shapes), finished ...)` or `tuples <- external /eos/...`.
 
@@ -248,7 +248,7 @@ my_mutau.yml: 2 problems
   stages[1] (controlhists).inputs.tuples: no stage 'prodution' in the recipe
 ```
 
-`taufw.py check <bundle>` lists every problem without running anything, and
+`taufw check <bundle>` lists every problem without running anything, and
 also checks the files the recipe names: `pico.config`, every path option (see
 [Paths and configuration](#paths-and-configuration)), and the stage directories of
 [inputs from another run](#inputs-from-another-run). It exits with 1 if there is a problem. The menu runs the same check:
@@ -281,7 +281,7 @@ running the shapes stage (hours) again:
 - The path must be absolute. A relative path is refused, and `~` and
   `$VARIABLES` are not expanded (nowhere in a recipe). It must not point inside the
   bundle: data is never part of a bundle.
-- `taufw.py check`, `plan` and the menu check the directory: it exists, has a
+- `taufw check`, `plan` and the menu check the directory: it exists, has a
   manifest of format 2 (runs started before this feature have format 1 and are
   refused: run that stage again), was not moved or copied (the manifest records
   where it was written, and its artifacts name files there), and its stage makes
@@ -309,8 +309,8 @@ path is relative to the directory of `recipe.yml`, whatever the key:
 | Absolute path | Used as is. | no | `absolute` |
 | Relative path of a file in the bundle | That bundle file, e.g. `config_coarse_TT.yml` next to `recipe.yml`. A bundle file wins over a template with the same relative path. | yes (the whole bundle) | `bundle` |
 | Relative path above the bundle (`../shared/x.yml`) | The recipe's directory + the path, made absolute when the recipe is loaded. Your responsibility: the run reads the file where it is, so a later edit changes what a continued run reads. | no | `absolute` |
-| `Configs/...`, not a bundle file | The template in `TauFW/Configs/` (changelog §22), e.g. `Configs/Fitter/tes_id/config_coarse_TT.yml`; the stage's module gets its absolute path. | no (`taufw.py init` makes copies) | `template` |
-| `controlhists.configs` only: a channel name (no `/`, no `.yml`) | `mutau` selects `Configs/Histogrammer/setups/setup_mutau.yml` (a bundle copy is better: `taufw.py init --from` makes one). | no | `channel` |
+| `Configs/...`, not a bundle file | The template in `TauFW/Configs/` (changelog §22), e.g. `Configs/Fitter/tes_id/config_coarse_TT.yml`; the stage's module gets its absolute path. | no (`taufw init` makes copies) | `template` |
+| `controlhists.configs` only: a channel name (no `/`, no `.yml`) | `mutau` selects `Configs/Histogrammer/setups/setup_mutau.yml` (a bundle copy is better: `taufw init --from` makes one). | no | `channel` |
 | `pico.config: null` | PicoProducer's default configuration (a recipe with a production stage only). | snapshot in `run.json` | - |
 | Any other relative path | A problem: `... is not a file of the bundle (<recipe dir>), a Configs/ template or an absolute path`. No module directory is searched. | - | - |
 
@@ -331,13 +331,13 @@ path. Examples:
   refused: name a template, a bundle copy, or a channel name.
 
 A bundle file **replaces** the module's config as a whole: the script reads the
-bundle's copy instead, nothing is merged. `taufw.py plan` lists every file each
+bundle's copy instead, nothing is merged. `taufw plan` lists every file each
 stage reads and where it comes from, so check it after changing a path.
 
 ### Config templates (`Configs/`)
 
 The templates of the module configs an analysis may copy are in `Configs/<Module>/` at the repository root
-(`taufw.py configs` lists them). Copy one next to `recipe.yml`, name the copy in the recipe and edit its values,
+(`taufw configs` lists them). Copy one next to `recipe.yml`, name the copy in the recipe and edit its values,
 never its `taufw_config` header: it records the template's id and version, and `check`, `plan` and `start` warn
 when the template has a newer version than your copy. Rules: [Configs/README.md](../Configs/README.md).
 
@@ -345,7 +345,7 @@ Other paths:
 
 | Value | Resolution |
 | --- | --- |
-| CLI recipe/bundle path, run-directory path, `--run-root` | Relative to the directory where you launch `taufw.py`. |
+| CLI recipe/bundle path, run-directory path, `--run-root` | Relative to the directory where you launch `taufw`. |
 | `run_root` | Absolute; nothing is expanded (`~`, `$VARIABLES` are a problem); not inside the bundle. See [Where the runs go](#where-the-runs-go-run_root). |
 | `{path: ...}` input | Absolute only; nothing is expanded; not inside the bundle. See [Inputs from another run](#inputs-from-another-run). |
 | `{external: ...}` input | An absolute directory pattern; nothing is expanded except the keys the scripts fill (`$ERA`, `$GROUP`, ...). |
@@ -362,7 +362,7 @@ run_root: /afs/cern.ch/work/u/user/taufw_runs
   precedence over the recipe, the recipe over `runs.run_root` of your user config
   (`Analyses/UserConfig.yaml`, see [Your user config](../Docs/Guide/1-GettingStarted/UserConfig.md));
   without any of them, the runs go to `taufw_runs/` in the directory where you
-  launch `taufw.py`. `plan` and `start` say which one they use: `(--run-root)`,
+  launch `taufw`. `plan` and `start` say which one they use: `(--run-root)`,
   `(recipe)`, `(user config)` or `(default: ...)`.
 - Without `run_root` (or with `run_root: null`) the recipe is valid, but
   `check`, `plan`, `start` and the menu warn, unless your user config gives one. Runs can be large; on lxplus the
@@ -380,7 +380,7 @@ run_root: /afs/cern.ch/work/u/user/taufw_runs
   whose directory is not copied, this does not apply).
 - A production stage writes its merged tuples into the run directory (often
   tens of GB); its warning without `run_root` says so.
-- Before a run starts, and before every `advance`, `taufw.py` writes and removes
+- Before a run starts, and before every `advance`, `taufw` writes and removes
   a small file in the run root (or in the run directory). If that fails
   (permissions, an expired AFS token: `kinit; aklog`), nothing is started or
   moved. It shows that the directory can be written, not that there is space
@@ -456,7 +456,7 @@ The `samples` option of `controlhists` and `shapes` names the sample model files
 for every era, which MC samples are read (with their cross sections, titles and
 extra weights), which data datasets, the MC weight of each channel kind, and
 how samples are stitched and joined. Copy the file of each era from
-`Configs/Histogrammer/samples/` (`taufw.py configs` lists them) next to `recipe.yml`
+`Configs/Histogrammer/samples/` (`taufw configs` lists them) next to `recipe.yml`
 and name the copies; edit the values of your copy (never its `taufw_config`
 header, see [Config templates](#config-templates-configs)). The templates were
 exported from `Histogrammer/config/samples_v15.py` and give exactly the same sample
@@ -710,7 +710,7 @@ must be writable as JSON.
 How a step runs:
 
 - `Framework/python/_internal/runtime/step_runner.py` runs it with the same Python as
-  `taufw.py`, in the run's bundle copy as working directory. The step's
+  `taufw`, in the run's bundle copy as working directory. The step's
   directory comes first on `sys.path`, so it can import the files next to it.
   The step runner itself needs only the standard library; a step that uses
   TauFW or ROOT imports them itself (after `cmsenv`).
@@ -777,9 +777,9 @@ can exceed the WP lists in this recipe.
 
 Set up the Linux CMS/CMSSW environment first (see
 [installation](../README.md#installation) and
-[FastSetup](../Docs/Guide/FastSetup.md)). After `cmsenv` and `scram b`, `taufw.py`
-is available on `PATH`; from the repository root you can also use
-`python3 taufw.py`. Fits require ROOT, the Combine tools, and CombineHarvester
+[FastSetup](../Docs/Guide/FastSetup.md)). `source taufw.sh` activates CMSSW and
+gives your shell the command `taufw`; a script without it runs
+`python3 "$TAUFW_BASE/Framework/scripts/taufw.py"`. Fits require ROOT, the Combine tools, and CombineHarvester
 for the fit step. Local-stage preflight reports missing prerequisites.
 
 From the repository root:
@@ -787,20 +787,20 @@ From the repository root:
 ```bash
 # Inspect selected samples/jobs, the files each stage reads and the local-stage
 # commands. Nothing executes.
-python3 taufw.py plan Analyses/Examples/mutau_short
+taufw plan Analyses/Examples/mutau_short
 
 # Create a run and execute every stage that can proceed now.
-python3 taufw.py start Analyses/Examples/mutau_short
+taufw start Analyses/Examples/mutau_short
 ```
 
 `start` prints the actual run directory. Use that directory for further commands:
 
 ```bash
-python3 taufw.py status taufw_runs/mutau_2022_postEE_short_20261013-120000
-python3 taufw.py advance taufw_runs/mutau_2022_postEE_short_20261013-120000
+taufw status taufw_runs/mutau_2022_postEE_short_20261013-120000
+taufw advance taufw_runs/mutau_2022_postEE_short_20261013-120000
 
 # Repeated checks while waiting for batch jobs (default interval: 600 seconds).
-python3 taufw.py advance taufw_runs/mutau_2022_postEE_short_20261013-120000 --wait --poll 900
+taufw advance taufw_runs/mutau_2022_postEE_short_20261013-120000 --wait --poll 900
 ```
 
 The example timestamp above is illustrative; substitute the path printed by
@@ -816,14 +816,14 @@ runs locally on one input file from the first matching sample for each era and
 channel, with 100 events by default:
 
 ```bash
-python3 taufw.py plan Analyses/Examples/mutau_short --local -m 50
+taufw plan Analyses/Examples/mutau_short --local -m 50
 ```
 
 It creates no Framework run record, does not execute the later stages, and needs
 a `production` entry. It can write local processing output. It does not test
 every matching sample.
 
-Running `python3 taufw.py` without arguments in an interactive Linux terminal
+Running `taufw` without arguments in an interactive Linux terminal
 opens the optional console menu. It can select recipes, show a plan before
 starting, continue saved runs, and inspect status. See the
 [Framework quick start](../Framework/README.md#quick-start) for menu controls.
@@ -875,7 +875,7 @@ artifacts, history, and local command results.
 
 Fit values include the region, parameter of interest, central value, and lower
 and upper interval limits, parsed from `FitparameterValues_*.txt`.
-`taufw.py status` displays them as a table.
+`taufw status` displays them as a table.
 
 A local command succeeds only when its exit code is zero and its expected
 outputs were written after it started. An old output file alone is insufficient.
@@ -887,8 +887,8 @@ prints the last 20 lines of its log.
 
 | Symptom | What to check or do |
 | --- | --- |
-| A recipe is red in the menu, or `RecipeError` | Run `taufw.py check <bundle>`: it lists every problem with its location. |
-| `Warning: run_root: not set` | The recipe runs, in `taufw_runs/` where you launch `taufw.py`. Set [`run_root`](#where-the-runs-go-run_root) to a directory with enough space. |
+| A recipe is red in the menu, or `RecipeError` | Run `taufw check <bundle>`: it lists every problem with its location. |
+| `Warning: run_root: not set` | The recipe runs, in `taufw_runs/` where you launch `taufw`. Set [`run_root`](#where-the-runs-go-run_root) to a directory with enough space. |
 | `cannot write in the run root` / `run directory` | The directory cannot be written: check its permissions and your AFS token (`kinit; aklog`), or choose another `run_root` / `--run-root`. Nothing was started or moved. |
 | Unknown key or missing required option | Check indentation and the option tables. Put options beside `stage`; use `split`/`merge` mappings only under production. |
 | Missing `id` or `inputs` | Every stage needs both. A stage without inputs says `inputs: null`; tuples made outside TauFW are named with `{tuples: {external: <pattern>}}`. |
@@ -915,12 +915,12 @@ prints the last 20 lines of its log.
 | `tuple directory ... not found` | The fixed part of an `{external: ...}` pattern does not exist on this machine (EOS not mounted, a typo). |
 | Exit code zero but the local stage fails | Read the command log for missing/stale expected outputs and nested ROOT/Combine failures. |
 | Editing YAML or a bundle file does not affect `advance` | The run uses the recipe stored in `run.json` and its bundle copy; start a new run to use edited settings. A file fixed in the run's `bundle/` copy is read by the stages that run after it (warned once, recorded in `run.json` `bundle.changed`; CL §44). |
-| A local stage is `FAILED` and Continue says it cannot advance | Fix the cause, then `taufw.py retry <run_dir>` (menu: Continue > Retry). The finished stages do not run again; the failed attempt is in `logs/<id>/attempt<N>/`. |
+| A local stage is `FAILED` and Continue says it cannot advance | Fix the cause, then `taufw retry <run_dir>` (menu: Continue > Retry). The finished stages do not run again; the failed attempt is in `logs/<id>/attempt<N>/`. |
 
 Preflight problems leave a local stage `NEW`, so they can be fixed and retried
 in the same run. A command failure leaves it `FAILED`: `advance` stops there;
 once the cause is fixed (a bundle file: in the run's `bundle/` copy),
-`taufw.py retry <run_dir>` runs the stage again and goes on (CL §44). An
+`taufw retry <run_dir>` runs the stage again and goes on (CL §44). An
 exception such as an unavailable scheduler is recorded without changing the
 stage state; retry `advance` after fixing the external problem. The CLI returns
 exit code 1 for a failed run; use status/messages to distinguish completion from

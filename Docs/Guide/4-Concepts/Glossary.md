@@ -93,7 +93,7 @@ production, says `inputs: null`.
 CERN's shared Linux login service. TauFW is made to run there.
 
 **menu**
-The text-based menu you get when you run `python3 taufw.py` with no arguments. From there you can start runs,
+The text-based menu you get when you run `taufw` with no arguments. From there you can start runs,
 continue runs, check status and renew your *grid proxy*.
 
 **merge**

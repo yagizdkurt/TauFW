@@ -1,6 +1,6 @@
 # FastSetup
 
-[`setup.sh`](../../setup.sh) automates the software installation described
+[`taufw.sh`](../../taufw.sh) automates the software installation described
 in the [manual installation guide](ManualInstallation.md) around an existing TauFW clone.
 
 ## Requirements
@@ -15,7 +15,7 @@ The script detects EL8/EL9 for
 ## Usage
 
 ```bash
-source setup.sh
+source taufw.sh
 ```
 
 The script creates `CMSSW_14_1_0_pre4` beside the checkout and moves the entire
@@ -116,7 +116,9 @@ without standalone NanoAODTools, the CMSSW version is used. After dismissal,
 the terminal confirms activation and, when installation ran, shows the retained
 installation log path. Warnings and retained-original notices remain visible.
 
-At the end of activation, setup opens the TauFW menu
+At the end of activation, `taufw.sh` defines the command `taufw` in your shell (the menu, or
+`taufw COMMAND ...`, from any directory) and opens the TauFW menu. To get only the environment and the
+command, set `open_menu_on_start: false` in your [user config](1-GettingStarted/UserConfig.md).
 
 Success ticks and colors fall back to plain text on limited terminals. Set
 `NO_COLOR=1` to disable colors; redirected output and `TERM=dumb` also disable
@@ -132,7 +134,7 @@ make it later through **Modify User Config** or follow
 In each new session, source the wrapper from that checkout (or use its full path):
 
 ```bash
-source setup.sh
+source taufw.sh
 ```
 
 A verified success record under `.git/taufw-setup-state` allows subsequent calls
@@ -145,9 +147,9 @@ Choose **Install components** in the main menu to reopen the installer. The chec
 offers **Start install** and **Cancel**; Cancel or Esc returns without starting installation.
 Closing the result screen returns to the main menu. The checklist starts with the usual
 defaults, not the previous selection; deselecting a component does not uninstall it.
-You can also use `source setup.sh --install`. Supplying any installer
+You can also use `source taufw.sh --install`. Supplying any installer
 options runs installation explicitly. `--help` only prints usage. Execute
-neither `bash setup.sh` nor `./setup.sh`: sourcing is required to activate your
+neither `bash taufw.sh` nor `./taufw.sh`: sourcing is required to activate your
 current shell. The worker lives at `Utilities/FastSetup.sh` and must be run with
 Bash if used directly; direct execution cannot activate your parent terminal.
 

@@ -31,7 +31,7 @@ The drawing library is the exception; see [Drawing](#drawing-cms-style-root-plot
 
 `python/UserConfig` reads and makes the user config: the personal and machine settings of one user, in
 `Analyses/UserConfig.yaml` of the checkout (ignored by git) or the file `$TAUFW_USER_CONFIG` names. FastSetup makes
-it once (`setup_tools.py userconfig`), `python3 taufw.py userconfig` makes it for an older installation, and nothing
+it once (`setup_tools.py userconfig`), `taufw userconfig` makes it for an older installation, and nothing
 overwrites it. TauFW's settings (`runs.run_root`, the `production` section) are listed in `_template.py`
 (`SETTINGS`: key, kind, example, comment); a new file has a value for each one `_guesses.py` can guess on lxplus or
 take over from `PicoProducer/config/config.json`, and the others as comment lines. The Framework reads them in
@@ -47,7 +47,7 @@ run_root = config.get("runs.run_root")      # None if the key is missing; keys o
 run_root = config.require("runs.run_root")  # UserConfigError naming the file and the key if it is missing
 ```
 
-Managing the file is for the tools that look after it (FastSetup, taufw.py, the menu), not for scripts:
+Managing the file is for the tools that look after it (FastSetup, taufw, the menu), not for scripts:
 
 ```python
 from TauFW.Utilities.UserConfig import manage
@@ -58,7 +58,7 @@ for warning in manage.check():  # no file, a wrong setting, not reviewed yet, or
 manage.setting_problems(config, "production")   # what is wrong with TauFW's settings of one section
 ```
 
-`taufw.py check`, `plan` and `start` show `manage.check()` as warnings; the recipe still runs. Importing needs only the
+`taufw check`, `plan` and `start` show `manage.check()` as warnings; the recipe still runs. Importing needs only the
 standard library (reading needs PyYAML), and the package also imports as a top-level `UserConfig` with
 `Utilities/python` on `sys.path`, as FastSetup does before `cmsenv`.
 

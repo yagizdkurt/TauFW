@@ -1,17 +1,17 @@
 # TauFW analysis bundle: the combined tau energy scale (TES) + tau ID scale factor fit for 2025, on existing pico
 # tuples. It runs what Fitter/run_inputs.sh and Fitter/run_workflow_zmm.sh run (option 3: 2D scan of tes and tid_SF
 # per decay mode and pt region, with the Z->mumu control region), control plots first, and a summary step last.
-#   python3 taufw.py check   Analyses/tes_id_2025               # the recipe and the files it names
-#   python3 taufw.py plan    Analyses/tes_id_2025               # the commands of every stage, and the preflight:
+#   taufw check   Analyses/tes_id_2025               # the recipe and the files it names
+#   taufw plan    Analyses/tes_id_2025               # the commands of every stage, and the preflight:
 #                                                               # missing tuples (also the 144 variation tuples),
 #                                                               # ROOT, combine, CombineHarvester (nothing runs)
-#   python3 taufw.py start   Analyses/tes_id_2025 --run-root /afs/cern.ch/work/<u>/<user>/taufw_runs
+#   taufw start   Analyses/tes_id_2025 --run-root /afs/cern.ch/work/<u>/<user>/taufw_runs
 #                                                               # runs hists, plots, shapes, fit, summary (hours)
-#   python3 taufw.py status  <run_root>/tes_id_2025_<time>      # the fitted values
+#   taufw status  <run_root>/tes_id_2025_<time>      # the fitted values
 # The results: stages/fit_summary/summary.txt of the run (the table of the fitted values and the paths of the
 # correction files, e.g. stages/fit/2025/data/tau/TauCorrections_2025_with_uncorrelated_systs.json; copying them to
 # their final place is up to you). A failed stage stops the run: fix the cause (a bundle file: in the run's
-# bundle/ copy), then `python3 taufw.py retry <run_dir>` runs that stage again and goes on; the finished stages do
+# bundle/ copy), then `taufw retry <run_dir>` runs that stage again and goes on; the finished stages do
 # not run again (CL §44). Or start a new run, which can reuse the finished stages of this one, e.g. the fit alone on
 # its shapes with inputs: {shapes: {path: <run_dir>/stages/shapes}} (Analyses/README.md, "Choosing fit working
 # points and steps").
@@ -25,7 +25,7 @@
 # ..._LTF1p030, ..._JTF0p900, ...). Each stage's scripts run in, and write to,
 # taufw_runs/<run>/stages/<id>/ (the fit: stages/fit/<era>/); each command's log goes to taufw_runs/<run>/logs/<id>/.
 name: tes_id_2025
-# run_root: the parent directory of the runs (<run_root>/<name>_<time>/). It is not set here, so taufw.py warns and
+# run_root: the parent directory of the runs (<run_root>/<name>_<time>/). It is not set here, so taufw warns and
 # the runs go to taufw_runs/ in the directory it is started from. On lxplus, set it to a directory with enough
 # space; the home directory's AFS quota is small:
 #   run_root: /afs/cern.ch/work/u/user/taufw_runs     # absolute; ~ and $VARIABLES are not expanded

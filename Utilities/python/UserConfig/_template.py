@@ -21,6 +21,8 @@ Setting = namedtuple("Setting", "key kind example comment")
 SETTINGS = (
     Setting("notifications", "boolean", True,
             "terminal bells for completed operations and errors; false disables them (default: true)"),
+    Setting("open_menu_on_start", "boolean", True,
+            "source taufw.sh opens the menu; false: it only activates TauFW (default: true)"),
     Setting("runs.run_root", "run_root", "/afs/cern.ch/work/u/user/taufw_runs",
             "where your runs go when the recipe has no run_root and you give no --run-root"),
     Setting("production.batch", "text", "HTCondor", "the batch system: HTCondor, SLURM, ..."),
@@ -74,8 +76,8 @@ def default_text(values=None, sources=()):
 HEAD = """\
 # TauFW user configuration: your personal and machine settings.
 #
-# Made by the setup (or `python3 taufw.py userconfig`). Git ignores this file and nothing overwrites it.
-# Check the values below, then set reviewed to true: until then, taufw.py check, plan and start warn.
+# Made by the setup (or `taufw userconfig`). Git ignores this file and nothing overwrites it.
+# Check the values below, then set reviewed to true: until then, taufw check, plan and start warn.
 # A line that starts with # is not set: TauFW uses its own default. Remove the # to set it.
 # Your own sections (e.g. mystudy:) are kept: read them with TauFW.Utilities.UserConfig."""
 

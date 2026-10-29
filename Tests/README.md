@@ -21,7 +21,7 @@ after refactoring.
 
 ### Interactive testing menu
 
-After setting up TauFW, run `python3 taufw.py` and select **Tests**. The menu
+After setting up TauFW, run `taufw` and select **Tests**. The menu
 requires an interactive Linux terminal and working Framework imports. It offers
 all automated tests, unit/harness checks, normal tests, BBB regression checks,
 and the advisory environment diagnostic.

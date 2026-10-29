@@ -7,8 +7,8 @@ Commands that continue or inspect a run take the run folder containing `run.json
 To see the available commands and the options for one command:
 
 ```bash
-python3 taufw.py --help
-python3 taufw.py start --help
+taufw --help
+taufw start --help
 ```
 
 ## Creating an analysis bundle
@@ -16,7 +16,7 @@ python3 taufw.py start --help
 Copy the short mutau example into your own analysis:
 
 ```bash
-python3 taufw.py init my_first_production --from Analyses/Examples/mutau_short
+taufw init my_first_production --from Analyses/Examples/mutau_short
 ```
 
 This creates `Analyses/my_first_production/` and sets the recipe's name to `my_first_production`.
@@ -27,7 +27,7 @@ The example's long comments aren't copied. Edit your copy before starting produc
 `check` reads a recipe and lists everything wrong with it, all at once. Try it on the broken example:
 
 ```console
-$ python3 taufw.py check Analyses/Examples/broken
+$ taufw check Analyses/Examples/broken
 >>> Warning: run_root: not set: the runs go to taufw_runs/ in the directory taufw.py is started from, ...
 >>> Warning: Recipe example_broken: 4 problem(s)
 >>> Warning:   stages[0] (production): unknown option 'samplez' (known: batchopts, channels, checkdas, ...)
@@ -53,7 +53,7 @@ run.
 short example:
 
 ```console
-$ python3 taufw.py plan Analyses/Examples/mutau_short
+$ taufw plan Analyses/Examples/mutau_short
 >>> === [production] 2022_postEE, mutau ===
 >>> DYto2L-4Jets_MLL-50
 >>> /DYto2L-4Jets_MLL-50
@@ -99,7 +99,7 @@ machine, on one file and just a few events. If something's broken, you find out 
 failing batch jobs.
 
 ```console
-$ python3 taufw.py plan Analyses/my_first_production --local -m 50
+$ taufw plan Analyses/my_first_production --local -m 50
 >>> === [production] 2022_postEE, mutau ===
 >>> DYto2L-4Jets_MLL-50
 >>> Executing: python3 .../TauFW/PicoProducer/python/workers/picojob.py -y 2022_postEE -c mutau -M ModuleMuTauSimple -o output -d 'mc' -t '_mutau_2022_postEE_DYto2L-4Jets_MLL-50' -m 50 -i root://cms-xrd-global.cern.ch//eos/cms/store/group/phys_tau/irandreo/Run3_22_postEE_new/DYto2L-4Jets_MLL-50/nano_0.root --opts 'useT1=False' 'zpt=True'
@@ -155,7 +155,7 @@ Once you're done looking, you can delete these test files. Nothing else uses the
 After checking the recipe and reviewing its plan, start your analysis:
 
 ```bash
-python3 taufw.py start Analyses/my_first_production
+taufw start Analyses/my_first_production
 ```
 
 This creates a new run folder under `run_root`, copies the bundle into it, and starts the pipeline.
@@ -172,8 +172,8 @@ Set `run_dir` to the run folder printed by `start`. Replace this example path wi
 
 ```bash
 run_dir=/afs/cern.ch/work/y/ydinckur/taufw_runs/my_first_production_20261027-103000
-python3 taufw.py status "$run_dir"
-python3 taufw.py advance "$run_dir"
+taufw status "$run_dir"
+taufw advance "$run_dir"
 ```
 
 `status` reads the run and checks the jobs without changing anything. `advance` moves it forward:
@@ -184,7 +184,7 @@ If jobs are still running, it returns so you can come back later.
 To keep checking every 900 seconds (15 minutes):
 
 ```bash
-python3 taufw.py advance "$run_dir" --wait --poll 900
+taufw advance "$run_dir" --wait --poll 900
 ```
 
 This command needs to stay running. Use `screen` or `tmux` if you want it to keep checking after you log out.
@@ -196,7 +196,7 @@ to continue. Running `start` again creates a separate run.
 Read the failure message and `run.log`, then fix the cause before retrying:
 
 ```bash
-python3 taufw.py retry "$run_dir"
+taufw retry "$run_dir"
 ```
 
 For production, retry is available when failed chunks have exhausted their allowed attempts.
@@ -215,13 +215,13 @@ or input check failed, fix that problem and use `advance` again.
 FastSetup normally creates your user config. To create it later, or check its location:
 
 ```bash
-python3 taufw.py userconfig
+taufw userconfig
 ```
 
 An existing file is kept unchanged. Here is the recorded output for a new file:
 
 ```console
-$ python3 taufw.py userconfig
+$ taufw userconfig
 >>> New user config: /afs/cern.ch/user/y/ydinckur/CMSSW_14_1_0_pre4/src/TauFW/Analyses/UserConfig.yaml
 >>> Warning: User config /afs/cern.ch/user/y/ydinckur/CMSSW_14_1_0_pre4/src/TauFW/Analyses/UserConfig.yaml is not reviewed yet: check its values, then set reviewed: true
 ```
@@ -233,8 +233,8 @@ See [Your user config](../1-GettingStarted/UserConfig.md) for the settings and h
 List the shared configuration templates and inspect the installed version:
 
 ```bash
-python3 taufw.py configs list
-python3 taufw.py version
+taufw configs list
+taufw version
 ```
 
 For more options and details, see the [Framework documentation](../../../Framework/README.md#quick-start).

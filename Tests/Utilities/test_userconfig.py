@@ -54,7 +54,7 @@ class UserConfigTests(unittest.TestCase):
         self.assertIn("'runs.run_root'", str(error.exception))
         self.assertIn(manage.CREATE_COMMAND, str(error.exception))
         self.assertEqual(manage.check(config),
-                         ["No user config %s: create it with `python3 taufw.py userconfig`" % (self.path)])
+                         ["No user config %s: create it with `taufw userconfig`" % (self.path)])
 
     def test_create_writes_once_and_never_overwrites(self):
         self.assertTrue(manage.create(self.path, values={}))

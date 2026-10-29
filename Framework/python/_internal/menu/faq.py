@@ -67,7 +67,7 @@ FAQ = (
      "failures (no samples, a merged tuple that failed validation) need a new "
      "run. A failed local stage (histograms, "
      "plots, shapes, fit, python step) can run again: fix the cause, then "
-     "Continue offers Retry (taufw.py retry). The finished stages are kept, "
+     "Continue offers Retry (taufw retry). The finished stages are kept, "
      "the failed attempt is moved to logs/<id>/attempt<N>/, and run.json "
      "records the retry. If the run's bundle copy was edited, every advance "
      "warns once and run.json and the manifests say so (bundle_changed)."),
@@ -90,15 +90,15 @@ FAQ = (
      "Arrow keys and Page Up/Down move in that pane; each keeps its own position. "
      "The manual is read only. Save errors keep your edits so you "
      "can fix them; leaving asks about unsaved changes. Change production output "
-     "folders between runs. Git ignores the default file. Setup or python3 taufw.py userconfig "
+     "folders between runs. Git ignores the default file. Setup or taufw userconfig "
      "also makes it if missing. The recipe wins over it; plan names what came "
      "from it. Until you set reviewed: true, check, plan and start warn in one "
      "line and the menu shows Modify User Config (Please set) in yellow. Scripts read it with TauFW.Utilities.UserConfig."),
 
     ("CLI equivalents", 
-     "taufw.py plan RECIPE previews; taufw.py start RECIPE "
-     "starts; taufw.py advance RUN_DIR continues; taufw.py status RUN_DIR "
-     "inspects. taufw.py userconfig makes or shows your user config. "
+     "taufw plan RECIPE previews; taufw start RECIPE "
+     "starts; taufw advance RUN_DIR continues; taufw status RUN_DIR "
+     "inspects. taufw userconfig makes or shows your user config. "
      "Add --wait --poll 600 to advance for polling. Use --help for "
      "command options. pico.py and the other package entry points remain "
      "available independently."),

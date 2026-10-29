@@ -202,7 +202,7 @@ class CommandLineLockTests(LockTestCase):
     def test_a_lost_lock_names_take_lock_and_take_lock_continues(self):
         foreign(self.record.run_dir, quiet=LOST_AFTER + 30)
         self.assertEqual(self.cli.main(["advance", self.record.run_dir]), 1)
-        self.assertIn("Take it over with: taufw.py advance %s --take-lock" % (self.record.run_dir),
+        self.assertIn("Take it over with: taufw advance %s --take-lock" % (self.record.run_dir),
                       self.lines("message"))
         self.assertEqual(self.cli.main(["advance", self.record.run_dir, "--take-lock"]), 0)
         self.assertEqual(RunRecord.load(self.record.run_dir).state, "DONE")

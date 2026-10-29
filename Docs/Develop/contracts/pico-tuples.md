@@ -177,7 +177,7 @@ written into the ROOT file.
 | `tree`, `cutflow` | the names inside the file (`"tree"`, `"cutflow"`) |
 | `pattern` | added by the Framework: the directory pattern of all tuples of the stage, `<stage dir>/$ERA/$GROUP`; the reading stages are given it as `--tuples` |
 
-Before the tuples exist (`taufw.py plan`), the production stage gives the later stages one planned record,
+Before the tuples exist (`taufw plan`), the production stage gives the later stages one planned record,
 `{"kind": "tuples", "pattern": "<run_dir>/stages/<id>/$ERA/$GROUP"}`.
 
 Readers:

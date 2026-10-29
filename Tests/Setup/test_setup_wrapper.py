@@ -20,7 +20,7 @@ class SetupWrapperTests(unittest.TestCase):
         (self.original / ".git").mkdir()
         for package in ("PicoProducer", "Fitter"):
             (self.original / package).mkdir()
-        shutil.copyfile(REPO / "setup.sh", self.original / "setup.sh")
+        shutil.copyfile(REPO / "taufw.sh", self.original / "taufw.sh")
         worker = (REPO / "Utilities/FastSetup.sh").read_text()
         publication = worker[worker.index("invalidate_setup_record() {"):
                              worker.index("selection_label() {")]
@@ -86,8 +86,13 @@ export TEST_RELEASE="$PWD/CMSSW_14_1_0_pre4"
 export TEST_INSTALLED="$TEST_RELEASE/src/TauFW"
 mkdir -p "$TEST_RELEASE/.SCRAM/el9_amd64_gcc12" "$TEST_RELEASE/src"
 python3() {
-  [[ $# == 1 && $1 == "$TEST_INSTALLED/taufw.py" && $PWD == "$TEST_INSTALLED" ]] || return 1
-  printf 'menu\n' >> "$TEST_ROOT/launches"
+  [[ $1 == "$TEST_INSTALLED/Framework/scripts/taufw.py" ]] || return 1
+  if [[ $# == 2 && $2 == --on-start && $PWD == "$TEST_INSTALLED" ]]; then
+    printf 'menu\n' >> "$TEST_ROOT/launches"
+  else
+    shift
+    printf '%s\n' "$*" >> "$TEST_ROOT/commands"
+  fi
 }
 '''
         result = subprocess.run(
@@ -104,21 +109,21 @@ trap 'echo unexpected-error >&2' ERR
 before_options=$(set +o)
 before_shopts=$(shopt -p)
 before_traps=$(trap -p)
-source "$TEST_ORIGINAL/setup.sh"
+source "$TEST_ORIGINAL/taufw.sh"
 [[ $PWD == "$TEST_INSTALLED" && $CMSSW_BASE == "$TEST_RELEASE" ]]
 [[ $before_options == "$(set +o)" && $before_shopts == "$(shopt -p)" ]]
 [[ $before_traps == "$(trap -p)" ]]
 [[ $(type -t _taufw_setup_main || true) == '' ]]
-source ./setup.sh
+source ./taufw.sh
 [[ $(wc -l < "$TEST_ROOT/runs") == 1 ]]
 [[ $(wc -l < "$TEST_ROOT/launches") == 2 ]]
 ''')
 
     def test_explicit_install_and_options_forwarded(self):
         self.shell(r'''
-source "$TEST_ORIGINAL/setup.sh" || exit
-source ./setup.sh --install --jobs 7 --cmssw-dir "$TEST_RELEASE" || exit
-source ./setup.sh --skip-htt || exit
+source "$TEST_ORIGINAL/taufw.sh" || exit
+source ./taufw.sh --install --jobs 7 --cmssw-dir "$TEST_RELEASE" || exit
+source ./taufw.sh --skip-htt || exit
 [[ $(wc -l < "$TEST_ROOT/runs") == 3 ]]
 ''')
         self.assertEqual((self.root / "arguments").read_text().splitlines(),
@@ -129,15 +134,15 @@ source ./setup.sh --skip-htt || exit
         result = self.shell(r'''
 export LC_ALL=C NO_COLOR=1 TEST_LOG=true
 export TMPDIR="$TEST_ROOT"
-source "$TEST_ORIGINAL/setup.sh" || exit
+source "$TEST_ORIGINAL/taufw.sh" || exit
 [[ -z $(find "$TEST_ROOT" -maxdepth 1 -name 'TauFW-setup-result.*' -print) ]]
 unset TEST_LOG
-source ./setup.sh || exit
+source ./taufw.sh || exit
 ''')
         self.assertEqual(result.stdout.count("[OK] TauFW environment active"), 2)
         self.assertEqual(result.stdout.count("Installation log:"), 1)
         self.assertNotIn("Change installed components:", result.stdout)
-        self.assertNotIn("source setup.sh --install", result.stdout)
+        self.assertNotIn("source taufw.sh --install", result.stdout)
         self.assertNotIn("Next session:", result.stdout)
         self.assertNotIn("Working directory:", result.stdout)
         self.assertNotIn("CMSSW_14_1_0_pre4 |", result.stdout)
@@ -148,17 +153,34 @@ source ./setup.sh || exit
         result = self.shell(r'''
 export LC_ALL=C NO_COLOR=1 TEST_VOMS_STATUS=1
 set -Eeu -o pipefail
-source "$TEST_ORIGINAL/setup.sh"
+source "$TEST_ORIGINAL/taufw.sh"
 [[ $PWD == "$TEST_INSTALLED" && $CMSSW_BASE == "$TEST_RELEASE" ]]
 ''')
         self.assertFalse((self.root / "voms-commands").exists())
         self.assertEqual((self.root / "launches").read_text().splitlines(), ["menu"])
         self.assertNotIn("grid certificate password", result.stdout)
 
+    def test_activation_defines_the_taufw_command(self):
+        """CL §53: after `source taufw.sh` the shell keeps `taufw` (exported to child shells) and $TAUFW_BASE, and
+        nothing else of the script; taufw.sh asked the command line once with --on-start (the menu)."""
+        self.shell(r'''
+source "$TEST_ORIGINAL/taufw.sh" || exit
+[[ $(type -t taufw) == function && $TAUFW_BASE == "$TEST_INSTALLED" ]]
+[[ -z $(compgen -A function _taufw_setup_ || true) ]]
+cd "$TEST_ROOT"
+taufw plan "Analyses/my analysis"
+taufw
+export -f python3  # the stand-in of this test, for the child shell
+bash -c 'taufw status run1' || exit
+[[ $(cat "$TEST_ROOT/launches") == menu ]]
+''')
+        self.assertEqual((self.root / "commands").read_text().splitlines(),
+                         ["plan Analyses/my analysis", "", "status run1"])
+
     def test_help_and_execution_do_not_install(self):
         self.shell(r'''
-source "$TEST_ORIGINAL/setup.sh" --help || exit
-if bash "$TEST_ORIGINAL/setup.sh"; then exit 1; fi
+source "$TEST_ORIGINAL/taufw.sh" --help || exit
+if bash "$TEST_ORIGINAL/taufw.sh"; then exit 1; fi
 [[ ! -e "$TEST_ROOT/runs" ]]
 ''')
 
@@ -170,7 +192,7 @@ export TEST_STATUS={status}
 before=$PWD
 before_cmssw_base_set=${{CMSSW_BASE+x}}
 before_cmssw_base=${{CMSSW_BASE-}}
-if source "$TEST_ORIGINAL/setup.sh"; then exit 1; else status=$?; fi
+if source "$TEST_ORIGINAL/taufw.sh"; then exit 1; else status=$?; fi
 [[ $status == {status} && $PWD == "$before" ]]
 [[ ${{CMSSW_BASE+x}} == "$before_cmssw_base_set" && ${{CMSSW_BASE-}} == "$before_cmssw_base" ]]
 [[ ! -e "$TEST_ORIGINAL/.git/taufw-setup-state" ]]
@@ -180,36 +202,36 @@ if source "$TEST_ORIGINAL/setup.sh"; then exit 1; else status=$?; fi
     def test_copy_records_original_and_installed_locations(self):
         self.shell(r'''
 export TEST_COPY=true
-source "$TEST_ORIGINAL/setup.sh" || exit
-source "$TEST_ORIGINAL/setup.sh" || exit
+source "$TEST_ORIGINAL/taufw.sh" || exit
+source "$TEST_ORIGINAL/taufw.sh" || exit
 [[ $PWD == "$TEST_INSTALLED" && $(wc -l < "$TEST_ROOT/runs") == 1 ]]
 cmp "$TEST_ORIGINAL/.git/taufw-setup-state" "$TEST_INSTALLED/.git/taufw-setup-state"
 export TEST_STATUS=7
-if source "$TEST_INSTALLED/setup.sh" --install; then exit 1; fi
-if source "$TEST_ORIGINAL/setup.sh"; then exit 1; fi
+if source "$TEST_INSTALLED/taufw.sh" --install; then exit 1; fi
+if source "$TEST_ORIGINAL/taufw.sh"; then exit 1; fi
 [[ $(wc -l < "$TEST_ROOT/runs") == 3 ]]
 ''')
 
     def test_stale_record_reinstalls_and_failed_reinstall_invalidates(self):
         self.shell(r'''
-source "$TEST_ORIGINAL/setup.sh" || exit
+source "$TEST_ORIGINAL/taufw.sh" || exit
 export TEST_ORIGINAL=$TEST_INSTALLED
 printf 'stale' > .git/taufw-setup-state
-source ./setup.sh || exit
+source ./taufw.sh || exit
 [[ $(wc -l < "$TEST_ROOT/runs") == 2 ]]
 export TEST_STATUS=7
-if source ./setup.sh --install; then exit 1; fi
+if source ./taufw.sh --install; then exit 1; fi
 [[ ! -e .git/taufw-setup-state ]]
 ''')
 
     def test_pending_clean_marker_reinstalls(self):
         self.shell(r'''
-source "$TEST_ORIGINAL/setup.sh" || exit
+source "$TEST_ORIGINAL/taufw.sh" || exit
 export TEST_ORIGINAL=$TEST_INSTALLED
 touch "$TEST_RELEASE/.FastSetup-needs-clean"
 # Mock verification has to remove the clean marker before reporting success.
 sed -i '/repo_dir=$target/a rm -f -- "$cmssw_dir/.FastSetup-needs-clean"' Utilities/FastSetup.sh
-source ./setup.sh || exit
+source ./taufw.sh || exit
 [[ $(wc -l < "$TEST_ROOT/runs") == 2 ]]
 ''')
 
@@ -218,15 +240,15 @@ source ./setup.sh || exit
 export TEST_BAD_RESULT=true
 before_cmssw_base_set=${CMSSW_BASE+x}
 before_cmssw_base=${CMSSW_BASE-}
-if source "$TEST_ORIGINAL/setup.sh"; then exit 1; fi
+if source "$TEST_ORIGINAL/taufw.sh"; then exit 1; fi
 [[ ${CMSSW_BASE+x} == "$before_cmssw_base_set" && ${CMSSW_BASE-} == "$before_cmssw_base" ]]
 ''')
         self.shell(r'''
 export TEST_ORIGINAL=$TEST_INSTALLED
-source "$TEST_INSTALLED/setup.sh" || exit
+source "$TEST_INSTALLED/taufw.sh" || exit
 printf 'scram() { return 1; }\n' > "$TEST_ROOT/cms.sh"
 before_options=$(set +o)
-if source ./setup.sh; then exit 1; fi
+if source ./taufw.sh; then exit 1; fi
 [[ $before_options == "$(set +o)" ]]
 ''')
 

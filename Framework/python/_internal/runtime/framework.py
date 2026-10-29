@@ -393,7 +393,7 @@ class Framework:
         failed = failed_stage(record)
         if failed is None:
             raise RetryError("Run %s has no failed stage (it is %s): nothing to retry. Continue it with: "
-                             "taufw.py advance %s" % (record.run_id, record.state, record.run_dir))
+                             "taufw advance %s" % (record.run_id, record.state, record.run_dir))
         stage_id, name = failed
         stage, stage_record = self._stage_for(stage_id), record.stage(stage_id)
         state = stage.retry_state(stage_record) if hasattr(stage, 'retry_state') else None

@@ -10,8 +10,8 @@ libraries for analysis code are in `Utilities/python` ([Utilities](../../../Util
 |---|---|
 | `runtime/`, `recipes/`, `interfaces/` | the orchestrator, the recipes, the menu adapter: see the package layout in [Framework/README.md](../../README.md#package-layout) |
 | `defaults.py`, `user_settings.py`, `version.py` | shared defaults, the user config's Framework settings, release metadata |
-| `version.json`, `empty_recipe.yml`, `setup_manifest.json` | data: the release, the recipe of `taufw.py init`, what FastSetup installed (not tracked) |
-| `menu/`, `editor/`, `installer/`, `operations/`, `notifications.py` | TauFW's own tools: the menu (`python3 taufw.py`), the terminal editor, the installer behind `FastSetup.sh`, the operations that run behind the menu, the terminal bell (sections below) |
+| `version.json`, `empty_recipe.yml`, `setup_manifest.json` | data: the release, the recipe of `taufw init`, what FastSetup installed (not tracked) |
+| `menu/`, `editor/`, `installer/`, `operations/`, `notifications.py` | TauFW's own tools: the menu (`taufw`), the terminal editor, the installer behind `FastSetup.sh`, the operations that run behind the menu, the terminal bell (sections below) |
 
 ```python
 from TauFW.Framework._internal.menu import ConsoleUI, MenuNavigation
@@ -70,7 +70,7 @@ or analysis packages until verification is requested.
 FastSetup calls `installer/setup_tools.py` directly before and after the
 checkout moves, so these helpers work before `cmsenv` or `scram b`. Bash retains
 the shell environment, Git downloads, installation sequencing and recovery state.
-See [FastSetup](../../../Docs/Guide/FastSetup.md#installer-and-menu-organization) for details.
+See [FastSetup](../../../Docs/Guide/FastSetup.md) for details.
 
 ## Menu presentation
 

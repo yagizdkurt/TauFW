@@ -1,6 +1,6 @@
 # Continue an existing run
 
-Run `python3 taufw.py` from your TauFW directory and choose **Continue an existing run**. Pick your
+Run `taufw` (after `source taufw.sh`) and choose **Continue an existing run**. Pick your
 [run](../4-Concepts/Glossary.md) and choose one advance or repeated checking.
 
 If you've just logged in, [set up your environment](../1-GettingStarted/FirstSession.md#getting-in) first.

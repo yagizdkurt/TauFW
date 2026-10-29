@@ -1,6 +1,8 @@
 #! /usr/bin/env python3
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """taufw.py: run TauFW analysis pipelines from a recipe. A thin client of TauFW.Framework (no logic here).
+In your shell it is the command `taufw` (defined by `source taufw.sh`); a script without that shell function runs
+python3 "$TAUFW_BASE/Framework/scripts/taufw.py" instead.
 
   taufw.py                                              interactive Linux console menu
   taufw.py check   RECIPE                                every problem of a recipe (structure, ids, inputs,
@@ -30,6 +32,8 @@
   taufw.py userconfig                                     your user config (Analyses/UserConfig.yaml, or
                                                           $TAUFW_USER_CONFIG): made if there is none, its state
   taufw.py version [--check]                              installed version; optionally check the remote manifest
+  taufw.py --on-start                                    taufw.sh after activation: the menu, unless the user
+                                                          config says open_menu_on_start: false
 
 RECIPE is an analysis bundle directory (Analyses/<name>, with recipe.yml) or a recipe file.
 
@@ -39,7 +43,7 @@ change. The variable is removed from the environment first, so the commands the 
 
 The runs go to start --run-root DIR, else the recipe's run_root, else runs.run_root of your user config, else
 taufw_runs/ here. A production stage also takes your user config's production settings (Framework/python/
-user_settings.py); `plan` names them.
+_internal/user_settings.py); `plan` names them.
 
 check, plan and start warn in one line while there is no user config or it is not reviewed
 (TauFW.Utilities.UserConfig.manage); the recipe still runs.
@@ -195,7 +199,7 @@ def cmd_advance(args):
         reporter.warning("Cannot %s run %s: %s" % (args.command, record.run_id, error))
         reporter.event('error', message=str(error))
         if error.lost:
-            reporter.message("Take it over with: taufw.py %s %s --take-lock" % (args.command, args.run_dir))
+            reporter.message("Take it over with: taufw %s %s --take-lock" % (args.command, args.run_dir))
         return 1
     return _finish(reporter, record)
 
@@ -383,12 +387,12 @@ def _finish(reporter, record):
     reporter.message("Run directory: %s" % (record.run_dir))
     retry = retryable_stage(record)
     if not RunState(record.state).finished:
-        reporter.message("Continue with: taufw.py advance %s" % (record.run_dir))
+        reporter.message("Continue with: taufw advance %s" % (record.run_dir))
     elif retry and retry[1] == 'production':  # CL §48: after max_tries
-        reporter.message("To resubmit the failed chunks of stage %s with more tries, run: taufw.py retry %s"
+        reporter.message("To resubmit the failed chunks of stage %s with more tries, run: taufw retry %s"
                          % (retry[0], record.run_dir))
     elif retry:
-        reporter.message("Once the cause is fixed, run stage %s again with: taufw.py retry %s"
+        reporter.message("Once the cause is fixed, run stage %s again with: taufw retry %s"
                          % (retry[0], record.run_dir))
     if record.state != RunState.FAILED and record.state != RunState.WAITING:
         bell()
@@ -405,7 +409,7 @@ COMMANDS = {'check': cmd_check, 'plan': cmd_plan, 'start': cmd_start, 'advance':
 
 
 def build_parser():
-    parser = ArgumentParser(prog='taufw.py', description="Run TauFW analysis pipelines from a recipe.")
+    parser = ArgumentParser(prog='taufw', description="Run TauFW analysis pipelines from a recipe.")
     common = ArgumentParser(add_help=False)  # options of every command
     common.add_argument('-v', '--verbose', dest='verbose', type=int, nargs='?', const=1, default=0,
                         help="set verbosity")
@@ -460,8 +464,14 @@ def build_parser():
 
 
 def main(argv=None):
-    """Without arguments, open the interactive menu; otherwise run one command."""
+    """Without arguments, open the interactive menu; otherwise run one command. --on-start (taufw.sh, after the
+    activation): the menu, unless the user config says open_menu_on_start: false."""
     argv = sys.argv[1:] if argv is None else argv
+    if argv == ['--on-start']:
+        if not user_settings.open_menu_on_start():
+            print("TauFW is active. The menu: taufw; the commands: taufw --help")
+            return 0
+        argv = []
     if not argv:
         from TauFW.Framework._internal.interfaces.interactive import run_menu
         return run_menu(build_parser())

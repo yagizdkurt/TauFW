@@ -1,15 +1,15 @@
 # Example TauFW analysis bundle (long): produce every mutau pico tuple the 2022_postEE control plots need (data and
 # every MC sample of the sample file), then the control plots of those tuples. A full production: tens of GB and
 # hours of batch jobs; mutau_short is the quick production-only example.
-#   taufw.py plan    Analyses/Examples/mutau_long                # what would be submitted, the plot commands, and the
+#   taufw plan    Analyses/Examples/mutau_long                # what would be submitted, the plot commands, and the
 #                                                               # check that production makes every sample the
 #                                                               # hists read (nothing is written)
-#   taufw.py start   Analyses/Examples/mutau_long                # new run in run_root (below); submits the jobs
-#   taufw.py advance taufw_runs/mutau_2022_postEE_long_<time>   # later: check, resubmit failed chunks, merge,
+#   taufw start   Analyses/Examples/mutau_long                # new run in run_root (below); submits the jobs
+#   taufw advance taufw_runs/mutau_2022_postEE_long_<time>   # later: check, resubmit failed chunks, merge,
 #                                                               # then the plots
-#   taufw.py status  taufw_runs/mutau_2022_postEE_long_<time>
+#   taufw status  taufw_runs/mutau_2022_postEE_long_<time>
 name: mutau_2022_postEE_long
-# run_root: the parent directory of the runs (<run_root>/<name>_<time>/). It is not set here, so taufw.py warns and
+# run_root: the parent directory of the runs (<run_root>/<name>_<time>/). It is not set here, so taufw warns and
 # the runs go to taufw_runs/ in the directory it is started from. The production stage below writes its merged tuples
 # into the run (stages/production/<era>/<group>/): for this full production far more than the home directory's AFS
 # quota. On lxplus, set it to a directory with enough space:

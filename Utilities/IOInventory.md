@@ -408,7 +408,7 @@ Each category in the Observed I/O column maps to the API table above. Representa
 |---|---|---|---|
 | [Legacy/OldAnalysis/2025/add_muon_weights.py](../Legacy/OldAnalysis/2025/add_muon_weights.py) (AST) | Correction helper/recipe: add_muon_weights | **terminal** (46): load_json_corrections: print L130; get_mc_files: print L166<br>**local** (8): load_json_corrections: os.path.exists L131; get_mc_files: os.path.join L170<br>**json** (1): load_json_corrections: json.load L136<br>**root** (3): process_file: TFile.Open L200; process_file: tree.Write L287 | Payload schemas, correction evaluation and physics policy |
 | [Legacy/OldAnalysis/2025-2026/add_pileup_weights.py](../Legacy/OldAnalysis/2025-2026/add_pileup_weights.py) (AST) | Correction helper/recipe: add_pileup_weights | **local** (15): safe_open_file: os.path.exists L115; get_mc_files: os.path.join L271<br>**terminal** (57): safe_open_file: print L116; load_histogram: print L147<br>**root** (3): safe_open_file: TFile.Open L119; process_file: TFile.Open L360 | Payload schemas, correction evaluation and physics policy |
-| [setup.sh](../setup.sh) (shell text) | Shell setup/worker/measurement orchestration | **terminal** (16): text scan: printf L15<br>**local** (5): text scan: rm  L169<br>**prompt** (1): text scan: read -r L199 | Startup, environment and workflow decisions |
+| [taufw.sh](../taufw.sh) (shell text) | Shell setup/worker/measurement orchestration | **terminal** (9): text scan: printf L20<br>**local** (5): text scan: rm  L165<br>**prompt** (1): text scan: read -r L195 | Startup, environment and workflow decisions |
 
 ## Files without detected direct I/O
 
@@ -519,7 +519,6 @@ These files are included in the audit; delegated or dynamically selected I/O can
 - [Legacy/Plotter/python/corrections/JetToTauFR/tools/tdrstyle.py](../Legacy/Plotter/python/corrections/JetToTauFR/tools/tdrstyle.py)
 - [Tau_Trigger_SF/TriggerSF_tools/Common/AnalysisTools.py](../Tau_Trigger_SF/TriggerSF_tools/Common/AnalysisTools.py)
 - [Tau_Trigger_SF/TriggerSF_tools/Common/AnalysisTypes.py](../Tau_Trigger_SF/TriggerSF_tools/Common/AnalysisTypes.py)
-- [taufw.py](../taufw.py)
 
 Archive paths were updated on 2026-10-14 after consolidation into `Legacy/<Component>/python/`.
 Reported source line numbers are from the original I/O audit, before the legacy comment banners were added.

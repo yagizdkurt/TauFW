@@ -23,7 +23,7 @@ your first session, and your first production.
 ### Automatic
 Run this in the repo. See the [FastSetup documentation](Docs/Guide/FastSetup.md) for details.
 ```bash
-source setup.sh
+source taufw.sh
 ```
 
 ### Manual
@@ -34,7 +34,7 @@ See the [manual installation guide](Docs/Guide/ManualInstallation.md) for manual
 
 From the TauFW folder just do
 ```bash
-source setup.sh
+source taufw.sh
 ```
 again. It will automatically setup cms environment and all you need. Then open the framework.
 See [Analyses/README.md](Analyses/README.md) for analyses details.

@@ -880,3 +880,25 @@ unchanged; to confirm on lxplus without re-lock: [TODO.md](TODO.md) section 1.
   255 -> 432 tests, the 177 moved tests included; Setup 65); `check_import_boundaries` fails as before with the same
   report (known debt, 0 new pairs) and `check_root` needs ROOT.
 - A repository grep finds no old path or import outside earlier changelog sections, audits, LocalR and Legacy.
+
+## 53. One entry point: `source taufw.sh`, then the command `taufw`
+
+**Change:** [CL §53](Refactor-2025.md#53-one-entry-point-source-taufwsh-then-the-command-taufw)
+
+- `Tests/Setup/test_setup_wrapper.py` (fake CMS runtime and installer, every test now sources `taufw.sh`):
+  `test_activation_defines_the_taufw_command`: after `source taufw.sh` the shell has the function `taufw` and
+  `$TAUFW_BASE` (the installed checkout) and no `_taufw_setup_*` helper; `taufw plan ...`, `taufw` and, in a child
+  `bash -c`, `taufw status ...` run `Framework/scripts/taufw.py` with their arguments; the menu was asked once, with
+  `--on-start`. The other wrapper tests (install, move, copy, stale record, failures) pass unchanged apart from the
+  file name and the stand-in `python3`.
+- `Tests/Framework/test_user_settings.py` `OpenMenuOnStartTests`: `open_menu_on_start()` is False only for
+  `open_menu_on_start: false` (no file, no key, `true`, a wrong value and an unreadable file give True);
+  `main(["--on-start"])` opens the menu, or with `false` prints the line naming `taufw --help`.
+- Changed expectations: the hints `taufw advance` (test_framework), `taufw userconfig` (test_framework,
+  test_userconfig), `taufw advance ... --take-lock` (test_run_lock), FastSetup's `source .../taufw.sh`
+  (test_fastsetup).
+- Example recipes: `taufw check` and `plan` on every bundle of `Analyses/`: output identical to CL §52's run.
+- `Tests/run.py checks` on Windows: the same 14 of 16 pass (Utilities 96, Framework 434, Setup 66);
+  `check_import_boundaries` (known debt, 0 new pairs) and `check_root` (no ROOT) fail as before.
+- A repository grep finds `setup.sh` and the root `taufw.py` only in earlier changelog sections, audits, LocalR and
+  Legacy (and `setup.sh` as a fixture file name in `test_setup_runner.py`/`test_fastsetup.py`).

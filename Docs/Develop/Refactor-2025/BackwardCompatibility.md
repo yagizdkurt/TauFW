@@ -535,8 +535,8 @@ For fit shapes, rename the type to `shapes`; a fit can consume `inputs: {shapes:
 - A started run copies bundle files to `<run>/bundle/`. Editing the source analysis directory afterwards does not edit that run. PicoProducer's own sample catalogs are not automatically bundled with it.
 - Preflight can refuse nonempty output directories and relative/unresolved tuple patterns on isolated paths. Reusing a standalone directory with old files is not equivalent to starting a fresh stage.
 - With explicit sample models and tuple patterns, TES preflight can check missing variation tuples before filling. A missing variation now leaves the stage NEW before any command runs instead of failing hours later. The recorded real example checks 144 mutau variation files and zero mumu files; that count is configuration-specific.
-- `taufw.py check` validates recipe/files; it does **not** execute stage environment/tuple preflight. Use `plan` to see those problems. Some stage docstrings still mention `check` for preflight; that is not the implemented CLI distinction.
-- `advance` never moves a FAILED stage. Repairing source files and issuing `advance` is not a general stage-rerun facility. Since CL §44, `taufw.py retry <run>` (menu: Continue > Retry) runs a FAILED local stage again after its cause was fixed in the run's `bundle/` copy or environment; the failed attempt moves to `logs/<id>/attempt<N>/` and run.json records the retry and any bundle change. Since CL §48 a FAILED production stage can be retried only when its chunks still failed after `max_tries`: it goes back to WAITING with `max_tries` more tries (run.json `retries[].max_tries`), resubmits only the failed chunks and moves nothing. Its other failures (no samples, no job configs, a merged tuple that failed validation) stay final: a new run can reuse eligible completed stages through their manifests.
+- `taufw check` validates recipe/files; it does **not** execute stage environment/tuple preflight. Use `plan` to see those problems. Some stage docstrings still mention `check` for preflight; that is not the implemented CLI distinction.
+- `advance` never moves a FAILED stage. Repairing source files and issuing `advance` is not a general stage-rerun facility. Since CL §44, `taufw retry <run>` (menu: Continue > Retry) runs a FAILED local stage again after its cause was fixed in the run's `bundle/` copy or environment; the failed attempt moves to `logs/<id>/attempt<N>/` and run.json records the retry and any bundle change. Since CL §48 a FAILED production stage can be retried only when its chunks still failed after `max_tries`: it goes back to WAITING with `max_tries` more tries (run.json `retries[].max_tries`), resubmits only the failed chunks and moves nothing. Its other failures (no samples, no job configs, a merged tuple that failed validation) stay final: a new run can reuse eligible completed stages through their manifests.
 - `controlplots` draws the files of its input, without a separate era/channel filter. Redrawing with an arbitrary new tag and raw external histogram-file recipe inputs are not general supported features today; see [open work](TODO.md).
 
 Old schema-3 runs with retired stage types still fail even though the JSON schema number matches. Conversely, manually changing `schema: 2` to `3` cannot supply the required paths, inputs and provenance. Retain old results; do not try to make them compatible by editing just a number.
@@ -653,8 +653,8 @@ These are proposed follow-ups, **not checks claimed as performed here**:
 Current recipe-only checks can be run without starting the analysis:
 
 ```bash
-python3 taufw.py check Analyses/tes_id_2025
-python3 taufw.py plan Analyses/tes_id_2025
+taufw check Analyses/tes_id_2025
+taufw plan Analyses/tes_id_2025
 ```
 
 `plan` needs the appropriate installed environment to give meaningful stage preflight. A successful `check` is not evidence that remote tuples, variation files, correction payloads or combine are available.

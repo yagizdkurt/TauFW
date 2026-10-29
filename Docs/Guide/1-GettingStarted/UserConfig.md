@@ -78,6 +78,7 @@ Outside lxplus nothing is guessed, all settings are comment lines, and PicoProdu
 | Setting | What it does | If you don't set it |
 | --- | --- | --- |
 | `notifications` | Terminal bell when a recipe, test run or installation completes, or an operation fails. Set `false` to mute. | `true`. |
+| `open_menu_on_start` | Whether `source taufw.sh` opens the menu. Set `false` to only get the environment and the `taufw` command. | `true`. |
 | `runs.run_root` | The folder where your runs are made, when the recipe has no `run_root` and you don't give `--run-root`. | Runs go to `taufw_runs/` in the folder you start from, with a warning. |
 | `production.batch` | The batch system. On lxplus it's `HTCondor`. | PicoProducer's guess for your machine. |
 | `production.queue` | The queue, for HTCondor the job flavour (`espresso`, `workday`, ...). | Nothing: the batch system's default. |
@@ -127,7 +128,7 @@ all the pieces. Change it between runs.
 ### Mark it as checked
 
 `reviewed` is for you. It says whether you've looked at the file yet. As long as it's `false`, every
-`taufw.py check`, `plan` and `start` prints one extra warning line, reminding you that the file is there and still
+`taufw check`, `plan` and `start` prints one extra warning line, reminding you that the file is there and still
 unchecked. It doesn't stop anything, your recipe runs as usual. Once you've read through the file, set it to
 `true` and the warning goes away:
 
@@ -143,7 +144,7 @@ You can read the user config from any Python script of yours. This is handy for 
 plots" or "which EOS folder holds my private tuples", things you don't want to hard-code into a script you might
 share later.
 
-Run your script inside the TauFW environment (after `source setup.sh`), then:
+Run your script inside the TauFW environment (after `source taufw.sh`), then:
 
 ```python
 from TauFW.Utilities import UserConfig

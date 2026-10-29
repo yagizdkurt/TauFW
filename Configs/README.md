@@ -7,7 +7,7 @@ analysis can change is a copy in its bundle.
 ```
 Configs/
   README.md             this file
-  configs.lock          id, version and content hash of every template (written by `taufw.py configs update`)
+  configs.lock          id, version and content hash of every template (written by `taufw configs update`)
   <Module>/...          the templates of one module, e.g. Histogrammer/samples/v15_2025.yml
   Histogrammer/samples/ the sample model of each era (histogrammer.samples_v15_<era>)
   Histogrammer/setups/  the channel setups of fillhists.py (histogrammer.setup_<channel>)
@@ -22,15 +22,15 @@ user settings (batch system, user directories) are internal settings, never temp
 
 ## For analysts
 
-1. List the templates: `taufw.py configs`.
+1. List the templates: `taufw configs`.
 2. Copy the one you need into your bundle, next to `recipe.yml`, and name the copy in the recipe.
 3. Edit the values of your copy. Do **not** edit its `taufw_config` header: it says which template and which version
    the copy came from.
 4. Or name the template itself in a recipe, as `Configs/<Module>/...` (e.g. `config: Configs/Fitter/tes_id/config_coarse_TT.yml`):
-   the stage reads the template where it is (changelog §22). `taufw.py init --from <recipe>` makes copies of the
+   the stage reads the template where it is (changelog §22). `taufw init --from <recipe>` makes copies of the
    templates a recipe names, so a bundle keeps what it ran with.
 
-`taufw.py check`, `plan` and `start` warn when the template of a copy has a newer version than the copy: the
+`taufw check`, `plan` and `start` warn when the template of a copy has a newer version than the copy: the
 maintainers changed it since you copied it. Compare the two, and take over the changes or keep your copy on purpose
 (the warning stays as long as the copy is older).
 
@@ -55,7 +55,7 @@ taufw_config:                     # set by the maintainers: analysts edit the va
 - Only YAML (`.yml`, `.yaml`) data files: no Python (it would have to be imported), no JSON (`*.json` is ignored by
   git). A template lives in `Configs/<Module>/`, in any subdirectory.
 - Write the header as a block (one key per line, as above), so the version can be raised automatically.
-- After changing a template, run `taufw.py configs update`. A template whose **values** changed (comments and layout
+- After changing a template, run `taufw configs update`. A template whose **values** changed (comments and layout
   do not count) gets `version + 1` in its file, and `configs.lock` is rewritten; commit both. A version raised by hand
   is kept. A new template is locked with its version. Nothing is written while a template has a problem.
 - Never lower a version, and never reuse an id. To replace a template, add one with a new id (e.g. a new tuple

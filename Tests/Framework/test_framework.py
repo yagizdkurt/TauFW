@@ -709,7 +709,7 @@ class CommandLineTests(FrameworkTestCase):
             self.assertEqual(bell.call_count, 2)  # the rejected operation reports one error
             self.assertEqual([t for k, t in reporter.messages if k == "warning"],
                              ["Run %s has no failed stage (it is DONE): nothing to retry. Continue it with: "
-                              "taufw.py advance %s" % (os.path.basename(run_dir), run_dir)])
+                              "taufw advance %s" % (os.path.basename(run_dir), run_dir)])
 
     def test_plan_and_start_of_a_missing_recipe_print_one_line(self):
         reporter = SilentReporter()
@@ -734,7 +734,7 @@ class CommandLineTests(FrameworkTestCase):
         os.mkdir(os.path.dirname(path))
         os.environ["TAUFW_USER_CONFIG"] = path  # restored by reviewed_user_config's patch
         self.assertEqual(self.cli.main(["check", recipe]), 0)
-        self.assertEqual(warnings(), ["No user config %s: create it with `python3 taufw.py userconfig`" % (path)])
+        self.assertEqual(warnings(), ["No user config %s: create it with `taufw userconfig`" % (path)])
         reporter.messages.clear()
         self.assertEqual(self.cli.main(["userconfig"]), 0)
         self.assertIn("New user config: %s" % (path), [t for k, t in reporter.messages if k == "message"])

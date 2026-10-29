@@ -8,7 +8,7 @@ wanted to see if the new TauFW can run a real analysis from start to end and giv
 On lxplus, in a CMSSW area with Combine and CombineHarvester (the exercise's setup), from the TauFW root:
 
 ```sh
-python3 taufw.py start Analyses/Examples/cmsdas26_ztt     # or from the menu: python3 taufw.py
+taufw start Analyses/Examples/cmsdas26_ztt     # or from the menu: taufw
 ```
 
 It reads the pre-made 2024 tuples from EOS, so no production step is needed. The whole run takes about 1.5 hours.

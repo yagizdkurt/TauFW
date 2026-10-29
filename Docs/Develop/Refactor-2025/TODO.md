@@ -51,17 +51,21 @@ Items marked **(verify)** may already be done; check before working on them.
 
 The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go here until they are run.
 
-- [ ] **The Framework's `_internal` (CL §52, includes the check of CL §51):** a fresh install: delete the checkout
-      and the CMSSW area, FastSetup from scratch (the component checklist, the install screen, the user config made
-      at the end; `Framework/python/_internal/setup_manifest.json` written). Then `cmsenv`, `scram b`, `python3 -c
-      "from TauFW.Framework import Framework; from TauFW.Framework._internal.menu import ConsoleUI; from
-      TauFW.Utilities.Process import ProcessRunner"`. `python3 Tests/run.py all` as before (`bbb check` without
-      re-lock). Example recipes: `python3 taufw.py check` and `plan` for `Analyses/Examples/mutau_short`,
-      `mutau_long`, `cmsdas26_ztt`, `Analyses/tes_id_2025` (same as before; `broken` must still show its problems),
-      `python3 taufw.py init` of a new bundle. `python3 taufw.py`: main menu, Tests (a run followed to the end, then
-      again from the main menu), Modify User Config (the editor), a run's Continue screen, a python step run
-      (`step_runner.py` from its new path). An existing checkout instead: after `git pull`, `find Framework/python
-      Utilities/python -name __pycache__ -prune -exec rm -rf {} +` before `scram b`.
+- [ ] **One entry point and the Framework's `_internal` (CL §53, §52, §51):** a fresh install: delete the
+      checkout and the CMSSW area, clone, `source taufw.sh` (the component checklist, the install screen, the
+      user config made at the end with `open_menu_on_start` as a comment line;
+      `Framework/python/_internal/setup_manifest.json` written); the menu opens. Leave it: `type taufw` is a
+      function, `echo $TAUFW_BASE` is the installed checkout, `taufw` opens the menu again from another
+      directory, `bash -c 'taufw --help'` works. A new terminal: `source taufw.sh` activates without installing;
+      with `open_menu_on_start: false` in the user config it prints the one line instead of the menu. Then
+      `python3 -c "from TauFW.Framework import Framework; from TauFW.Framework._internal.menu import ConsoleUI;
+      from TauFW.Utilities.Process import ProcessRunner"`. `python3 Tests/run.py all` as before (`bbb check`
+      without re-lock). Example recipes: `taufw check` and `taufw plan` for `Analyses/Examples/mutau_short`,
+      `mutau_long`, `cmsdas26_ztt`, `Analyses/tes_id_2025` (same as before; `broken` must still show its
+      problems), `taufw init` of a new bundle. In the menu: Tests (a run followed to the end, then again from the
+      main menu), Modify User Config (the editor), a run's Continue screen, a python step run (`step_runner.py`
+      from its new path). An existing checkout instead: after `git pull`, `find Framework/python Utilities/python
+      -name __pycache__ -prune -exec rm -rf {} +`, `scram b`, `source taufw.sh` (no reinstall).
 
 - [ ] **`common.tools.file` to FileIO (CL §50):** with `cmsenv`, `python3 Tests/run.py all`: `normal` passes as
       before and `bbb check` 24/24 without re-lock; `python3 -c "from TauFW.Plotter.sample.utils import ensuredir;
@@ -75,15 +79,15 @@ The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go he
       as before): after the installation `Framework/python/_internal/setup_manifest.json` lists the selected IDs
       without `combine`. Start a new run: `tes_id_2025` is yellow, its preview has "stages[3] (fit): needs Combine +
       CombineHarvester ... choose "Install components" in the menu and select it"; [Examples] > `cmsdas26_ztt`
-      the same for `stages[12] (python)`; `python3 taufw.py check Analyses/tes_id_2025` prints it. Install again
+      the same for `stages[12] (python)`; `taufw check Analyses/tes_id_2025` prints it. Install again
       with Combine: the warnings are gone. A checkout installed before this change (no manifest): no warning.
 
-- [ ] **Examples under [Examples] (CL §47):** `python3 taufw.py` > Start a new run: the list has `tes_id_2025` (and
+- [ ] **Examples under [Examples] (CL §47):** `taufw` > Start a new run: the list has `tes_id_2025` (and
       your own analyses), no `example_*`; the rows end `Enter another recipe path`, `[Examples]`, `Back`.
       `[Examples]` lists `broken` (red), `cmsdas26_ztt`, `mutau_long`, `mutau_short`, then `Back` (back to the recipe
       list); an empty line parts the recipes from the menu's own rows, and the runs of Continue/Inspect from
       `Enter another run directory`; `View detailed plan` of `mutau_short` works; a started example goes back to the main menu.
-      `python3 taufw.py check Analyses/Examples/broken` (4 problems, exit 1) and `plan Analyses/Examples/mutau_short`
+      `taufw check Analyses/Examples/broken` (4 problems, exit 1) and `plan Analyses/Examples/mutau_short`
       as before. Paste their outputs again into `Docs/Guide/1-GettingStarted/FirstSession.md` and `UserConfig.md`
       (only the paths were changed by hand). Run `Analyses/Examples/cmsdas26_ztt` once (about 1.5 h; its steps were
       reorganized without a change of logic, checked on Windows only): `stages/xsec_fit/results.txt` as in
@@ -102,7 +106,7 @@ The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go he
 
 - [ ] **Retry of a production stage after max_tries (CL §48):** a short production run (e.g. `max_tries: 1`) where
       a chunk fails (a sample with a bad file, or `condor_rm` one job and remove its output): the run ends FAILED
-      "... after 1 tries" and `taufw.py` names `taufw.py retry`. Menu > Continue: "Run failed at production" with
+      "... after 1 tries" and `taufw` names `taufw retry`. Menu > Continue: "Run failed at production" with
       `Retry production`, "with 1 more tries (up to try 2)"; the grid-proxy check comes first when the proxy is gone.
       The retry resubmits only the failed chunks (PicoProducer try 2, `condor_q`), nothing is moved (job files,
       `stages/production/`), run.json `retries` has `archive: null`, `max_tries: 2`; once the jobs end, the run merges
@@ -115,31 +119,31 @@ The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go he
       stages, and `hists`, `plots`, `tagger_roc*`, `sf_nominal` do not run again. Check `logs/sf_tauid/attempt1/`
       (log and `stage/`), `run.json` (`retries`, `bundle.changed`), the manifests (`bundle_changed`: false for the
       first five, true from `sf_tauid` on), one warning in `run.log`. (2026-10-27: a retry of `sf_tauid` worked on lxplus in the CDTest run, but that run
-      started before CL §44, so the bundle check was not tested.) `python3 taufw.py retry <run>` of a DONE run:
+      started before CL §44, so the bundle check was not tested.) `taufw retry <run>` of a DONE run:
       one line, exit 1. `python3 Tests/run.py bbb check` 24/24 without re-lock (`framework.production`).
 
-- [ ] **No QCD for a setup (CL §43):** `python3 taufw.py start Analyses/Examples/cmsdas26_ztt`: the mumu
+- [ ] **No QCD for a setup (CL §43):** `taufw start Analyses/Examples/cmsdas26_ztt`: the mumu
       file `stages/hists/hists/2024/mumu.root` has no QCD histogram in `exp` and its plots no QCD entry; mutau keeps
       QCD. (2026-10-27, CDTest run on lxplus: `mumu.root` has no key named QCD, `mutau.root` has; read without
       ROOT, the plots not looked at.)
       `cd Histogrammer; ./fillhists.py -y 2024 -c mumu --tuples <pattern> -S baseline -V m_vis` (template, no key)
       still shows QCD.
-- [ ] **Run status and PAUSED in the menu (CL §42):** `python3 taufw.py menu` > Inspect run status > a DONE run:
-      the state line says `READING STATUS | ... | taufw.py status` with `Reading the run status...` in the Output,
-      then `00:01 | taufw.py status` (no `RUNNING`/`DONE`); View detailed plan says `READING PLAN`. The run list
+- [ ] **Run status and PAUSED in the menu (CL §42):** `taufw menu` > Inspect run status > a DONE run:
+      the state line says `READING STATUS | ... | taufw status` with `Reading the run status...` in the Output,
+      then `00:01 | taufw status` (no `RUNNING`/`DONE`); View detailed plan says `READING PLAN`. The run list
       shows `menutest_20261021-180111` (stopped at `second`) as `PAUSED`; during "Advance to the end" of a run it
-      shows `RUNNING`, and again during `python3 taufw.py advance <run_dir> --wait` from a second terminal.
+      shows `RUNNING`, and again during `taufw advance <run_dir> --wait` from a second terminal.
 - [ ] **User config settings (CL §41):** in an installed checkout without `Analyses/UserConfig.yaml`,
-      `python3 taufw.py userconfig` writes the lxplus guesses (`taufw/` on EOS; `run_root` if the AFS work area
-      exists; values of `PicoProducer/config/config.json` if it exists); `python3 taufw.py plan
+      `taufw userconfig` writes the lxplus guesses (`taufw/` on EOS; `run_root` if the AFS work area
+      exists; values of `PicoProducer/config/config.json` if it exists); `taufw plan
       Analyses/Examples/mutau_short` shows `Run root: ... (user config)` and `from your user config: ...`; a
       `plan --local` test runs with the user config's `outdir`; `python3 Tests/run.py bbb check` passes without
       re-lock. 2026-10-27 on lxplus: `userconfig` and `plan` work (outputs pasted into the Manual), `bbb check` running.
-      Still to paste: the FastSetup summary with its `User config` line (`UserConfig.md`) and `taufw.py --help`
+      Still to paste: the FastSetup summary with its `User config` line (`UserConfig.md`) and `taufw --help`
       (`FirstSession.md`).
-- [ ] **User config (CL §40):** a FastSetup install (or `python3 taufw.py userconfig` in an installed checkout) makes
+- [ ] **User config (CL §40):** a FastSetup install (or `taufw userconfig` in an installed checkout) makes
       `Analyses/UserConfig.yaml` and its summary names it; `git status` does not list it; the menu does not show it as
-      a recipe; `python3 taufw.py check Analyses/tes_id_2025` warns "not reviewed yet" in one line until
+      a recipe; `taufw check Analyses/tes_id_2025` warns "not reviewed yet" in one line until
       `reviewed: true`. `python3 Tests/run.py bbb check` passes without re-lock (the workspace has its own reviewed file).
 
 - [ ] **`getmcsample` takes `tuples=` (CL §39):** with `cmsenv`, `python3 Tests/run.py normal --case
@@ -273,7 +277,7 @@ Each changes logs, so do each in its own commit, with a BBB re-lock where a base
       (latent).
 - [ ] K04: production's tuple artifacts have no `kind`, so a filter by `kind='tuples'` finds none (latent).
 - [x] K05: fixed in CL §38 (one test, `bundle.is_absolute`).
-- [ ] K07: `taufw.py status` shows the last `advance`'s message ("... failed or missing; resubmitting") next to a live
+- [ ] K07: `taufw status` shows the last `advance`'s message ("... failed or missing; resubmitting") next to a live
       job table that says complete; reads as a contradiction (message only; seen on lxplus, CL §16).
 
 **Jobs/workers audit follow-ups** ([JobsWorkersAudit.md](JobsWorkersAudit.md) §7; none needed for correctness):
@@ -327,15 +331,15 @@ Parts 1–5 are done (CL §5–§8; the Part 2 changelog section was removed).
       file there (instead of `ctx.stage_dir`) shows up as a bundle change ("added"). Decide whether to say so in the
       warning, or run the steps elsewhere. (2) A reader of another run's stage (`{path: ...}`) records the source's
       `manifest_sha256` but not its `bundle_changed`: add it to `StageDir.summary()` if the readers should see it.
-      (3) `taufw.py status` does not show `bundle.changed` or `retries` yet.
+      (3) `taufw status` does not show `bundle.changed` or `retries` yet.
 - [ ] **`RUNNING` means "half done", not "an advance works on it" (user, 2026-10-27; menu workaround CL §42).**
       `RunRecord.state` (`Framework/python/run_record.py`) is computed from the stage states only, and `RUNNING` is
       its last rule: everything that is not FAILED, all DONE, WAITING, BLOCKED or all NEW. So a run whose advance
       was stopped between two stages (`slow: DONE`, `second: NEW`) says `RUNNING` forever, also days later, until
       it is advanced again. Seen in the menu (2026-10-27): `menutest_20261021-180111 | RUNNING | ... | advance:
-      Stopped at second`, and `taufw.py status` printed `=== Run ...: RUNNING ===`.
+      Stopped at second`, and `taufw status` printed `=== Run ...: RUNNING ===`.
       **Done for now (B1, CL §42):** only the menu's run list says `PAUSED` (`MenuNavigation._summary`: no running
-      advance behind the menu and no live `advance.lock`). `run.json`, `taufw.py status`, `RunState` and the
+      advance behind the menu and no live `advance.lock`). `run.json`, `taufw status`, `RunState` and the
       Continue checks are unchanged, so the menu and the CLI disagree (`PAUSED` vs `RUNNING`).
       **To do (B2, the real fix):** split the state in the Framework:
       (1) the state computed from the stages: rename the last rule `RUNNING` -> `PAUSED` (a stage started, none
@@ -378,7 +382,7 @@ Parts 1–5 are done (CL §5–§8; the Part 2 changelog section was removed).
       work (user, 2026-10-17).
 - [ ] **Menu as a program, next steps** (CL §18, §18; decisions in §23): (1) `advance` lock in the run
       directory (O_EXCL file: pid, host, time; also the CLI; refused while held on another machine; taken over on
-      request when its operation is Lost) and a safe stop in `taufw.py` (SIGINT waits for a job submission to finish
+      request when its operation is Lost) and a safe stop in `taufw` (SIGINT waits for a job submission to finish
       and for `run.json`, a local command is stopped at once); (2) the run screen: the test screen split into a
       shared core (layout + model) and the test model, the run model on the Framework side, the log path in the
       `progress` event (`run_all` computes it after `progress(..., None)`), start/advance as operations
@@ -444,7 +448,7 @@ Next-work proposals (not designed in detail yet):
         (from one directory): two production stages (nominal, variations) cannot feed one shapes stage
         (the `histograms` stage until CL §21, S4a).
         (3) The run has one PicoProducer
-        configuration (`pico.config`); `Framework._pico_config` and `taufw.py plan --local` take the first
+        configuration (`pico.config`); `Framework._pico_config` and `taufw plan --local` take the first
         production stage (`recipe.first('production')`).
       - *What would make it possible:* the job files in the stage's directory (jobdir/outdir per stage), a
         PicoProducer configuration per production stage, and list-valued input slots (or one directory for the
@@ -457,7 +461,7 @@ Next-work proposals (not designed in detail yet):
       for every key, `../` allowed, no module fallback, nothing expanded, one absolute test). The item was:
       stage path options and `pico.config` (relative: the bundle file if it exists, else the module resolves it;
       `pico.config` above the bundle is made absolute when loaded), `run_root` (absolute; `~` and `$VARIABLES`
-      expanded where `taufw.py` runs, with a warning), `{external: <pattern>}` (absolute only, nothing expanded) and,
+      expanded where `taufw` runs, with a warning), `{external: <pattern>}` (absolute only, nothing expanded) and,
       from R4, `{path: <stage directory>}` (absolute only for now, decided 2026-10-17; relative to the recipe's
       directory was the first plan). The absolute test also differs: `_is_absolute` (posixpath or os.path) in
       `recipe.py`, `os.path.isabs` elsewhere ([Framework BUGS](../Bugs.md#framework) K05). Decide one rule (what is
@@ -487,7 +491,7 @@ Next-work proposals (not designed in detail yet):
 Other limitations ([Analyses/README.md](../../../Analyses/README.md) "Current limitations"; CL §10, §11):
 
 - [ ] **Config templates (CL §19), open points.**
-      - Acknowledging an old copy: `taufw.py check` warns as long as a bundle copy is older than its template in
+      - Acknowledging an old copy: `taufw check` warns as long as a bundle copy is older than its template in
         `Configs/`, also when the analysis keeps the old version on purpose (e.g. to reproduce a published result).
         For now a plain warning (user, 2026-10-17); if it becomes noise, a recipe key that accepts a named
         id/version.
@@ -500,11 +504,11 @@ Other limitations ([Analyses/README.md](../../../Analyses/README.md) "Current li
         `PicoProducer/config/` (internal, user/machine settings) never move. For every move: a `taufw_config`
         header; the reader must ignore that key; the default paths of the scripts (`plot.py`
         `config/setup_%s.yml`, `createinputsTES.py`), the `run_*.sh` scripts, the API path resolution ("relative to
-        Plotter/ or Fitter/"), the bundle path rule (`module`), `taufw.py init --from`, docs and BBB cases name the
+        Plotter/ or Fitter/"), the bundle path rule (`module`), `taufw init --from`, docs and BBB cases name the
         old paths (20-32 files per directory); the copies already in `Analyses/*/` have no header and need one.
-      - Optional: a git pre-commit hook that runs `taufw.py configs update`, so the lock never needs a test failure
+      - Optional: a git pre-commit hook that runs `taufw configs update`, so the lock never needs a test failure
         to be noticed (hooks are per clone: needs a setup step).
-      - The menu does not list the templates yet (`taufw.py configs` does).
+      - The menu does not list the templates yet (`taufw configs` does).
 - [ ] Only the uncorrelated DeepTau option-3 fit is wrapped (no corrTES, fullcorr, PNet, UParT).
 - [ ] Trigger stage (was out of scope).
 - [ ] Plotter and Fitter are wrapped as they are; clean them up behind the same APIs.

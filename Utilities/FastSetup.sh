@@ -478,7 +478,7 @@ choose_release_area() {
 
   target=$cmssw_dir/src/TauFW
   if [[ $repo_dir != "$target" && (-e $target || -L $target) ]]; then
-    die "Destination already exists: $target. Source its setup.sh or choose another --cmssw-dir."
+    die "Destination already exists: $target. Source its taufw.sh or choose another --cmssw-dir."
   fi
 }
 
@@ -754,7 +754,7 @@ create_user_config() {
     log "$line"
     user_config=$path
   else
-    warn "Could not create the user config $path: run python3 taufw.py userconfig later."
+    warn "Could not create the user config $path: run taufw userconfig later."
   fi
 }
 
@@ -865,7 +865,7 @@ print_summary() {
   if [[ -n ${FASTSETUP_RESULT_FILE:-} ]]; then
     printf '\nPress Enter to close and activate the environment.\n'
   else
-    printf '\nActivate in your terminal:\n  source %q\n' "$repo_dir/setup.sh"
+    printf '\nActivate in your terminal:\n  source %q\n' "$repo_dir/taufw.sh"
   fi
 }
 

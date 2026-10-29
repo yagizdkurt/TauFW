@@ -10,11 +10,16 @@ Log in to lxplus and go to your TauFW folder. FastSetup put it inside the CMSSW 
 
 ```bash
 cd ~/CMSSW_14_1_0_pre4/src/TauFW
-source setup.sh
+source taufw.sh
 ```
 
-You do this every time you open a new terminal. The first `source setup.sh` installed everything. From now on it
+You do this every time you open a new terminal. The first `source taufw.sh` installed everything. From now on it
 just sets up the environment (it runs `cmsenv` for you) and opens the TauFW menu. It's quick.
+
+It also gives your terminal the command `taufw`. Left the menu? Type `taufw` to open it again, from any folder.
+`taufw --help` lists the commands behind the menu ([Using the Framework with commands](../4-Concepts/UsingFWWithCommands.md)).
+If you'd rather not see the menu every time, set `open_menu_on_start: false` in your
+[user config](UserConfig.md).
 
 ## The menu
 

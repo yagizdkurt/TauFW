@@ -21,7 +21,7 @@ from ._template import HEADER_KEY, VERSION
 FILE_NAME = "UserConfig.yaml"
 ENVVAR = "TAUFW_USER_CONFIG"  # another file instead of Analyses/UserConfig.yaml (e.g. one for several checkouts)
 DEFAULT_PATH = TAUFW_ROOT / "Analyses" / FILE_NAME
-CREATE_COMMAND = "python3 taufw.py userconfig"
+CREATE_COMMAND = "taufw userconfig"
 
 
 class UserConfigError(Exception):

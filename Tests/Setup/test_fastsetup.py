@@ -95,7 +95,7 @@ print_summary
         self.assertIn("[OK]   TauIDSFs: Verified this run", output)
         self.assertIn("HTT efficiencies: Not selected", output)
         self.assertIn("NanoAODTools: using the CMSSW version", output)
-        self.assertIn("source /installed/TauFW/setup.sh", output)
+        self.assertIn("source /installed/TauFW/taufw.sh", output)
         self.assertNotIn("Manual activation", output)
         self.assertNotIn("checkout was moved", output)
         self.assertNotIn("\x1b[", output)
