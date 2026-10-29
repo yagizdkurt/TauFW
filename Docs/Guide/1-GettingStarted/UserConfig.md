@@ -23,11 +23,14 @@ Before saving, TauFW checks the YAML and its own settings. If something is wrong
 On lxplus, a new one looks like this:
 
 ```yaml
-# Example
+# TauFW user configuration: your personal and machine settings.
+# Guessed for lxplus (user jdoe).
 
 taufw_user:
   version: 1           # the format of this file (set by TauFW, do not change)
   reviewed: false      # true: you checked this file
+notifications: true  # Set false to remove sound notifications.
+open_menu_on_start: true
 
 runs:
   # where your runs go when the recipe has no run_root and you give no --run-root
@@ -55,8 +58,9 @@ production:
     # maxopenfiles: 500
 ```
 
-The setup guessed the values that have no `#` in front. A line that starts with `#` is not set, and TauFW uses its
-own default for it. To set one, remove the `#` and change the value.
+`notifications` and `open_menu_on_start` are always written with their defaults. The setup guessed the other values
+that have no `#` in front. A line that starts with `#` is not set, and TauFW uses its own default for it. To set
+one, remove the `#` and change the value. Your own sections (like `mystudy:` below) are kept.
 
 ### Where the values come from
 
@@ -98,13 +102,13 @@ old result does not ring again, and waiting for batch jobs, automatic retries an
 Bells go only to an attached terminal, never into redirected error output or worker logs. The terminal controls
 the actual sound and visual alert.
 
-Notifications are enabled by default. To mute them, add this top-level setting to your user config:
+Notifications are enabled by default. To mute them, set this line of your user config to `false`:
 
 ```yaml
 notifications: false
 ```
 
-Set it to `true` or remove it to enable bells again. The menu reads the preference for each notification,
+Set it back to `true` (or remove the line) to enable bells again. The menu reads the preference for each notification,
 so changes apply without restarting it.
 
 In VS Code, enable `accessibility.signals.terminalBell` with `"sound": "on"` and, optionally,

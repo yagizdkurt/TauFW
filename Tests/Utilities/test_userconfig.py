@@ -62,7 +62,8 @@ class UserConfigTests(unittest.TestCase):
         config = UserConfig.load(self.path)
         self.assertTrue(config.exists)
         self.assertEqual((config.version, config.reviewed), (1, False))
-        self.assertEqual([s.key for s in manage.SETTINGS if config.get(s.key) is not None], [])  # all commented
+        self.assertEqual([s.key for s in manage.SETTINGS if config.get(s.key) is not None],
+                         [s.key for s in manage.SETTINGS if s.written])  # the others are commented
         self.assertEqual(manage.check(config),
                          ["User config %s is not reviewed yet: check its values, then set reviewed: true"
                           % (self.path)])
@@ -143,9 +144,11 @@ class UserConfigTests(unittest.TestCase):
         text = self.path.read_text(encoding="utf-8")
         self.assertIn("# Guessed for lxplus (user jdoe).", text)
         self.assertIn('  # batchopts: ""', text)  # not set: a comment line with an example
+        self.assertIn("notifications: true  # Set false to remove sound notifications.\nopen_menu_on_start: true\n", text)
         config = UserConfig.load(self.path)
         for setting in manage.SETTINGS:
-            self.assertEqual(config.get(setting.key), values.get(setting.key), setting.key)
+            expected = values.get(setting.key, setting.example if setting.written else None)
+            self.assertEqual(config.get(setting.key), expected, setting.key)
         self.assertEqual(manage.setting_problems(config), [])
 
     def test_wrong_settings_are_named_with_their_key(self):

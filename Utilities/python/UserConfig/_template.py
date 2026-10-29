@@ -3,7 +3,8 @@
 
 SETTINGS lists every setting: its dotted key, its kind (checked by setting_problems()) and the comment written above
 it in a new file. A new file writes a value for every setting create() could guess or take over (manage.py), and the
-others as comment lines (not set: the reader uses its own default). To add a setting, add it here and to its
+others as comment lines (not set: the reader uses its own default). A setting with `written` is always written, its
+example as the value and its comment (if any) on the same line. To add a setting, add it here and to its
 reader (Framework/python/_internal/user_settings.py for the Framework). Raise VERSION when the format changes, not
 when a setting is added.
 """
@@ -13,16 +14,14 @@ from collections import namedtuple
 HEADER_KEY = "taufw_user"  # the header mapping: version, reviewed
 VERSION = 1                # the format of the file
 
-Setting = namedtuple("Setting", "key kind example comment")
+Setting = namedtuple("Setting", "key kind example comment written", defaults=(False,))
 
 # kind: 'run_root' an absolute directory, nothing expanded (as run_root in a recipe); 'pattern' a non-empty
 # directory pattern ($ERA, $CHANNEL, ... filled by PicoProducer); 'directory' a non-empty directory; 'text' any
 # string; 'count' a whole number from 1; 'boolean' true or false.
 SETTINGS = (
-    Setting("notifications", "boolean", True,
-            "terminal bells for completed operations and errors; false disables them (default: true)"),
-    Setting("open_menu_on_start", "boolean", True,
-            "source taufw.sh opens the menu; false: it only activates TauFW (default: true)"),
+    Setting("notifications", "boolean", True, "Set false to remove sound notifications.", written=True),
+    Setting("open_menu_on_start", "boolean", True, "", written=True),
     Setting("runs.run_root", "run_root", "/afs/cern.ch/work/u/user/taufw_runs",
             "where your runs go when the recipe has no run_root and you give no --run-root"),
     Setting("production.batch", "text", "HTCondor", "the batch system: HTCondor, SLURM, ..."),
@@ -65,6 +64,10 @@ def default_text(values=None, sources=()):
             lines.append("  " * depth + "%s:" % (sections[depth]))
         opened = tuple(sections)
         indent = "  " * len(sections)
+        if setting.written:
+            value = "%s: %s" % (name, _yaml(values.get(setting.key, setting.example)))
+            lines.append(indent + value + ("  # %s" % (setting.comment) if setting.comment else ""))
+            continue
         lines.append("%s# %s" % (indent, setting.comment))
         if setting.key in values:
             lines.append("%s%s: %s" % (indent, name, _yaml(values[setting.key])))
@@ -74,12 +77,7 @@ def default_text(values=None, sources=()):
 
 
 HEAD = """\
-# TauFW user configuration: your personal and machine settings.
-#
-# Made by the setup (or `taufw userconfig`). Git ignores this file and nothing overwrites it.
-# Check the values below, then set reviewed to true: until then, taufw check, plan and start warn.
-# A line that starts with # is not set: TauFW uses its own default. Remove the # to set it.
-# Your own sections (e.g. mystudy:) are kept: read them with TauFW.Utilities.UserConfig."""
+# TauFW user configuration: your personal and machine settings."""
 
 
 # =============================================================================

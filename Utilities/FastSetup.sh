@@ -590,9 +590,7 @@ create_release() {
     log "Creating $cmssw_dir"
     mkdir -p -- "$(dirname -- "$cmssw_dir")"
     # cmsrel is an alias for this command, and aliases do not work in scripts.
-    # Without a terminal scram warns that its release checks are off; RELEASE is fixed and SCRAM_ARCH is checked above.
-    (cd -- "$(dirname -- "$cmssw_dir")" && scram project CMSSW "$RELEASE") 2>&1 |
-      { grep -v 'In non-interactive mode release checks' || true; }
+    (cd -- "$(dirname -- "$cmssw_dir")" && scram project CMSSW "$RELEASE")
   fi
   [[ -d $cmssw_dir/src && -d $cmssw_dir/.SCRAM ]] ||
     die "Not a complete CMSSW release area: $cmssw_dir. If an earlier run was interrupted while creating it, remove it and rerun."

@@ -190,7 +190,7 @@ class Worker:
         self.lines.append(line)
         if line.strip():
             self.latest = line
-        if DIAGNOSTIC.search(line):
+        if DIAGNOSTIC.search(line) and not known_harmless(line):
             self.diagnostic(line)
         if self.stage == "Build":
             if "Compiling python3 modules" in line:
@@ -488,6 +488,21 @@ def main(argv=None):
         if worker is None:
             return text_setup(args)
     return status
+
+
+# Known harmless warnings: kept in the log, left out of the diagnostics list.
+# Each entry is a group of texts that must all appear in the line; add a new
+# entry only for a warning that is understood, and say why it is harmless.
+KNOWN_HARMLESS = (
+    # scram project without a terminal; RELEASE is fixed and SCRAM_ARCH is checked by FastSetup.sh.
+    ("WARNING: In non-interactive mode release checks",),
+    # GCC 12 false positive in its own std::allocator while building Combine/CombineHarvester.
+    ("/cvmfs/cms.cern.ch/", "/bits/new_allocator.h:", "warning: 'operator delete' called on", "-Wfree-nonheap-object"),
+)
+
+
+def known_harmless(line):
+    return any(all(text in line for text in entry) for entry in KNOWN_HARMLESS)
 
 
 if __name__ == "__main__":
