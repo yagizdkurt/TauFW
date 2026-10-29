@@ -45,7 +45,7 @@ def unicode_enabled():
     if language.upper() in ("C", "POSIX"):
         return False
     try:
-        "????".encode(sys.stdout.encoding or locale.getpreferredencoding(False))
+        "✓✗·".encode(sys.stdout.encoding or locale.getpreferredencoding(False))
         return True
     except (UnicodeEncodeError, LookupError):
         return False
@@ -383,7 +383,7 @@ def progress(ui, screen, worker):
             action = "Ctrl+C Cancel"
             if worker.returncode is not None:
                 action = "Enter Activate" if worker.returncode == 0 and os.environ.get("FASTSETUP_RESULT_FILE") else "Enter Close"
-            separator = " ? " if unicode_enabled() else " | "
+            separator = " · " if unicode_enabled() else " | "
             footer = separator.join(["L View log", action])
             if width >= 65:
                 footer = separator.join(["L Log/result", "Up/Down/PgUp/PgDn Scroll", action])
