@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch
 from types import SimpleNamespace
 
 REPO = Path(__file__).resolve().parents[2]
-INSTALLER = REPO / "Utilities/python/Internal/Installer/setup_tools.py"
+INSTALLER = REPO / "Framework/python/_internal/installer/setup_tools.py"
 BASH = shutil.which("bash")
 if BASH is None:
     git = shutil.which("git")
@@ -363,18 +363,18 @@ move_dir "$PWD/original" "$PWD/destination/TauFW"
     def test_shell_finds_helper_before_and_after_checkout_relocation(self):
         with tempfile.TemporaryDirectory() as fixture:
             directory = Path(fixture)
-            shutil.copytree(INSTALLER.parent, directory / "original/Utilities/python/Internal/Installer",
+            shutil.copytree(INSTALLER.parent, directory / "original/Framework/python/_internal/installer",
                             ignore=shutil.ignore_patterns("__pycache__"))
             output, _ = self.run_script(r'''
 repo_dir=$PWD/original
 target=$PWD/installed
 installer_python --help
 move_checkout
-installer_python modules --root "$repo_dir" Installer:rename_directory
+installer_python modules --root "$repo_dir" installer:rename_directory
 ''', directory=directory, helper_from_checkout=True)
-            self.assertIn("Installer:", output)
+            self.assertIn("installer:", output)
             self.assertFalse((directory / "original").exists())
-            self.assertTrue((directory / "installed/Utilities/python/Internal/Installer/setup_tools.py").is_file())
+            self.assertTrue((directory / "installed/Framework/python/_internal/installer/setup_tools.py").is_file())
 
     def test_move_rejects_existing_destination_without_changing_either_copy(self):
         output, directory = self.run_script(r'''

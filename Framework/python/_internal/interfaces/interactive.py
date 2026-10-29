@@ -1,8 +1,8 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-"""Framework adapters for the Utilities menu navigation.
+"""Framework adapters for the menu navigation (_internal/menu).
 
 Discovery, path resolution, record access, validation, and CLI dispatch belong
-here. Presentation and screen transitions live in TauFW.Utilities.Internal.Menu. Every
+here. Presentation and screen transitions live in TauFW.Framework._internal.menu. Every
 command runs behind the menu as taufw.py (OperationStore): start/advance/retry
 (kind "run"), plan/status (kind "command", read only) and the tests; the
 menu's own process reads recipes, run.json, check_recipe and a dry plan. The
@@ -24,25 +24,26 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from TauFW.Framework.defaults import (ANALYSES_DIR, BUNDLE_DIR_NAME, CONFIGS_DIR, DEFAULT_RUN_ROOT, EXAMPLES_DIR_NAME,
-                                      RECIPE_NAME, RUN_RECORD_NAME, STAGES_DIR_NAME, TIME_FORMAT)
-from TauFW.Framework.runtime.run_record import RunRecord, RunState
-from TauFW.Framework.recipes.recipe import Recipe, read_recipe
-from TauFW.Framework.recipes.validation import check_recipe
-from TauFW.Framework.recipes.analysis import create_analysis
-from TauFW.Framework.recipes.bundle import bundle_changes, bundle_hashes
-from TauFW.Framework.runtime.framework import Framework, retryable_stage
-from TauFW.Framework.runtime.reporting import SilentReporter
-from TauFW.Framework.runtime.run_lock import read_lock
+from TauFW.Framework._internal.defaults import (ANALYSES_DIR, BUNDLE_DIR_NAME, CONFIGS_DIR, DEFAULT_RUN_ROOT,
+                                                EXAMPLES_DIR_NAME, RECIPE_NAME, RUN_RECORD_NAME, STAGES_DIR_NAME,
+                                                TIME_FORMAT)
+from TauFW.Framework._internal.runtime.run_record import RunRecord, RunState
+from TauFW.Framework._internal.recipes.recipe import Recipe, read_recipe
+from TauFW.Framework._internal.recipes.validation import check_recipe
+from TauFW.Framework._internal.recipes.analysis import create_analysis
+from TauFW.Framework._internal.recipes.bundle import bundle_changes, bundle_hashes
+from TauFW.Framework._internal.runtime.framework import Framework, retryable_stage
+from TauFW.Framework._internal.runtime.reporting import SilentReporter
+from TauFW.Framework._internal.runtime.run_lock import read_lock
 from TauFW.Framework.stages.production import ProductionSpec
-from TauFW.Framework.version import VersionChecker
-from TauFW.Utilities.Internal.Menu import ConsoleUI, MenuNavigation, Prefetch
+from TauFW.Framework._internal.version import VersionChecker
+from TauFW.Framework._internal.menu import ConsoleUI, MenuNavigation, Prefetch
 from TauFW.Utilities import UserConfig
 from TauFW.Utilities.UserConfig import manage as user_config
-from TauFW.Framework.user_settings import run_root_or_none as user_run_root
-from TauFW.Utilities.Internal.Operations import LOST, EventReader, OperationStore
+from TauFW.Framework._internal.user_settings import run_root_or_none as user_run_root
+from TauFW.Framework._internal.operations import LOST, EventReader, OperationStore
 
-CHECKOUT = Path(__file__).resolve().parents[3]
+CHECKOUT = Path(__file__).resolve().parents[4]
 OPERATIONS_DIR = CHECKOUT / ".artifacts" / "menu" / "operations"  # what runs behind the menu (git-ignored)
 TAUFW_SCRIPT = CHECKOUT / "Framework" / "scripts" / "taufw.py"
 PROXY_MARGIN = 60  # seconds a proxy must still be valid for (voms-proxy-info --valid 0:01 before)
@@ -338,7 +339,7 @@ class _Operations:
             raise RuntimeError("Invalid test catalog from Tests/run.py; check the checkout: %s" % error) from error
 
     def start_tests(self, family, cases, title=None, expected=()):
-        """Start Tests/run.py behind the menu; return its Utilities.Internal.Operations.Operation (its output and its
+        """Start Tests/run.py behind the menu; return its Framework._internal.operations.Operation (its output and its
         events, Tests/support/events.py, are in its directory under .artifacts/menu/operations/). title and
         expected (the case ids shown as waiting) are kept with it, for its screen in a later menu. One test run
         at a time: RuntimeError while one runs (Tests/run.py and its logs are shared). The oldest records are
@@ -664,7 +665,7 @@ def run_menu(parser):
         return 1
     try:
         # one curses session: nothing is printed between two screens; the lists are read ahead by a thread
-        from TauFW.Utilities.Internal.Notifications import OperationNotifications
+        from TauFW.Framework._internal.notifications import OperationNotifications
         menu = Menu(ui, prefetch=Prefetch())
         with OperationNotifications(menu.operations.store.root):
             return ui.session(menu.run)

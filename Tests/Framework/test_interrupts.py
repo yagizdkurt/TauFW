@@ -8,8 +8,8 @@ import unittest
 import checkout  # noqa: F401  (must precede TauFW imports)
 import fakes
 from TauFW.Framework import RunRecord, SilentReporter
-from TauFW.Framework.runtime.interrupts import deferred_interrupt
-from TauFW.Framework.runtime.run_lock import LOCK_NAME
+from TauFW.Framework._internal.runtime.interrupts import deferred_interrupt
+from TauFW.Framework._internal.runtime.run_lock import LOCK_NAME
 from test_framework import framework
 
 

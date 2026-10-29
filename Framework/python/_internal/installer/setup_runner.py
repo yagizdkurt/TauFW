@@ -19,15 +19,15 @@ import textwrap
 import time
 
 if __package__:
-    from ..Menu import ConsoleUI
-    from ..Notifications import bell
+    from ..menu import ConsoleUI
+    from ..notifications import bell
     from ._installer import COMPONENTS
 else:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "Utilities" / "python"))  # UserConfig
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from Menu import ConsoleUI
-    from Notifications import bell
-    from Installer import COMPONENTS
+    from menu import ConsoleUI
+    from notifications import bell
+    from installer import COMPONENTS
 
 
 STAGES = ("Preflight", "CMSSW environment", "Dependencies", "Build", "Verification")

@@ -10,8 +10,8 @@ if __package__:
                    python_environment_warnings)
 else:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from Installer import (COMPONENTS, rename_directory, verify_modules, verify_htt_files, write_setup_manifest,
-                           python_environment_warnings)
+    from installer import (COMPONENTS, rename_directory, verify_modules, verify_htt_files, write_setup_manifest,
+                         python_environment_warnings)
 
 
 # =============================================================================
@@ -63,9 +63,9 @@ def main(argv=None):
         print("Recorded the selected components in %s" % args.path)
     elif args.command == "userconfig":  # imported here: the other commands need only Installer
         if __package__:
-            from ...UserConfig import manage
-        else:  # UserConfig is in Utilities/python, beside Internal
-            sys.path.insert(1, str(Path(__file__).resolve().parents[2]))
+            from TauFW.Utilities.UserConfig import manage
+        else:  # UserConfig is in <checkout>/Utilities/python
+            sys.path.insert(1, str(Path(__file__).resolve().parents[4] / "Utilities" / "python"))
             from UserConfig import manage
         path = Path(args.path) if args.path else manage.location()
         print(("Created %s" if manage.create(path) else "Kept %s") % path)

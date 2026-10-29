@@ -51,11 +51,17 @@ Items marked **(verify)** may already be done; check before working on them.
 
 The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go here until they are run.
 
-- [ ] **Utilities Internal (CL §51):** after `git pull`, `find Utilities/python -name __pycache__ -prune -exec rm -rf {} +`,
-      `scram b`, then `python3 -c "from TauFW.Utilities.Internal.Menu import ConsoleUI; from TauFW.Utilities.Process
-      import ProcessRunner"`. `python3 Tests/run.py all` as before. FastSetup in a new checkout (the component
-      checklist, the install screen, the user config made at the end). `python3 taufw.py`: main menu, Tests (a run
-      followed to the end, then again from the main menu), Modify User Config (the editor), a run's Continue screen.
+- [ ] **The Framework's `_internal` (CL §52, includes the check of CL §51):** a fresh install: delete the checkout
+      and the CMSSW area, FastSetup from scratch (the component checklist, the install screen, the user config made
+      at the end; `Framework/python/_internal/setup_manifest.json` written). Then `cmsenv`, `scram b`, `python3 -c
+      "from TauFW.Framework import Framework; from TauFW.Framework._internal.menu import ConsoleUI; from
+      TauFW.Utilities.Process import ProcessRunner"`. `python3 Tests/run.py all` as before (`bbb check` without
+      re-lock). Example recipes: `python3 taufw.py check` and `plan` for `Analyses/Examples/mutau_short`,
+      `mutau_long`, `cmsdas26_ztt`, `Analyses/tes_id_2025` (same as before; `broken` must still show its problems),
+      `python3 taufw.py init` of a new bundle. `python3 taufw.py`: main menu, Tests (a run followed to the end, then
+      again from the main menu), Modify User Config (the editor), a run's Continue screen, a python step run
+      (`step_runner.py` from its new path). An existing checkout instead: after `git pull`, `find Framework/python
+      Utilities/python -name __pycache__ -prune -exec rm -rf {} +` before `scram b`.
 
 - [ ] **`common.tools.file` to FileIO (CL §50):** with `cmsenv`, `python3 Tests/run.py all`: `normal` passes as
       before and `bbb check` 24/24 without re-lock; `python3 -c "from TauFW.Plotter.sample.utils import ensuredir;
@@ -521,7 +527,7 @@ Other limitations ([Analyses/README.md](../../../Analyses/README.md) "Current li
 - Excluded broken cases `pico.sample` and `plotter.rdataframe`: defects and recorded evidence moved to
   [Docs/Develop/Bugs.md#legacy](../Bugs.md#legacy-excluded-broken-test-and-demonstration-scripts).
 - [ ] `Tests/PicoProducer/testSFs.py` still imports the legacy `MuonSFs_ROOT`. Nice to have.
-- [ ] **Flaky `RealStopTests.test_a_run_stop_is_a_keyboardinterrupt_in_the_command`** (`Tests/Utilities/test_operations.py`,
+- [ ] **Flaky `RealStopTests.test_a_run_stop_is_a_keyboardinterrupt_in_the_command`** (`Tests/Framework/test_operations.py`,
       failed once on lxplus953 2026-10-26 inside `checks`, CL §37 D1 run; nothing of `Utilities` changed there): the test
       cancels after a fixed `time.sleep(1.0)`; if the child interpreter has not reached its `try:` yet (slow start on a
       loaded node or AFS), the SIGINT comes before the handler, no marker is written. Fix: wait for a "ready" file the

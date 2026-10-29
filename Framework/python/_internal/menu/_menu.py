@@ -17,9 +17,9 @@ from .faq import FAQ
 from .banner import DECAY_SECONDS, INTERACTIONS, VERSION, WIDTH, branding, decay_frame
 
 if "." in __package__:
-    from ..Notifications import bell
+    from ..notifications import bell
 else:  # standalone installer
-    from Notifications import bell
+    from notifications import bell
 
 
 QUIT_WARNING = ("If you quit, they keep running, but only while this login session lasts. Logging out (closing "
@@ -613,7 +613,7 @@ class ConsoleUI:
         return back if selected is None else REFRESH if selected == REFRESH else actions[selected]
 
     def main_menu(self, proxy_valid=False, tests=None, runs=(), live=False, version=None, config_reviewed=True):
-        """tests: the last test run (a Utilities.Internal.Operations.Operation) or None; its state is shown next to
+        """tests: the last test run (a Framework._internal.operations.Operation) or None; its state is shown next to
         Tests ("Tests (Running 12/40)"). runs: the advances to show (Operations of kind "run": those behind the
         menu and those that ended unseen): one is a line of its own, "Run tes_2025 (3/5 plots)" (action "run"),
         more are "Runs (2 active)" (action "runs"). live: something runs behind the menu; without a key for
@@ -801,7 +801,7 @@ class ConsoleUI:
         return self._run(draw)
 
     def test_run(self, title, process, expected=()):
-        """Follow a test run (a Utilities.Internal.Operations.Operation) until the user leaves; the run goes on behind
+        """Follow a test run (a Framework._internal.operations.Operation) until the user leaves; the run goes on behind
         the menu. Return its exit code (None while it runs). expected: the case ids shown as waiting before they
         start."""
         # Imported here: FastSetup imports Menu on its own before TauFW is built, and never shows this screen.
@@ -828,7 +828,7 @@ class ConsoleUI:
     def edit_file(self, path, validate=None, *, title="Text editor", reference=None):
         """Open the independent editor only on request; contain even its import/terminal errors."""
         try:
-            from ..Editor import edit_file
+            from ..editor import edit_file
 
             def draw(screen):
                 self._setup(screen)

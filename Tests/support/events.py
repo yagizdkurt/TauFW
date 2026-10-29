@@ -2,7 +2,7 @@
 
 The protocol of TauFW.Utilities.Process (_events.py): one JSON object per line, {"t": <unix time>, "kind": ...}.
 It is repeated here so that Tests/run.py keeps running without the TauFW package (e.g. before `scram b`);
-Tests/Utilities/test_events.py checks that both sides agree. Without $TAUFW_EVENTS nothing is written, and a
+Tests/Framework/test_events.py checks that both sides agree. Without $TAUFW_EVENTS nothing is written, and a
 failed write never fails a test run. The kinds:
 
   suite       name, total                       a runner starts (checks, normal, bbb)

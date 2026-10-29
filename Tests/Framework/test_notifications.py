@@ -9,7 +9,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 import checkout  # noqa: F401
-from TauFW.Utilities.Internal import Notifications
+from TauFW.Framework._internal import notifications
 from TauFW.Utilities.UserConfig import load, manage
 
 
@@ -27,10 +27,10 @@ class NotificationTests(unittest.TestCase):
             self.assertEqual(manage.setting_problems(load(path), "notifications"), [])
             with mock.patch.dict(os.environ, {manage.ENVVAR: str(path)}):
                 terminal = Terminal()
-                self.assertFalse(Notifications.bell(terminal))
+                self.assertFalse(notifications.bell(terminal))
                 self.assertEqual(terminal.getvalue(), "")
                 path.write_text(path.read_text().replace("notifications: false", "notifications: true"))
-                self.assertTrue(Notifications.bell(terminal))
+                self.assertTrue(notifications.bell(terminal))
                 self.assertEqual(terminal.getvalue(), "\a")
                 path.write_text(path.read_text().replace("notifications: true", 'notifications: "false"'))
                 self.assertIn("must be true or false", manage.setting_problems(load(path))[0])
@@ -40,13 +40,13 @@ class NotificationTests(unittest.TestCase):
             path = Path(directory) / "UserConfig.yaml"
             with mock.patch.dict(os.environ, {manage.ENVVAR: str(path)}):
                 terminal, log = Terminal(), io.StringIO()
-                self.assertTrue(Notifications.bell(terminal))  # missing config: enabled
-                self.assertFalse(Notifications.bell(log))
+                self.assertTrue(notifications.bell(terminal))  # missing config: enabled
+                self.assertFalse(notifications.bell(log))
                 self.assertEqual(log.getvalue(), "")
                 terminal.close()
-                self.assertFalse(Notifications.bell(terminal))
+                self.assertFalse(notifications.bell(terminal))
                 path.write_text("invalid: [")
-                self.assertFalse(Notifications.bell(Terminal()))
+                self.assertFalse(notifications.bell(Terminal()))
 
     def test_menu_notifies_once_for_new_results_and_ignores_history_waiting_and_cancel(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -60,10 +60,10 @@ class NotificationTests(unittest.TestCase):
             test = operation("test")
             waiting = operation("waiting", kind="run")
             cancelled = operation("cancelled")
-            watcher = Notifications.OperationNotifications(directory)
+            watcher = notifications.OperationNotifications(directory)
             items = [old, test, waiting, cancelled]
             with mock.patch.object(watcher.store, "all", return_value=items), \
-                    mock.patch.object(Notifications, "bell") as bell:
+                    mock.patch.object(notifications, "bell") as bell:
                 watcher.poll(initial=True)
                 watcher.poll()
                 bell.assert_not_called()

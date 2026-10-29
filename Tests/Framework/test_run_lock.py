@@ -12,8 +12,8 @@ from unittest import mock
 import checkout  # noqa: F401  (must precede TauFW imports)
 import fakes
 from TauFW.Framework import RunRecord, RunLockError, SilentReporter, read_lock
-from TauFW.Framework.runtime import run_lock
-from TauFW.Framework.runtime.run_lock import LOCK_NAME, LOST_AFTER, RunLock
+from TauFW.Framework._internal.runtime import run_lock
+from TauFW.Framework._internal.runtime.run_lock import LOCK_NAME, LOST_AFTER, RunLock
 from test_framework import framework
 
 

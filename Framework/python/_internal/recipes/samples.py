@@ -23,7 +23,7 @@ Public API:
 """
 from fnmatch import fnmatch
 
-from TauFW.Framework.recipes.recipe import Issue
+from TauFW.Framework._internal.recipes.recipe import Issue
 from TauFW.Framework.stages import StageContext
 
 __all__ = ['sample_issues']

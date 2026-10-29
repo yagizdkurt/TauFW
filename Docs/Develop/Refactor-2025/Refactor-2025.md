@@ -2007,3 +2007,62 @@ makes `TauFW.Utilities.Menu` an empty namespace package, so an old import fails 
 
 **Unchanged:** every BBB baseline (nothing that writes output changed); the stages, analysis scripts and the public
 Utilities packages; the menu's behaviour.
+
+## 52. The Framework's inside moves to `Framework/python/_internal`, with TauFW's own tools from Utilities
+
+**Date:** 2026-10-29
+**Status:** done (lxplus check open: [TODO.md](TODO.md) section 1)
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#52-the-frameworks-inside-moves-to-frameworkpython_internal-with-taufws-own-tools-from-utilities)
+
+**Why:** someone opening `Framework/python` saw the runtime, the recipes, the menu adapter, defaults and settings
+side by side with the public API and the stages, and could not tell what is theirs. Measured before the move:
+nothing outside the Framework and `Tests/` imported a Framework submodule (analyses talk to it through recipes and
+step files only). The tools §51 had put in `Utilities/python/Internal` (menu, editor, installer, operations,
+notifications) were used by the Framework only, and the installer already wrote its manifest into
+`Framework/python/_internal/`. With them in the Framework, `Utilities/python` holds only libraries for analysis code.
+User decisions (2026-10-29): move Utilities/Internal; everything of the Framework except `__init__.py` and `stages/`
+goes into `_internal`; lower-case folder names; no aliases at the old paths; tests follow the code.
+
+**What changed:**
+
+- **Moved (`git mv`, contents unchanged apart from imports and file-relative paths):**
+  - `Framework/python/{runtime,recipes,interfaces}/`, `defaults.py`, `user_settings.py`, `version.py` ->
+    `Framework/python/_internal/`. `version.json` and `empty_recipe.yml` were there already, and FastSetup's
+    `setup_manifest.json` stays at the same path.
+  - `Utilities/python/Internal/{Menu,Editor,Installer,Operations}/` -> `Framework/python/_internal/{menu,editor,
+    installer,operations}/`, `Notifications.py` -> `_internal/notifications.py`, `Internal/__init__.py` and
+    `README.md` -> `_internal/`. `Utilities/python/Internal` no longer exists.
+  - Imports: `TauFW.Framework.runtime.framework` -> `TauFW.Framework._internal.runtime.framework` (and so on);
+    `TauFW.Utilities.Internal.Menu` -> `TauFW.Framework._internal.menu` (`.editor`, `.installer`, `.operations`,
+    `.notifications`). No aliases at the old names (user decision): nothing outside the Framework used them.
+- **Unchanged for users:** `from TauFW.Framework import Framework, Recipe, ...` (the public API of `__init__.py`),
+  `python3 taufw.py`, recipes and step files. `Framework/python/stages/` stays visible: the stage contract.
+- **File-relative paths:** `defaults.ANALYSES_DIR`/`SETUP_MANIFEST`, `version.MANIFEST_PATH`,
+  `analysis.EMPTY_RECIPE`, `interactive.CHECKOUT` (one level deeper) and `python_step.STEP_RUNNER`
+  (`stages/../_internal/runtime/step_runner.py`). `_supervisor.py` stays next to `_operations.py`.
+- **Before `cmsenv`:** FastSetup runs `Framework/python/_internal/installer/setup_runner.py` and `setup_tools.py`
+  (`Utilities/FastSetup.sh`, two paths; `Tests/run.py` and `Tests/Setup/*` likewise). They put `_internal/` on
+  `sys.path` and import `menu`, `installer` and `notifications` as top-level packages; `setup_runner.py`,
+  `setup_menu.py` and `setup_tools.py userconfig` add `<checkout>/Utilities/python` for UserConfig.
+  `setup_menu.py` run by its path had failed since the notifications commit (`import UserConfig` without
+  `Utilities/python` on the path); it adds it now too.
+- **Import boundary:** the rule of §51 (stages and public Utilities never import `Utilities.Internal`) becomes a
+  wider one: no package but the Framework imports `TauFW.Framework` at all (`_internal` included).
+  `Tests/check_import_boundaries.py` `test_framework_is_imported_by_the_framework_only`; 0 violations today.
+- **Tests:** `Tests/Utilities/test_{background,editor,events,menu,notifications,operation_screen,operations,preview,
+  run_picker,run_screen,test_run}.py` -> `Tests/Framework/` (they now use its `checkout.py`). `test_menu`'s
+  "the menu imports no Framework module" test stubs the package `TauFW.Framework` (its `__init__` would load the
+  runtime) and allows only the menu's siblings; `test_editor` imports `editor` standalone from `_internal/`.
+- **Docs:** `Framework/README.md` (reading order, package layout, file table), `_internal/README.md` (what is
+  inside, the tools' sections with the new names), `Framework/python/__init__.py` and `_internal/__init__.py`
+  docstrings, `Utilities/README.md`, `Analyses/README.md`, Bugs.md K01-K08, the header of `Configs/configs.lock`
+  (the comment `taufw.py configs update` writes). Earlier changelog sections and audits keep the old paths (history).
+
+**Note for existing checkouts:** after `git pull`, run
+`find Framework/python Utilities/python -name __pycache__ -prune -exec rm -rf {} +` and `scram b`. A leftover
+`__pycache__/` in an old folder makes it an empty namespace package, so an old import fails with "cannot import
+name" instead of "No module named".
+
+**Unchanged:** every BBB baseline (nothing that writes output changed); the stages, analysis scripts, the Utilities
+libraries and the example recipes (`taufw.py check`/`plan` of every bundle in `Analyses/` print the same before and
+after); the menu's behaviour.

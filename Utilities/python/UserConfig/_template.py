@@ -4,8 +4,8 @@
 SETTINGS lists every setting: its dotted key, its kind (checked by setting_problems()) and the comment written above
 it in a new file. A new file writes a value for every setting create() could guess or take over (manage.py), and the
 others as comment lines (not set: the reader uses its own default). To add a setting, add it here and to its
-reader (Framework/python/user_settings.py for the Framework). Raise VERSION when the format changes, not when a
-setting is added.
+reader (Framework/python/_internal/user_settings.py for the Framework). Raise VERSION when the format changes, not
+when a setting is added.
 """
 import json
 from collections import namedtuple

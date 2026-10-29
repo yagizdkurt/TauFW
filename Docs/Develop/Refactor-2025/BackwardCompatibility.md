@@ -505,7 +505,7 @@ These are **historical validations recorded in this repository**, not runs repea
 
 The version numbers refer to different layers. A HistFile container at format 1 may hold control-histogram **content version 2**. A template's **content version** is also different from its **schema**. Updating an ID or content version does not upgrade an incompatible sample schema or histogram file.
 
-Source of truth: [run_record.py](../../../Framework/python/runtime/run_record.py), [manifest.py](../../../Framework/python/runtime/manifest.py), [stage registry](../../../Framework/python/stages/__init__.py), [sample reader](../../../Histogrammer/python/sample/model.py), [control-histogram contract](../contracts/control-histograms.md), [TES contract](../contracts/tes-shapes.md). Older examples/docstrings sometimes still say schema 1/2 or control version 1; current constants and reader checks take precedence.
+Source of truth: [run_record.py](../../../Framework/python/_internal/runtime/run_record.py), [manifest.py](../../../Framework/python/_internal/runtime/manifest.py), [stage registry](../../../Framework/python/stages/__init__.py), [sample reader](../../../Histogrammer/python/sample/model.py), [control-histogram contract](../contracts/control-histograms.md), [TES contract](../contracts/tes-shapes.md). Older examples/docstrings sometimes still say schema 1/2 or control version 1; current constants and reader checks take precedence.
 
 ### 9.2 A current two-stage control-plot recipe fragment
 

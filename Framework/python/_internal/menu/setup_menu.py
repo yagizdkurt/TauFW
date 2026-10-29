@@ -10,12 +10,13 @@ from pathlib import Path
 if __package__:
     from ._menu import ConsoleUI
 else:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "Utilities" / "python"))  # UserConfig
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from Menu import ConsoleUI
-if __package__ and "." in __package__:  # TauFW.Utilities.Internal.Menu
-    from ..Installer import COMPONENTS  # (ID, label) of every optional component
-else:  # a script, or Menu imported from Utilities/python/Internal by the installer (before scram b)
-    from Installer import COMPONENTS
+    from menu import ConsoleUI
+if __package__ and "." in __package__:  # TauFW.Framework._internal.menu
+    from ..installer import COMPONENTS  # (ID, label) of every optional component
+else:  # a script, or Menu imported from Framework/python/_internal by the installer (before scram b)
+    from installer import COMPONENTS
 
 
 def main(argv=None):

@@ -36,13 +36,13 @@ import os
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
-from TauFW.Framework.recipes.bundle import path_rows, is_absolute
-from TauFW.Framework.user_settings import production_problems
-from TauFW.Framework.runtime.manifest import read_stage_dir, ManifestError
+from TauFW.Framework._internal.recipes.bundle import path_rows, is_absolute
+from TauFW.Framework._internal.user_settings import production_problems
+from TauFW.Framework._internal.runtime.manifest import read_stage_dir, ManifestError
 from TauFW.Framework.stages import STAGES
 from TauFW.Framework.stages.local import fixed_directory
-from TauFW.Framework.recipes.recipe import (Recipe, RecipeError, Issue, read_recipe, recipe_warnings, _external_problem,
-                                    _path_problem, _outside_made_absolute)
+from TauFW.Framework._internal.recipes.recipe import (Recipe, RecipeError, Issue, read_recipe, recipe_warnings,
+                                                      _external_problem, _path_problem, _outside_made_absolute)
 
 __all__ = ['check_recipe', 'RecipeCheck', 'read_source']
 

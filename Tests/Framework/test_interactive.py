@@ -15,9 +15,9 @@ from types import SimpleNamespace
 
 import checkout
 from TauFW.Framework import Recipe, RunRecord
-from TauFW.Framework.interfaces.interactive import Menu, run_menu
-from TauFW.Framework.interfaces import interactive
-from TauFW.Utilities.Internal.Menu import ConsoleUI
+from TauFW.Framework._internal.interfaces.interactive import Menu, run_menu
+from TauFW.Framework._internal.interfaces import interactive
+from TauFW.Framework._internal.menu import ConsoleUI
 
 
 class FakeUI(ConsoleUI):
@@ -358,7 +358,7 @@ class MenuTests(unittest.TestCase):
         self.versions = versions.start().return_value
         self.versions.status.return_value = None  # unrelated menu tests never access the network or user cache
         self.addCleanup(versions.stop)
-        patcher = mock.patch("TauFW.Framework.interfaces.interactive.Framework.from_recipe")
+        patcher = mock.patch("TauFW.Framework._internal.interfaces.interactive.Framework.from_recipe")
         self.framework = patcher.start()
         self.addCleanup(patcher.stop)
         self.framework.return_value.plan.return_value = mock.Mock(stages=())
@@ -412,7 +412,7 @@ class MenuTests(unittest.TestCase):
                 operations.validate_user_config(draft)
 
     def test_editor_save_refreshes_recipe_previews_and_run_root_without_restarting(self):
-        from TauFW.Utilities.Internal.Editor._file import Document
+        from TauFW.Framework._internal.editor._file import Document
         operations = self.menu(FakeUI()).operations
         path, recipe = self.root / "personal.yaml", self.recipes / "example.yml"
         self.recipe_file(recipe)
@@ -631,7 +631,7 @@ class MenuTests(unittest.TestCase):
     def eos(self):
         """The tuples of tes_id_2025 are on EOS; here (e.g. Windows) /eos/... counts as existing."""
         isdir = os.path.isdir
-        patcher = mock.patch("TauFW.Framework.recipes.validation.os.path.isdir",
+        patcher = mock.patch("TauFW.Framework._internal.recipes.validation.os.path.isdir",
                              side_effect=lambda path: str(path).startswith("/eos/") or isdir(path))
         patcher.start()
         self.addCleanup(patcher.stop)
@@ -829,7 +829,7 @@ class MenuTests(unittest.TestCase):
         spec = importlib.util.spec_from_file_location("menu_cli", checkout.TAUFW_SCRIPT)
         cli = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(cli)
-        with mock.patch("TauFW.Framework.interfaces.interactive.run_menu", return_value=0) as launch:
+        with mock.patch("TauFW.Framework._internal.interfaces.interactive.run_menu", return_value=0) as launch:
             self.assertEqual(cli.main([]), 0)
             launch.assert_called_once()
             launch.reset_mock()

@@ -1,5 +1,5 @@
 # Configs/configs.lock: the content version and hash of every template in Configs/.
-# Written by `taufw.py configs update` (Framework/python/recipes/configs.py); do not edit by hand.
+# Written by `taufw.py configs update` (Framework/python/_internal/recipes/configs.py); do not edit by hand.
 # id  version  sha256 of the values without the taufw_config header
 fitter.tes_id_coarse_pnet 1 04d0c1314589e5d44e529f5f53d4d1ea5fff8aa734ccbf08a057281077f24845
 fitter.tes_id_coarse_tt 1 b446c84f129069caf80e4f7dceaea9bbf21576b5ebe4b8cf2fec84478cb7886b

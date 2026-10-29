@@ -50,7 +50,7 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from enum import Enum
 from typing import List, Optional
-from TauFW.Framework.defaults import RUN_RECORD_NAME, timestamp, default_file_io
+from TauFW.Framework._internal.defaults import RUN_RECORD_NAME, timestamp, default_file_io
 from TauFW.Framework.stages.base import StageState
 
 __all__ = ['RunRecord', 'RunState', 'StageRecord', 'RUN_RECORD_NAME', 'SCHEMA']

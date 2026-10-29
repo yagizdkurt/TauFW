@@ -8,7 +8,7 @@ import sys
 import threading
 
 if __name__.startswith("TauFW."):
-    from .. import UserConfig
+    from TauFW.Utilities import UserConfig
 else:  # standalone installer, before cmsenv
     import UserConfig
 
@@ -34,13 +34,13 @@ class OperationNotifications:
     """
 
     def __init__(self, root):
-        from .Operations import OperationStore
+        from .operations import OperationStore
         self.store = OperationStore(root)
         self.states = {}
         self.stop = threading.Event()
 
     def poll(self, initial=False):
-        from .Operations import DONE, RUNNING, STOPPING, STOPPED, EventReader
+        from .operations import DONE, RUNNING, STOPPING, STOPPED, EventReader
         active = (RUNNING, STOPPING)
         notify = False
         for operation in self.store.all():

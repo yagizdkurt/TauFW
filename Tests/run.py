@@ -19,7 +19,7 @@ TESTS = Path(__file__).resolve().parent
 
 def check_python_environment():
     """Use the same pre-build helper as FastSetup; warnings never fail a run."""
-    helper = TESTS.parent / "Utilities/python/Internal/Installer/setup_tools.py"
+    helper = TESTS.parent / "Framework/python/_internal/installer/setup_tools.py"
     result = subprocess.run([sys.executable, "-B", str(helper), "environment"],
                             capture_output=True, text=True)
     for line in result.stdout.splitlines():

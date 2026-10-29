@@ -23,7 +23,7 @@ from urllib.request import Request, urlopen
 
 __all__ = ['current_version', 'is_newer_version', 'VersionChecker']
 
-MANIFEST_PATH = Path(__file__).resolve().parent / '_internal' / 'version.json'
+MANIFEST_PATH = Path(__file__).resolve().parent / 'version.json'
 SUCCESS_TTL = 24 * 60 * 60  # seconds before checking a successful answer again
 FAILURE_TTL = 60 * 60       # seconds before retrying a failed request
 HTTP_TIMEOUT = 3           # seconds per blocking socket operation, not a total deadline

@@ -10,7 +10,7 @@ import checkout  # noqa: F401  (must precede TauFW imports)
 import fakes
 import hashlib
 from TauFW.Framework import Framework, Recipe, RecipeError, RunRecord, SilentReporter
-from TauFW.Framework.recipes.bundle import resolve
+from TauFW.Framework._internal.recipes.bundle import resolve
 from TauFW.Framework.stages import (ProductionStage, ControlHistsStage, ControlPlotsStage, ShapesStage, FitStage,
                                     StageContext,
                                     PreflightError)

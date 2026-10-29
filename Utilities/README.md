@@ -4,12 +4,10 @@
 Independent terminal, file I/O, process, path, numeric and user-config helpers, and the drawing library for
 CMS-style ROOT plots. Like the other TauFW packages, the source lives under `Utilities/python/`, and `scram b` exposes it as `TauFW.Utilities` after `cmsenv`.
 
-`Utilities/python` holds two kinds of packages:
-
-- **For your analysis code and scripts:** `CLI`, `FIO`, `Math`, `Expressions`, `Drawing`, `HistFile`, `Paths`,
-  `Process`, `UserConfig`. The stages use these too.
-- **`Internal/`: TauFW's own tools**, the menu, the terminal editor, the installer and the operations behind the
-  menu. You do not need them; the Framework uses them. See [Internal/README.md](python/Internal/README.md).
+`Utilities/python` holds libraries **for your analysis code and scripts**: `CLI`, `FIO`, `Math`, `Expressions`,
+`Drawing`, `HistFile`, `Paths`, `Process`, `UserConfig`. The stages and the Framework use them too. TauFW's own
+tools (the menu, the terminal editor, the installer, the operations behind the menu) are the Framework's inside:
+[Framework/python/_internal](../Framework/python/_internal/README.md) (CL §52).
 
 ```python
 from TauFW.Utilities.CLI import CLI
@@ -37,7 +35,7 @@ it once (`setup_tools.py userconfig`), `python3 taufw.py userconfig` makes it fo
 overwrites it. TauFW's settings (`runs.run_root`, the `production` section) are listed in `_template.py`
 (`SETTINGS`: key, kind, example, comment); a new file has a value for each one `_guesses.py` can guess on lxplus or
 take over from `PicoProducer/config/config.json`, and the others as comment lines. The Framework reads them in
-`Framework/python/user_settings.py`. Changelog §40, §41.
+`Framework/python/_internal/user_settings.py`. Changelog §40, §41.
 
 Reading is for everyone, analysis scripts and TauFW alike (one way to read, so both see the same values):
 

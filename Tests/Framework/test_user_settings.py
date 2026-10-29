@@ -1,5 +1,5 @@
-"""The Framework's settings from the user config (Framework/python/user_settings.py): run_root and a production
-stage's PicoProducer settings, their precedence, and how check, plan and start show them (CL §41)."""
+"""The Framework's settings from the user config (Framework/python/_internal/user_settings.py): run_root and a
+production stage's PicoProducer settings, their precedence, and how check, plan and start show them (CL §41)."""
 import importlib.util
 import json
 import os
@@ -10,8 +10,9 @@ from unittest import mock
 
 import checkout  # noqa: F401  (must precede TauFW imports)
 import fakes
-from TauFW.Framework import Framework, Recipe, SilentReporter, check_recipe, user_settings
-from TauFW.Framework.recipes.recipe import recipe_warnings
+from TauFW.Framework import Framework, Recipe, SilentReporter, check_recipe
+from TauFW.Framework._internal import user_settings
+from TauFW.Framework._internal.recipes.recipe import recipe_warnings
 from TauFW.Framework.stages import ProductionStage
 from TauFW.Utilities import UserConfig
 from test_framework import RECIPE, Clock

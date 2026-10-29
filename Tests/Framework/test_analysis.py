@@ -6,10 +6,10 @@ import unittest
 from unittest import mock
 
 import checkout
-from TauFW.Framework.interfaces.interactive import _Operations
-from TauFW.Framework.recipes import analysis
-from TauFW.Framework.recipes.recipe import Recipe, RecipeError, read_recipe
-from TauFW.Framework.recipes.validation import check_recipe
+from TauFW.Framework._internal.interfaces.interactive import _Operations
+from TauFW.Framework._internal.recipes import analysis
+from TauFW.Framework._internal.recipes.recipe import Recipe, RecipeError, read_recipe
+from TauFW.Framework._internal.recipes.validation import check_recipe
 
 
 class AnalysisTests(unittest.TestCase):

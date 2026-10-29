@@ -47,7 +47,7 @@ from enum import Enum
 import os
 from typing import Mapping, Optional, Tuple
 
-from TauFW.Framework.defaults import LOGS_DIR_NAME, STAGES_DIR_NAME
+from TauFW.Framework._internal.defaults import LOGS_DIR_NAME, STAGES_DIR_NAME
 
 __all__ = ['StageState', 'StageOutcome', 'StageContext', 'Stage', 'StageNotImplemented', 'PreflightError',
            'SpecError', 'spec_from_dict', 'as_strings', 'spec_to_dict']
@@ -189,7 +189,7 @@ class Stage:
     null_inputs = {}  # input slot -> what null means for it; the other slots must name an earlier stage
     outputs = ()    # kinds of data the stage makes; None: any kind (python steps)
     retryable = False  # a FAILED stage may be set NEW again by taufw.py retry (CL §44): the local stages
-    requires = ()   # optional setup components (Utilities.Internal.Installer.COMPONENTS) the stage always needs, e.g.
+    requires = ()   # optional setup components (Framework._internal.installer.COMPONENTS) the stage always needs, e.g.
                     # ('combine',); a recipe adds more per stage with `requires:` (recipe.py)
 
     def plan(self, spec, context=None):

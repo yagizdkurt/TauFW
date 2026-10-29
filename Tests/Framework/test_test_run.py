@@ -5,9 +5,9 @@ import unittest
 from unittest import mock
 
 import checkout  # noqa: F401  (must precede TauFW.Utilities imports)
-from TauFW.Utilities.Internal.Menu import ConsoleUI
-from TauFW.Utilities.Internal.Menu._test_run import TestRun, follow_tests, MESSAGES, LOST_TEXT
-from TauFW.Utilities.Internal.Operations import LogTail
+from TauFW.Framework._internal.menu import ConsoleUI
+from TauFW.Framework._internal.menu._test_run import TestRun, follow_tests, MESSAGES, LOST_TEXT
+from TauFW.Framework._internal.operations import LogTail
 
 UP, DOWN, ENTER, NPAGE, PPAGE, END = 1001, 1002, 1003, 1004, 1005, 1007
 

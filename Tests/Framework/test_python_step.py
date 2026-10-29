@@ -9,10 +9,10 @@ import unittest
 
 import checkout  # noqa: F401  (must precede TauFW imports)
 from TauFW.Framework import Framework, Recipe, RecipeError, RetryError, RunRecord, SilentReporter
-from TauFW.Framework.recipes.bundle import bundle_hashes
-from TauFW.Framework.runtime.framework import retryable_stage
+from TauFW.Framework._internal.recipes.bundle import bundle_hashes
+from TauFW.Framework._internal.runtime.framework import retryable_stage
 from TauFW.Framework.stages import PythonStage, StageContext, PreflightError
-from TauFW.Framework.runtime.step_runner import _result
+from TauFW.Framework._internal.runtime.step_runner import _result
 from test_framework import Clock
 
 MAKE = '''

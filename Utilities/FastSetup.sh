@@ -115,7 +115,7 @@ main() {
     if $htt; then selected+=(htt); fi
     if $combine; then selected+=(combine); fi
     if $run2_jme; then selected+=(run2-jme); fi
-    exec python3 "$repo_dir/Utilities/python/Internal/Installer/setup_runner.py" \
+    exec python3 "$repo_dir/Framework/python/_internal/installer/setup_runner.py" \
       --script "$repo_dir/Utilities/FastSetup.sh" --selected "${selected[@]}" -- "$@"
   fi
   banner 'Preflight'
@@ -274,7 +274,7 @@ make_temp_dir() { # PARENT LABEL
 # Run directly from the current checkout, including after it has moved.
 # The helper imports only standard libraries until a verification is requested.
 installer_python() {
-  python3 "$repo_dir/Utilities/python/Internal/Installer/setup_tools.py" "$@"
+  python3 "$repo_dir/Framework/python/_internal/installer/setup_tools.py" "$@"
 }
 
 # Print the CMSSW release area (a directory with .SCRAM) that contains the

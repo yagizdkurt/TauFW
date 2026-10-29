@@ -1,7 +1,7 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """The screen that follows a test run while Tests/run.py works behind the menu.
 
-The run is a TauFW.Utilities.Internal.Operations.Operation (its supervisor runs
+The run is a TauFW.Framework._internal.operations.Operation (its supervisor runs
 Tests/run.py); the screen is the operation screen (_operation_screen.py) with
 TestRun as its model: the events (Tests/support/events.py) build the cases,
 the output log is the "Output" view, and every case log is read only while
@@ -21,7 +21,7 @@ import time
 
 from ._menu import _clock
 from ._operation_screen import ScreenModel, follow, summary_model
-from ..Operations._operations import DONE, FAILED, LOST, RUNNING, STOPPED, STOPPING
+from ..operations._operations import DONE, FAILED, LOST, RUNNING, STOPPED, STOPPING
 
 __all__ = ["TestRun", "follow_tests", "test_summary"]
 

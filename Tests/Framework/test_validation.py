@@ -8,7 +8,7 @@ from unittest import mock
 
 import checkout
 from TauFW.Framework import check_recipe
-from TauFW.Framework.defaults import CONFIGS_DIR
+from TauFW.Framework._internal.defaults import CONFIGS_DIR
 
 FIT = {"stage": "fit", "id": "fit"}  # its inputs: setUp (the shapes of another run; never null, CL §37)
 STEP = {"stage": "python", "id": "check", "inputs": None, "file": "steps/check.py"}

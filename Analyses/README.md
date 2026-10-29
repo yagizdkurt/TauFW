@@ -709,7 +709,7 @@ must be writable as JSON.
 
 How a step runs:
 
-- `Framework/python/runtime/step_runner.py` runs it with the same Python as
+- `Framework/python/_internal/runtime/step_runner.py` runs it with the same Python as
   `taufw.py`, in the run's bundle copy as working directory. The step's
   directory comes first on `sys.path`, so it can import the files next to it.
   The step runner itself needs only the standard library; a step that uses

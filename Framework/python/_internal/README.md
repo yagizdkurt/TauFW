@@ -1,27 +1,34 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-# Utilities/Internal
+# Framework/_internal
 
-TauFW's own tools: the menu (`python3 taufw.py`), the terminal editor, the installer behind `FastSetup.sh` and the
-operations that run behind the menu. **Analysis code, scripts and the stages do not import these**; what they use is
-beside this folder, in `Utilities/python` (CLI, FIO, Math, Process, Drawing, ...; see [Utilities](../../README.md)).
-`Tests/check_import_boundaries.py` fails if a stage or a public Utilities package imports `TauFW.Utilities.Internal`.
+The Framework's inside (CL §52). **Analysis code, scripts and the stages do not import anything here**: the
+Framework's public API is `from TauFW.Framework import ...` ([Framework/README.md](../../README.md)), and the
+libraries for analysis code are in `Utilities/python` ([Utilities](../../../Utilities/README.md)).
+`Tests/check_import_boundaries.py` fails if a stage or a Utilities package imports `TauFW.Framework` at all.
+
+| Here | What |
+|---|---|
+| `runtime/`, `recipes/`, `interfaces/` | the orchestrator, the recipes, the menu adapter: see the package layout in [Framework/README.md](../../README.md#package-layout) |
+| `defaults.py`, `user_settings.py`, `version.py` | shared defaults, the user config's Framework settings, release metadata |
+| `version.json`, `empty_recipe.yml`, `setup_manifest.json` | data: the release, the recipe of `taufw.py init`, what FastSetup installed (not tracked) |
+| `menu/`, `editor/`, `installer/`, `operations/`, `notifications.py` | TauFW's own tools: the menu (`python3 taufw.py`), the terminal editor, the installer behind `FastSetup.sh`, the operations that run behind the menu, the terminal bell (sections below) |
 
 ```python
-from TauFW.Utilities.Internal.Menu import ConsoleUI, MenuNavigation
-from TauFW.Utilities.Internal.Editor import edit_file
-from TauFW.Utilities.Internal.Installer import COMPONENTS
-from TauFW.Utilities.Internal.Operations import EventWriter, EventReader, LogTail, BackgroundProcess, OperationStore
+from TauFW.Framework._internal.menu import ConsoleUI, MenuNavigation
+from TauFW.Framework._internal.editor import edit_file
+from TauFW.Framework._internal.installer import COMPONENTS
+from TauFW.Framework._internal.operations import EventWriter, EventReader, LogTail, BackgroundProcess, OperationStore
 ```
 
-Like the rest of Utilities, these packages import no Framework modules (the Framework passes in what they need),
-and Internal may use the public Utilities packages, never the other way around. Menu and Installer also run before
-`cmsenv`: FastSetup calls `Installer/setup_runner.py`, `Installer/setup_tools.py` and `Menu/setup_menu.py` by their
-path, and they import each other as top-level packages from this folder (`setup_tools.py userconfig` adds
-`Utilities/python` too, for UserConfig).
+The tools import none of the Framework's own modules (`runtime/`, `recipes/`, ...; the Framework passes in what they
+need), only each other and the Utilities packages. The menu and the installer also run before `cmsenv`: FastSetup
+calls `installer/setup_runner.py` and `installer/setup_tools.py` by their path, and they import each other as
+top-level packages from this folder (`menu`, `installer`, `notifications`); `setup_runner.py` and
+`setup_tools.py userconfig` add `<checkout>/Utilities/python` too, for UserConfig.
 
 ## Operations behind the menu
 
-`Operations` exports `EVENTS_ENV`, `EventWriter`, `EventReader`, `LogTail` (commands that run beside a screen, their
+`operations` exports `EVENTS_ENV`, `EventWriter`, `EventReader`, `LogTail` (commands that run beside a screen, their
 events and output followed from files), `BackgroundProcess`, and `Operation`/`OperationStore` with their states
 (operations behind the menu: `_supervisor.py` keeps them going when the screen or the menu is left; it runs by its
 path, so it stays next to `_operations.py`). Only `BackgroundProcess.start` and `OperationStore.start` launch
@@ -54,28 +61,28 @@ long as its screen.
 
 ## Installer helpers
 
-`Installer` owns the Python operations used by `FastSetup.sh`: safe
+`installer` owns the Python operations used by `FastSetup.sh`: safe
 directory renames, Python implementation/origin checks, native binding checks
 and HTT ROOT-file verification. Its public helpers are `rename_directory`,
 `verify_modules` and `verify_htt_files`. Imports are silent and do not load ROOT
 or analysis packages until verification is requested.
 
-FastSetup calls `Installer/setup_tools.py` directly before and after the
+FastSetup calls `installer/setup_tools.py` directly before and after the
 checkout moves, so these helpers work before `cmsenv` or `scram b`. Bash retains
 the shell environment, Git downloads, installation sequencing and recovery state.
 See [FastSetup](../../../Docs/Guide/FastSetup.md#installer-and-menu-organization) for details.
 
 ## Menu presentation
 
-`TauFW.Utilities.Internal.Menu` exports `ConsoleUI` and `MenuNavigation`. Change terminal appearance, screen
+`TauFW.Framework._internal.menu` exports `ConsoleUI` and `MenuNavigation`. Change terminal appearance, screen
 wording, option labels, keyboard handling, and menu messages in
-`Menu/_menu.py`. Edit the ordered help topics and explanations in
-`Menu/faq.py`. The pre-install FastSetup checklist launches through
-`Menu/setup_menu.py` and uses `ConsoleUI.setup_checklist()`; installation
+`menu/_menu.py`. Edit the ordered help topics and explanations in
+`menu/faq.py`. The pre-install FastSetup checklist launches through
+`menu/setup_menu.py` and uses `ConsoleUI.setup_checklist()`; installation
 sequencing remains in Bash. Space/Enter toggles components and activates Start install.
-Shared ASCII branding lives in `Menu/banner.py`. The Framework supplies
+Shared ASCII branding lives in `menu/banner.py`. The Framework supplies
 the actual release label through `ConsoleUI.set_version()` and plain version
-status to `main_menu(version=...)`; Utilities never reads a manifest or makes
+status to `main_menu(version=...)`; the menu never reads a manifest or makes
 an HTTP request. Standalone installer/preview screens use the `V0.0` fallback.
 Entry screens show their welcome messages beneath the
 banner; smaller terminals use compact branding so controls remain visible.
@@ -84,14 +91,14 @@ entry, then stays complete. Returning from another screen replays it; background
 refreshes and resizing keep its progress. Input remains available throughout.
 The installer and smaller banner layouts are static.
 Change screen transitions, back behavior, refresh loops,
-and operation recovery in `Menu/_navigation.py`. Source section banners
-group the related responsibilities. `Menu/_preview.py` is the UI preview
+and operation recovery in `menu/_navigation.py`. Source section banners
+group the related responsibilities. `menu/_preview.py` is the UI preview
 (Tests > UI preview, `ConsoleUI.preview()`): every screen with made-up data; add a
 `Scenario` there for a new screen. A screen that follows an operation behind the
-menu is `Menu/_operation_screen.py` (`follow(ui, screen, title, process,
+menu is `menu/_operation_screen.py` (`follow(ui, screen, title, process,
 model)`) with a `ScreenModel` subclass for its items and words; the test screen's
-model is `TestRun` in `Menu/_test_run.py`, the run screen's (an advance; not
-wired yet) `RunProgress` in `Menu/_run_screen.py`, with `run_summary()` for the
+model is `TestRun` in `menu/_test_run.py`, the run screen's (an advance; not
+wired yet) `RunProgress` in `menu/_run_screen.py`, with `run_summary()` for the
 menus' run line, run chooser and run list.
 
 `ConsoleUI.open(parser)` lazily loads curses on an interactive Linux terminal.
@@ -108,7 +115,7 @@ Run selectors accept `(run_id, state, updated)` summaries; `state=None` marks an
 unreadable run. Framework retains the records and paths behind those summaries.
 
 Discovery, validation, record access, callback arguments, and command dispatch
-stay in `Framework/python/interfaces/interactive.py`. Menu imports no Framework modules.
+stay in `Framework/python/_internal/interfaces/interactive.py`. Menu imports no Framework modules.
 Workflow operations continue to use their existing CLI reporting.
 
 Testing screens use `tests_menu()`, `test_family(title)`, and
@@ -116,7 +123,7 @@ Testing screens use `tests_menu()`, `test_family(title)`, and
 and `dependencies`; selection returns ordered IDs after Run or `None` on Back.
 Navigation calls the supplied operations object's `test_catalog()` and
 `execute_tests(family, cases)` methods. The Framework adapter owns catalog reads,
-checkout paths and test subprocesses; Utilities imports no test modules.
+checkout paths and test subprocesses; the menu imports no test modules.
 
 `MenuNavigation(ui, operations)` owns the user journey and accepts an operations
 object supplied by the caller. The object provides `launch_dir`, `recipes()`
@@ -127,20 +134,20 @@ object supplied by the caller. The object provides `launch_dir`, `recipes()`
 `run_dir`, and `state`. Navigation handles command errors, interruptions, and
 pauses; Framework supplies command defaults and decides whether a run can advance.
 
-`Framework.interactive.Menu(...)` remains a construction entry point and returns
+`interfaces/interactive.py` `Menu(...)` remains a construction entry point and returns
 a `MenuNavigation` wired to Framework operations. Its `start()`, `inspect()`,
-`continue_run()`, and `run()` methods now live in Internal/Menu.
+`continue_run()`, and `run()` methods now live in `menu/`.
 
 ## Terminal editor
 
-`Editor` is a self-contained UTF-8 file editor with no Menu, Framework,
+`editor` is a self-contained UTF-8 file editor with no Menu, Framework,
 UserConfig or other TauFW dependencies. It edits on a caller-owned curses screen,
 with F2 to save and Esc to return. It keeps comments, checks a candidate file
 through an optional validator, detects external content changes and saves with
 a temporary file followed by atomic replacement. Save failures keep the buffer.
-See [Editor/README.md](Editor/README.md) for the API and isolation limits.
+See [editor/README.md](editor/README.md) for the API and isolation limits.
 
-The menu loads Editor only for **Modify User Config**. Its Framework adapter
+The menu loads the editor only for **Modify User Config**. Its Framework adapter
 supplies `user_config_path()` (creates a missing config) and
 `validate_user_config(draft_path)` (the existing YAML, header and value checks).
 Editor handles neither recipe nor production logic. `ConsoleUI.edit_file()`

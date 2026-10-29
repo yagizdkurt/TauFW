@@ -26,7 +26,7 @@ import time
 
 from ._menu import ConsoleUI
 from .setup_menu import COMPONENTS
-from ..Operations._operations import DONE, FAILED, LOST, RUNNING, STOPPED, STOPPING, Operation
+from ..operations._operations import DONE, FAILED, LOST, RUNNING, STOPPED, STOPPING, Operation
 
 __all__ = ["preview", "SCENARIOS"]
 

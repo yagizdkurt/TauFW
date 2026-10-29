@@ -34,8 +34,8 @@
 RECIPE is an analysis bundle directory (Analyses/<name>, with recipe.yml) or a recipe file.
 
 With $TAUFW_EVENTS set (the menu does that for a command it runs beside its screen), every command also writes its
-messages and the Framework's events (TauFW.Framework.runtime.reporting) to that file; the output does not change. The
-variable is removed from the environment first, so the commands the stages run never see it.
+messages and the Framework's events (TauFW.Framework._internal.runtime.reporting) to that file; the output does not
+change. The variable is removed from the environment first, so the commands the stages run never see it.
 
 The runs go to start --run-root DIR, else the recipe's run_root, else runs.run_root of your user config, else
 taufw_runs/ here. A production stage also takes your user config's production settings (Framework/python/
@@ -54,16 +54,16 @@ from argparse import ArgumentParser
 try:
     from TauFW.Framework import (Framework, Recipe, RecipeError, load_run, FrameworkReporter, EventReporter,
                                  RunState, check_recipe, RunDirectoryError, RunLockError, RetryError)
-    from TauFW.Framework.runtime.framework import retryable_stage
-    from TauFW.Framework.recipes.bundle import BundleError, make_bundle
-    from TauFW.Framework.recipes.configs import LOCK_NAME, lock_changes, update
-    from TauFW.Framework.defaults import (DEFAULT_RUN_ROOT, DEFAULT_POLL_SECONDS, ANALYSES_DIR, CONFIGS_DIR,
-                                          default_file_io)
-    from TauFW.Utilities.Internal.Operations import EVENTS_ENV, EventWriter
-    from TauFW.Utilities.Internal.Notifications import bell
+    from TauFW.Framework._internal.runtime.framework import retryable_stage
+    from TauFW.Framework._internal.recipes.bundle import BundleError, make_bundle
+    from TauFW.Framework._internal.recipes.configs import LOCK_NAME, lock_changes, update
+    from TauFW.Framework._internal.defaults import (DEFAULT_RUN_ROOT, DEFAULT_POLL_SECONDS, ANALYSES_DIR, CONFIGS_DIR,
+                                                    default_file_io)
+    from TauFW.Framework._internal.operations import EVENTS_ENV, EventWriter
+    from TauFW.Framework._internal.notifications import bell
     from TauFW.Utilities import UserConfig
     from TauFW.Utilities.UserConfig import manage as user_config
-    from TauFW.Framework import user_settings
+    from TauFW.Framework._internal import user_settings
 except ImportError as err:
     print("\033[1m\033[31mImportError for TauFW.Framework: please check if you compiled with `scram b`.\033[0m")
     raise err
@@ -75,7 +75,7 @@ except ImportError as err:
 
 def cmd_version(args):
     """Local metadata by default; explicit --check refreshes without downloading any code."""
-    from TauFW.Framework.version import current_version, VersionChecker
+    from TauFW.Framework._internal.version import current_version, VersionChecker
     reporter = _reporter(args)
     if not args.check:
         try:
@@ -247,7 +247,7 @@ def cmd_init(args):
 
 def cmd_configs(args):
     """List the config templates of Configs/; with `update`, raise the versions of the changed templates and
-    rewrite the lock (Framework/python/recipes/configs.py)."""
+    rewrite the lock (Framework/python/_internal/recipes/configs.py)."""
     reporter = _reporter(args)
     configs, changes = (update if args.action == 'update' else lock_changes)(CONFIGS_DIR)
     for problem in configs.problems:
@@ -463,7 +463,7 @@ def main(argv=None):
     """Without arguments, open the interactive menu; otherwise run one command."""
     argv = sys.argv[1:] if argv is None else argv
     if not argv:
-        from TauFW.Framework.interfaces.interactive import run_menu
+        from TauFW.Framework._internal.interfaces.interactive import run_menu
         return run_menu(build_parser())
     args = build_parser().parse_args(argv)
     args.events = EventWriter(os.environ.pop(EVENTS_ENV, None))  # read once; the stages' commands never see it

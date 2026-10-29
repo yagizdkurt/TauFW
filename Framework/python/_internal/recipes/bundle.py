@@ -62,7 +62,7 @@ import posixpath
 import shutil
 from dataclasses import replace
 
-from TauFW.Framework.defaults import CONFIGS_DIR, RECIPE_NAME, DEFAULT_RUN_ROOT
+from TauFW.Framework._internal.defaults import CONFIGS_DIR, RECIPE_NAME, DEFAULT_RUN_ROOT
 
 __all__ = ['resolve', 'where', 'leaves_bundle', 'is_absolute', 'resolve_spec', 'path_rows', 'bundle_files', 'snapshot',
            'bundle_hashes', 'bundle_changes', 'hashes_digest', 'is_bundle', 'make_bundle', 'source_files',

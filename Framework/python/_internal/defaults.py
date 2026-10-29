@@ -27,11 +27,11 @@ BUNDLE_DIR_NAME      = "bundle"             # copy of the bundle files a run use
 LOGS_DIR_NAME        = "logs"               # the Framework's files of each stage: <run_dir>/logs/<stage id>/
 STAGES_DIR_NAME      = "stages"             # the output of each stage: <run_dir>/stages/<stage id>/
 MANIFEST_NAME        = "manifest.json"      # written to a stage's output directory when the stage is DONE
-ANALYSES_DIR         = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
-                       os.path.realpath(__file__)))), "Analyses")  # the analysis bundles of this checkout
+ANALYSES_DIR         = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
+                       os.path.realpath(__file__))))), "Analyses")  # the analysis bundles of this checkout
 EXAMPLES_DIR_NAME    = "Examples"           # the example analyses: Analyses/Examples/<name>/, apart from the list
 CONFIGS_DIR          = os.path.join(os.path.dirname(ANALYSES_DIR), "Configs")  # the config templates (configs.py)
-SETUP_MANIFEST       = os.path.join(os.path.dirname(os.path.realpath(__file__)), "_internal",
+SETUP_MANIFEST       = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                        "setup_manifest.json")  # the optional components FastSetup.sh installed (not tracked)
 
 

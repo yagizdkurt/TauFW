@@ -33,7 +33,7 @@ import os
 from dataclasses import dataclass
 from typing import Tuple
 
-from TauFW.Framework.defaults import MANIFEST_NAME
+from TauFW.Framework._internal.defaults import MANIFEST_NAME
 
 __all__ = ['write_manifest', 'read_stage_dir', 'StageDir', 'ManifestError', 'MANIFEST_FORMAT']
 

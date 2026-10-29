@@ -5,9 +5,9 @@ import unittest
 from unittest import mock
 
 import checkout  # noqa: F401  (must precede TauFW.Utilities imports)
-from TauFW.Utilities.Internal.Menu import ConsoleUI
-from TauFW.Utilities.Internal.Menu._operation_screen import ScreenModel, follow, printable
-from TauFW.Utilities.Internal.Operations import LogTail
+from TauFW.Framework._internal.menu import ConsoleUI
+from TauFW.Framework._internal.menu._operation_screen import ScreenModel, follow, printable
+from TauFW.Framework._internal.operations import LogTail
 
 UP, DOWN, ENTER = 1001, 1002, 1003
 
@@ -129,7 +129,7 @@ class OperationScreenTests(unittest.TestCase):
                     self.assertTrue(any(line.startswith("Output  a very long output") for line in drawn))
 
     def test_the_badge_in_the_corner_and_the_state_line_beside_it(self):
-        from TauFW.Utilities.Internal.Menu.banner import BADGE, VERSION, _badge
+        from TauFW.Framework._internal.menu.banner import BADGE, VERSION, _badge
         self.assertEqual(BADGE, _badge(VERSION))
         self.assertEqual(_badge("V0.0"), ("+-------+", "| TauFW |", "+-V0.0--+"))
         self.assertEqual(_badge("V1.2.3"), ("+---------+", "| TauFW   |", "+-V1.2.3--+"))  # a longer version widens it
@@ -145,7 +145,7 @@ class OperationScreenTests(unittest.TestCase):
                 self.assertFalse(any(args[2].startswith("TauFW V") for args in calls))  # the plain header is gone
 
     def test_a_command_screen_shows_its_output_and_leaving_stops_it(self):
-        from TauFW.Utilities.Internal.Menu._command_screen import follow_command
+        from TauFW.Framework._internal.menu._command_screen import follow_command
         with open(self.output, "w") as stream:
             stream.write("=== Run tes_2025: WAITING ===\n")
         for keys, states, answer, stops in (([-1, 27], ["RUNNING"], "back", 1),              # Esc: stop, leave
@@ -173,7 +173,7 @@ class OperationScreenTests(unittest.TestCase):
                 self.assertFalse(any("DONE" in line or "RUNNING" in line for line in drawn))
 
     def test_a_command_screen_before_its_first_line(self):
-        from TauFW.Utilities.Internal.Menu._command_screen import follow_command
+        from TauFW.Framework._internal.menu._command_screen import follow_command
         for command, words in (("status", ("READING STATUS", "Reading the run status...")),
                                ("plan", ("READING PLAN", "Reading the plan..."))):
             with self.subTest(command=command):
@@ -181,7 +181,7 @@ class OperationScreenTests(unittest.TestCase):
                 process = Process(self.output, ["RUNNING"])
                 process.events = None
                 process.data = dict(command=command)
-                with mock.patch("TauFW.Utilities.Internal.Menu._loading.time.monotonic", return_value=0.6):
+                with mock.patch("TauFW.Framework._internal.menu._loading.time.monotonic", return_value=0.6):
                     follow_command(ui, screen, "Run status: tes_2025", process)
                 drawn = [call.args[2] for call in screen.addnstr.call_args_list]
                 self.assertIn("%s | 01:01 | taufw.py %s" % (words[0], command), drawn)

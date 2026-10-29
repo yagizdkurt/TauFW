@@ -4,11 +4,11 @@ import os
 from pathlib import Path
 import tempfile
 
-from TauFW.Framework.defaults import RECIPE_NAME
-from TauFW.Framework.recipes.recipe import name_problem
+from TauFW.Framework._internal.defaults import RECIPE_NAME
+from TauFW.Framework._internal.recipes.recipe import name_problem
 
 
-EMPTY_RECIPE = Path(__file__).resolve().parents[1] / "_internal" / "empty_recipe.yml"
+EMPTY_RECIPE = Path(__file__).resolve().parents[1] / "empty_recipe.yml"
 
 
 def create_analysis(root, name):

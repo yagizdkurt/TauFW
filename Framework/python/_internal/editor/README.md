@@ -5,7 +5,7 @@ It depends only on the Python standard library, imports curses on demand, and
 does not import Menu, Framework, UserConfig, ROOT or CMSSW.
 
 ```python
-from TauFW.Utilities.Internal.Editor import edit_file
+from TauFW.Framework._internal.editor import edit_file
 
 result = edit_file(screen, path, title="Settings", validate=check_draft)
 ```

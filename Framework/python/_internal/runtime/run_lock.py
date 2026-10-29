@@ -30,7 +30,7 @@ import threading
 import time
 from datetime import datetime
 
-from TauFW.Framework.defaults import TIME_FORMAT
+from TauFW.Framework._internal.defaults import TIME_FORMAT
 
 __all__ = ['RunLock', 'RunLockError', 'read_lock', 'LOCK_NAME', 'HEARTBEAT', 'LOST_AFTER']
 

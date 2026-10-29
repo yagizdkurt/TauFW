@@ -8,12 +8,12 @@ import unittest
 from unittest import mock
 
 import checkout
-from TauFW.Utilities.Internal.Editor import edit_file
-from TauFW.Utilities.Internal.Editor._buffer import Buffer
-from TauFW.Utilities.Internal.Editor._file import Document
-from TauFW.Utilities.Internal.Editor._reference import Reference
-from TauFW.Utilities.Internal.Editor._screen import _visible, _width
-from TauFW.Utilities.Internal.Editor._text import _wrap
+from TauFW.Framework._internal.editor import edit_file
+from TauFW.Framework._internal.editor._buffer import Buffer
+from TauFW.Framework._internal.editor._file import Document
+from TauFW.Framework._internal.editor._reference import Reference
+from TauFW.Framework._internal.editor._screen import _visible, _width
+from TauFW.Framework._internal.editor._text import _wrap
 
 
 class TerminalError(Exception):
@@ -225,7 +225,7 @@ class EditorTests(unittest.TestCase):
         self.assertIn(first_word, " ".join(row[1] for row in paragraph.rows[paragraph.top:paragraph.top + 2]))
 
     def test_actual_user_config_guide_and_empty_file_are_readable(self):
-        path = checkout.SOURCE.parents[1] / "Docs/Guide/1-GettingStarted/UserConfig.md"
+        path = checkout.REPO / "Docs/Guide/1-GettingStarted/UserConfig.md"
         reference = Reference(path)
         reference.layout(40, 16)
         self.assertFalse(reference.error)
@@ -366,7 +366,7 @@ class EditorTests(unittest.TestCase):
                 self.assertEqual(self.path.read_bytes(), original)
                 self.assertEqual(document.text, "# keep this comment\nvalue: old\n")
                 self.assertEqual(list(self.root.iterdir()), [self.path])
-        with mock.patch("TauFW.Utilities.Internal.Editor._file.os.replace", side_effect=OSError("disk unavailable")):
+        with mock.patch("TauFW.Framework._internal.editor._file.os.replace", side_effect=OSError("disk unavailable")):
             with self.assertRaisesRegex(OSError, "disk unavailable"):
                 Document(self.path).save("changed")
         self.assertEqual(self.path.read_bytes(), original)
@@ -474,10 +474,11 @@ class EditorTests(unittest.TestCase):
         self.assertEqual(terminal.cursors, [])
 
     def test_import_is_standalone_and_does_not_load_curses_or_taufw(self):
-        code = ("import sys; sys.path.insert(0, sys.argv[1]); import Editor; "
+        code = ("import sys; sys.path.insert(0, sys.argv[1]); import editor; "
                 "assert 'curses' not in sys.modules; "
                 "assert not any(n.startswith('TauFW') for n in sys.modules)")
-        result = subprocess.run([sys.executable, "-B", "-c", code, str(checkout.SOURCE / "Internal")],
+        internal = checkout.REPO / "Framework" / "python" / "_internal"
+        result = subprocess.run([sys.executable, "-B", "-c", code, str(internal)],
                                 capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
 

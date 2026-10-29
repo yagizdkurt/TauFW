@@ -1,7 +1,7 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Public process API: external commands with log files and output checks, and
 Python functions run in parallel processes. The operations that run behind the
-menu (their events, output and supervisor) are TauFW.Utilities.Internal.Operations."""
+menu (their events, output and supervisor) are TauFW.Framework._internal.operations."""
 
 from ._parallel import ParallelProcessor
 from ._runner import Command, CommandResult, CommandPlan, RunReport, ProcessRunner

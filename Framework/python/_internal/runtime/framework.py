@@ -68,19 +68,19 @@ from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Mapping, Optional, Tuple
-from TauFW.Framework.defaults import (DEFAULT_RUN_ROOT, RUN_LOG_NAME, DEFAULT_POLL_SECONDS, BUNDLE_DIR_NAME,
-                                      timestamp, default_file_io)
-from TauFW.Framework.recipes.bundle import (path_rows, snapshot, make_bundle, source_files, bundle_hashes, bundle_changes,
-                                    hashes_digest)
-from TauFW.Framework.runtime.manifest import write_manifest, ManifestError
-from TauFW.Framework.recipes.recipe import Recipe, RecipeError, Issue
-from TauFW.Framework.recipes.samples import sample_issues
-from TauFW.Framework.runtime.run_record import RunRecord, RunState
-from TauFW.Framework.runtime.run_lock import RunLock, RunLockError
-from TauFW.Framework.runtime.interrupts import deferred_interrupt
-from TauFW.Framework import user_settings
-from TauFW.Framework.runtime.reporting import FrameworkReporter
-from TauFW.Framework.recipes.validation import read_source
+from TauFW.Framework._internal.defaults import (DEFAULT_RUN_ROOT, RUN_LOG_NAME, DEFAULT_POLL_SECONDS, BUNDLE_DIR_NAME,
+                                                timestamp, default_file_io)
+from TauFW.Framework._internal.recipes.bundle import (path_rows, snapshot, make_bundle, source_files, bundle_hashes,
+                                                      bundle_changes, hashes_digest)
+from TauFW.Framework._internal.runtime.manifest import write_manifest, ManifestError
+from TauFW.Framework._internal.recipes.recipe import Recipe, RecipeError, Issue
+from TauFW.Framework._internal.recipes.samples import sample_issues
+from TauFW.Framework._internal.runtime.run_record import RunRecord, RunState
+from TauFW.Framework._internal.runtime.run_lock import RunLock, RunLockError
+from TauFW.Framework._internal.runtime.interrupts import deferred_interrupt
+from TauFW.Framework._internal import user_settings
+from TauFW.Framework._internal.runtime.reporting import FrameworkReporter
+from TauFW.Framework._internal.recipes.validation import read_source
 from TauFW.Framework.stages import (STAGES, StageState, StageContext, StageNotImplemented, PreflightError,
                                     ProductionStage, ControlHistsStage, ControlPlotsStage, ShapesStage, FitStage,
                                     PythonStage)

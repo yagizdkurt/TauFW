@@ -49,7 +49,8 @@ __all__ = ['PythonStage', 'PythonSpec', 'StepRequest', 'STEP_RUNNER']
 # ================================= CONSTANTS =================================
 
 
-STEP_RUNNER = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'runtime', 'step_runner.py')
+STEP_RUNNER = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '_internal', 'runtime',
+                           'step_runner.py')
 CONTEXT_NAME = 'context.json'  # written to the step's log directory before it runs
 RESULT_NAME = 'result.json'    # written there by the step runner when the step succeeded
 

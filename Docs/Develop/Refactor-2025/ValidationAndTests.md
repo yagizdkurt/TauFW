@@ -856,3 +856,27 @@ unchanged; to confirm on lxplus without re-lock: [TODO.md](TODO.md) section 1.
   65, ...); `check_import_boundaries` fails as before with the same report (known debt, 0 new pairs) and
   `check_root` needs ROOT. One test needed its path changed: `test_editor` imports Editor standalone from
   `Utilities/python/Internal`.
+
+## 52. The Framework's inside moves to `Framework/python/_internal`, with TauFW's own tools from Utilities
+
+**Change:** [CL §52](Refactor-2025.md#52-the-frameworks-inside-moves-to-frameworkpython_internal-with-taufws-own-tools-from-utilities)
+
+- `Tests/check_import_boundaries.py` `test_framework_is_imported_by_the_framework_only` (replaces
+  `test_utilities_internal_is_framework_only`): a stage or a Utilities package importing `TauFW.Framework`,
+  `TauFW.Framework._internal...` or `from TauFW import Framework` is a violation; the Framework itself is not.
+- `Tests/Framework/test_menu.py` `test_import_is_silent_without_framework_or_curses`: with `TauFW.Framework` an
+  empty stand-in package, importing the menu loads only `_internal`, `_internal.menu`, `_internal.operations` and
+  `_internal.notifications`, never curses.
+- By hand (Windows): all 59 modules under `Framework/python` import as `TauFW.Framework...` (the four run-by-path
+  scripts left out); `Utilities/python/Internal` is gone. Before `cmsenv`, by path as FastSetup runs them:
+  `setup_tools.py environment`, `userconfig --path <new file>` (created, then kept), `manifest`, `modules --root .
+  installer:rename_directory`, `setup_runner.py --help`, `setup_menu.py --help` (failed before this change: see the
+  changelog). `menu`, `installer`, `operations`, `editor`, `notifications` import with `_internal/` and
+  `Utilities/python` on `sys.path` and load no `TauFW` module.
+- Example recipes: `taufw.py check` and `taufw.py plan` on every bundle of `Analyses/` (5) in a `git archive HEAD`
+  copy and in the working tree: identical output (on Windows `check` reports only the missing `/eos` tuple
+  directories, and `plan` stops where it needs PicoProducer or the Plotter, both as before).
+- `Tests/run.py checks` on Windows, before and after: the same 14 of 16 pass (Utilities 273 -> 96 and Framework
+  255 -> 432 tests, the 177 moved tests included; Setup 65); `check_import_boundaries` fails as before with the same
+  report (known debt, 0 new pairs) and `check_root` needs ROOT.
+- A repository grep finds no old path or import outside earlier changelog sections, audits, LocalR and Legacy.

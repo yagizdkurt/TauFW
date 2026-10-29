@@ -9,9 +9,9 @@ from unittest import mock
 
 import checkout
 from TauFW.Framework import check_recipe
-from TauFW.Framework.recipes.configs import (scan, lock_changes, update, copy_warnings, read_header, renamed_id,
-                                     content_hash, ConfigError, LOCK_NAME)
-from TauFW.Framework.defaults import CONFIGS_DIR
+from TauFW.Framework._internal.recipes.configs import (scan, lock_changes, update, copy_warnings, read_header,
+                                                       renamed_id, content_hash, ConfigError, LOCK_NAME)
+from TauFW.Framework._internal.defaults import CONFIGS_DIR
 from TauFW.Histogrammer.sample.model import load_sample_model
 
 STEP = {"stage": "python", "id": "check", "inputs": None, "file": "steps/check.py"}
@@ -233,7 +233,7 @@ class CopyWarningTests(ConfigsCase):
     def test_the_scan_is_kept_while_configs_is_unchanged(self):
         """The menu checks every recipe on each Start: Configs/ is scanned again only when one of its files
         changed (path, mtime, size), never with a FileIO of the caller."""
-        from TauFW.Framework.recipes import configs
+        from TauFW.Framework._internal.recipes import configs
         self.write("samples.yml", template(version=1), self.bundle)
         with mock.patch.object(configs, "scan", wraps=configs.scan) as scanned:
             self.assertEqual(len(self.warnings()), 1)
@@ -291,7 +291,7 @@ class CopyWarningTests(ConfigsCase):
 
     def test_check_recipe_shows_the_warning(self):
         self.write("samples.yml", template(version=1), self.bundle)
-        with mock.patch("TauFW.Framework.recipes.configs.CONFIGS_DIR", self.configs):
+        with mock.patch("TauFW.Framework._internal.recipes.configs.CONFIGS_DIR", self.configs):
             check = check_recipe(self.bundle)
         self.assertTrue(check.ok)
         self.assertTrue(any(str(w).startswith("samples.yml: copy of plotter.samples_test version 1")

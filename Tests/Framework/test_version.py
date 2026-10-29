@@ -11,7 +11,7 @@ import unittest
 from unittest import mock
 
 import checkout
-from TauFW.Framework import version
+from TauFW.Framework._internal import version
 
 
 class VersionTests(unittest.TestCase):

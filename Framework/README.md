@@ -56,14 +56,14 @@ The words below are used everywhere in the code and in this README.
 
 1. [Analyses/README.md](../Analyses/README.md) and the bundled analyses: what a user writes.
 2. `python/stages/base.py`: the stage contract, the stage states and the stage context (short).
-3. `python/runtime/framework.py`: `start` → `advance` → `_advance_stages`, the loop that drives the stages.
+3. `python/_internal/runtime/framework.py`: `start` → `advance` → `_advance_stages`, the loop that drives the stages.
 4. `python/stages/production.py`: the batch stage; `decide_next` holds its policy.
 5. `python/stages/local.py`: the local stages (preflight, run the commands, DONE or FAILED); `controlhists.py`,
    `controlplots.py`, `shapes.py` and `fit.py` only map their options to the Histogrammer, Plotter and Fitter APIs; `python_step.py` runs a
-   bundle's Python file through `step_runner.py`.
-6. `python/recipes/recipe.py` and `python/recipes/validation.py`: what a valid recipe is, and the checks of the files it names.
-7. `python/recipes/bundle.py`: the path rule (absolute, bundle file or above it, `Configs/` template, channel name; CL §38) and the run's bundle copy.
-8. `python/runtime/run_record.py`: what is written to `run.json`, and how the run state is computed.
+   bundle's Python file through `_internal/runtime/step_runner.py`.
+6. `python/_internal/recipes/recipe.py` and `python/_internal/recipes/validation.py`: what a valid recipe is, and the checks of the files it names.
+7. `python/_internal/recipes/bundle.py`: the path rule (absolute, bundle file or above it, `Configs/` template, channel name; CL §38) and the run's bundle copy.
+8. `python/_internal/runtime/run_record.py`: what is written to `run.json`, and how the run state is computed.
 9. `scripts/taufw.py`: the command line, which only calls the `Framework`.
 
 ## Quick start
@@ -127,14 +127,14 @@ to return afterward. Ctrl+C returns to the menu without cancelling submitted
 batch jobs. Resume using the saved run record. Existing CLI subcommands and
 explicit `--help` keep working without curses or an interactive terminal.
 
-Menu presentation lives in `Utilities/python/Internal/Menu/`: `_menu.py` owns rendering,
+Menu presentation lives in `Framework/python/_internal/menu/`: `_menu.py` owns rendering,
 wording, screen choices, and terminal lifecycle; `_navigation.py` owns screen
 transitions, back behavior, refresh loops, and operation feedback; `faq.py` owns
 help content.
 `_test_run.py` is the test screen. What runs behind the menu is an operation
-(`Utilities/python/Internal/Operations/_operations.py`, `_supervisor.py`): a directory under `.artifacts/menu/operations/`
+(`Framework/python/_internal/operations/_operations.py`, `_supervisor.py`): a directory under `.artifacts/menu/operations/`
 that a supervisor process fills while it runs the command, and that any menu reads again (CL §18).
-`python/interfaces/interactive.py` keeps recipe/run discovery, validation, record access,
+`python/_internal/interfaces/interactive.py` keeps recipe/run discovery, validation, record access,
 read-only recipe previews and plan preparation, test runs (`start_tests`, `tests_operation`), and command
 dispatch. Recipe previews (with their problems)
 are made once per picker visit; Framework objects stay in the adapter. UI screens use ASCII frames, cyan accents,
@@ -296,7 +296,7 @@ of the user config; default `taufw_runs/` in the working directory; see
 
 `Analyses/UserConfig.yaml` (or the file `$TAUFW_USER_CONFIG` names) holds the personal settings of the user: made by
 FastSetup or `taufw.py userconfig`, ignored by git, read with `TauFW.Utilities.UserConfig` (changelog §40, §41).
-The Framework reads it in `python/user_settings.py`, the same way as a user's script, and always after the command
+The Framework reads it in `python/_internal/user_settings.py`, the same way as a user's script, and always after the command
 line and the recipe:
 
 | Setting | Used for | Precedence |
@@ -334,7 +334,7 @@ the directory of each point's shapes from the shapes artifacts). The API only us
 copies. Before the scripts start, the API refuses an output directory that is not empty (an interrupted attempt;
 remove it or start a new run), a relative tuple pattern, or a PicoProducer configuration with a relative `picodir`.
 
-`manifest.json` (`python/runtime/manifest.py`) is written when a stage becomes `DONE` (never for a failed stage), before
+`manifest.json` (`python/_internal/runtime/manifest.py`) is written when a stage becomes `DONE` (never for a failed stage), before
 `run.json` is saved: `{"manifest": 2, "run_id", "stage_id", "stage", "description", "inputs", "sources", "stage_dir",
 "finished", "artifacts"}`. It is a copy of the stage's record, so that a stage directory describes itself; `run.json`
 stays the source of truth. `stage_dir` is where it was written (absolute).
@@ -378,34 +378,41 @@ of the stage) and in the reader's manifest.
 
 ## Package layout
 
-`python/recipes/` owns recipe models, validation, bundles and config templates;
-`python/runtime/` owns execution and saved run state; `python/interfaces/` connects
-the Framework to user interfaces. `python/stages/` contains the stage implementations.
-Shared defaults, user settings and release metadata stay directly under `python/`.
+```
+Framework/python/
+  __init__.py     the public API: from TauFW.Framework import Framework, Recipe, ...
+  stages/         the stage contract (base.py) and the stages
+  _internal/      the Framework's inside, not for analysis code (CL §52):
+    runtime/      execution and saved run state
+    recipes/      recipe models, validation, bundles and config templates
+    interfaces/   the Framework side of the menu
+    defaults.py, user_settings.py, version.py (+ version.json, empty_recipe.yml, setup_manifest.json)
+    menu/ editor/ installer/ operations/ notifications.py   TauFW's own tools (_internal/README.md)
+```
 
-The public imports remain `from TauFW.Framework import Framework, Recipe, ...`.
-Internal module imports use their package paths, for example
-`TauFW.Framework.recipes.recipe` and `TauFW.Framework.runtime.run_record`.
-Future recipe creation/editing logic belongs in `recipes/` when needed; terminal
-widgets stay in `TauFW.Utilities.Internal.Menu` and `TauFW.Utilities.Internal.Editor`, with Framework
-callbacks supplied through `interfaces/`.
+Use the public imports, `from TauFW.Framework import Framework, Recipe, ...`. Inside the Framework, modules import
+each other by their package paths, for example `TauFW.Framework._internal.recipes.recipe`. No stage and no
+Utilities package imports anything of `TauFW.Framework` (`Tests/check_import_boundaries.py`). Future recipe
+creation/editing logic belongs in `_internal/recipes/`; the terminal widgets stay in `_internal/menu/` and
+`_internal/editor/` ([_internal/README.md](python/_internal/README.md)), with Framework callbacks supplied through
+`_internal/interfaces/`.
 
 | File | Contents |
 |---|---|
-| `python/runtime/framework.py` | `Framework`: `plan`, `start`, `advance`, `retry`, `run`, `status`, `make_bundle`; stage dispatch; construction (`from_recipe`, `from_record`) |
-| `python/recipes/recipe.py` | `Recipe`, `StageSpec`, `Issue`, `RecipeError`: load and validate recipes (a bundle directory or a file): structure, stage ids, inputs (stage ids, `{path}`, `{external}`), at most one production; every problem at once |
-| `python/recipes/validation.py` | `check_recipe`, `RecipeCheck`: everything `recipe.py` checks plus the files a recipe names (and the stage directories of `{path}` inputs, `read_source`), without raising (`taufw.py check`, the menu) |
-| `python/runtime/manifest.py` | `write_manifest`, `read_stage_dir`, `StageDir`, `ManifestError`: the stage manifests (format 2) |
-| `python/recipes/bundle.py` | the path rule (absolute, bundle file, outside the bundle, `Configs/` template, channel name; `is_absolute`), the run's bundle copy, new bundles (`taufw.py init`) |
-| `python/recipes/samples.py` | `sample_issues`: before a run, the samples a production stage makes (PicoProducer's catalogs) vs those its readers' `samples` files ask for (Histogrammer API); `plan` lists, `start` refuses the problems |
-| `python/recipes/configs.py` | the config templates of `Configs/`: headers (`taufw_config`: id, version, schema), `configs.lock`, `update` (`taufw.py configs update`), the warnings for old copies in a bundle |
-| `python/runtime/step_runner.py` | runs a python step in its own process (standard library only): `context.json` → `run(ctx)` → `result.json` |
-| `python/runtime/run_record.py` | `RunRecord`, `RunState`, `StageRecord`: `run.json`, crash-safe save |
-| `python/runtime/run_lock.py` | the advance lock, lost-lock detection and takeover |
-| `python/runtime/interrupts.py` | deferred interruption while a submission finishes |
-| `python/runtime/reporting.py` | `Reporter` (interface), `FrameworkReporter` (terminal + `run.log`), `SilentReporter`, `EventReporter` (also writes events for the menu, `$TAUFW_EVENTS`); adapter for PicoProducer's messages |
-| `python/defaults.py` | shared defaults: `taufw_runs`, `run.json`, `run.log`, `recipe.yml`, `bundle/`, `logs/`, `stages/`, `manifest.json`, `Analyses/`, `Configs/`, the polling interval (600 s), the time format |
-| `python/interfaces/interactive.py` | the Framework side of the console menu (recipe/run discovery, dispatch to the commands) |
+| `python/_internal/runtime/framework.py` | `Framework`: `plan`, `start`, `advance`, `retry`, `run`, `status`, `make_bundle`; stage dispatch; construction (`from_recipe`, `from_record`) |
+| `python/_internal/recipes/recipe.py` | `Recipe`, `StageSpec`, `Issue`, `RecipeError`: load and validate recipes (a bundle directory or a file): structure, stage ids, inputs (stage ids, `{path}`, `{external}`), at most one production; every problem at once |
+| `python/_internal/recipes/validation.py` | `check_recipe`, `RecipeCheck`: everything `recipe.py` checks plus the files a recipe names (and the stage directories of `{path}` inputs, `read_source`), without raising (`taufw.py check`, the menu) |
+| `python/_internal/runtime/manifest.py` | `write_manifest`, `read_stage_dir`, `StageDir`, `ManifestError`: the stage manifests (format 2) |
+| `python/_internal/recipes/bundle.py` | the path rule (absolute, bundle file, outside the bundle, `Configs/` template, channel name; `is_absolute`), the run's bundle copy, new bundles (`taufw.py init`) |
+| `python/_internal/recipes/samples.py` | `sample_issues`: before a run, the samples a production stage makes (PicoProducer's catalogs) vs those its readers' `samples` files ask for (Histogrammer API); `plan` lists, `start` refuses the problems |
+| `python/_internal/recipes/configs.py` | the config templates of `Configs/`: headers (`taufw_config`: id, version, schema), `configs.lock`, `update` (`taufw.py configs update`), the warnings for old copies in a bundle |
+| `python/_internal/runtime/step_runner.py` | runs a python step in its own process (standard library only): `context.json` → `run(ctx)` → `result.json` |
+| `python/_internal/runtime/run_record.py` | `RunRecord`, `RunState`, `StageRecord`: `run.json`, crash-safe save |
+| `python/_internal/runtime/run_lock.py` | the advance lock, lost-lock detection and takeover |
+| `python/_internal/runtime/interrupts.py` | deferred interruption while a submission finishes |
+| `python/_internal/runtime/reporting.py` | `Reporter` (interface), `FrameworkReporter` (terminal + `run.log`), `SilentReporter`, `EventReporter` (also writes events for the menu, `$TAUFW_EVENTS`); adapter for PicoProducer's messages |
+| `python/_internal/defaults.py` | shared defaults: `taufw_runs`, `run.json`, `run.log`, `recipe.yml`, `bundle/`, `logs/`, `stages/`, `manifest.json`, `Analyses/`, `Configs/`, the polling interval (600 s), the time format |
+| `python/_internal/interfaces/interactive.py` | the Framework side of the console menu (recipe/run discovery, dispatch to the commands) |
 | `python/stages/base.py` | the stage contract: `Stage`, `StageState`, `StageOutcome`, `StageContext`, `StageNotImplemented`, `PreflightError` |
 | `python/stages/production.py` | `ProductionStage` and the pure `decide_next` policy |
 | `python/stages/local.py` | `LocalStage`: preflight, run the commands, `DONE` or `FAILED` (log tail) |
