@@ -16,6 +16,11 @@ import time
 from .faq import FAQ
 from .banner import DECAY_SECONDS, INTERACTIONS, VERSION, WIDTH, branding, decay_frame
 
+if "." in __package__:
+    from ..Notifications import bell
+else:  # standalone installer
+    from Notifications import bell
+
 
 QUIT_WARNING = ("If you quit, they keep running, but only while this login session lasts. Logging out (closing "
                 "the SSH session) ends them, and the menu then shows them as Lost. A lost run keeps everything "
@@ -1122,9 +1127,11 @@ class ConsoleUI:
 
     def operation_error(self, error):
         """The error in a panel over the current screen until Enter or Esc."""
+        bell()
         self.message("Error", "%s: %s" % (type(error).__name__, error), "error")
 
     def unreadable_run(self, error):
+        bell()
         self.message("Cannot read run", str(error), "error")
 
     def notice(self, title, text):

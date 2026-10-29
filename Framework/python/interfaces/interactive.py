@@ -664,7 +664,10 @@ def run_menu(parser):
         return 1
     try:
         # one curses session: nothing is printed between two screens; the lists are read ahead by a thread
-        return ui.session(Menu(ui, prefetch=Prefetch()).run)
+        from TauFW.Utilities.Internal.Notifications import OperationNotifications
+        menu = Menu(ui, prefetch=Prefetch())
+        with OperationNotifications(menu.operations.store.root):
+            return ui.session(menu.run)
     except Exception as error:
         if not ui.is_terminal_error(error):
             raise

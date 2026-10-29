@@ -25,11 +25,13 @@ class RunnerTests(unittest.TestCase):
                 patch.object(runner.sys.stdout, "isatty", return_value=True), \
                 patch("builtins.input", side_effect=["invalid", "", "no", "yes", "", "yes"]), \
                 patch("builtins.print"), patch.object(runner.ArgumentParser, "print_help"), \
-                patch.object(runner.os, "execvp") as launch:
+                patch.object(runner.subprocess, "call", return_value=0) as launch, \
+                patch.object(runner, "bell") as bell:
             runner.main(["--script", "/clone with spaces/Utilities/FastSetup.sh",
                          "--selected", "tauidsfs", "htt", "--",
                          "--jobs", "7", "--cmssw-dir", "/release with spaces", "--skip-combine"])
-        launch.assert_called_once_with("bash", ["bash", "/clone with spaces/Utilities/FastSetup.sh",
+        bell.assert_called_once_with()
+        launch.assert_called_once_with(["bash", "/clone with spaces/Utilities/FastSetup.sh",
                                                "--jobs", "7", "--cmssw-dir", "/release with spaces",
                                                "--non-interactive", "--skip-htt"])
 
@@ -40,7 +42,7 @@ class RunnerTests(unittest.TestCase):
                     patch.object(runner.sys.stdin, "isatty", return_value=True), \
                     patch.object(runner.sys.stdout, "isatty", return_value=True), \
                     patch("builtins.input", side_effect=answers), patch("builtins.print"), \
-                    patch.object(runner.os, "execvp") as launch:
+                    patch.object(runner.subprocess, "call") as launch:
                 self.assertEqual(runner.main(["--script", "/clone/Utilities/FastSetup.sh"]), 130)
                 launch.assert_not_called()
 
@@ -115,8 +117,9 @@ class RunnerTests(unittest.TestCase):
         worker = Mock(started=time.monotonic(), finished=time.monotonic(),
                       returncode=7, lines=["detail"] * 30)
         worker.result.return_value = "Setup failed\nretry command"
-        with patch.object(runner.time, "sleep"):
+        with patch.object(runner.time, "sleep"), patch.object(runner, "bell") as bell:
             self.assertEqual(runner.progress(ui, screen, worker), 7)
+        bell.assert_called_once_with()  # resizing and waiting for Enter must not repeat the bell
         self.assertEqual(worker.pump.call_count, 4)
         self.assertEqual(screen.refresh.call_count, 4)
 

@@ -77,6 +77,7 @@ Outside lxplus nothing is guessed, all settings are comment lines, and PicoProdu
 
 | Setting | What it does | If you don't set it |
 | --- | --- | --- |
+| `notifications` | Terminal bell when a recipe, test run or installation completes, or an operation fails. Set `false` to mute. | `true`. |
 | `runs.run_root` | The folder where your runs are made, when the recipe has no `run_root` and you don't give `--run-root`. | Runs go to `taufw_runs/` in the folder you start from, with a warning. |
 | `production.batch` | The batch system. On lxplus it's `HTCondor`. | PicoProducer's guess for your machine. |
 | `production.queue` | The queue, for HTCondor the job flavour (`espresso`, `workday`, ...). | Nothing: the batch system's default. |
@@ -87,6 +88,27 @@ Outside lxplus nothing is guessed, all settings are comment lines, and PicoProdu
 | `production.ncores` | How many files are checked at once, when TauFW counts events and validates job output. It's not the number of cores of a job. | 4. |
 | `production.hadd.cmd` | Another command to merge the files, instead of `hadd`. | `hadd`. |
 | `production.hadd.maxopenfiles` | How many files the merge opens at once. | 500. |
+
+### Terminal notifications
+
+TauFW sends one terminal bell when a recipe finishes or stops with a problem, a menu test run ends, or an
+interactive installation finishes. Menu notifications also work while another screen is open. Reopening an
+old result does not ring again, and waiting for batch jobs, automatic retries and cancelled operations stay silent.
+Bells go only to an attached terminal, never into redirected error output or worker logs. The terminal controls
+the actual sound and visual alert.
+
+Notifications are enabled by default. To mute them, add this top-level setting to your user config:
+
+```yaml
+notifications: false
+```
+
+Set it to `true` or remove it to enable bells again. The menu reads the preference for each notification,
+so changes apply without restarting it.
+
+In VS Code, enable `accessibility.signals.terminalBell` with `"sound": "on"` and, optionally,
+`terminal.integrated.enableVisualBell`. In Windows Terminal, enable the profile's audible bell and taskbar alerts.
+If a terminal suppresses bells, TauFW cannot force it to play a sound.
 
 ### Who wins
 

@@ -60,6 +60,7 @@ try:
     from TauFW.Framework.defaults import (DEFAULT_RUN_ROOT, DEFAULT_POLL_SECONDS, ANALYSES_DIR, CONFIGS_DIR,
                                           default_file_io)
     from TauFW.Utilities.Internal.Operations import EVENTS_ENV, EventWriter
+    from TauFW.Utilities.Internal.Notifications import bell
     from TauFW.Utilities import UserConfig
     from TauFW.Utilities.UserConfig import manage as user_config
     from TauFW.Framework import user_settings
@@ -389,6 +390,8 @@ def _finish(reporter, record):
     elif retry:
         reporter.message("Once the cause is fixed, run stage %s again with: taufw.py retry %s"
                          % (retry[0], record.run_dir))
+    if record.state != RunState.FAILED and record.state != RunState.WAITING:
+        bell()
     return 1 if record.state == RunState.FAILED else 0
 
 
@@ -465,13 +468,20 @@ def main(argv=None):
     args = build_parser().parse_args(argv)
     args.events = EventWriter(os.environ.pop(EVENTS_ENV, None))  # read once; the stages' commands never see it
     try:
-        return COMMANDS[args.command](args)
+        status = COMMANDS[args.command](args)
+        if status and status != 130:
+            bell()
+        return status
     except (RecipeError, RunDirectoryError, RunLockError, RetryError,
             UserConfig.UserConfigError) as error:  # without a traceback
         reporter = _reporter(args)
         reporter.warning(str(error))
         reporter.event('error', message=str(error))
+        bell()
         return 1
+    except Exception:
+        bell()
+        raise
 
 
 if __name__ == "__main__":

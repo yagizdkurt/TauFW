@@ -17,8 +17,10 @@ Setting = namedtuple("Setting", "key kind example comment")
 
 # kind: 'run_root' an absolute directory, nothing expanded (as run_root in a recipe); 'pattern' a non-empty
 # directory pattern ($ERA, $CHANNEL, ... filled by PicoProducer); 'directory' a non-empty directory; 'text' any
-# string; 'count' a whole number from 1.
+# string; 'count' a whole number from 1; 'boolean' true or false.
 SETTINGS = (
+    Setting("notifications", "boolean", True,
+            "terminal bells for completed operations and errors; false disables them (default: true)"),
     Setting("runs.run_root", "run_root", "/afs/cern.ch/work/u/user/taufw_runs",
             "where your runs go when the recipe has no run_root and you give no --run-root"),
     Setting("production.batch", "text", "HTCondor", "the batch system: HTCondor, SLURM, ..."),

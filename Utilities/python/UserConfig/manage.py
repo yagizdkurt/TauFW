@@ -55,7 +55,7 @@ def setting_problems(config, section=None):
     one line each, starting with the dotted key. A setting that is not set is never a problem."""
     problems = []
     for setting in SETTINGS:
-        if section and not setting.key.startswith(section + "."):
+        if section and setting.key != section and not setting.key.startswith(section + "."):
             continue
         missing = object()
         value = config.get(setting.key, missing)
@@ -89,6 +89,8 @@ def create(path=None, files=None, values=None, sources=()):
 
 def _kind_problem(kind, value):
     """What is wrong with a value of a kind of SETTINGS (None if nothing)."""
+    if kind == "boolean":
+        return None if isinstance(value, bool) else "must be true or false"
     if kind == "count":
         if not isinstance(value, int) or isinstance(value, bool) or value < 1:
             return "must be a whole number from 1"

@@ -690,19 +690,23 @@ class CommandLineTests(FrameworkTestCase):
             json.dump(RECIPE, stream)
         real = Framework.from_recipe
         with mock.patch.object(self.cli.Framework, "from_recipe",
-                               side_effect=lambda r, reporter=None, fake=pico, **kw: real(r, reporter=reporter, pico=fake)):
+                               side_effect=lambda r, reporter=None, fake=pico, **kw: real(r, reporter=reporter, pico=fake)), \
+                mock.patch.object(self.cli, "bell") as bell:
             self.assertEqual(self.cli.main(["start", recipe, "--run-root", self.root]), 0)
             runs = os.listdir(self.root)
             run_dir = os.path.join(self.root, [r for r in runs if r.startswith("test_mutau_")][0])
             self.assertEqual(RunRecord.load(run_dir).state, "WAITING")
             self.assertEqual(self.cli.main(["advance", run_dir]), 0)  # pending
+            bell.assert_not_called()
             self.assertEqual(self.cli.main(["advance", run_dir, "--wait", "--poll", "0"]), 0)
             self.assertEqual(RunRecord.load(run_dir).state, "DONE")
             self.assertEqual(self.cli.main(["status", run_dir]), 0)
             self.assertEqual(self.cli.main(["plan", recipe]), 0)
+            bell.assert_called_once_with()  # completion only; status and plan stay silent
             reporter = SilentReporter()
             self.cli.FrameworkReporter = lambda verbosity=0: reporter
             self.assertEqual(self.cli.main(["retry", run_dir]), 1)  # CL §44: a DONE run has nothing to retry
+            self.assertEqual(bell.call_count, 2)  # the rejected operation reports one error
             self.assertEqual([t for k, t in reporter.messages if k == "warning"],
                              ["Run %s has no failed stage (it is DONE): nothing to retry. Continue it with: "
                               "taufw.py advance %s" % (os.path.basename(run_dir), run_dir)])

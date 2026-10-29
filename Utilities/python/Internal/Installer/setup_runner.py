@@ -20,10 +20,13 @@ import time
 
 if __package__:
     from ..Menu import ConsoleUI
+    from ..Notifications import bell
     from ._installer import COMPONENTS
 else:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from Menu import ConsoleUI
+    from Notifications import bell
     from Installer import COMPONENTS
 
 
@@ -331,6 +334,8 @@ def progress(ui, screen, worker):
             worker.pump()
             if worker.returncode is not None and not was_finished:
                 was_finished = True
+                if worker.returncode != 130:
+                    bell()
                 log_view, offset = False, None
             screen.erase()
             height, width = screen.getmaxyx()
@@ -425,7 +430,10 @@ def text_setup(args):
         print("\nSetup cancelled; no installation changes were made.")
         return 130
     arguments = args.arguments[1:] if args.arguments[:1] == ["--"] else args.arguments
-    os.execvp("bash", ["bash", args.script, *worker_arguments(arguments, selected)])
+    status = subprocess.call(["bash", args.script, *worker_arguments(arguments, selected)])
+    if status not in (130, -signal.SIGINT):
+        bell()
+    return status if status >= 0 else 128 - status
 
 
 def main(argv=None):
@@ -475,6 +483,7 @@ def main(argv=None):
     elif status == 130:
         print("Setup cancelled; no installation changes were made.")
     if failure:
+        bell()
         print(failure, file=sys.stderr)
         if worker is None:
             return text_setup(args)
