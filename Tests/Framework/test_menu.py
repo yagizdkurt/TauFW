@@ -1170,7 +1170,7 @@ ConsoleUI(None)
         found = rows(frames[0], ["run_1", "run_2", "Enter another run directory", "Back"])
         self.assertEqual([y - found[0] for y in found], [0, 1, 3, 4])
 
-    def test_picker_equal_columns_and_stage_table_at_supported_sizes(self):
+    def test_picker_columns_40_60_and_stage_table_at_supported_sizes(self):
         for dimensions in ((12, 64), (24, 80), (36, 121)):
             with self.subTest(dimensions=dimensions):
                 ui, screen, frames = self.rendered_terminal([27], dimensions)
@@ -1179,13 +1179,14 @@ ConsoleUI(None)
                 self.assertEqual(ui.select_recipe(["example"], lambda index: preview,
                                                  position={"selected": 1}), ("back", None))
                 width = dimensions[1]
-                panel_width = (width - 1) // 2
-                left = (width - (2 * panel_width - 1)) // 2
-                divider = left + panel_width - 1
+                span = 2 * ((width - 1) // 2)
+                left = (width - (span - 1)) // 2
+                divider = left + span * 2 // 5 - 1
+                self.assertEqual(round((divider - left) / (span - 1), 1), 0.4)
                 for row in range(4, dimensions[0] - 4):
                     self.assertEqual(frames[0][row][left], "|")
                     self.assertEqual(frames[0][row][divider], "|")
-                    self.assertEqual(frames[0][row][left + 2 * panel_width - 2], "|")
+                    self.assertEqual(frames[0][row][left + span - 2], "|")
                 self.assertIn("Recipe: example", "\n".join(frames[0]))
                 if dimensions[0] >= 24:
                     self.assertIn("1  production", "\n".join(frames[0]))

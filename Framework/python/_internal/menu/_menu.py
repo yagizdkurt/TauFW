@@ -271,7 +271,7 @@ class ConsoleUI:
 
     def _pipeline_choice(self, title, choices, preview, position=None, row_colors=None, live=None,
                          edit_indices=(), separators=()):
-        """Two equal columns, with independent recipe and pipeline scrolling.
+        """Two columns, the recipes 40% and the pipeline 60%, with independent recipe and pipeline scrolling.
         row_colors: a style name per choice (e.g. "error"), or None. live: seconds; without a key by then, REFRESH
         (the caller draws it again with what came meanwhile; the position is kept). separators: an empty line
         before each of these choices (as in choose)."""
@@ -290,11 +290,12 @@ class ConsoleUI:
                 usable = width >= 64 and height >= 12
                 page = 1
                 if usable:
-                    panel_width = (width - 1) // 2
-                    left = (width - (2 * panel_width - 1)) // 2
-                    left_rect = self._panel(screen, 3, left, height - 6, panel_width, "Recipes")
-                    right_rect = self._panel(screen, 3, left + panel_width - 1,
-                                             height - 6, panel_width, "Pipeline")
+                    span = 2 * ((width - 1) // 2)  # both panels, counting their shared border twice
+                    left = (width - (span - 1)) // 2
+                    list_width = span * 2 // 5  # recipes 40%, pipeline 60%
+                    left_rect = self._panel(screen, 3, left, height - 6, list_width, "Recipes")
+                    right_rect = self._panel(screen, 3, left + list_width - 1,
+                                             height - 6, span - list_width, "Pipeline")
                     top, column, rows, columns = left_rect
                     self._line(screen, top, column, "Recipe / bundle", color=self.styles["accent"])
                     top, rows = top + 2, max(1, rows - 2)
