@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
 #
-# setup.sh: install TauFW once, activate it, then open the interactive menu.
+# taufw.sh: TauFW's entry point. Install TauFW once, activate it, define the
+# `taufw` command in this shell, then open the interactive menu.
 #
-# Usage: source setup.sh [--install] [installer options]
+# Usage: source taufw.sh [--install] [installer options]
+# Then:  taufw                  the menu
+#        taufw COMMAND ...      check, plan, start, advance, ... (taufw --help)
 # Installation runs in a child process so the worker can use strict mode and
 # its interactive screen. Activation runs here so the environment persists.
-# All wrapper helpers and temporary variables are removed before returning.
+# The menu opens unless the user config says open_menu_on_start: false.
+# All wrapper helpers and temporary variables are removed before returning;
+# the `taufw` function and $TAUFW_BASE stay (exported to child shells).
 
 # =============================================================================
 # ==== Shell requirements ====
@@ -37,7 +42,7 @@ _taufw_setup_record_is_valid() { # RECORD_FILE VERSION RELEASE CHECKOUT CMS_SETU
      $installed == "$release/src/TauFW" && $cms_setup == /* &&
      ($arch == el8_amd64_gcc12 || $arch == el9_amd64_gcc12) &&
      -d $release/.SCRAM/$arch && -d $installed/.git &&
-     -f $installed/setup.sh && -r $installed/.git/taufw-setup-state &&
+     -f $installed/taufw.sh && -r $installed/.git/taufw-setup-state &&
      -d $installed/PicoProducer && -d $installed/Fitter &&
      -r $cms_setup && ! -e $release/.FastSetup-needs-clean ]] || return 1
 
@@ -108,6 +113,18 @@ _taufw_setup_activate() { # RELEASE CHECKOUT CMS_SETUP ARCH [LOG_PATH]
 }
 
 # =============================================================================
+# ==== The taufw command ====
+
+_taufw_setup_command() { # CHECKOUT
+  # taufw [COMMAND ...] runs the Framework's command line of this checkout (no
+  # arguments: the menu). A script without this shell's functions runs
+  # python3 "$TAUFW_BASE/Framework/scripts/taufw.py" instead.
+  export TAUFW_BASE=$1
+  taufw() { python3 "$TAUFW_BASE/Framework/scripts/taufw.py" "$@"; }
+  export -f taufw
+}
+
+# =============================================================================
 # ==== Setup pipeline ====
 
 _taufw_setup_main() {
@@ -121,9 +138,11 @@ _taufw_setup_main() {
   for argument in "$@"; do
     case $argument in
       -h | --help)
-        printf '%s\n' 'Usage: source setup.sh [--install] [installer options]' \
-          'Without options: activate a recorded installation, or install first.' \
-          '--install: reopen installation even when already installed.'
+        printf '%s\n' 'Usage: source taufw.sh [--install] [installer options]' \
+          'Without options: activate a recorded installation, or install first; then' \
+          'define the taufw command and open the menu (user config: open_menu_on_start).' \
+          '--install: reopen installation even when already installed.' \
+          'After it: taufw (the menu), taufw COMMAND ... (taufw --help).'
         bash "$checkout/Utilities/FastSetup.sh" --help
         return $? ;;
       --install) install=true ;;
@@ -179,7 +198,8 @@ _taufw_setup_main() {
   _taufw_setup_activate "${state[1]}" "${state[2]}" "${state[3]}" "${state[4]}" "$log_path" || return $?
 
   # Use the verified installed checkout, even when setup moved the original.
-  python3 "${state[2]}/taufw.py"
+  _taufw_setup_command "${state[2]}"
+  taufw --on-start
 }
 
 # =============================================================================
@@ -188,7 +208,7 @@ _taufw_setup_main() {
 _taufw_setup_return() {
   local status=$1
   unset -f _taufw_setup_main _taufw_setup_record_is_valid \
-    _taufw_setup_activate _taufw_setup_line _taufw_setup_return
+    _taufw_setup_activate _taufw_setup_line _taufw_setup_command _taufw_setup_return
   return "$status"
 }
 
