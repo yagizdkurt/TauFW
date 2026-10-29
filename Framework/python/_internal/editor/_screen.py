@@ -140,7 +140,7 @@ class Editor:
         if usable:
             body_height = height - self.frame_top - 3
             split = self.reference and self.reference_visible and width >= SPLIT_COLUMNS
-            editor_width = (width - 2) * 3 // 5 if split else width - 2
+            editor_width = (width - 2) // 2 if split else width - 2
             if not self.reference_focus or split:
                 name = self.document.path.name + (" *" if self.dirty else "")
                 if self.reference and not self.reference_focus:
