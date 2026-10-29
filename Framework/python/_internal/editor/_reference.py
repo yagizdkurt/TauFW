@@ -2,13 +2,16 @@
 """Read-only file viewport, with a small terminal renderer for Markdown READMEs.
 
 No curses or application imports. Markdown supports headings, prose, lists,
-links, fenced code and pipe tables; other constructs remain readable source.
+links, fenced code, pipe tables and GitHub alerts (> [!WARNING] ..., shown in
+the colour of ALERTS); other constructs remain readable source.
 Code and plain-text files retain their indentation and scroll horizontally.
 """
 from pathlib import Path
 import re
 
 from ._text import _width, _wrap
+
+ALERTS = {"CAUTION": "error", "WARNING": "warning", "IMPORTANT": "warning", "TIP": "good", "NOTE": "muted"}
 
 
 def _inline(text):
@@ -44,7 +47,16 @@ def _markdown(text, columns):
         if not line.strip():
             yield source, "", ""
             continue
-        heading = re.match(r"^#{1,6}\s+(.+?)\s*#*\s*$", line)
+        alert = re.match(r"^\s{0,3}>\s*\[!(%s)\]\s*$" % "|".join(ALERTS), line)
+        if alert:
+            body = []
+            while index < len(lines) and re.match(r"^\s{0,3}>", lines[index]):
+                body.append(re.sub(r"^\s{0,3}>\s?", "", lines[index]))
+                index += 1
+            for inner, row, _ in _markdown("\n".join(body), columns):
+                yield source + 1 + inner, row, ALERTS[alert[1]] if row else ""
+            continue
+        heading =re.match(r"^#{1,6}\s+(.+?)\s*#*\s*$", line)
         if heading:
             for row in _wrap(_inline(heading[1]), columns):
                 yield source, row, "active"

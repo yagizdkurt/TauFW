@@ -196,6 +196,15 @@ class EditorTests(unittest.TestCase):
         self.assertIn("Help paragraph 0.", terminal.frames[7])
         self.assertIn("value: old", self.path.read_text())
 
+    def test_markdown_alerts_are_coloured_without_their_marker(self):
+        reference = Reference(self.reference("Plain\n\n> [!CAUTION]\n> `version`: don't change it.\n\n"
+                                             "> [!WARNING]\n> - a list item\n>   continued\n\n> just a quote\n"))
+        reference.layout(40, 5)
+        rows = [(row[1], row[2]) for row in reference.rows if row[1]]
+        self.assertEqual(rows, [("Plain", ""), ("version: don't change it.", "error"),
+                                ("- a list item continued", "warning"), ("> just a quote", "")])
+        self.assertEqual([row[0] for row in reference.rows if row[1].startswith("- a list")], [6])  # its source line
+
     def test_markdown_readme_reflows_prose_and_tables_but_preserves_code(self):
         reference = Reference(self.reference("# Settings\n\nA **short** paragraph\ncontinued with a [link](other.md).\n\n"
                                              "```yaml\n# keep comment\n  path: " + "x" * 80 + "\n```\n\n"

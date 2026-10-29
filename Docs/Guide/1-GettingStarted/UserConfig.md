@@ -79,7 +79,7 @@ its own defaults.
 | `production.nanodir` | Where skim jobs write their output. | PicoProducer's default folder. |
 | `production.tmpskimdir` | A temporary folder for skim jobs. | None. |
 | `production.ncores` | How many files are checked at once, when TauFW counts events and validates job output. It's not the number of cores of a job. | 4. |
-| `production.hadd.cmd` | Another command to merge the files, instead of `hadd`. | `hadd`. |
+| `production.hadd.cmd` | Another command to merge the files, instead of `hadd -ff`. | `hadd -ff`. |
 | `production.hadd.maxopenfiles` | How many files the merge opens at once. | 500. |
 
 ### Terminal notifications
