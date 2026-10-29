@@ -29,19 +29,15 @@ PICO_KEYS = {  # key of the PicoProducer configuration -> setting of the user co
 # ==== Values ====
 
 def new_values(host=None, user=None, pico_config=PICO_CONFIG):
-    """({dotted key: value}, [source lines]) for a new user config: the lxplus guesses, then the values of the
-    PicoProducer configuration over them. An empty value of the configuration is not taken over."""
+    """{dotted key: value} for a new user config: the lxplus guesses, then the values of the PicoProducer
+    configuration over them. An empty value of the configuration is not taken over."""
     host = platform.node() if host is None else host
     user = user or getpass.getuser()
-    values, sources = {}, []
+    values = {}
     if 'lxplus' in host:
         values.update(_lxplus(user))
-        sources.append("Guessed for lxplus (user %s)." % (user))
-    taken = _from_pico_config(pico_config)
-    if taken:
-        values.update(taken)
-        sources.append("Taken from %s: %s." % (pico_config, ", ".join(sorted(taken))))
-    return values, sources
+    values.update(_from_pico_config(pico_config))
+    return values
 
 
 # =============================================================================

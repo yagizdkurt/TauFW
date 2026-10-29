@@ -67,8 +67,9 @@ class Config:
     """
 
     def get(self, key, default=None):
-        """The value of a dotted key, or `default` if a part of it is missing."""
-        value = self._values
+        """The value of a dotted key (also of the header, e.g. "taufw_user.notifications"), or `default` if a part
+        of it is missing."""
+        value = self._data
         for part in key.split("."):
             if not isinstance(value, dict) or part not in value:
                 return default
@@ -103,7 +104,8 @@ class Config:
         header = (data or {}).get(HEADER_KEY, {})
         self.version = header.get("version")
         self.reviewed = header.get("reviewed", False)
-        self._values = {key: value for key, value in (data or {}).items() if key != HEADER_KEY}
+        self._data = data or {}
+        self._values = {key: value for key, value in self._data.items() if key != HEADER_KEY}
 
     def __repr__(self):
         return "<UserConfig.Config %s%s>" % (self.path, "" if self.exists else " (no file)")

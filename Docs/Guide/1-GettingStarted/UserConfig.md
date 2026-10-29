@@ -23,44 +23,32 @@ Before saving, TauFW checks the YAML and its own settings. If something is wrong
 On lxplus, a new one looks like this:
 
 ```yaml
-# TauFW user configuration: your personal and machine settings.
-# Guessed for lxplus (user jdoe).
-
 taufw_user:
-  version: 1           # the format of this file (set by TauFW, do not change)
-  reviewed: false      # true: you checked this file
-notifications: true  # Set false to remove sound notifications.
-open_menu_on_start: true
+  version: 1  # Do Not Change!
+  reviewed: false  # set true!
+  notifications: true
+  open_menu_on_start: true
 
 runs:
-  # where your runs go when the recipe has no run_root and you give no --run-root
   run_root: "/afs/cern.ch/work/j/jdoe/taufw_runs"
 
 production:
-  # the batch system: HTCondor, SLURM, ...
   batch: "HTCondor"
-  # the queue (HTCondor: job flavour), when the recipe gives none
   # queue: "workday"
-  # extra batch options, when the recipe gives none
   # batchopts: ""
-  # the output of the jobs, before the merge
   outdir: "/eos/user/j/jdoe/taufw/output/$ERA/$CHANNEL/$SAMPLE"
-  # the output of skim jobs
   nanodir: "/eos/user/j/jdoe/taufw/samples/nano/$ERA/$DAS"
-  # a temporary directory of skim jobs
   # tmpskimdir: "/tmp/user"
-  # processes that count events and check files at once, when the recipe gives none
   # ncores: 4
   hadd:
-    # another command to merge the files
     # cmd: "python3 haddnano.py"
-    # files the merge opens at once
     # maxopenfiles: 500
 ```
 
-`notifications` and `open_menu_on_start` are always written with their defaults. The setup guessed the other values
-that have no `#` in front. A line that starts with `#` is not set, and TauFW uses its own default for it. To set
-one, remove the `#` and change the value. Your own sections (like `mystudy:` below) are kept.
+`notifications` and `open_menu_on_start` (under `taufw_user`) are always written with their defaults. The setup
+guessed the other values that have no `#` in front. A line that starts with `#` is not set, and TauFW uses its own
+default for it. To set one, remove the `#` and change the value. Your own sections (like `mystudy:` below) are
+kept. The file itself has no explanations: the editor shows what each setting does beside it.
 
 ### Where the values come from
 
@@ -72,17 +60,17 @@ The setup fills in what it can work out for you:
   area. If you don't, `run_root` stays a comment line, and you should pick a folder with enough space yourself.
   Your AFS home is too small for runs.
 - If you already had a `PicoProducer/config/config.json` (because you used `pico.py` before), its values win over
-  the guesses. So if you once moved your job output somewhere else, recipes keep using that folder. The file says
-  so in a comment line at the top: `Taken from .../config.json: ...`.
+  the guesses. So if you once moved your job output somewhere else, recipes keep using that folder.
 
-Outside lxplus nothing is guessed, all settings are comment lines, and PicoProducer keeps its own defaults.
+Outside lxplus nothing is guessed, the `runs` and `production` settings are comment lines, and PicoProducer keeps
+its own defaults.
 
 ### What each setting does
 
 | Setting | What it does | If you don't set it |
 | --- | --- | --- |
-| `notifications` | Terminal bell when a recipe, test run or installation completes, or an operation fails. Set `false` to mute. | `true`. |
-| `open_menu_on_start` | Whether `source taufw.sh` opens the menu. Set `false` to only get the environment and the `taufw` command. | `true`. |
+| `taufw_user.notifications` | Terminal bell when a recipe, test run or installation completes, or an operation fails. Set `false` to mute. | `true`. |
+| `taufw_user.open_menu_on_start` | Whether `source taufw.sh` opens the menu. Set `false` to only get the environment and the `taufw` command. | `true`. |
 | `runs.run_root` | The folder where your runs are made, when the recipe has no `run_root` and you don't give `--run-root`. | Runs go to `taufw_runs/` in the folder you start from, with a warning. |
 | `production.batch` | The batch system. On lxplus it's `HTCondor`. | PicoProducer's guess for your machine. |
 | `production.queue` | The queue, for HTCondor the job flavour (`espresso`, `workday`, ...). | Nothing: the batch system's default. |
@@ -105,7 +93,8 @@ the actual sound and visual alert.
 Notifications are enabled by default. To mute them, set this line of your user config to `false`:
 
 ```yaml
-notifications: false
+taufw_user:
+  notifications: false
 ```
 
 Set it back to `true` (or remove the line) to enable bells again. The menu reads the preference for each notification,

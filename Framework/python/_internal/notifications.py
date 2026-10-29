@@ -17,7 +17,7 @@ def bell(stream=None):
     """Send one BEL to a terminal, never to a log; notification failures are harmless."""
     stream = sys.stderr if stream is None else stream
     try:
-        if not stream.isatty() or UserConfig.load().get("notifications", True) is not True:
+        if not stream.isatty() or UserConfig.load().get("taufw_user.notifications", True) is not True:
             return False
         stream.write("\a")
         stream.flush()

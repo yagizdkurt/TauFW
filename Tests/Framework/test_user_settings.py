@@ -191,7 +191,7 @@ class CheckAndCommandLineTests(UserSettingsTestCase):
 
 class OpenMenuOnStartTests(UserSettingsTestCase):
     """CL §53: `source taufw.sh` ends with `taufw --on-start`: the menu, unless the user config says
-    open_menu_on_start: false."""
+    taufw_user.open_menu_on_start: false."""
 
     def setUp(self):
         super().setUp()
@@ -200,9 +200,9 @@ class OpenMenuOnStartTests(UserSettingsTestCase):
         spec.loader.exec_module(self.cli)
 
     def test_the_setting(self):
-        for text, expected in ((None, True), (HEADER, True), (HEADER + "open_menu_on_start: true\n", True),
-                               (HEADER + "open_menu_on_start: false\n", False),
-                               (HEADER + "open_menu_on_start: no thanks\n", True),  # wrong: the menu shows it
+        for text, expected in ((None, True), (HEADER, True), (HEADER + "  open_menu_on_start: true\n", True),
+                               (HEADER + "  open_menu_on_start: false\n", False),
+                               (HEADER + "  open_menu_on_start: no thanks\n", True),  # wrong: the menu shows it
                                ("taufw_user: [broken\n", True)):                     # unreadable: likewise
             with self.subTest(text=text):
                 if text is None:
@@ -217,7 +217,7 @@ class OpenMenuOnStartTests(UserSettingsTestCase):
             self.user_config(HEADER)
             self.assertEqual(self.cli.main(["--on-start"]), 0)
             self.assertEqual(menu.call_count, 1)
-            self.user_config(HEADER + "open_menu_on_start: false\n")
+            self.user_config(HEADER + "  open_menu_on_start: false\n")
             with mock.patch("sys.stdout") as stdout:
                 self.assertEqual(self.cli.main(["--on-start"]), 0)
             self.assertEqual(menu.call_count, 1)

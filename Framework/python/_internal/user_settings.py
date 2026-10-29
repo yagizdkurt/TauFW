@@ -82,15 +82,15 @@ def production_problems():
 
 
 def open_menu_on_start():
-    """The user config's open_menu_on_start: False only when it is set to false. True when it is not set, and also
+    """The user config's taufw_user.open_menu_on_start: False only when it is set to false. True when it is not set, and also
     when the file cannot be read or the value is wrong: the menu then shows the problem (manage.check())."""
     try:
         config = UserConfig.load()
     except UserConfig.UserConfigError:
         return True
-    if manage.setting_problems(config, "open_menu_on_start"):
+    if manage.setting_problems(config, "taufw_user.open_menu_on_start"):
         return True
-    return config.get("open_menu_on_start", True) is not False
+    return config.get("taufw_user.open_menu_on_start", True) is not False
 
 
 # =============================================================================

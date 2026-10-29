@@ -109,42 +109,39 @@ class UserConfigTests(unittest.TestCase):
         """The job output goes to a taufw/ directory of the EOS area; run_root only if the AFS work area exists."""
         missing = self.root / "no-config.json"
         with mock.patch.object(_guesses.os.path, "isdir", return_value=True):
-            values, sources = _guesses.new_values(host="lxplus961.cern.ch", user="jdoe", pico_config=missing)
+            values = _guesses.new_values(host="lxplus961.cern.ch", user="jdoe", pico_config=missing)
         self.assertEqual(values, {
             "production.batch": "HTCondor",
             "production.outdir": "/eos/user/j/jdoe/taufw/output/$ERA/$CHANNEL/$SAMPLE",
             "production.nanodir": "/eos/user/j/jdoe/taufw/samples/nano/$ERA/$DAS",
             "runs.run_root": "/afs/cern.ch/work/j/jdoe/taufw_runs"})
-        self.assertEqual(sources, ["Guessed for lxplus (user jdoe)."])
         with mock.patch.object(_guesses.os.path, "isdir", return_value=False):
-            values, _ = _guesses.new_values(host="lxplus961.cern.ch", user="jdoe", pico_config=missing)
+            values = _guesses.new_values(host="lxplus961.cern.ch", user="jdoe", pico_config=missing)
         self.assertNotIn("runs.run_root", values)
-        self.assertEqual(_guesses.new_values(host="mylaptop", user="jdoe", pico_config=missing), ({}, []))
+        self.assertEqual(_guesses.new_values(host="mylaptop", user="jdoe", pico_config=missing), {})
 
     def test_an_existing_picoproducer_config_wins_over_the_guesses(self):
         pico = self.root / "config.json"
         pico.write_text('{"outdir": "/eos/user/j/jdoe/mine/$ERA/$CHANNEL/$SAMPLE", "queue": "", "ncores": 8, '
                         '"maxopenfiles": 500, "batch": "HTCondor", "eras": {"2018": "x.py"}}', encoding="utf-8")
         with mock.patch.object(_guesses.os.path, "isdir", return_value=False):
-            values, sources = _guesses.new_values(host="lxplus961.cern.ch", user="jdoe", pico_config=pico)
+            values = _guesses.new_values(host="lxplus961.cern.ch", user="jdoe", pico_config=pico)
         self.assertEqual(values["production.outdir"], "/eos/user/j/jdoe/mine/$ERA/$CHANNEL/$SAMPLE")
         self.assertEqual(values["production.nanodir"], "/eos/user/j/jdoe/taufw/samples/nano/$ERA/$DAS")  # guessed
         self.assertEqual((values["production.ncores"], values["production.hadd.maxopenfiles"]), (8, 500))
         self.assertNotIn("production.queue", values)  # empty: not taken over
-        self.assertEqual(sources[1], "Taken from %s: production.batch, production.hadd.maxopenfiles, "
-                                     "production.ncores, production.outdir." % (pico))
         pico.write_text("not json", encoding="utf-8")
-        self.assertEqual(_guesses.new_values(host="x", user="jdoe", pico_config=pico), ({}, []))
+        self.assertEqual(_guesses.new_values(host="x", user="jdoe", pico_config=pico), {})
 
     def test_a_new_file_reads_back_what_was_written(self):
         values = {"runs.run_root": "/afs/cern.ch/work/j/jdoe/taufw_runs", "production.queue": "workday",
                   "production.outdir": "/eos/user/j/jdoe/taufw/output/$ERA/$CHANNEL/$SAMPLE",
                   "production.hadd.maxopenfiles": 100}
-        self.assertTrue(manage.create(self.path, values=values, sources=["Guessed for lxplus (user jdoe)."]))
+        self.assertTrue(manage.create(self.path, values=values))
         text = self.path.read_text(encoding="utf-8")
-        self.assertIn("# Guessed for lxplus (user jdoe).", text)
+        self.assertTrue(text.startswith("taufw_user:\n  version: 1  # Do Not Change!\n  reviewed: false  # set true!\n"
+                                        "  notifications: true\n  open_menu_on_start: true\n\nruns:\n"))
         self.assertIn('  # batchopts: ""', text)  # not set: a comment line with an example
-        self.assertIn("notifications: true  # Set false to remove sound notifications.\nopen_menu_on_start: true\n", text)
         config = UserConfig.load(self.path)
         for setting in manage.SETTINGS:
             expected = values.get(setting.key, setting.example if setting.written else None)

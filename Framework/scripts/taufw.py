@@ -33,7 +33,7 @@ python3 "$TAUFW_BASE/Framework/scripts/taufw.py" instead.
                                                           $TAUFW_USER_CONFIG): made if there is none, its state
   taufw.py version [--check]                              installed version; optionally check the remote manifest
   taufw.py --on-start                                    taufw.sh after activation: the menu, unless the user
-                                                          config says open_menu_on_start: false
+                                                          config says taufw_user.open_menu_on_start: false
 
 RECIPE is an analysis bundle directory (Analyses/<name>, with recipe.yml) or a recipe file.
 
@@ -465,7 +465,7 @@ def build_parser():
 
 def main(argv=None):
     """Without arguments, open the interactive menu; otherwise run one command. --on-start (taufw.sh, after the
-    activation): the menu, unless the user config says open_menu_on_start: false."""
+    activation): the menu, unless the user config says taufw_user.open_menu_on_start: false."""
     argv = sys.argv[1:] if argv is None else argv
     if argv == ['--on-start']:
         if not user_settings.open_menu_on_start():

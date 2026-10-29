@@ -69,18 +69,18 @@ def setting_problems(config, section=None):
 # =============================================================================
 # ==== Creation ====
 
-def create(path=None, files=None, values=None, sources=()):
+def create(path=None, files=None, values=None):
     """Write a new user config to `path` (default: location()) if there is none. Returns True if it was written,
     False if a file was there already (it is never changed).
-    values/sources: the settings to write and where they came from (default: guessed for this host, or taken from
-    the PicoProducer configuration, _guesses.py); the other settings are written as comment lines."""
+    values: the settings to write (default: guessed for this host, or taken from the PicoProducer configuration,
+    _guesses.py); the other settings are written as comment lines."""
     path = Path(path) if path else location()
     files = files or FileIO()
     if files.exists(path):
         return False
     if values is None:
-        values, sources = new_values()
-    files.write_text(path, default_text(values, sources))  # exclusive: never replaces a file made in the meantime
+        values = new_values()
+    files.write_text(path, default_text(values))  # exclusive: never replaces a file made in the meantime
     return True
 
 

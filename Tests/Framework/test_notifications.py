@@ -22,9 +22,9 @@ class NotificationTests(unittest.TestCase):
     def test_config_controls_terminal_bells_and_validates_boolean(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "UserConfig.yaml"
-            manage.create(path, values={"notifications": False})
-            self.assertIs(load(path).get("notifications"), False)
-            self.assertEqual(manage.setting_problems(load(path), "notifications"), [])
+            manage.create(path, values={"taufw_user.notifications": False})
+            self.assertIs(load(path).get("taufw_user.notifications"), False)
+            self.assertEqual(manage.setting_problems(load(path), "taufw_user.notifications"), [])
             with mock.patch.dict(os.environ, {manage.ENVVAR: str(path)}):
                 terminal = Terminal()
                 self.assertFalse(notifications.bell(terminal))
