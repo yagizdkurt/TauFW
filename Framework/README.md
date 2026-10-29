@@ -77,83 +77,30 @@ directory you run it in. `source taufw.sh` opens the menu unless your user confi
 `open_menu_on_start: false` (CL §53). Tab completes the commands, options, recipe files and folders;
 `source taufw.sh --check` lists what works and what does not, and changes nothing (CL §54).
 
-Run `taufw` without arguments in an interactive Linux terminal to open the
-optional console menu (Python's standard-library `curses`; no extra dependency).
-Use Up/Down to move, Enter to select, and Esc to go back or exit the main menu.
+Run `taufw` without arguments in an interactive Linux terminal to open the console menu (Python's
+standard-library `curses`). Up/Down moves, Enter selects, Esc goes back.
 
-- **Start a new run** lists the analysis bundles in `Analyses/` or accepts another path, displays
-  the selected recipe's pipeline, then opens its plan, where the run starts. The picker always uses two
-  equal-width panels: the recipes on the left and the pipeline on the right, a table with one row per stage
-  (`#`, `Stage ID`, `Input`: the stages or sources it reads, `Description`: cut first on a narrow terminal).
-  Up/Down changes the recipe; Page Up/Page Down scrolls its pipeline. At least 64 columns and 12 rows
-  are required; smaller terminals show a resize message and Esc still returns to the main menu.
-  **[Create a new run]** is always the first row. It asks for an analysis name and creates
-  `Analyses/<name>/recipe.yml` from the empty template, then selects the new **Draft**. Existing paths
-  are never overwritten; Esc cancels. A draft has `stages: []` and cannot be planned or started until
-  stages are added. **E** on an analysis opens the Run editor entry point; its screen is coming next.
-  The preview follows the recipe's actual stage order, including custom Python steps, without planning jobs.
-  Every recipe is checked when the list opens (`validation.py`): a recipe with problems is red in the list, and its
-  preview says how many errors and warnings it has above the table (the plan lists them). Such a recipe cannot
-  be started. Selecting a recipe reloads it and plans it silently in the menu's own process (nothing is written),
-  then opens the **plan screen**: on the left **Start run**, **Overview** (selected when it opens: bundle, run
-  root, PicoProducer config, totals), **Errors** and **Warnings** (only when there are any) and one row per stage;
-  on the right the selected row's details: a stage's inputs and files, the samples and jobs of production, the
-  working directory and commands of a local stage (one cut line each; **F** shows them in full) and its planning
-  notes. **Start run** is red and refused with errors (a recipe that cannot be planned says why under Errors),
-  yellow with warnings; Enter on it launches the run. **E** opens the Run editor and plans again; **Esc** returns
-  to the picker.
-- **Continue an existing run** lists saved runs in `taufw_runs/`, in `runs.run_root` of the user config and
-  in the `run_root` of every recipe in `Analyses/` (newest first)
-  or accepts another run directory. Choose one advance or repeated checking;
-  polling defaults to 600 seconds. Terminal runs offer status inspection instead.
-  The list shows a `RUNNING` run that no advance works on now (none behind the menu, no live advance lock) as
-  `PAUSED`: it goes on with the next advance. `run.json` and `taufw status` still say `RUNNING`.
-- **Inspect run status** shows the existing read-only status output, with Refresh
-  and Back actions. Its state line is the command's: `READING STATUS` while it reads, then only the time; the run's
-  state is in the output.
-  At **120 columns by 18 rows** or more, Continue and Inspect keep the run list on the left and show the
-  selected run's actions/stages or status on the right. Discovery and previews load in the background;
-  a small ASCII decay marks loading. Up/Down changes runs, PgUp/PgDn scrolls details, and R refreshes them.
-  In Continue, Enter/Tab focuses the actions and Enter runs the chosen action; Esc returns to the list.
-  In Inspect, Enter opens status full screen. Smaller terminals keep the list/Enter flow. A status query
-  starts only after the selection settles for 250 ms; changing runs or leaving stops the old query.
-- **Tests** runs the automated tests behind the menu, on a live test screen ([Tests/README.md](../Tests/README.md)
-  "Interactive testing menu"). Leaving the screen never stops them: the main menu shows their state, e.g.
-  **Tests (Running 12/40)** or **Tests (Failed: 3)**, and Tests opens the running run's screen again.
-- **Grid Certificate** checks the existing proxy at startup and whenever the main
-  menu reopens. A green tick means valid; yellow **Warning: Proxy Failed!** means
-  missing, expired, or unable to check. Select it to create or renew a CMS proxy
-  with your certificate password. Startup does not prompt for a password.
-- **Install components** opens the existing installer checklist and progress screen.
-  Choose optional components, then **Start install**, or use **Cancel** / Esc to return.
-  Closing the result screen returns to the main menu.
-- **Help** displays FAQ topics with explanations on the right; Page Up/Down
-  scrolls the explanation.
-- **Exit** closes the menu. While something runs behind it (tests), it asks first: **C** stay, **S** stop it
-  all and quit, **Q** quit and leave it running (only while the login session lasts; see Tests/README.md).
+- **Start a new run**: pick an analysis in `Analyses/` (or type a path) and see its stages. A recipe with
+  problems is red and cannot start. **[Create a new run]** makes an empty draft analysis, `Analyses/<name>/`;
+  **E** opens the Run editor (coming next). Selecting a recipe opens its plan, computed in the menu's own process
+  (nothing is written): the overview, errors, warnings and each stage's details. **Start run** launches it.
+- **Continue an existing run**: the runs in `taufw_runs/`, in the user config's `runs.run_root` and in every
+  recipe's `run_root` (newest first), or another run directory. Advance once or until done (polling every 600 s
+  by default); a failed stage can be retried. A `RUNNING` run that nothing advances now is listed as `PAUSED`.
+- **Inspect run status**: the read-only `taufw status` of a run, with Refresh.
+- **Tests**: the automated tests on a live screen ([Tests/README.md](../Tests/README.md)).
+- **Grid Certificate**: the state of your grid proxy; select it to create or renew it.
+- **Install components**: the installer's checklist (FastSetup).
+- **Help**: FAQ topics.
+- **Exit**: closes the menu; it asks first while something still runs behind it.
 
-Typed relative paths and the default run root are relative to the launch
-directory. Operations print their normal output outside the menu; press Enter
-to return afterward. Ctrl+C returns to the menu without cancelling submitted
-batch jobs. Resume using the saved run record. Existing CLI subcommands and
-explicit `--help` keep working without curses or an interactive terminal.
+Runs and tests run behind the menu: leaving a screen, or the menu, does not stop them (they last only while your
+login session does), and Ctrl+C never cancels submitted batch jobs. Every command keeps working without the menu.
 
-Menu presentation lives in `Framework/python/_internal/menu/`: `_menu.py` owns rendering,
-wording, screen choices, and terminal lifecycle; `_navigation.py` owns screen
-transitions, back behavior, refresh loops, and operation feedback; `faq.py` owns
-help content.
-`_test_run.py` is the test screen. What runs behind the menu is an operation
-(`Framework/python/_internal/operations/_operations.py`, `_supervisor.py`): a directory under `.artifacts/menu/operations/`
-that a supervisor process fills while it runs the command, and that any menu reads again (CL §18).
-`python/_internal/interfaces/interactive.py` keeps recipe/run discovery, validation, record access,
-read-only recipe previews and the plan screen's data (`prepare_plan`), test runs (`start_tests`,
-`tests_operation`), and command dispatch. Recipe previews (with their problems)
-are made once per picker visit; Framework objects stay in the adapter. UI screens use ASCII frames, cyan accents,
-selection markers, and a shared keyboard-controls footer. Colors are optional and all status labels
-remain readable without them. Entry screens retain the adaptive TauFW artwork.
-UI screens return named actions so layout and label
-and navigation changes stay in Utilities. Source section banners document both sides of this
-boundary.
+The menu's code: `python/_internal/menu/` draws the screens (`_menu.py`) and moves between them
+(`_navigation.py`); `python/_internal/interfaces/interactive.py` is its Framework side (discovery, checks, the plan
+screen's data, starting commands). What runs behind the menu is an operation (`python/_internal/operations/`): a
+directory under `.artifacts/menu/operations/` that a supervisor process fills and any menu reads (CL §18).
 
 ```bash
 taufw check   Analyses/Examples/mutau_short                  # every problem of the recipe; nothing is written
