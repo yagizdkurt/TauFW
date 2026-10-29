@@ -2112,3 +2112,52 @@ no `taufw` function: source it again.
 
 **Unchanged:** every BBB baseline; the Framework's behaviour; FastSetup's installation steps; the output of
 `taufw check` and `plan` for every bundle in `Analyses/`.
+
+## 54. `taufw.sh`: no second activation, stale `__pycache__` folders, `--check`, Tab completion
+
+**Date:** 2026-10-29
+**Status:** done (lxplus check open: [TODO.md](TODO.md) section 1)
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#54-taufwsh-no-second-activation-stale-__pycache__-folders---check-tab-completion)
+
+**Why:** after CL §53 `source taufw.sh` is the one way in, so it is run often and is the first thing to look at
+when something does not work. User decisions (2026-10-29): skip a second activation, remove what moved packages
+leave behind as long as nothing else can break, a read-only `--check`, Tab completion; no `--rebuild`, no
+`--update`, no `--no-menu`, the `cd` into the checkout stays.
+
+**What changed (`taufw.sh`):**
+
+- **No second activation:** when this shell has the release active already (`CMSSW_VERSION`, `SCRAM_ARCH` and the
+  real path of `CMSSW_BASE` match the installation record) and no installation ran in this call, `cmsenv` (the CMS
+  setup script and `scram runtime`) is not run again; the checkout, the `taufw` command and the menu are as before.
+  A new terminal, another release or `--install` activate as before.
+- **Stale `__pycache__` folders:** each source removes the folders of the `*/python/` trees that hold nothing but
+  `__pycache__` (what a moved or deleted package leaves behind; Python imports such a folder as an empty namespace
+  package, the "cannot import name" of CL §51/§52), and a folder that is empty only because of that. Kept: any
+  folder with another file, an empty folder the user made, symbolic links, the `python/` folders themselves and
+  everything outside the `python/` trees; with no `python/` tree nothing is searched. One line names how many were
+  removed. The "after `git pull`, remove `__pycache__` by hand" notes of CL §51/§52 are no longer needed.
+- **`source taufw.sh --check`:** one line each, and nothing changes (not the folder, not the environment: what needs
+  CMSSW runs in a subshell; never the installer): the installation record, CMSSW in this shell, the import of
+  `TauFW.Framework`, the installed components, `~/.local` packages that hide CMSSW's, the user config
+  (`manage.check()`), the grid proxy's time left and leftover `__pycache__` folders. Status 1 only when TauFW cannot
+  work (no valid record, no CMSSW, no import). The Python part is the new `setup_tools.py report` (ROLE<TAB>TEXT
+  lines, ASCII, runs by its path like the other FastSetup helpers). `--check` with another option is refused.
+- **Tab completion of `taufw`** (`_taufw_complete`, stays in the shell like `taufw`): the commands, the options of
+  each command, recipe files (`.yml`, `.yaml`, `.json`) and folders for check/plan/start/`--from`, folders for
+  advance/retry/status/`--run-root`/`--root`, `list`/`update` for configs. The lists are those of `build_parser()`;
+  `Tests/Framework/test_completion.py` fails when the two differ.
+- **Status marks:** the UTF-8 marks of `taufw.sh` and of the installer screen (`setup_runner.presentation`) were a
+  literal `?` since they were written (success and failure looked the same); now ✓, ✗ and `!`. The ASCII
+  `[OK]`/`[!]`/`[FAIL]` are unchanged.
+- **Tests:** the wrapper tests' `[[ ... ]]` checks in the middle of a `bash -c` script did not stop it (only the last
+  command's status counted); every check now ends the script with `|| exit 1`. All passed as they were.
+- **Docs:** `Docs/Guide/FastSetup.md` (second source, stale folders, a `--check` section), FirstSession, UsingFWWithCommands,
+  `Framework/README.md` (quick start).
+
+- **Layout of `taufw.sh`:** the pipeline (`_taufw_setup_main`, with its steps listed above it) comes first, then
+  its steps in the order it calls them, the helpers last; the shell check stays the first code (it must run
+  before `sh`/`dash` reach bash syntax) and the entry point the last.
+- **`.gitattributes`:** `taufw.sh text eol=lf`, like `FastSetup.sh`: a checkout made on Windows and copied to lxplus
+  keeps a script bash can source.
+
+**Unchanged:** the installation, the installation record, the menu, every BBB baseline.

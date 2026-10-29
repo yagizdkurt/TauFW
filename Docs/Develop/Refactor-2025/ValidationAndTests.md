@@ -902,3 +902,32 @@ unchanged; to confirm on lxplus without re-lock: [TODO.md](TODO.md) section 1.
   `check_import_boundaries` (known debt, 0 new pairs) and `check_root` (no ROOT) fail as before.
 - A repository grep finds `setup.sh` and the root `taufw.py` only in earlier changelog sections, audits, LocalR and
   Legacy (and `setup.sh` as a fixture file name in `test_setup_runner.py`/`test_fastsetup.py`).
+
+## 54. `taufw.sh`: no second activation, stale `__pycache__` folders, `--check`, Tab completion
+
+**Change:** [CL §54](Refactor-2025.md#54-taufwsh-no-second-activation-stale-__pycache__-folders---check-tab-completion)
+
+- `Tests/Setup/test_setup_wrapper.py` (fake CMS runtime that counts `scram runtime`):
+  - `test_a_shell_with_the_release_active_is_not_activated_again`: the second source in one shell runs no
+    `scram runtime`, enters the checkout and opens the menu; without `CMSSW_BASE` and with `--install` it activates.
+  - `test_stale_pycache_folders_of_moved_packages_are_removed`: without any `python/` tree nothing is searched (a
+    `__pycache__`-only folder in the current folder stays); then 3 folders go (two `__pycache__`-only ones and the
+    parent emptied by one of them); a package with a `.py`, a data folder, an empty user folder, a `python/` folder
+    with only `__pycache__` and a folder outside the `python/` trees stay; a second source removes nothing.
+  - `test_check_changes_nothing_and_reports`: no record: status 1 and no installer; after an installation, in a
+    shell without CMSSW, `--check` keeps the folder and the environment, activates only in its subshell and prints
+    the lines; a failing import gives 1; `--check --install` is refused.
+  - `test_status_marks_in_a_utf8_terminal` (✓), `test_tab_completion` (commands, options, recipe files and folders,
+    `--run-root` folders, configs choices).
+  - Mutation check (Windows, by hand): taufw.sh broken one way at a time (second activation always, the old
+    `A && B || C && D` precedence of the stale-folder test, no guard for zero `python/` trees, `--check` falling
+    through to the installer, no `complete`): each is caught by its test. The guard was first not caught: the
+    middle checks of the scripts did not stop them; with `|| exit 1` on every check (also in the older tests, which
+    still pass) it is.
+- `Tests/Framework/test_completion.py`: the commands, each command's options and the configs choices of
+  `_taufw_complete` equal those of `build_parser()`.
+- `Tests/Setup/test_setup_tools_report.py`: `setup_tools.py report` run by its path: no manifest and no user config
+  (warnings), a recorded installation and a reviewed user config (success lines), no optional component.
+- `Tests/Setup/test_setup_runner.py`: the installer screen's UTF-8 marks are ✓ and ✗ (were `?`).
+- `Tests/run.py checks` on Windows: the same 14 of 16 pass (Utilities 96, Framework 437, Setup 74);
+  `check_import_boundaries` (known debt, 0 new pairs) and `check_root` (no ROOT) fail as before.

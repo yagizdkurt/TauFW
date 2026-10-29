@@ -70,7 +70,7 @@ def presentation(line):
     elif line in ("Optional components", "Warnings and diagnostics:", "Activate in your terminal:"):
         role = "heading"
     if unicode_enabled():
-        for plain, symbol in (("[OK]", "?"), ("[FAIL]", "?"), ("[!]", "?")):
+        for plain, symbol in (("[OK]", "✓"), ("[FAIL]", "✗"), ("[!]", "!")):
             if line.startswith(plain):
                 line = symbol + line[len(plain):]
                 break

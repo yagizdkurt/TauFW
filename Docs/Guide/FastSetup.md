@@ -143,6 +143,24 @@ stale records run installation; older/manual installations therefore run the
 installer once. A retained original from a cross-filesystem copy also records
 the installed location, so sourcing its wrapper activates the installed copy.
 
+Sourcing it again in a terminal where this release is active already (an earlier `source taufw.sh`, or `cmsenv`
+in this release) does not run `cmsenv` again: it only enters the checkout, defines `taufw` and opens the menu.
+Each source also removes the folders of the packages' `python/` trees that hold nothing but `__pycache__`: what a
+moved or deleted package leaves behind after `git pull`, which Python would otherwise import as an empty package
+("cannot import name"). Folders with any other file are never touched.
+
+### When something does not work: `--check`
+
+```bash
+source taufw.sh --check
+```
+
+lists what works and what does not, one line each, and changes nothing (not even the current folder or the
+environment): the installation record, CMSSW in this terminal, the TauFW import, the installed components, Python
+packages in `~/.local` that hide CMSSW's, your user config, the grid proxy and leftover `__pycache__` folders. It
+returns 1 only if TauFW cannot work (no valid installation, CMSSW cannot be activated, TauFW does not import);
+warnings do not count. It never starts the installer.
+
 Choose **Install components** in the main menu to reopen the installer. The checklist
 offers **Start install** and **Cancel**; Cancel or Esc returns without starting installation.
 Closing the result screen returns to the main menu. The checklist starts with the usual

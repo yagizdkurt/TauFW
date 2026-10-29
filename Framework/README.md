@@ -74,7 +74,8 @@ that `taufw.sh` defines (and exports to child shells): it runs `Framework/script
 checkout, `$TAUFW_BASE`. A script that runs without it calls
 `python3 "$TAUFW_BASE/Framework/scripts/taufw.py"`. Relative recipe and run paths are relative to the
 directory you run it in. `source taufw.sh` opens the menu unless your user config says
-`open_menu_on_start: false` (CL §53).
+`open_menu_on_start: false` (CL §53). Tab completes the commands, options, recipe files and folders;
+`source taufw.sh --check` lists what works and what does not, and changes nothing (CL §54).
 
 Run `taufw` without arguments in an interactive Linux terminal to open the
 optional console menu (Python's standard-library `curses`; no extra dependency).

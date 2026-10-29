@@ -4,7 +4,8 @@ Run these commands from your TauFW directory after [setting up your environment]
 Commands that take a recipe accept an [analysis bundle](Glossary.md) directory or a recipe file.
 Commands that continue or inspect a run take the run folder containing `run.json`.
 
-To see the available commands and the options for one command:
+Tab completes the commands, their options, recipe files and folders. To see the available commands and the
+options for one command:
 
 ```bash
 taufw --help

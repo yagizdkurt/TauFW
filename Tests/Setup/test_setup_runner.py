@@ -205,8 +205,8 @@ class RunnerTests(unittest.TestCase):
         with patch.object(runner.sys.stdout, "isatty", return_value=False):
             self.assertFalse(runner.colors_enabled())
         with patch.object(runner, "unicode_enabled", return_value=True):
-            self.assertEqual(runner.presentation("[OK] Setup complete")[0], "? Setup complete")
-            self.assertEqual(runner.presentation("[FAIL] Setup failed")[0], "? Setup failed")
+            self.assertEqual(runner.presentation("[OK] Setup complete")[0], "✓ Setup complete")
+            self.assertEqual(runner.presentation("[FAIL] Setup failed")[0], "✗ Setup failed")
 
     def test_terminal_colors_only_when_enabled(self):
         for enabled in (False, True):

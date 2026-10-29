@@ -17,7 +17,9 @@ You do this every time you open a new terminal. The first `source taufw.sh` inst
 just sets up the environment (it runs `cmsenv` for you) and opens the TauFW menu. It's quick.
 
 It also gives your terminal the command `taufw`. Left the menu? Type `taufw` to open it again, from any folder.
-`taufw --help` lists the commands behind the menu ([Using the Framework with commands](../4-Concepts/UsingFWWithCommands.md)).
+`taufw --help` lists the commands behind the menu ([Using the Framework with commands](../4-Concepts/UsingFWWithCommands.md));
+Tab completes them. If something doesn't work, `source taufw.sh --check` tells you what
+([FastSetup](../FastSetup.md#when-something-does-not-work---check)).
 If you'd rather not see the menu every time, set `open_menu_on_start: false` in your
 [user config](UserConfig.md).
 

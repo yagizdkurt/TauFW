@@ -51,12 +51,15 @@ Items marked **(verify)** may already be done; check before working on them.
 
 The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go here until they are run.
 
-- [ ] **One entry point and the Framework's `_internal` (CL §53, §52, §51):** a fresh install: delete the
-      checkout and the CMSSW area, clone, `source taufw.sh` (the component checklist, the install screen, the
-      user config made at the end with `open_menu_on_start` as a comment line;
+- [ ] **`taufw.sh`, one entry point and the Framework's `_internal` (CL §54, §53, §52, §51):** a fresh install:
+      delete the checkout and the CMSSW area, clone, `source taufw.sh` (the component checklist, the install
+      screen with ✓/✗ marks, the user config made at the end with `open_menu_on_start` as a comment line;
       `Framework/python/_internal/setup_manifest.json` written); the menu opens. Leave it: `type taufw` is a
       function, `echo $TAUFW_BASE` is the installed checkout, `taufw` opens the menu again from another
-      directory, `bash -c 'taufw --help'` works. A new terminal: `source taufw.sh` activates without installing;
+      directory, `bash -c 'taufw --help'` works, `taufw pl<Tab>`, `taufw plan Analyses/Ex<Tab>`,
+      `taufw advance --t<Tab>` complete. `source taufw.sh` again in the same terminal: no `cmsenv` (noticeably
+      faster), menu. A new terminal: `source taufw.sh --check` (all green or warnings, status 0, the terminal
+      not activated afterwards: `echo $CMSSW_BASE` empty), then `source taufw.sh` activates without installing;
       with `open_menu_on_start: false` in the user config it prints the one line instead of the menu. Then
       `python3 -c "from TauFW.Framework import Framework; from TauFW.Framework._internal.menu import ConsoleUI;
       from TauFW.Utilities.Process import ProcessRunner"`. `python3 Tests/run.py all` as before (`bbb check`
@@ -64,8 +67,8 @@ The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go he
       `mutau_long`, `cmsdas26_ztt`, `Analyses/tes_id_2025` (same as before; `broken` must still show its
       problems), `taufw init` of a new bundle. In the menu: Tests (a run followed to the end, then again from the
       main menu), Modify User Config (the editor), a run's Continue screen, a python step run (`step_runner.py`
-      from its new path). An existing checkout instead: after `git pull`, `find Framework/python Utilities/python
-      -name __pycache__ -prune -exec rm -rf {} +`, `scram b`, `source taufw.sh` (no reinstall).
+      from its new path). An existing checkout instead: `git pull`, `source taufw.sh` (it removes the old
+      `Utilities/python/Internal` leftovers itself and names how many; no reinstall), `scram b` once.
 
 - [ ] **`common.tools.file` to FileIO (CL §50):** with `cmsenv`, `python3 Tests/run.py all`: `normal` passes as
       before and `bbb check` 24/24 without re-lock; `python3 -c "from TauFW.Plotter.sample.utils import ensuredir;
