@@ -1170,8 +1170,8 @@ ConsoleUI(None)
         found = rows(frames[0], ["run_1", "run_2", "Enter another run directory", "Back"])
         self.assertEqual([y - found[0] for y in found], [0, 1, 3, 4])
 
-    def test_picker_columns_40_60_and_stage_table_at_supported_sizes(self):
-        for dimensions in ((12, 64), (24, 80), (36, 121)):
+    def test_picker_columns_30_70_and_stage_table_at_supported_sizes(self):
+        for dimensions in ((12, 64), (24, 80), (36, 121), (24, 160)):
             with self.subTest(dimensions=dimensions):
                 ui, screen, frames = self.rendered_terminal([27], dimensions)
                 preview = dict(name="example", stages=(("production", "production", ""),
@@ -1181,8 +1181,9 @@ ConsoleUI(None)
                 width = dimensions[1]
                 span = 2 * ((width - 1) // 2)
                 left = (width - (span - 1)) // 2
-                divider = left + span * 2 // 5 - 1
-                self.assertEqual(round((divider - left) / (span - 1), 1), 0.4)
+                divider = left + min(max(span * 3 // 10, 34), span // 2) - 1  # 30% with room for the rows
+                if width >= 120:
+                    self.assertEqual(round((divider - left) / (span - 1), 1), 0.3)
                 for row in range(4, dimensions[0] - 4):
                     self.assertEqual(frames[0][row][left], "|")
                     self.assertEqual(frames[0][row][divider], "|")
