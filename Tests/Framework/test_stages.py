@@ -11,6 +11,7 @@ import fakes
 import hashlib
 from TauFW.Framework import Framework, Recipe, RecipeError, RunRecord, SilentReporter
 from TauFW.Framework._internal.recipes.bundle import resolve
+from TauFW.Framework._internal.runtime.plan_text import command_line, inputs_line, inputs_short
 from TauFW.Framework.stages import (ProductionStage, ControlHistsStage, ControlPlotsStage, ShapesStage, FitStage,
                                     StageContext,
                                     PreflightError)
@@ -612,11 +613,20 @@ class CommandLineTests(LocalStageTestCase):
         source = {"run_id": "tes_20261015-120000", "stage_id": "shapes", "stage": "shapes",
                   "finished": "2026-10-15 14:02:11"}
         stage_spec = recipe(dict(FIT, inputs={"shapes": {"path": "/afs/runs/x/stages/shapes"}})).stage("fit")
-        self.assertEqual(self.cli._inputs_line(stage_spec, FitStage(self.fitter), {"shapes": source}),
+        self.assertEqual(inputs_line(stage_spec, FitStage(self.fitter), {"shapes": source}),
                          "shapes <- /afs/runs/x/stages/shapes (run tes_20261015-120000, stage shapes "
                          "(shapes), finished 2026-10-15 14:02:11)")
-        self.assertEqual(self.cli._inputs_line(stage_spec, FitStage(self.fitter), {}),
+        self.assertEqual(inputs_line(stage_spec, FitStage(self.fitter), {}),
                          "shapes <- /afs/runs/x/stages/shapes")  # cannot be read: the note says why
+
+    def test_inputs_short_names_each_source_once(self):
+        stage_spec = recipe(dict(FIT, inputs={"shapes": {"path": "/afs/runs/x/stages/shapes"}})).stage("fit")
+        self.assertEqual(inputs_short(stage_spec), "other run")
+        from TauFW.Framework._internal.recipes.recipe import StageSpec
+        stage_spec = StageSpec("python", "summary", None, inputs={"a": "fit", "b": "fit", "c": None,
+                                                                  "d": {"external": "/eos/x/*.root"}})
+        self.assertEqual(inputs_short(stage_spec), "fit, outside, external")
+        self.assertEqual(inputs_short(StageSpec("python", "summary", None, inputs=None)), "-")
 
     def test_check_lists_every_problem(self):
         path = os.path.join(self.root, "r.json")
@@ -640,10 +650,10 @@ class CommandLineTests(LocalStageTestCase):
         import sys
         from TauFW.Utilities.Process import Command
         command = Command("hists", (sys.executable, "plot.py", "-S", "a b"), "/repo/Plotter")
-        self.assertEqual(self.cli._command_line(command), "python3 plot.py -S 'a b'")
+        self.assertEqual(command_line(command), "python3 plot.py -S 'a b'")
         command = Command("hists", (sys.executable, "plot.py"), "/repo/Plotter",
                           env=(("TAUFW_PICO_CONFIG", "/b/pico.json"),))
-        self.assertEqual(self.cli._command_line(command), "TAUFW_PICO_CONFIG=/b/pico.json python3 plot.py")
+        self.assertEqual(command_line(command), "TAUFW_PICO_CONFIG=/b/pico.json python3 plot.py")
 
     def test_commands_in_subdirectories_are_named(self):  # the fit: the scripts of each era run in <stage>/<era>
         from TauFW.Utilities.Process import Command, CommandPlan

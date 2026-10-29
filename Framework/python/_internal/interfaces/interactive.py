@@ -4,8 +4,8 @@
 Discovery, path resolution, record access, validation, and CLI dispatch belong
 here. Presentation and screen transitions live in TauFW.Framework._internal.menu. Every
 command runs behind the menu as taufw.py (OperationStore): start/advance/retry
-(kind "run"), plan/status (kind "command", read only) and the tests; the
-menu's own process reads recipes, run.json, check_recipe and a dry plan. The
+(kind "run"), status (kind "command", read only) and the tests; the
+menu's own process reads recipes, run.json, check_recipe and a dry plan (the plan screen). The
 User Config action creates a missing config and opens the independent Editor.
 Install components opens FastSetup on the terminal and returns to the menu when it closes.
 
@@ -34,6 +34,7 @@ from TauFW.Framework._internal.recipes.analysis import create_analysis
 from TauFW.Framework._internal.recipes.bundle import bundle_changes, bundle_hashes
 from TauFW.Framework._internal.runtime.framework import Framework, retryable_stage
 from TauFW.Framework._internal.runtime.reporting import SilentReporter
+from TauFW.Framework._internal.runtime.plan_text import command_line, inputs_line, run_root_line
 from TauFW.Framework._internal.runtime.run_lock import read_lock
 from TauFW.Framework.stages.production import ProductionSpec
 from TauFW.Framework._internal.version import VersionChecker
@@ -125,13 +126,6 @@ class _Operations:
         """Create a draft in the same root that the recipe picker discovers."""
         return create_analysis(self.recipes_dir, name)
 
-    @staticmethod
-    def _recipe_view(recipe, path):
-        """Plain presentation data; Utilities never needs Framework objects."""
-        return dict(name=recipe.name, path=str(path),
-                    stages=tuple((stage.id, stage.stage, stage.description) for stage in recipe.stages),
-                    notes=(), problems=(), warnings=tuple(str(warning) for warning in recipe.warnings))
-
     def recipe_preview(self, path):
         """Check the recipe (validation.py) without constructing stage APIs: its stages and every problem; a
         recipe that cannot be checked: its name and the error. Kept until a file of it changes (kept_recipe_preview;
@@ -139,8 +133,8 @@ class _Operations:
         signature = _recipe_signature(path)
         try:
             check = check_recipe(str(path), allow_draft=True)
-            view = dict(name=check.name, path=str(path), stages=check.stages, notes=(),
-                        draft=check.draft,
+            view = dict(name=check.name, path=str(path), shown=_shown(path), draft=check.draft,
+                        stages=tuple(stage + (reads,) for stage, reads in zip(check.stages, check.reads)),
                         problems=tuple(str(issue) for issue in check.issues),
                         warnings=tuple(str(warning) for warning in check.warnings))
         except Exception as error:
@@ -152,20 +146,32 @@ class _Operations:
         """The preview of the recipe as recipe_preview() left it, if no file of it changed since; else None."""
         return self._kept_value("preview", path, _recipe_signature)
 
-    def prepare_review(self, path):
-        """Reload and dry-plan the selected recipe without terminal output or writes."""
-        recipe = Recipe.load(str(path))
-        reporter = SilentReporter()
-        plan = Framework.from_recipe(recipe, reporter=reporter).plan()
-        view = self._recipe_view(recipe, path)
-        notes = []
-        for stage in plan.stages:
-            if stage.note:
-                notes.append("%s: %s" % (stage.stage, stage.note))
-            notes.extend("%s: %s" % (stage.stage, note)
-                         for note in getattr(stage.plan, "notes", ()))
-        notes.extend(message for kind, message in reporter.messages if kind == "warning")
-        view["notes"] = tuple(notes)
+    def prepare_plan(self, path):
+        """The plan screen's data: check the recipe, then dry-plan it without terminal output or writes (as
+        `taufw.py plan` does). A recipe with problems, or one that cannot be planned, still has its stages and its
+        errors (the screen shows them; it cannot start). Plain data: the menu never sees Framework objects.
+        dict(name, path, overview (lines), errors, warnings, stages: dict(id, type, description, reads, inputs,
+        files: (option, file, from), note (why it is not planned), samples: (era, channel, sample, files, chunks,
+        try, conflict), jobs, cwd, subdirs, steps: (label, command line), notes))"""
+        check = check_recipe(str(path))
+        stages = [dict(id=stage_id, type=kind, description=description, reads=reads, inputs="", files=(),
+                       note="", samples=None, jobs=0, cwd="", subdirs=(), steps=None, notes=())
+                  for (stage_id, kind, description), reads in zip(check.stages, check.reads)]
+        view = dict(name=check.name, path=str(path), overview=["Recipe: %s" % _shown(path)], stages=stages,
+                    errors=[str(issue) for issue in check.issues], warnings=[str(issue) for issue in check.warnings])
+        if not view["errors"]:
+            reporter = SilentReporter()
+            try:
+                framework = Framework.from_recipe(Recipe.load(str(path)), reporter=reporter)
+                plan = framework.plan()
+            except Exception as error:
+                view["errors"].append("Cannot plan the recipe: %s" % error)
+            else:
+                _fill_plan(view, framework, plan)
+                view["warnings"] += [message for kind, message in reporter.messages if kind == "warning"]
+        if view["errors"]:
+            for stage in stages:
+                stage["note"] = "Cannot be planned until the errors are fixed."
         return view
 
     def run_roots(self):
@@ -523,15 +529,64 @@ class _Operations:
     # ======================= READ-ONLY COMMANDS ON SCREEN ====================
 
     def start_command(self, command, target):
-        """`taufw.py plan RECIPE` or `taufw.py status RUN_DIR` behind the menu; return its Operation (kind
-        "command", data: command, target). Its screen shows the plain output and stops it when it is left (a
-        status with production asks HTCondor, which may take seconds; the menu keeps drawing)."""
-        if command not in ("plan", "status"):
+        """`taufw.py status RUN_DIR` behind the menu; return its Operation (kind "command", data: command,
+        target). Its screen shows the plain output and stops it when it is left (a status with production asks
+        HTCondor, which may take seconds; the menu keeps drawing)."""
+        if command != "status":
             raise ValueError("Not a read-only command: %s" % command)
         self.store.prune("command", keep=4)  # with the new one: the last five
         return self.store.start("command", "%s %s" % (command, Path(target).name),
                                 [sys.executable, "-B", str(TAUFW_SCRIPT), command, str(target)],
                                 str(self.launch_dir), data=dict(command=command, target=str(target)))
+
+
+def _fill_plan(view, framework, plan):
+    """The overview and each stage's details of a plan (Framework.plan), as `taufw.py plan` shows them."""
+    recipe = framework.recipe
+    if plan.bundle_dir:
+        view["overview"] = ["Bundle: %s" % _shown(plan.bundle_dir)]
+    view["overview"].append("Run root: %s" % run_root_line(recipe))
+    production = recipe.first('production')
+    if production:  # only production reads it (CL §37)
+        settings = getattr(framework.stages[production.id], 'settings', None)
+        used = "; from your user config: %s" % (", ".join(settings.used)) if settings and settings.used else ""
+        view["overview"].append("PicoProducer config: %s%s"
+                                % (plan.pico_config or "PicoProducer/config/config.json (default)", used))
+    for stage, stage_plan in zip(view["stages"], plan.stages):
+        stage_spec = recipe.stage(stage_plan.stage)
+        stage["inputs"] = inputs_line(stage_spec, framework.stages[stage_spec.id], stage_plan.sources)
+        stage["files"] = tuple((option, resolved, where) for option, _, resolved, where in stage_plan.paths)
+        details = stage_plan.plan
+        if details is None:  # placeholder, or an input from another run that cannot be read
+            stage["note"] = stage_plan.note or "Not planned."
+        elif hasattr(details, 'samples'):  # production: a PicoProducer JobPlan
+            stage["samples"] = tuple((s.era, s.channel, s.name, s.nfiles, s.nchunks, s.subtry,
+                                      "yes" if s.conflict else "") for s in details.samples)
+            stage["jobs"] = details.nchunks
+        elif hasattr(details, 'commands'):  # controlhists, controlplots, shapes, fit, python: local
+            stage["cwd"] = details.cwd
+            stage["subdirs"] = tuple(dict.fromkeys(os.path.relpath(command.cwd, details.cwd)
+                                                   for command in details.commands
+                                                   if getattr(command, 'cwd', details.cwd) != details.cwd))
+            stage["steps"] = tuple((command.label, command_line(command)) for command in details.commands)
+            stage["notes"] = tuple(details.notes)
+        else:
+            stage["notes"] = (repr(details),)
+        if stage_plan.note and details is not None:
+            stage["notes"] = (stage_plan.note,) + tuple(stage["notes"])
+    jobs = sum(stage["jobs"] for stage in view["stages"])
+    commands = sum(len(stage["steps"] or ()) for stage in view["stages"])
+    view["overview"] += ["", "%d stage(s), %d job(s), %d command(s)" % (len(view["stages"]), jobs, commands)]
+    view["warnings"] += [str(warning) for warning in plan.sample_warnings]
+    view["errors"] += [str(problem) for problem in plan.sample_problems]
+
+
+def _shown(path):
+    """A path inside the checkout relative to it (shorter on a screen), any other path as it is."""
+    try:
+        return str(Path(path).resolve().relative_to(CHECKOUT))
+    except ValueError:
+        return str(path)
 
 
 def _recipes_in(directory):

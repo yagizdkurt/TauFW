@@ -58,14 +58,15 @@ and what to check. The test writes to `PicoProducer/output/` and doesn't create 
 
 ## 4. Look at the plan
 
-In **Start a new run**, select your recipe and choose **View detailed plan**. Check the samples, job counts,
-and the `Run root` line, which should show your work area. See
+In **Start a new run**, select your recipe: its plan opens. **Overview** shows the `Run root` line, which
+should show your work area. Move down to your production stage to check the samples and job counts. If
+**Errors** or **Warnings** appear in the list, read them first. See
 [Planning a recipe](../4-Concepts/UsingFWWithCommands.md#planning-a-recipe) for how to read the table
 and the equivalent command.
 
 ## 5. Start the run
 
-Return to the recipe review, choose **Start run**, and confirm.
+On the plan screen, move up to **Start run** at the top and press Enter.
 
 TauFW creates a run folder under `<run_root>/my_first_production_<date>-<time>/` and copies your bundle
 into it. From then on, the run reads that copy. Editing the original recipe won't change an existing run.

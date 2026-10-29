@@ -793,7 +793,7 @@ class ScreenTests(unittest.TestCase):
         operations.start_run.return_value = started
         ui.main_menu.side_effect = ["start", "continue", "exit"]
         ui.select_recipe.return_value = ("select", 0)
-        ui.confirm_recipe.return_value = "start"
+        ui.recipe_plan.return_value = "start"
         self.assertEqual(MenuNavigation(ui, operations).run(), 0)
         operations.start_run.assert_called_once_with(str(Path("recipes/example.yml")))
         operations.advance_run.assert_called_once_with(record, wait=True, take_lock=False)
@@ -805,7 +805,7 @@ class ScreenTests(unittest.TestCase):
         self.assertEqual(ui.select_run.call_args.kwargs["advances"], [None])
         operations.load_run.assert_called_once_with("runs/example")
         operations.can_advance.assert_called_once_with(record)
-        operations.prepare_review.assert_called_once_with(str(Path("recipes/example.yml")))
+        operations.prepare_plan.assert_called_once_with(str(Path("recipes/example.yml")))
         ui.operation_error.assert_not_called()
 
     def test_examples_open_from_the_recipe_list(self):
@@ -818,7 +818,7 @@ class ScreenTests(unittest.TestCase):
         ui.main_menu.side_effect = ["start", "exit"]
         ui.select_recipe.side_effect = [("examples", None), ("back", None),       # in and out of the examples
                                         ("examples", None), ("select", 0)]        # then start the first one
-        ui.confirm_recipe.return_value = "start"
+        ui.recipe_plan.return_value = "start"
         self.assertEqual(MenuNavigation(ui, operations).run(), 0)
         names = [call.args[0] for call in ui.select_recipe.call_args_list]
         self.assertEqual(names, [["mine"], ["short", "broken"], ["mine"], ["short", "broken"]])
@@ -828,21 +828,29 @@ class ScreenTests(unittest.TestCase):
         self.assertEqual(ui.main_menu.call_count, 2)  # straight back to the main menu after the start
         ui.operation_error.assert_not_called()
 
-    def test_plan_and_status_are_shown_on_the_command_screen(self):
+    def test_the_plan_screen_opens_at_once_and_status_on_the_command_screen(self):
+        """A selected recipe opens its plan screen (no review in between); E opens the Run editor and plans the
+        recipe again; only the status of a run is a command behind the menu."""
         ui, operations, record = self.runs_menu()
         operations.recipes.return_value = [Path("recipes/example.yml")]
-        operations.prepare_review.return_value = dict(name="example")
+        operations.prepare_plan.side_effect = [dict(name="example"), dict(name="example 2")]
         ui.main_menu.side_effect = ["start", "inspect", "exit"]
         ui.select_recipe.side_effect = [("select", 0), ("back", None)]
-        ui.confirm_recipe.side_effect = ["plan", "back"]
-        ui.command_output.side_effect = ["back", "refresh", "refresh", "back"]
+        ui.recipe_plan.side_effect = ["edit", "back"]
+        ui.command_output.side_effect = ["refresh", "refresh", "back"]
         self.assertEqual(MenuNavigation(ui, operations).run(), 0)
         path = str(Path("recipes/example.yml"))
-        self.assertEqual(operations.start_command.call_args_list,
-                         [mock.call("plan", path)] + [mock.call("status", "runs/example")] * 3)
+        self.assertEqual(operations.prepare_plan.call_args_list, [mock.call(path)] * 2)  # again after the edit
+        self.assertEqual([call.args[:2] for call in ui.recipe_plan.call_args_list],
+                         [("Start a new run / example", dict(name="example")),
+                          ("Start a new run / example 2", dict(name="example 2"))])
+        first, second = ui.recipe_plan.call_args_list
+        self.assertIs(first.kwargs["position"], second.kwargs["position"])  # the selection stays
+        ui.message.assert_called_once()  # the Run editor (a message until it exists)
+        self.assertEqual(operations.start_command.call_args_list, [mock.call("status", "runs/example")] * 3)
         titles = [(call.args[0], call.kwargs) for call in ui.command_output.call_args_list]
-        self.assertEqual(titles, [("Plan: example", dict(refresh=False))] +
-                         [("Run status: example", dict(refresh=True))] * 3)  # R twice
+        self.assertEqual(titles, [("Run status: example", dict(refresh=True))] * 3)  # R twice
+        operations.start_run.assert_not_called()
         ui.operation_error.assert_not_called()
         operations.start_command.side_effect = OSError("AFS is not writable")  # the screen never opens
         MenuNavigation(ui, operations).inspect(record)
@@ -1008,7 +1016,6 @@ class ScreenTests(unittest.TestCase):
                                 "tests", "help", "exit"]),
             (ui.tests_menu, (), ["all", "checks", "normal", "bbb", "environment", "preview", "back"]),
             (ui.test_family, ("Normal",), ["all", "choose", "back"]),
-            (ui.confirm_recipe, ("example.yml",), ["start", "plan", "back"]),
             (ui.terminal_run_actions, ("DONE",), ["inspect", "back"]),
             (ui.continue_actions, ("run",), ["wait", "advance", "back"]),
             (ui.grid_proxy_needed, (), ["renew", "back"]),
@@ -1163,7 +1170,7 @@ ConsoleUI(None)
         found = rows(frames[0], ["run_1", "run_2", "Enter another run directory", "Back"])
         self.assertEqual([y - found[0] for y in found], [0, 1, 3, 4])
 
-    def test_picker_equal_columns_and_vertical_cards_at_supported_sizes(self):
+    def test_picker_equal_columns_and_stage_table_at_supported_sizes(self):
         for dimensions in ((12, 64), (24, 80), (36, 121)):
             with self.subTest(dimensions=dimensions):
                 ui, screen, frames = self.rendered_terminal([27], dimensions)
@@ -1180,10 +1187,9 @@ ConsoleUI(None)
                     self.assertEqual(frames[0][row][divider], "|")
                     self.assertEqual(frames[0][row][left + 2 * panel_width - 2], "|")
                 self.assertIn("Recipe: example", "\n".join(frames[0]))
-                self.assertIn("1. production", "\n".join(frames[0]))
                 if dimensions[0] >= 24:
-                    self.assertIn("2. plots", "\n".join(frames[0]))
-                    self.assertIn("v", [line.strip() for line in ui._pipeline_lines(preview, 30)])
+                    self.assertIn("1  production", "\n".join(frames[0]))
+                    self.assertIn("2  plots", "\n".join(frames[0]))
 
     def test_create_action_and_edit_keys_are_scoped_to_recipe_rows(self):
         ui, screen, frames = self.rendered_terminal([ord("e"), ord("E"), 10])
@@ -1215,7 +1221,7 @@ ConsoleUI(None)
         self.assertEqual(ui.select_recipe.call_args_list[1].kwargs["drafts"], [True])
         self.assertEqual([call.args[0] for call in ui.message.call_args_list],
                          ["Analysis created", "Analysis draft", "Run editor"])
-        operations.prepare_review.assert_not_called()
+        operations.prepare_plan.assert_not_called()
         operations.start_run.assert_not_called()
         operations.start_command.assert_not_called()
         ui.operation_error.assert_called_once()
@@ -1230,7 +1236,7 @@ ConsoleUI(None)
         operations.resolve_path.return_value = "resolved/draft"
         MenuNavigation(ui, operations).start()
         operations.create_analysis.assert_not_called()
-        operations.prepare_review.assert_not_called()
+        operations.prepare_plan.assert_not_called()
         operations.start_run.assert_not_called()
         ui.message.assert_called_once_with("Analysis draft", "No stages configured. Press E for Run editor.")
 
@@ -1255,11 +1261,11 @@ ConsoleUI(None)
         ui.select_recipe(["first", "second"], lambda index: (view, other)[index], position={"selected": 1})
         text = "\n".join(line for frame in frames for line in frame)
         self.assertNotIn("Python step", text)
-        self.assertIn("3. fit", text)
+        self.assertIn("3  fit", text)
         self.assertIn("Recipe: second", "\n".join(frames[-1]))
-        wrapped = ui._pipeline_lines(view, 20)
-        self.assertTrue(all(len(line) <= 20 for line in wrapped))
-        self.assertIn(long_id, "".join(line[2:-2].strip() for line in wrapped if line.startswith("| ")))
+        cut = ui._pipeline_lines(view, 20)
+        self.assertTrue(all(len(line) <= 20 for line in cut))
+        self.assertIn("2  very_long_cust...", cut)  # table rows are cut, never wrapped: the columns stay
 
     def test_resize_message_ignores_selection_and_preserves_focus(self):
         ui, screen, frames = self.rendered_terminal([], (24, 80))
@@ -1277,19 +1283,57 @@ ConsoleUI(None)
         self.assertEqual(preview.call_args_list, [mock.call(0), mock.call(1)])
         self.assertIn("> second", "\n".join(frames[2]))
 
-    def test_review_preserves_position_after_detailed_plan(self):
-        ui, screen, frames = self.rendered_terminal([1004, 1002, 10], (18, 80))
-        review = dict(name="analysis", path="Analyses/analysis", stages=(("fit", "fit", ""),),
-                      notes=("fit: environment is not ready",))
+    def plan_view(self, errors=(), warnings=()):
+        stages = [dict(id="prod", type="production", description="mutau tuples", reads="-", inputs="none",
+                       files=(), note="", samples=(("2022", "mutau", "DY", 4, 2, 1, ""),
+                                                   ("2022", "mutau", "TT", 3, 3, 1, "yes")), jobs=5,
+                       cwd="", subdirs=(), steps=None, notes=()),
+                  dict(id="plots", type="python", description="", reads="prod", inputs="tuples <- prod", files=(),
+                       note="", samples=None, jobs=0, cwd="<run_dir>/stages/plots", subdirs=(),
+                       steps=(("mutau", "python3 plot.py -c mutau " + "x" * 120),), notes=("a note",))]
+        return dict(name="analysis", path="Analyses/analysis", stages=stages, errors=list(errors),
+                    warnings=list(warnings), overview=["Run root: /eos/runs (recipe)", "", "2 stage(s), 5 job(s)"])
+
+    def test_the_plan_screen_opens_on_the_overview_and_starts_from_start_run(self):
+        ui, screen, frames = self.rendered_terminal([1001, 10], (24, 100))
         position = {}
-        self.assertEqual(ui.confirm_recipe("analysis", review, position), "plan")
-        self.assertEqual(position["selected"], 1)
-        self.assertGreater(position["offset"], 0)
-        screen.getch.side_effect = [1002, 10]
-        self.assertEqual(ui.confirm_recipe("analysis", review, position), "back")
-        text = "\n".join(line for frame in frames for line in frame)
-        self.assertIn("Path: Analyses/analysis", text)
-        self.assertIn("Planning notes:", text)
+        self.assertEqual(ui.recipe_plan("Start a new run / analysis", self.plan_view(), position), "start")
+        first = "\n".join(frames[0])
+        self.assertIn("> Overview", first)
+        self.assertIn("Run root: /eos/runs (recipe)", first)
+        self.assertNotIn("Errors (", first)  # only when there are any
+        self.assertIn("Enter Start", "\n".join(frames[1]))
+        self.assertEqual(position["selected"], "start")
+
+    def test_the_plan_screen_lists_errors_and_warnings_and_refuses_to_start_with_errors(self):
+        ui, screen, frames = self.rendered_terminal([1002, 1002, 1001, 1001, 1001, 10, ord("e")], (24, 100))
+        view = self.plan_view(errors=("stages[0]: missing 'id'",), warnings=("run_root: not set",))
+        self.assertEqual(ui.recipe_plan("Start a new run / analysis", view, {}), "edit")  # Enter did nothing
+        self.assertIn("There is 1 error: see Errors.", "\n".join(frames[0]))
+        self.assertIn("- stages[0]: missing 'id'", "\n".join(frames[1]))
+        self.assertIn("- run_root: not set", "\n".join(frames[2]))
+        start = "\n".join(frames[-1])
+        self.assertIn("> Start run", start)
+        self.assertIn("it cannot start until they are fixed", start)
+        self.assertNotIn("Enter Start", start)
+
+    def test_the_plan_screen_shows_samples_and_short_or_full_commands(self):
+        ui, screen, frames = self.rendered_terminal([1002, 1002, ord("f"), ord("f"), 27], (24, 100))
+        position = {}
+        self.assertEqual(ui.recipe_plan("Start a new run / analysis", self.plan_view(), position), "back")
+        samples = "\n".join(frames[1])
+        self.assertIn("era   channel  sample  files  chunks  try  conflict", samples)
+        self.assertIn("2 sample(s), 5 job(s)", samples)
+        self.assertNotIn("F Full commands", samples)  # production has no commands
+        short, full = "\n".join(frames[2]), "\n".join(frames[3])
+        self.assertIn(" 1. mutau  python3 plot.py -c mutau xxx", short)
+        self.assertIn("...", short)
+        self.assertIn("F Full commands", short)
+        self.assertIn("Notes:", short)
+        self.assertIn(" 1. mutau ", full)
+        self.assertNotIn("...", full)
+        self.assertIn("F Short commands", full)
+        self.assertEqual(position, dict(selected=1, offset=0, full=False))
 
     def test_start_lists_at_once_and_fills_in_the_checks_as_they_come(self):
         """A check that is not read yet: "checking..." and a live list, its job asked for once; the next draw
@@ -1392,31 +1436,24 @@ ConsoleUI(None)
         ui.select_recipe.side_effect = select
         MenuNavigation(ui, operations).start()
         self.assertEqual(operations.recipe_preview.call_count, 3)
-        operations.prepare_review.assert_not_called()
+        operations.prepare_plan.assert_not_called()
         operations.start_command.assert_not_called()
 
-    def test_problems_and_descriptions_in_the_pipeline(self):
+    def test_only_the_counts_of_problems_and_warnings_above_the_stage_table(self):
         ui = ConsoleUI(mock.Mock())
-        view = dict(name="broken", stages=(("prod", "production", "mutau tuples"), ("summary", "python", "")),
-                    problems=("pico.config: file not found: x.json", "stages[2] (fit): missing 'id'"))
-        lines = ui._pipeline_lines(view, 40)
+        view = dict(name="broken", stages=(("prod", "production", "mutau tuples", "-"),
+                                           ("summary", "python", "", "prod")),
+                    problems=("pico.config: file not found: x.json", "stages[2] (fit): missing 'id'"),
+                    warnings=("run_root: not set",))
+        lines = ui._pipeline_lines(view, 60)
         text = "\n".join(lines)
-        self.assertIn("2 problem(s):", text)
-        self.assertIn("- pico.config: file not found: x.json", text)
-        self.assertLess(text.index("problem(s)"), text.index("1. prod"))  # the problems come first
-        cards = [line.strip()[2:-2].strip() for line in lines if line.strip().startswith("| ")]
-        self.assertEqual(cards, ["1. prod", "mutau tuples", "2. summary", ""])
-
-    def test_warnings_in_the_pipeline(self):
-        ui = ConsoleUI(mock.Mock())
-        view = dict(name="ok", stages=(("prod", "production", ""),), warnings=("run_root: not set",))
-        lines = ui._pipeline_lines(view, 40)
-        self.assertEqual(lines[lines.index("1 warning(s):") + 1], "- run_root: not set")
-        text = "|".join(lines)
-        self.assertLess(text.index("warning(s)"), text.index("1. prod"))
-        view["problems"] = ("stages[0]: missing 'id'",)
-        text = "|".join(ui._pipeline_lines(view, 40))
-        self.assertLess(text.index("problem(s)"), text.index("warning(s)"))
+        self.assertNotIn("x.json", text)  # the plan screen lists them
+        self.assertNotIn("run_root", text)
+        self.assertLess(text.index("There are 2 errors"), text.index("There is 1 warning"))
+        self.assertLess(text.index("There is 1 warning"), text.index("Stage ID"))
+        table = lines[lines.index("") + 1:]
+        self.assertEqual(table, ["#  Stage ID  Input  Description", "1  prod      -      mutau tuples",
+                                 "2  summary   prod"])
 
     def test_recipe_list_colors_prioritize_errors_over_warnings(self):
         ui = ConsoleUI(mock.Mock())
@@ -1434,26 +1471,23 @@ ConsoleUI(None)
         self.assertEqual(choice.call_args.kwargs["row_colors"], ["error", None, None])
         self.assertEqual(list(choice.call_args.kwargs["edit_indices"]), [0, 1])
 
-    def test_warning_colors_survive_errors_wrapping_and_scrolling(self):
+    def test_count_colors_and_the_table_header(self):
         for problems in ({}, {"problems": ("stages[0]: missing 'id'",)}, {"error": "invalid recipe"}):
             with self.subTest(problems=problems):
-                curses, screen = self.curses([])
-                ui = ConsoleUI(curses)
-                with mock.patch.object(ui, "colors_enabled", return_value=True):
-                    ui._setup(screen)
-                self.assertEqual(ui.styles["warning"], curses.color_pair(8))
-                view = dict(name="analysis", warnings=("run_root: not set, choose a run directory",), **problems)
+                ui = ConsoleUI(mock.Mock())
+                view = dict(name="analysis", stages=(("fit", "fit", "", "-"),),
+                            warnings=("run_root: not set, choose a run directory",), **problems)
                 colors = []
                 lines = ui._pipeline_lines(view, 24, colors=colors)
                 self.assertEqual(len(lines), len(colors))
-                self.assertEqual(colors[0], "error" if problems else "warning")
-                start = lines.index("1 warning(s):")
-                end = lines.index("", start)
-                self.assertGreater(end - start, 2)  # warning wraps onto multiple lines
-                self.assertEqual(colors[start:end], ["warning"] * (end - start))
-                ui._viewport(screen, (1, 1, end - start + 1, 24), lines, start, line_colors=colors)
-                for call in screen.addnstr.call_args_list[:end - start]:
-                    self.assertEqual(call.args[4], ui.styles["warning"])
+                roles = dict(zip(lines, colors))
+                if "error" in problems:
+                    self.assertEqual(roles["Cannot preview: invalid"], "error")
+                    continue
+                self.assertEqual(roles["There is 1 warning"], "warning")
+                if problems:
+                    self.assertEqual(roles["There is 1 error"], "error")
+                self.assertEqual(roles["#  Stage ID  Input"], "accent")
 
     def test_badge_colors_purple_and_gold_on_256_colors_else_magenta_and_yellow(self):
         for colors, brand, version in ((256, 135, 178), (8, 5, 3)):

@@ -3,11 +3,13 @@
 
 The injected operations object supplies launch_dir, recipes(), examples() (the example analyses, listed apart
 under [Examples] of the recipe list), resolve_path(value), load_run(path),
-can_advance(record), prepare_review(path), and start_command(command, target), which starts a read-only command
-(`plan` of a recipe, `status` of a run directory) behind the menu and returns its Operation (kind "command"; its
-screen, ConsoleUI.command_output, stops it when it is left).
-Recipe views contain name, path, ordered (stage id, type, description) triples, notes, problems (a recipe with
-problems is shown in red and cannot start) and warnings (yellow; the recipe can still start).
+can_advance(record), prepare_plan(path) (the plan screen's data: name, path, overview lines, errors, warnings and
+stage dicts, see _Operations.prepare_plan; with errors the recipe cannot start), and start_command(command,
+target), which starts a read-only command (`status` of a run directory) behind the menu and returns its Operation
+(kind "command"; its screen, ConsoleUI.command_output, stops it when it is left).
+Recipe views contain name, path, shown (the path as shown), ordered (stage id, type, description, reads) tuples,
+problems (a recipe with problems is shown in red and cannot start) and warnings (yellow; the recipe can still
+start).
 Records expose run_id, run_dir, and state;
 run rows are (created, path, (run_id, state, updated)). The lists of Start and Continue/Inspect are read ahead:
 recipe_preview(path) and run_row(run_dir) compute and keep (in a Prefetch job, from the menu's start on),
@@ -144,24 +146,38 @@ class MenuNavigation:
                 if view.get("draft"):
                     self.ui.message("Analysis draft", "No stages configured. Press E for Run editor.")
                     continue
-                review = self.operations.prepare_review(path)
+                plan = self.operations.prepare_plan(path)
             except KeyboardInterrupt:
                 return False
             except Exception as error:
                 self.ui.operation_error(error)
                 continue
-            review_position = {}
-            while True:
-                action = self.ui.confirm_recipe(path, review=review, position=review_position)
-                if action == "back":
-                    break
-                if action == "plan":
-                    self._command("Plan: %s" % (review.get("name") or path), "plan", path)
-                elif action == "start":
-                    if not self._grid_ready(self.operations.needs_grid_proxy(recipe=path)):
-                        continue
-                    self._follow_run(self.operations.start_run(path))
-                    return True
+            if self._plan(path, plan):
+                return True
+
+    def _plan(self, path, plan):
+        """The plan screen of a recipe until it starts (True) or the user goes back (False). E opens the Run
+        editor; the plan is read again after it."""
+        position = {}
+        while True:
+            action = self.ui.recipe_plan("Start a new run / %s" % (plan.get("name") or path), plan,
+                                         position=position)
+            if action == "back":
+                return False
+            if action == "edit":
+                self.edit_analysis(path)
+                try:
+                    plan = self.operations.prepare_plan(path)
+                except KeyboardInterrupt:
+                    return False
+                except Exception as error:
+                    self.ui.operation_error(error)
+                    return False
+            elif action == "start":
+                if not self._grid_ready(self.operations.needs_grid_proxy(recipe=path)):
+                    continue
+                self._follow_run(self.operations.start_run(path))
+                return True
 
     def _create_analysis(self):
         """Ask again after an error, keeping the name. Cancellation never creates a file."""

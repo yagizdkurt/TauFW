@@ -39,6 +39,7 @@ from typing import Optional, Tuple
 from TauFW.Framework._internal.recipes.bundle import path_rows, is_absolute
 from TauFW.Framework._internal.user_settings import production_problems
 from TauFW.Framework._internal.runtime.manifest import read_stage_dir, ManifestError
+from TauFW.Framework._internal.runtime.plan_text import inputs_short
 from TauFW.Framework.stages import STAGES
 from TauFW.Framework.stages.local import fixed_directory
 from TauFW.Framework._internal.recipes.recipe import (Recipe, RecipeError, Issue, read_recipe, recipe_warnings,
@@ -73,6 +74,7 @@ def check_recipe(path, files=None, *, allow_draft=False):
     draft = bool(allow_draft and not issues and data.get('stages') == [])
     return RecipeCheck(name=name, path=path, recipe=None if issues or draft else recipe, draft=draft,
                        stages=tuple((s.id, s.stage, s.description) for _, s in stage_specs),
+                       reads=tuple(inputs_short(s) for _, s in stage_specs),
                        issues=tuple(issues), warnings=() if draft else tuple(recipe_warnings(data, bundle_dir)))
 
 
@@ -153,7 +155,8 @@ def read_source(stage_spec, slot, path):
 class RecipeCheck:
     """The result of check_recipe(). recipe: the Recipe if there is no issue, else None.
     warnings: what the recipe should change, though it can run (they never make it not ok).
-    draft: a well-formed empty analysis accepted for display only; recipe is None and ok is False."""
+    draft: a well-formed empty analysis accepted for display only; recipe is None and ok is False.
+    reads: what each stage reads, in a few words (plan_text.inputs_short), in the order of stages."""
     name:     str
     path:     str
     recipe:   Optional[Recipe] = None
@@ -161,6 +164,7 @@ class RecipeCheck:
     issues:   Tuple[Issue, ...] = ()
     warnings: Tuple[Issue, ...] = ()
     draft:    bool = False
+    reads:    Tuple[str, ...] = ()
 
     @property
     def ok(self):

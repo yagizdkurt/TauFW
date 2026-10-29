@@ -1,5 +1,5 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
-"""The screen of a read-only command behind the menu (`taufw.py plan`, `taufw.py status`): its plain output.
+"""The screen of a read-only command behind the menu (`taufw.py status`): its plain output.
 
 The command is a TauFW.Framework._internal.operations.Operation (its supervisor runs it, so
 a slow command, e.g. a status that asks HTCondor, never stops the menu from
@@ -7,7 +7,7 @@ drawing); the screen is the operation screen (_operation_screen.py) with
 CommandOutput as its model, which has no items: only the Output view.
 
     process.output  ─▶ Output view (Up/Down/PgUp/PgDn, End follows the end)
-    process.state() ─▶ READING STATUS (READING PLAN), STOPPING, FAILED, STOPPED or LOST | time | the command
+    process.state() ─▶ READING STATUS, STOPPING, FAILED, STOPPED or LOST | time | the command
                        (+ its exit code); once it is done, only the time and the command
 
 The state line is the command's, not the run's: a status that says RUNNING
@@ -29,8 +29,7 @@ __all__ = ["CommandOutput", "follow_command"]
 # ================================= CONSTANTS =================================
 
 
-READING = {"status": ("READING STATUS", "Reading the run status..."),  # command: (state line, empty Output view)
-           "plan": ("READING PLAN", "Reading the plan...")}
+READING = {"status": ("READING STATUS", "Reading the run status...")}  # command: (state line, empty Output view)
 
 
 # =============================================================================
@@ -39,7 +38,7 @@ READING = {"status": ("READING STATUS", "Reading the run status..."),  # command
 
 class CommandOutput(ScreenModel):
     """A command's output and nothing else. command: its words on the state line (`taufw.py status`); name: the
-    command (status, plan), for the state while it reads (READING)."""
+    command (status), for the state while it reads (READING)."""
 
     output_title = "Output"
     stopping = "Stopping..."

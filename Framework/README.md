@@ -82,8 +82,9 @@ optional console menu (Python's standard-library `curses`; no extra dependency).
 Use Up/Down to move, Enter to select, and Esc to go back or exit the main menu.
 
 - **Start a new run** lists the analysis bundles in `Analyses/` or accepts another path, displays
-  the selected recipe's pipeline, then offers to start the run. The picker always uses two equal-width
-  panels: a recipe table on the left and numbered stage boxes connected by downward arrows on the right.
+  the selected recipe's pipeline, then opens its plan, where the run starts. The picker always uses two
+  equal-width panels: the recipes on the left and the pipeline on the right, a table with one row per stage
+  (`#`, `Stage ID`, `Input`: the stages or sources it reads, `Description`: cut first on a narrow terminal).
   Up/Down changes the recipe; Page Up/Page Down scrolls its pipeline. At least 64 columns and 12 rows
   are required; smaller terminals show a resize message and Esc still returns to the main menu.
   **[Create a new run]** is always the first row. It asks for an analysis name and creates
@@ -92,10 +93,15 @@ Use Up/Down to move, Enter to select, and Esc to go back or exit the main menu.
   stages are added. **E** on an analysis opens the Run editor entry point; its screen is coming next.
   The preview follows the recipe's actual stage order, including custom Python steps, without planning jobs.
   Every recipe is checked when the list opens (`validation.py`): a recipe with problems is red in the list, and its
-  preview lists every problem above the stages it could read. Such a recipe cannot be started.
-  Selecting a recipe reloads it and prepares its read-only plan silently before showing the review screen,
-  including any nonfatal planning notes. **View detailed plan** displays the existing textual plan and
-  returns to the same review after Enter. **Start run** launches the run; **Back** returns to the picker.
+  preview says how many errors and warnings it has above the table (the plan lists them). Such a recipe cannot
+  be started. Selecting a recipe reloads it and plans it silently in the menu's own process (nothing is written),
+  then opens the **plan screen**: on the left **Start run**, **Overview** (selected when it opens: bundle, run
+  root, PicoProducer config, totals), **Errors** and **Warnings** (only when there are any) and one row per stage;
+  on the right the selected row's details: a stage's inputs and files, the samples and jobs of production, the
+  working directory and commands of a local stage (one cut line each; **F** shows them in full) and its planning
+  notes. **Start run** is red and refused with errors (a recipe that cannot be planned says why under Errors),
+  yellow with warnings; Enter on it launches the run. **E** opens the Run editor and plans again; **Esc** returns
+  to the picker.
 - **Continue an existing run** lists saved runs in `taufw_runs/`, in `runs.run_root` of the user config and
   in the `run_root` of every recipe in `Analyses/` (newest first)
   or accepts another run directory. Choose one advance or repeated checking;
@@ -140,8 +146,8 @@ help content.
 (`Framework/python/_internal/operations/_operations.py`, `_supervisor.py`): a directory under `.artifacts/menu/operations/`
 that a supervisor process fills while it runs the command, and that any menu reads again (CL §18).
 `python/_internal/interfaces/interactive.py` keeps recipe/run discovery, validation, record access,
-read-only recipe previews and plan preparation, test runs (`start_tests`, `tests_operation`), and command
-dispatch. Recipe previews (with their problems)
+read-only recipe previews and the plan screen's data (`prepare_plan`), test runs (`start_tests`,
+`tests_operation`), and command dispatch. Recipe previews (with their problems)
 are made once per picker visit; Framework objects stay in the adapter. UI screens use ASCII frames, cyan accents,
 selection markers, and a shared keyboard-controls footer. Colors are optional and all status labels
 remain readable without them. Entry screens retain the adaptive TauFW artwork.
@@ -415,6 +421,7 @@ creation/editing logic belongs in `_internal/recipes/`; the terminal widgets sta
 | `python/_internal/runtime/run_record.py` | `RunRecord`, `RunState`, `StageRecord`: `run.json`, crash-safe save |
 | `python/_internal/runtime/run_lock.py` | the advance lock, lost-lock detection and takeover |
 | `python/_internal/runtime/interrupts.py` | deferred interruption while a submission finishes |
+| `python/_internal/runtime/plan_text.py` | the words of a plan, the same for `taufw plan` and the menu's plan screen: `run_root_line`, `inputs_line`, `inputs_short` (the Input column), `command_line` |
 | `python/_internal/runtime/reporting.py` | `Reporter` (interface), `FrameworkReporter` (terminal + `run.log`), `SilentReporter`, `EventReporter` (also writes events for the menu, `$TAUFW_EVENTS`); adapter for PicoProducer's messages |
 | `python/_internal/defaults.py` | shared defaults: `taufw_runs`, `run.json`, `run.log`, `recipe.yml`, `bundle/`, `logs/`, `stages/`, `manifest.json`, `Analyses/`, `Configs/`, the polling interval (600 s), the time format |
 | `python/_internal/interfaces/interactive.py` | the Framework side of the console menu (recipe/run discovery, dispatch to the commands) |

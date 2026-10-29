@@ -52,7 +52,6 @@ Exit code: 1 if the run failed or the recipe is invalid (warnings do not count),
 Framework/README.md.
 """
 import os
-import shlex
 import sys
 from argparse import ArgumentParser
 try:
@@ -68,6 +67,7 @@ try:
     from TauFW.Utilities import UserConfig
     from TauFW.Utilities.UserConfig import manage as user_config
     from TauFW.Framework._internal import user_settings
+    from TauFW.Framework._internal.runtime.plan_text import run_root_line, inputs_line, command_line
 except ImportError as err:
     print("\033[1m\033[31mImportError for TauFW.Framework: please check if you compiled with `scram b`.\033[0m")
     raise err
@@ -137,7 +137,7 @@ def cmd_plan(args):
     _show_warnings(reporter, framework.recipe.warnings)
     if plan.bundle_dir:
         reporter.message("Bundle: %s" % (plan.bundle_dir))
-    reporter.message("Run root: %s" % (_run_root_line(framework.recipe)))
+    reporter.message("Run root: %s" % (run_root_line(framework.recipe)))
     production = framework.recipe.first('production')
     if production:  # only production reads it (CL §37)
         settings = getattr(framework.stages[production.id], 'settings', None)
@@ -149,8 +149,8 @@ def cmd_plan(args):
         reporter.header("Stage %s (%s)" % (stage_spec.id, stage_spec.stage))
         if stage_spec.description:
             reporter.message(stage_spec.description)
-        reporter.message("Inputs: %s" % (_inputs_line(stage_spec, framework.stages[stage_spec.id],
-                                                     stage_plan.sources)))
+        reporter.message("Inputs: %s" % (inputs_line(stage_spec, framework.stages[stage_spec.id],
+                                                    stage_plan.sources)))
         if stage_plan.paths:  # the files the stage reads: bundle, template, channel name or absolute (bundle.py)
             reporter.table(["option", "file", "from"],
                            [(option, resolved, where) for option, _, resolved, where in stage_plan.paths])
@@ -182,7 +182,7 @@ def cmd_start(args):
     _show_user_config(reporter)
     if not args.run_root:  # --run-root chooses the place, so the recipe's run_root warnings do not apply
         _show_warnings(reporter, framework.recipe.warnings)
-    reporter.message("Run root: %s" % (_run_root_line(framework.recipe, args.run_root)))
+    reporter.message("Run root: %s" % (run_root_line(framework.recipe, args.run_root)))
     record = framework.run(run_root=args.run_root, wait=args.wait, poll=args.poll)
     return _finish(reporter, record)
 
@@ -317,42 +317,6 @@ def _show_warnings(reporter, warnings):
         reporter.warning(str(warning))  # the reporter marks it as a warning
 
 
-def _run_root_line(recipe, given=None):
-    """Where the runs go, and why: --run-root, the recipe's run_root (absolute, nothing expanded), the user
-    config's runs.run_root, or the default."""
-    if given:
-        return "%s (--run-root)" % (os.path.abspath(given))
-    if recipe.run_root:
-        return "%s (recipe)" % (recipe.run_root)
-    from_user = user_settings.run_root_or_none()
-    if from_user:
-        return "%s (user config)" % (from_user)
-    return "%s (default: no run_root in the recipe)" % (os.path.abspath(DEFAULT_RUN_ROOT))
-
-
-def _inputs_line(stage_spec, stage, sources=None):
-    """The stage's inputs as written: 'none', or 'slot <- stage id', 'slot <- <directory> (run, stage, finished)'
-    (another run's stage directory; sources: what its manifest says, see StagePlan.sources), 'slot <- external
-    <pattern>' (data made outside TauFW), or for null 'slot <- outside this run (what null means for the slot,
-    Stage.null_inputs)'."""
-    if stage_spec.inputs is None:
-        return "none"
-    return ", ".join("%s <- %s" % (slot, _input_text(slot, value, stage, sources or {}))
-                     for slot, value in stage_spec.inputs.items())
-
-
-def _input_text(slot, value, stage, sources):
-    if isinstance(value, dict) and 'path' in value:
-        source = sources.get(slot)
-        if source is None:  # cannot be read: the stage's note says why
-            return value['path']
-        return "%s (run %s, stage %s (%s), finished %s)" % (value['path'], source['run_id'], source['stage_id'],
-                                                            source['stage'], source['finished'])
-    if isinstance(value, dict):
-        return "external %s" % (value['external'])
-    return value or "outside this run (%s)" % (stage.null_inputs.get(slot, '?'))
-
-
 def _show_commands(reporter, plan):
     """The commands of a local stage, as they would be typed in its working directory."""
     reporter.message("Working directory: %s" % (plan.cwd))
@@ -362,18 +326,11 @@ def _show_commands(reporter, plan):
         reporter.message("Commands run in: %s (relative to the working directory)"
                          % (', '.join(dict.fromkeys(subdirs))))
     reporter.table(["#", "step", "command"],
-                   [(index, command.label, _command_line(command))
+                   [(index, command.label, command_line(command))
                     for index, command in enumerate(plan.commands, 1)])
     reporter.message("%d command(s)" % (len(plan.commands)))
     for note in plan.notes:
         reporter.warning(note)
-
-
-def _command_line(command):
-    """A command line with its extra environment variables, with this Python shown as python3."""
-    env = ["%s=%s" % (key, shlex.quote(value)) for key, value in getattr(command, 'env', ())]
-    argv = [shlex.quote("python3" if i == 0 and a == sys.executable else a) for i, a in enumerate(command.argv)]
-    return " ".join(env + argv)
 
 
 def _interval(value):

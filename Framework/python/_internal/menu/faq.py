@@ -27,11 +27,11 @@ FAQ = (
      "Analyses/<name>/recipe.yml with an empty pipeline. Esc cancels; existing files are never overwritten. "
      "The new analysis is selected and labelled Draft. A draft cannot start until stages are configured. "
      "E opens the Run editor entry point for the selected analysis (the editor screen is coming next). "
-     "Choose a recipe in the left table; its pipeline appears on the right, "
-     "with stages running from top to bottom. The picker needs at least 64 columns "
-     "and 12 rows. Select a recipe to prepare its read-only plan and review the "
-     "pipeline and planning notes. View detailed plan shows the output of "
-     "taufw.py plan; Esc returns to the review. Select Start run to launch. "
+     "Choose a recipe on the left; its pipeline appears on the right as a table: each stage, what it reads "
+     "and its description, with the number of errors and warnings above it. The picker needs at least 64 "
+     "columns and 12 rows. Select a recipe to open its plan: Overview, Errors and Warnings (when there are "
+     "any) and each stage's details (samples and jobs, or commands; F shows the commands in full). "
+     "Start run is at the top: red and refused with errors, yellow with warnings. E edits; Esc goes back. "
      "This submits production jobs and creates taufw_runs/<name>_<timestamp>/ "
      "with run.json and run.log. Starting returns after submission."),
 

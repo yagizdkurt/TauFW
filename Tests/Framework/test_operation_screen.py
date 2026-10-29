@@ -174,8 +174,7 @@ class OperationScreenTests(unittest.TestCase):
 
     def test_a_command_screen_before_its_first_line(self):
         from TauFW.Framework._internal.menu._command_screen import follow_command
-        for command, words in (("status", ("READING STATUS", "Reading the run status...")),
-                               ("plan", ("READING PLAN", "Reading the plan..."))):
+        for command, words in (("status", ("READING STATUS", "Reading the run status...")),):
             with self.subTest(command=command):
                 ui, screen = self.screen([-1, 27])
                 process = Process(self.output, ["RUNNING"])

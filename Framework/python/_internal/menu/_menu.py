@@ -14,6 +14,7 @@ import textwrap
 import time
 
 from .faq import FAQ
+from ._plan_screen import show_plan, stage_table, there_are
 from .banner import DECAY_SECONDS, INTERACTIONS, VERSION, WIDTH, branding, decay_frame
 
 if "." in __package__:
@@ -220,69 +221,39 @@ class ConsoleUI:
         return [line for paragraph in str(value).splitlines()
                 for line in (textwrap.wrap(paragraph, max(1, width)) or [""])] or [""]
 
-    def _pipeline_lines(self, view, width, show_path=False, compact=False, colors=None):
-        """Build pipeline lines and optionally fill their matching color roles."""
-        lines = self._wrap("Recipe: " + view.get("name", ""), width)
-        name_end = len(lines)
-        warning_start = warning_end = 0
+    def _pipeline_lines(self, view, width, colors=None):
+        """A recipe's stages as a table (# / Stage ID / Input / Description), with only the counts of its problems
+        and warnings above it (the plan screen lists them); colors, if given, is filled with each line's role."""
+        lines, roles = [], []
 
-        def finish():
-            if colors is not None:
-                broken = view.get("error") or view.get("problems")
-                colors.extend(["error" if broken else None] * len(lines))
-                if view.get("warnings") and not broken:
-                    colors[:name_end] = ["warning"] * name_end
-                colors[warning_start:warning_end] = ["warning"] * (warning_end - warning_start)
-            return lines
+        def add(texts, role=None):
+            lines.extend(texts)
+            roles.extend([role] * len(texts))
 
-        if view.get("error"):
-            lines += [""] + self._wrap("Cannot preview: " + view["error"], width)
         if view.get("hint"):
-            lines = self._wrap(view["hint"], width)
-            return finish()
-        if show_path:
-            lines += self._wrap("Path: " + view.get("path", ""), width)
-        if view.get("draft"):
-            lines += [""] + self._wrap("Draft - no stages configured.", width) + [""]
-            lines += self._wrap("Press E to configure this analysis in Run editor before starting a run.", width)
-            return finish()
-        problems = view.get("problems", ())
-        if problems:
-            lines += ["", "%d problem(s):" % len(problems)]
-            for problem in problems:
-                lines += self._wrap("- " + problem, width)
-            lines += [""]
-        warnings = view.get("warnings", ())
-        if warnings:  # the recipe can run, but should change
-            warning_start = len(lines)
-            lines += ["", "%d warning(s):" % len(warnings)] if not problems else ["%d warning(s):" % len(warnings)]
-            for warning in warnings:
-                lines += self._wrap("- " + warning, width)
-            warning_end = len(lines)
-            lines += [""]
-        if view.get("error"):
-            return finish()
-        stages = view.get("stages", ())
-        if not compact:
-            lines += ["%d stage(s)" % len(stages), ""]
-        card_width = max(6, min(width, 32))
-        padding = " " * max(0, (width - card_width) // 2)
-        edge = padding + "+" + "-" * (card_width - 2) + "+"
-        for index, (stage_id, stage_type, description) in enumerate(stages):
-            if index:
-                center = padding + " " * (card_width // 2)
-                lines += [center + "|", center + "v"]
-            labels = self._wrap("%d. %s" % (index + 1, stage_id), card_width - 4)
-            labels += self._wrap(description or "", card_width - 4)
-            lines += [edge]
-            lines += [padding + "| " + label.center(card_width - 4) + " |" for label in labels]
-            lines += [edge]
-        notes = view.get("notes", ())
-        if notes:
-            lines += ["", "Planning notes:"]
-            for note in notes:
-                lines += self._wrap(note, width) + [""]
-        return finish()
+            add(self._wrap(view["hint"], width))
+        else:
+            add(self._wrap("Recipe: " + view.get("name", ""), width))
+            if view.get("shown"):
+                add(self._wrap("Path:   " + view["shown"], width))
+            if view.get("error"):
+                add([""] + self._wrap("Cannot preview: " + view["error"], width), "error")
+            elif view.get("draft"):
+                add([""] + self._wrap("Draft - no stages configured.", width) + [""])
+                add(self._wrap("Press E to configure this analysis in Run editor before starting a run.", width))
+            else:
+                problems, warnings = len(view.get("problems", ())), len(view.get("warnings", ()))
+                if problems:
+                    add(self._wrap(there_are(problems, "error"), width), "error")
+                if warnings:
+                    add(self._wrap(there_are(warnings, "warning"), width), "warning")
+                add([""])
+                rows = stage_table(view.get("stages", ()), width)
+                add(rows[:1], "accent")
+                add(rows[1:])
+        if colors is not None:
+            colors.extend(roles)
+        return lines
 
     def _viewport(self, screen, rect, lines, offset, color=0, line_colors=None):
         top, left, rows, width = rect
@@ -298,9 +269,9 @@ class ConsoleUI:
                                             len(lines)))[:width], color=self.styles["accent"])
         return offset, visible
 
-    def _pipeline_choice(self, title, choices, preview, review=False, position=None, row_colors=None, live=None,
+    def _pipeline_choice(self, title, choices, preview, position=None, row_colors=None, live=None,
                          edit_indices=(), separators=()):
-        """Two equal columns, with independent recipe/action and pipeline scrolling.
+        """Two equal columns, with independent recipe and pipeline scrolling.
         row_colors: a style name per choice (e.g. "error"), or None. live: seconds; without a key by then, REFRESH
         (the caller draws it again with what came meanwhile; the position is kept). separators: an empty line
         before each of these choices (as in choose)."""
@@ -321,13 +292,11 @@ class ConsoleUI:
                 if usable:
                     panel_width = (width - 1) // 2
                     left = (width - (2 * panel_width - 1)) // 2
-                    left_rect = self._panel(screen, 3, left, height - 6, panel_width,
-                                            "Actions" if review else "Recipes")
+                    left_rect = self._panel(screen, 3, left, height - 6, panel_width, "Recipes")
                     right_rect = self._panel(screen, 3, left + panel_width - 1,
                                              height - 6, panel_width, "Pipeline")
                     top, column, rows, columns = left_rect
-                    self._line(screen, top, column, "Action" if review else "Recipe / bundle",
-                               color=self.styles["accent"])
+                    self._line(screen, top, column, "Recipe / bundle", color=self.styles["accent"])
                     top, rows = top + 2, max(1, rows - 2)
                     first = 0
                     while offsets[selected] - offsets[first] >= rows:
@@ -342,8 +311,7 @@ class ConsoleUI:
                                    index == selected, self.styles.get(role, 0) if role else 0)
                     view = preview(selected)
                     line_colors = []
-                    lines = self._pipeline_lines(view, right_rect[3], show_path=review,
-                                                 compact=right_rect[2] <= 6, colors=line_colors)
+                    lines = self._pipeline_lines(view, right_rect[3], colors=line_colors)
                     offset, page = self._viewport(screen, right_rect, lines, offset,
                                                   line_colors=line_colors)
                 else:
@@ -365,8 +333,7 @@ class ConsoleUI:
                     return "edit", selected
                 if key in (self.curses.KEY_UP, self.curses.KEY_DOWN):
                     selected = (selected + (1 if key == self.curses.KEY_DOWN else -1)) % len(choices)
-                    if not review:
-                        offset = 0
+                    offset = 0
                 elif key == self.curses.KEY_NPAGE:
                     offset += page
                 elif key == self.curses.KEY_PPAGE:
@@ -941,13 +908,11 @@ class ConsoleUI:
     def recipe_path(self, launch_dir):
         return self.prompt("Recipe path (relative to %s)" % launch_dir)
 
-    def confirm_recipe(self, path, review=None, position=None):
-        choices, actions = ["Start run", "View detailed plan", "Back"], ["start", "plan", "back"]
-        if review is None:
-            return self._action("Recipe: %s" % path, choices, actions)
-        selected = self._pipeline_choice("Start a new run / Review", choices,
-                                         lambda index: review, review=True, position=position)
-        return "back" if selected is None else actions[selected]
+    def recipe_plan(self, title, view, position=None):
+        """The plan of a recipe (operations.prepare_plan; see _plan_screen.py). Return "start", "edit" or
+        "back". position: the selected row and the details' offset, kept by the caller across an edit."""
+        position = position if position is not None else {}
+        return self._run(lambda screen: show_plan(self, screen, title, view, position))
 
     def select_run(self, summaries, advances=None, loading=None, position=None, live=False,
                    preview=None, mode="inspect", finding=False, advance_labels=None):

@@ -29,6 +29,7 @@ class FakeUI(ConsoleUI):
         self.screens = []
         self.messages = []  # (title, text) of each panel over the screen (errors)
         self.outputs = []  # (title, argv after taufw.py, refresh) of each command shown
+        self.plans = []  # the view of each plan screen shown
         self.output_answers = iter(())  # what command_output answers ("back" once these are used)
 
     def choose(self, title, choices, welcome=None, **layout):
@@ -49,9 +50,11 @@ class FakeUI(ConsoleUI):
         self.broken = broken
         return super().select_recipe(names, examples=examples)
 
-    def confirm_recipe(self, path, review=None, position=None):
-        self.review = review
-        return super().confirm_recipe(path)
+    def recipe_plan(self, title, view, position=None):
+        """The plan screen: the next choice is 0 Start run, 1 E (edit) or 2 Esc (back)."""
+        self.plans.append(view)
+        self.screens.append((title, ["Start run", "Edit", "Back"]))
+        return ("start", "edit", "back")[next(self.choices)]
 
     def run_progress(self, title, process):
         self.screens.append((title, process))
@@ -361,7 +364,9 @@ class MenuTests(unittest.TestCase):
         patcher = mock.patch("TauFW.Framework._internal.interfaces.interactive.Framework.from_recipe")
         self.framework = patcher.start()
         self.addCleanup(patcher.stop)
-        self.framework.return_value.plan.return_value = mock.Mock(stages=())
+        self.framework.return_value.plan.return_value = SimpleNamespace(
+            stages=(), bundle_dir=None, pico_config=None, sample_problems=(), sample_warnings=())
+        self.framework.return_value.recipe.first.return_value = None  # no production stage
         self.started = []  # (argv after taufw.py, keyword arguments) of each run started behind the menu
         launch = mock.patch.object(interactive.OperationStore, "start", autospec=True,
                                    side_effect=lambda store, kind, title, argv, cwd, **kw:
@@ -480,15 +485,20 @@ class MenuTests(unittest.TestCase):
         self.assertEqual(ui.screens[-1][0], "Run test")
         self.assertEqual(ui.messages, [])
 
-    def test_recipe_error_allows_another_selection(self):
+    def test_a_recipe_that_cannot_be_planned_shows_why_on_its_plan_screen(self):
         self.recipe_file(self.root / "bad.yml")
         self.recipe_file(self.root / "good.yml")
         self.framework.side_effect = [ValueError("invalid recipe"), self.framework.return_value]
-        ui = FakeUI([1, 1, 2, 3], ["bad.yml", "good.yml"])  # ... Back of the review, Back
+        ui = FakeUI([1, 2, 1, 2, 3], ["bad.yml", "good.yml"])  # each: the path, Back of its plan; Back
         with contextlib.redirect_stdout(io.StringIO()) as output:
             self.menu(ui).start()
         self.assertEqual(output.getvalue(), "")  # nothing printed over the screen
-        self.assertEqual(ui.messages, [("Error", "ValueError: invalid recipe")])
+        self.assertEqual(ui.messages, [])
+        bad, good = ui.plans
+        self.assertEqual(bad["errors"], ["Cannot plan the recipe: invalid recipe"])
+        self.assertEqual([stage["note"] for stage in bad["stages"]],
+                         ["Cannot be planned until the errors are fixed."] * 2)
+        self.assertEqual(good["errors"], [])
         self.assertEqual(self.framework.call_count, 2)
         self.assertEqual(self.started, [])  # no plan, no start
 
@@ -587,14 +597,15 @@ class MenuTests(unittest.TestCase):
         self.assertEqual(Path(record.path).read_bytes(), before)
         self.assertEqual(self.started, [])
 
-    def test_plan_and_status_run_behind_the_menu(self):
+    def test_status_runs_behind_the_menu_and_plan_does_not(self):
         operations = self.menu(FakeUI()).operations
         record = self.record()
         operations.start_command("status", record.run_dir)
         recipe = self.recipe_file(self.root / "p.json")
-        operations.start_command("plan", str(recipe))
-        (status, options), (plan, _) = self.started
-        self.assertEqual((status, plan), (["status", record.run_dir], ["plan", str(recipe)]))
+        with self.assertRaises(ValueError):  # the plan screen plans in the menu's own process
+            operations.start_command("plan", str(recipe))
+        (status, options), = self.started
+        self.assertEqual(status, ["status", record.run_dir])
         self.assertEqual((options["kind"], options["title"], options["cwd"], options["data"]),
                          ("command", "status " + Path(record.run_dir).name, str(self.root),
                           dict(command="status", target=record.run_dir)))
@@ -671,7 +682,7 @@ class MenuTests(unittest.TestCase):
         ui.main_menu.side_effect = ["start", "exit"]
         ui.select_recipe.return_value = ("manual", None)
         ui.recipe_path.return_value = "custom.yml"
-        ui.confirm_recipe.return_value = "start"
+        ui.recipe_plan.return_value = "start"
         self.recipe_file(self.root / "custom.yml")
         self.assertEqual(self.menu(ui).run(), 0)
         self.assertEqual([argv[0] for argv, _ in self.started], ["start"])
@@ -711,10 +722,12 @@ class MenuTests(unittest.TestCase):
             {"stage": "python", "id": "report", "inputs": {"fit": "fit"}, "file": "steps/report.py"},
         ])
         view = self.menu(FakeUI()).operations.recipe_preview(path)
-        self.assertEqual(view["stages"], (("prepare", "python", ""), ("hists", "controlhists", ""),
-                                          ("check", "python", "look at the hists"), ("shapes", "shapes", ""),
-                                          ("fit", "fit", ""),
-                                          ("report", "python", "")))
+        reads = [stage[3] for stage in view["stages"]]
+        self.assertEqual([stage[:3] for stage in view["stages"]],
+                         [("prepare", "python", ""), ("hists", "controlhists", ""),
+                          ("check", "python", "look at the hists"), ("shapes", "shapes", ""), ("fit", "fit", ""),
+                          ("report", "python", "")])
+        self.assertEqual((reads[0], reads[2], reads[5]), ("-", "hists", "fit"))  # the Input column
         self.assertEqual(view["problems"], ())
         self.framework.assert_not_called()
 
@@ -758,57 +771,67 @@ class MenuTests(unittest.TestCase):
         self.assertEqual(view["problems"], ("stages[0] (shapes): missing 'id' (every stage needs a unique id, "
                                             "e.g. id: shapes)",
                                             "stages[1] (fit).inputs.shapes: no stage 'histo' in the recipe"))
-        self.assertEqual(view["stages"], (("fit", "fit", ""),))  # the stages that could be read
+        self.assertEqual(view["stages"], (("fit", "fit", "", "histo"),))  # the stages that could be read
 
-    def test_review_reloads_recipe_and_preserves_nonfatal_notes_silently(self):
+    def test_the_plan_reloads_the_recipe_and_keeps_every_detail_silently(self):
+        from TauFW.Utilities.Process import Command, CommandPlan
         path = self.recipe_file(self.recipes / "test.json", name="before")
         operations = self.menu(FakeUI()).operations
         self.assertEqual(operations.recipe_preview(path)["name"], "before")
         self.recipe_file(path, name="after")
+        commands = CommandPlan(cwd="/runs/x/stages/fit", commands=(
+            Command("DM0", (sys.executable, "fit.py", "-d", "0"), "/runs/x/stages/fit/2025"),),
+            notes=("missing ROOT",))
 
         def build(recipe, reporter):
             reporter.warning("configuration warning")
             self.assertEqual(recipe.name, "after")
-            return mock.Mock(plan=mock.Mock(return_value=mock.Mock(stages=[
-                mock.Mock(stage="fit", note="environment unavailable", plan=None),
-                mock.Mock(stage="hists", note="", plan=mock.Mock(notes=("missing ROOT",)))
-            ])))
+            plan = SimpleNamespace(bundle_dir=None, pico_config=None, sample_problems=(), sample_warnings=(),
+                                   stages=[SimpleNamespace(stage="shapes", note="environment unavailable",
+                                                           plan=None, paths=(), sources={}),
+                                           SimpleNamespace(stage="fit", note="", plan=commands, paths=(),
+                                                           sources={})])
+            stage = SimpleNamespace(null_inputs={})
+            return SimpleNamespace(recipe=recipe, stages=dict(shapes=stage, fit=stage), plan=lambda: plan)
 
         self.framework.side_effect = build
         before = path.read_bytes()
         with contextlib.redirect_stdout(io.StringIO()) as output:
-            review = operations.prepare_review(path)
+            plan = operations.prepare_plan(path)
         self.assertEqual(output.getvalue(), "")
-        self.assertEqual(review["name"], "after")
-        self.assertEqual(review["notes"], ("fit: environment unavailable", "hists: missing ROOT",
-                                          "configuration warning"))
+        self.assertEqual(plan["name"], "after")
+        self.assertEqual(plan["errors"], [])
+        self.assertIn("configuration warning", plan["warnings"])
+        shapes, fit = plan["stages"]
+        self.assertEqual((shapes["note"], shapes["steps"]), ("environment unavailable", None))
+        self.assertEqual((fit["inputs"], fit["reads"]), ("shapes <- shapes", "shapes"))
+        self.assertEqual((fit["cwd"], fit["subdirs"], fit["notes"]), ("/runs/x/stages/fit", ("2025",),
+                                                                    ("missing ROOT",)))
+        self.assertEqual(fit["steps"], (("DM0", "python3 fit.py -d 0"),))
+        self.assertEqual(plan["overview"][-1], "2 stage(s), 0 job(s), 1 command(s)")
         self.assertEqual(path.read_bytes(), before)
         self.assertFalse((self.root / "taufw_runs").exists())
 
-    def test_detailed_plan_returns_to_review_before_launch(self):
+    def test_the_plan_screen_opens_at_once_and_plans_once(self):
         path = self.recipe_file(self.recipes / "test.json")
         ui = mock.Mock()
         ui.select_recipe.return_value = ("select", 0)
-        ui.confirm_recipe.side_effect = ["plan", "start"]
+        ui.recipe_plan.return_value = "start"
         self.menu(ui).start()
-        self.assertEqual(ui.confirm_recipe.call_count, 2)
-        first, second = ui.confirm_recipe.call_args_list
-        self.assertIs(first.kwargs["position"], second.kwargs["position"])
-        self.assertIs(first.kwargs["review"], second.kwargs["review"])
+        self.assertEqual(ui.recipe_plan.call_args.args[0], "Start a new run / test")
         self.assertEqual(self.framework.call_count, 1)
-        self.assertEqual([argv for argv, _ in self.started], [["plan", str(path)], ["start", str(path), "--wait"]])
-        self.assertEqual(ui.command_output.call_args.args[0], "Plan: test")
-        self.assertEqual(ui.command_output.call_args.kwargs, dict(refresh=False))
+        self.assertEqual([argv for argv, _ in self.started], [["start", str(path), "--wait"]])
+        ui.command_output.assert_not_called()
         ui.operation_error.assert_not_called()
 
     def test_invalid_selected_recipe_never_plans_or_starts(self):
         (self.recipes / "broken.json").write_text("{}")
-        ui = FakeUI([1, 4])  # broken.json, then Back
+        ui = FakeUI([1, 2, 4])  # broken.json, Back of its plan, then Back
         with contextlib.redirect_stdout(io.StringIO()) as output:
             self.menu(ui).start()
         self.assertEqual(output.getvalue(), "")
-        self.assertEqual(len(ui.messages), 1)
-        self.assertIn("RecipeError", ui.messages[0][1])
+        self.assertEqual(ui.messages, [])
+        self.assertTrue(ui.plans[0]["errors"])  # the problems are on the plan screen
         self.framework.assert_not_called()
         self.assertEqual(self.started, [])
 

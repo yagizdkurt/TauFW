@@ -430,51 +430,19 @@ def _advance(directory, kind="advancing", run_id=None, **options):
     return _MockOperation(directory, "run", "Run %s" % data["run_id"], data, script, **options)
 
 
-def _plan_lines():
-    """The output of `taufw.py plan` for the made-up recipe: long, with tables wider than a small terminal."""
-    lines = ["Bundle: /afs/cern.ch/user/u/username/TauFW/Analyses/tes_2025",
-             "Run root: /eos/user/u/username/taufw_runs (from the recipe)",
-             "PicoProducer config: PicoProducer/config/config.json (default)",
-             "", "=== Stage ntuples (production) ===", "NanoAOD skims on HTCondor", "Inputs: none",
-             "era   channel  sample                                        files  chunks  try  conflict"]
-    lines += ["2025  %-7s  %-44s  %5d  %6d  1" % (channel, name, 20 + 3 * index, 4 + index % 5)
-              for channel in ("mutau", "etau") for index, name in enumerate(
-                  ("DYJetsToLL_M-50", "TTTo2L2Nu", "TTToSemiLeptonic", "WJetsToLNu", "WW", "WZ", "ZZ",
-                   "ST_tW_top", "ST_tW_antitop", "SingleMuon_Run2025C", "SingleMuon_Run2025D"))]
-    lines += ["22 sample(s), 125 job(s)"]
-    for name, kind in RUN_STAGES[1:]:
-        lines += ["", "=== Stage %s (%s) ===" % (name, kind), "Inputs: %s" % RUN_INFO[name][1][1]]
-        lines += ["  %d. %s" % (index, label) for index, (label, _, _) in enumerate(RUN_COMMANDS.get(name, ()), 1)]
-    return lines
-
-
-def _command(directory, kind):
-    """A made-up read-only command behind the menu: plan (a long output at once) or status (HTCondor answers
-    after 4 s, then the table)."""
-    if kind == "plan":
-        script = [(0.1 * index / 10, ("output", line)) for index, line in enumerate(_plan_lines())]
-        data, title = dict(command="plan", target="Analyses/tes_2025"), "plan tes_2025"
-    else:
-        script = [(4.0, ("output", line)) for line in (
-            "=== Run %s: WAITING ===" % RUN_ID,
-            "stage       state    attempt  message",
-            "ntuples     WAITING  1        jobs: 540 done, 300 running, 12 idle",
-            "histograms  NEW      0", "plots       NEW      0", "fit         NEW      0", "results     NEW      0",
-            "", "=== Stage ntuples: jobs ===",
-            "sample               chunks  good  pending  failed  missing  complete",
-            "DYJetsToLL_M-50          24    16        8       0        0",
-            "TTTo2L2Nu                12    12        0       0        0  yes",
-            "WJetsToLNu               18     9        8       1        0")]
-        data, title = dict(command="status", target=RUN_DIR), "status " + RUN_ID
-    return _MockOperation(directory, "command", title, data, script)
-
-
-def _command_output(kind):
-    def show(ui, directory):
-        operation = _command(directory, kind)
-        title = "Plan: tes_2025" if kind == "plan" else "Run status: %s" % RUN_ID
-        return ui.command_output(title, operation, refresh=kind == "status")
-    return show
+def _status(directory):
+    """A made-up `taufw.py status` behind the menu: HTCondor answers after 4 s, then the table."""
+    script = [(4.0, ("output", line)) for line in (
+        "=== Run %s: WAITING ===" % RUN_ID,
+        "stage       state    attempt  message",
+        "ntuples     WAITING  1        jobs: 540 done, 300 running, 12 idle",
+        "histograms  NEW      0", "plots       NEW      0", "fit         NEW      0", "results     NEW      0",
+        "", "=== Stage ntuples: jobs ===",
+        "sample               chunks  good  pending  failed  missing  complete",
+        "DYJetsToLL_M-50          24    16        8       0        0",
+        "TTTo2L2Nu                12    12        0       0        0  yes",
+        "WJetsToLNu               18     9        8       1        0")]
+    return _MockOperation(directory, "command", "status " + RUN_ID, dict(command="status", target=RUN_DIR), script)
 
 
 def _over_blank(ui, show):
@@ -490,13 +458,12 @@ def _over_blank(ui, show):
 TEST_ITEMS = [dict(id=name, description="Runs %s and checks that it exits cleanly." % group,
                    dependencies=["ROOT"] if "Plotter" in group or "Histogrammer" in group else [])
               for name, group, _, _ in NORMAL_CASES]
-STAGES = [("ntuples", "production", "NanoAOD skims on HTCondor"),
-          ("histograms", "histogrammer", "Shapes per channel and year"),
-          ("plots", "plotter", "Control plots"),
-          ("fit", "fitter", "TES fit per decay mode"),
-          ("results", "local", "Summary tables")]
-RECIPES = [dict(name="tes_2025.yml", stages=STAGES,
-                notes=["ntuples: 852 jobs in 41 samples; the first advance submits them."]),
+STAGES = [("ntuples", "production", "NanoAOD skims on HTCondor", "-"),
+          ("histograms", "histogrammer", "Shapes per channel and year", "ntuples"),
+          ("plots", "plotter", "Control plots", "histograms"),
+          ("fit", "fitter", "TES fit per decay mode", "histograms"),
+          ("results", "local", "Summary tables", "fit, plots")]
+RECIPES = [dict(name="tes_2025.yml", shown="Analyses/tes_2025", stages=STAGES),
            dict(name="etau_fr_2024.yml", stages=STAGES[:3],
                 warnings=["plots: `lumi` is not set; the 2024 default (109.1/fb) is used."]),
            dict(name="broken_example.yml", stages=STAGES[1:2],
@@ -522,9 +489,50 @@ def _recipes_checking(ui, directory):
                             checking=checking)
 
 
-def _review(ui, directory):
-    review = dict(RECIPES[0], path="/afs/cern.ch/user/u/username/TauFW/recipes/tes_2025.yml")
-    return ui.confirm_recipe("recipes/tes_2025.yml", review=review, position={})
+SAMPLES = ("DYJetsToLL_M-50", "TTTo2L2Nu", "TTToSemiLeptonic", "WJetsToLNu", "WW", "WZ", "ZZ", "ST_tW_top",
+           "ST_tW_antitop", "SingleMuon_Run2025C", "SingleMuon_Run2025D")
+SCRIPTS = dict(histograms="Histogrammer/scripts/controlhists.py", plots="Plotter/scripts/controlplots.py",
+               fit="Fitter/TauES/fit.py", results="Fitter/TauES/summary.py")
+INPUTS = dict(ntuples="none", histograms="tuples <- ntuples", plots="hists <- histograms", fit="hists <- histograms",
+              results="fit <- fit, plots <- plots")
+
+
+def _plan_view(errors=()):
+    """The plan screen's data (operations.prepare_plan) of the made-up recipe; errors: a recipe that cannot
+    start (its stages are not planned)."""
+    stages = []
+    for name, kind, description, reads in STAGES:
+        stage = dict(id=name, type=kind, description=description, reads=reads, inputs=INPUTS[name], files=(),
+                     note="", samples=None, jobs=0, cwd="", subdirs=(), steps=None, notes=())
+        if errors:
+            stage["note"] = "Cannot be planned until the errors are fixed."
+        elif kind == "production":
+            stage["samples"] = tuple(("2025", channel, sample, 20 + 3 * index, 4 + index % 5, 1,
+                                      "yes" if (channel, index) == ("etau", 3) else "")
+                                     for channel in ("mutau", "etau") for index, sample in enumerate(SAMPLES))
+            stage["jobs"] = sum(row[4] for row in stage["samples"])
+            stage["files"] = (("config", "Analyses/tes_2025/pico_2025.yml", "bundle"),)
+        else:
+            stage["cwd"] = "<run_dir>/stages/%s" % name
+            stage["steps"] = tuple((label, "python3 /afs/cern.ch/user/u/username/TauFW/%s -c %s -o %s.root "
+                                           "--verbose" % (SCRIPTS[name], label.replace(" ", "_"), name))
+                                   for label, _, _ in RUN_COMMANDS.get(name, [("mutau 2025", 0, ())]))
+            if name == "fit":
+                stage["subdirs"] = ("2025",)
+                stage["notes"] = ("DM11 is not fitted: no events in the 2025 sample.",)
+        stages.append(stage)
+    jobs, commands = sum(s["jobs"] for s in stages), sum(len(s["steps"] or ()) for s in stages)
+    return dict(name="tes_2025", path="/afs/cern.ch/user/u/username/TauFW/Analyses/tes_2025", stages=stages,
+                overview=["Bundle: Analyses/tes_2025", "Run root: /eos/user/u/username/taufw_runs (recipe)",
+                          "PicoProducer config: PicoProducer/config/config.json (default)", "",
+                          "%d stage(s), %d job(s), %d command(s)" % (len(stages), jobs, commands)],
+                errors=list(errors),
+                warnings=["plots: `lumi` is not set; the 2025 default (62.4/fb) is used.",
+                          "Sample etau WJetsToLNu: jobs of an earlier submission with the same name exist."])
+
+
+def _plan(errors=()):
+    return lambda ui, directory: ui.recipe_plan("Start a new run / tes_2025", _plan_view(errors), position={})
 
 
 def _run_picker(mode, loading=False):
@@ -540,7 +548,7 @@ def _run_picker(mode, loading=False):
             return dict(run_id=run_id, state=state, updated=updated, loading=False, reading=loading,
                         can_advance=state in ("WAITING", "PAUSED"), retry=retry,
                         stages=[dict(id=name, state="WAITING" if n == 0 else "NEW", message="")
-                                for n, (name, _, _) in enumerate(STAGES)],
+                                for n, (name, *_) in enumerate(STAGES)],
                         output=() if loading else ("=== Run %s: %s ===" % (run_id, state),
                             "stage       state    attempt  message",
                             "ntuples     WAITING  1        jobs: 540 done, 300 running, 12 idle",
@@ -588,7 +596,10 @@ SCENARIOS = [
              lambda ui, directory: ui.main_menu(tests=_tests(directory, ago=12.0))),
     Scenario("Start a run", "select a recipe", _recipes),
     Scenario("Start a run", "recipes still checked (right after the menu opened)", _recipes_checking),
-    Scenario("Start a run", "review", _review),
+    Scenario("Start a run", "plan", _plan()),
+    Scenario("Start a run", "plan of a recipe with errors", _plan(errors=(
+        "stages[1] (histograms).inputs: histograms reads tuples: write inputs: {tuples: <stage id>}",
+        "user config: production.storage is not set"))),
     Scenario("Main menu", "a run advancing",
              lambda ui, directory: ui.main_menu(True, runs=_runs(directory, ("advancing", None, 14.0)))),
     Scenario("Main menu", "a run waiting for jobs",
@@ -624,8 +635,8 @@ SCENARIOS = [
              lambda ui, directory: ui.terminal_run_actions("FAILED", retry=dict(
                  stage="production", type="production",
                  message="2 chunk(s) still failed or missing after 3 tries", changed={}, tries=(3, 6)))),
-    Scenario("Start a run", "detailed plan (taufw.py plan behind the menu)", _command_output("plan")),
-    Scenario("Inspect", "run status, HTCondor answers after 4 s", _command_output("status")),
+    Scenario("Inspect", "run status, HTCondor answers after 4 s",
+             lambda ui, directory: ui.command_output("Run status: %s" % RUN_ID, _status(directory), refresh=True)),
     Scenario("Tests", "menu, last run failed",
              lambda ui, directory: ui.tests_menu(last=_tests(directory, "failed"))),
     Scenario("Tests", "family", lambda ui, directory: ui.test_family("Normal tests")),
