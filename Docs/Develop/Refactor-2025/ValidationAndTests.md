@@ -1022,3 +1022,12 @@ unchanged; to confirm on lxplus without re-lock: [TODO.md](TODO.md) section 1.
   the kept stages of each start), nothing taken.
 - `test_run_screen.py`: the FAILED card's new text. Windows: `Tests/Framework` 477 tests OK (4 skipped);
   `Tests/check_harness.py` OK.
+
+### lxplus
+
+- 2026-10-30 (user): the TODO section 1 checks of steps 1-4 passed: stop points, waiting by default and `PAUSED`
+  (CLI, menu, Tab); the run's own recipe (copy with comments, edits taken, DONE warning, removed stage, refused
+  `name`, refused production edit); `taufw rerun` (`--dry-run`, `--next`, `--until`, `attempts`, production refused,
+  `retry` gone); the menu (the 13 preview screens, Advance until, Edit run config with the rerun hint, refused save,
+  refused under the lock, History and its logs, Start > E, 80x24). `python3 Tests/run.py bbb` passed without a
+  re-lock (`framework.production` with `--no-wait`).

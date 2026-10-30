@@ -2166,7 +2166,7 @@ leave behind as long as nothing else can break, a read-only `--check`, Tab compl
 ## 55. Iterative runs: a run is a workspace (plan 24)
 
 **Date:** 2026-10-30
-**Status:** steps 1-4 done; step 5 (the lxplus checks) open: [TODO.md](TODO.md) section 1
+**Status:** done (steps 1-5; lxplus checks passed 2026-10-30)
 **Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#55-iterative-runs-a-run-is-a-workspace-plan-24)
 
 **Why:** analysis is iteration (user, 2026-10-30): run up to a stage, look at its output, change a config, run it
@@ -2178,7 +2178,7 @@ again, then go on. A run could only go from start to end, with the recipe it sta
 2. The run's own recipe (`<run>/bundle/recipe.yml`, read by every advance): done.
 3. `taufw rerun <run> <id>` (replaces `retry`: archives `<id>` and every stage after it, then runs them again): done.
 4. The menu (Advance until…, Rerun from…, Edit run config, History, a confirm panel): done.
-5. Docs and the lxplus checks: open.
+5. Docs and the lxplus checks: done (the user guide's how-to and tutorial too).
 
 ### Step 1: stop points, waiting by default, `PAUSED`
 
@@ -2334,3 +2334,15 @@ the same file screen on the analysis bundle. Only E is a new key.
 - **Docs:** `Framework/README.md` (menu), `Analyses/README.md`, the menu's FAQ.
 
 **Unchanged:** the Framework's behaviour (only `plan_reruns` is new), the CLI, every BBB baseline.
+
+### Step 5: docs and lxplus
+
+- **lxplus (2026-10-30, user):** the four checks of steps 1-4 passed (stop points and `PAUSED`, the run's own recipe,
+  `taufw rerun`, the menu with the UI preview), and `python3 Tests/run.py bbb` without a re-lock; they left TODO
+  section 1.
+- **User guide:** `Docs/Guide/3-HowTo/ContinueRun.md` (Advance to the end / Next stage only / Advance until...; Change
+  something and run it again: Edit run config, Rerun from..., History; Rerun X (failed)),
+  `2-Tutorials/01-FirstProduction.md` (Advance to the end, Rerun production (failed), Rerun X (failed), Edit run
+  config), the How-to list; the links to "Retrying a failed stage" now go to "Running stages again".
+- `Analyses/README.md` troubleshooting: `--wait` gone, production after its tries: `taufw rerun`.
+- TODO: the open CL §44 and §48 checks name the new menu actions.

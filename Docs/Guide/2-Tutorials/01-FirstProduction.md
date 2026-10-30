@@ -81,7 +81,8 @@ Choose **Inspect run status** and select your run. This only looks: it doesn't s
 
 ## 7. Push it forward
 
-Choose **Continue an existing run** and select your run. You can advance it once or keep checking repeatedly.
+Choose **Continue an existing run**, select your run and choose **Advance to the end**. TauFW checks the jobs
+every 10 minutes until the stage is done; you can leave the screen meanwhile.
 
 - If jobs are still running, TauFW waits for them.
 - If some jobs failed, it resubmits those while attempts remain. The recipe's `max_tries: 3` gives each job
@@ -135,22 +136,23 @@ leaving it off is a good idea.
   common cause is an expired grid proxy.
 - **The stage is `FAILED`.** If some chunks still failed after all their tries (the message ends with
   "after 3 tries"), you can give them more tries without losing the jobs that worked. Fix the cause first (often the
-  grid proxy), then choose **Continue an existing run**, pick the run and choose **Retry production**. It allows as many tries again as your recipe's
+  grid proxy), then choose **Continue an existing run**, pick the run and choose **Rerun production (failed)**. It allows as many tries again as your recipe's
   `max_tries` (3 tries made: up to 6), resubmits only the failed chunks, and goes on like Continue. Nothing is moved
   or deleted. For any other production failure (no samples found, a merged tuple that failed its check), editing
   the recipe won't revive the run: fix the cause, then start a new run.
 
   The later stages you'll meet in the next tutorials (histograms, plots, the fit, Python steps) are different: when
   one of them fails, you can run just that stage again. Fix the cause first. If the fix is a file of your analysis,
-  put it into the run's own copy, `<run folder>/bundle/` (the run never reads your analysis folder again).
-  Choose **Continue an existing run**, pick the run and choose **Retry**. The stages that already finished don't run again. The failed
+  put it into the run's own copy, `<run folder>/bundle/` (the run never reads your analysis folder again):
+  **Edit run config** does that. Choose **Continue an existing run**, pick the run and choose
+  **Rerun <stage> (failed)**. The stages before it don't run again. The failed
   attempt's logs and files move to `logs/<stage>/attempt1/`, so you can still read them. If you changed the
   `bundle/` copy, TauFW warns once and writes that down in `run.json`, so anyone reading the run later can see it.
 - **You pressed Ctrl+C.** Your submitted batch jobs keep running. Choose **Continue an existing run**
   and select the same run to carry on.
 
-For the retry command and which failures it can recover, see
-[Retrying a failed stage](../4-Concepts/UsingFWWithCommands.md#retrying-a-failed-stage).
+For the rerun command and which failures it can recover, see
+[Running stages again](../4-Concepts/UsingFWWithCommands.md#running-stages-again).
 More in Troubleshooting *(coming soon)*.
 
 ## What's next

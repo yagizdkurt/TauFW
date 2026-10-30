@@ -109,17 +109,18 @@ The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go he
 
 - [ ] **Retry of a production stage after max_tries (CL §48):** a short production run (e.g. `max_tries: 1`) where
       a chunk fails (a sample with a bad file, or `condor_rm` one job and remove its output): the run ends FAILED
-      "... after 1 tries" and `taufw` names `taufw rerun` (CL §55). Menu > Continue: "Run failed at production" with
-      `Retry production`, "with 1 more tries (up to try 2)"; the grid-proxy check comes first when the proxy is gone.
-      The retry resubmits only the failed chunks (PicoProducer try 2, `condor_q`), nothing is moved (job files,
-      `stages/production/`), run.json `attempts` has `archive: null`, `max_tries: 2`; once the jobs end, the run merges
-      and goes on. While a retry runs, a second Continue > Retry shows the lock dialog. `python3 Tests/run.py bbb
+      "... after 1 tries" and `taufw` names `taufw rerun` (CL §55). Menu > Continue > the run: `Rerun production
+      (failed)` first; its confirm panel says "Resubmit the failed chunks of production with 1 more tries (up to try
+      2)"; the grid-proxy check comes after it when the proxy is gone. The rerun resubmits only the failed chunks
+      (PicoProducer try 2, `condor_q`), nothing is moved (job files, `stages/production/`), run.json `attempts` has
+      `reason: failed`, `archive: null`, `max_tries: 2`; once the jobs end, the run merges and goes on. While it runs,
+      Continue on the run shows Follow, History and Inspect only. `python3 Tests/run.py bbb
       check` 24/24 without re-lock (`framework.production`).
 
 - [ ] **Retry of a failed stage (CL §44):** a run of `Analyses/Examples/cmsdas26_ztt` whose `sf_tauid` fails (rename `sf/` in the run's bundle
-      copy before it runs, or start with it missing); put the file back into `<run>/bundle/`; menu > Continue >
-      the run shows "Run failed at sf_tauid" with `Retry sf_tauid` and the bundle change; Retry runs it and the later
-      stages, and `hists`, `plots`, `tagger_roc*`, `sf_nominal` do not run again. Check `logs/sf_tauid/attempt1/`
+      copy before it runs, or start with it missing); put the file back with menu > Continue > the run > Edit run
+      config (or into `<run>/bundle/` by hand); `Rerun sf_tauid (failed)` and its confirm panel; it runs it and the
+      later stages, and `hists`, `plots`, `tagger_roc*`, `sf_nominal` do not run again. Check `logs/sf_tauid/attempt1/`
       (log and `stage/`), `run.json` (`attempts`, `bundle.changed`), the manifests (`bundle_changed`: false for the
       first five, true from `sf_tauid` on), one warning in `run.log`. (2026-10-27: a retry of `sf_tauid` worked on lxplus in the CDTest run, but that run
       started before CL §44, so the bundle check was not tested.) `taufw rerun <run>` of a DONE run:
@@ -136,37 +137,6 @@ The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go he
       then `00:01 | taufw status` (no `RUNNING`/`DONE`); View detailed plan says `READING PLAN`. The run list
       shows `menutest_20261021-180111` (stopped at `second`) as `PAUSED`; during "Advance to the end" of a run it
       shows `RUNNING`, and again during `taufw advance <run_dir>` from a second terminal.
-- [ ] **Stop points, waiting by default, PAUSED (CL §55):** a run of `Analyses/Examples/cmsdas26_ztt`:
-      `taufw start Analyses/Examples/cmsdas26_ztt --until plots` stops with `Stopped after stage plots (--until)`
-      and `Run ...: PAUSED`; `taufw status <run>` says `PAUSED` (and `RUNNING` while `taufw advance <run>` runs in
-      a second terminal); `taufw advance <run> --next` runs only `tagger_roc`; `taufw advance <run> --until nope`
-      prints the stage list and exits 1. In the menu: Continue > Next stage only (one stage, the "Paused" card),
-      Advance to the end; the run list shows `PAUSED`/`RUNNING`. A production recipe: `taufw start` keeps checking
-      the jobs (600 s) without `--wait`; `--no-wait` returns `WAITING`. `python3 Tests/run.py bbb` passes without
-      a re-lock (`framework.production` now passes `--no-wait`). Tab: `taufw advance --u<Tab>`.
-- [ ] **The run's own recipe (CL §55 step 2):** a run of `Analyses/Examples/cmsdas26_ztt` started with
-      `--until plots`: `<run>/bundle/recipe.yml` has the bundle's comments, `<run>/recipes/recipe_0.yml` too, run.json
-      `bundle.files` has no `recipe.yml`. Edit an option of `tagger_roc` in the run's file: `taufw status <run>` says
-      "the next advance takes it"; `taufw advance <run> --next` prints "The recipe of run ... changed (version 1,
-      recipes/recipe_1.yml): tagger_roc changed" and runs it with the new option. Edit `plots` (DONE): the warning
-      "DONE with its old options". Remove a stage that nothing reads: archived in `logs/<id>/attempt1/`, run.json
-      `removed`. Change `name`: refused, exit 1, nothing moves. A production recipe (BBB `framework.production`, or a
-      small real one): an edit of the production stage is refused. `python3 Tests/run.py bbb` passes without a re-lock.
-- [ ] **`taufw rerun` (CL §55 step 3):** the cmsdas26_ztt run of the step 2 check, DONE: `taufw rerun <run> plots
-      --dry-run` lists `plots` and every stage after it with `logs/<id>/attempt1`, nothing moves; `taufw rerun <run>
-      plots --next` moves them (`ls <run>/logs/plots/attempt1/stage/manifest.json`), runs only `plots` (PAUSED);
-      `taufw advance <run>` runs the rest; `hists` keeps its history and output. `taufw rerun <run> hists --until
-      tagger_roc`. run.json `attempts` (reason rerun, from plots). `taufw rerun <run> production` of a production
-      run: refused, nothing changes. `taufw retry`: an argparse error. Menu > Continue > Retry of a FAILED run still
-      works (`rerun` behind it). Tab: `taufw rer<Tab>`, `taufw rerun <run> --d<Tab>`.
-- [ ] **The menu of iterative runs (CL §55 step 4):** Tests > UI preview: the 13 new screens (Continue, Rerun from,
-      Advance until, Edit run config, Start a run > edit an analysis, History). With the cmsdas26_ztt run: Continue >
-      the run: the actions of its state and the pending recipe line; Advance until… sf_nominal (stops, PAUSED);
-      Edit run config (E): the files with their markers, edit an option of `plots` in recipe.yml, save, the panel
-      "plots is DONE with its old options" > Rerun from plots…: the picker on plots, its right panel; the confirm
-      panel > Rerun plots only. A bad edit of recipe.yml (a stage type changed): the editor refuses the save. Start a
-      `taufw advance` in a second terminal, then Edit run config: refused. History: the versions, plots with 1 attempt,
-      Tab + Enter: its log. Start > an analysis > E: its files, a save of recipe.yml with an error refused. At 80x24.
 - [ ] **User config settings (CL §41):** in an installed checkout without `Analyses/UserConfig.yaml`,
       `taufw userconfig` writes the lxplus guesses (`taufw/` on EOS; `run_root` if the AFS work area
       exists; values of `PicoProducer/config/config.json` if it exists); `taufw plan

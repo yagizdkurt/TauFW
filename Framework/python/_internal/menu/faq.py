@@ -61,7 +61,8 @@ FAQ = (
      "after a short pause. Up/Down changes runs, Page Up/Down scrolls status, and Enter opens it full screen. "
      "A small ASCII decay animates while status is read; you can still move or leave. "
      "R checks again, keeping the previous preview visible while it loads. "
-     "NEW means unstarted; RUNNING means work in progress; WAITING means jobs "
+     "NEW means unstarted; RUNNING means an advance works on it now; PAUSED means stopped between stages "
+     "(Next stage only, Advance until, or a stage not ready); WAITING means jobs "
      "are submitted or running; DONE means all stages finished; FAILED means "
      "a stage failed; BLOCKED means a requested stage is not implemented. "
      "Inspect also lists the fitted values of a finished fit."),

@@ -930,8 +930,8 @@ prints the last 20 lines of its log.
 | Python step `NEW` with "no top-level function" | Define `def run(ctx):` at the top level of the file, or set `function:`. |
 | Python step `FAILED` | Read `taufw_runs/<run>/logs/<id>/01_<id>.log` for the traceback; `context.json` next to it shows what the step was given. |
 | No samples match production | Inspect `plan`, configured era/channel catalogs, sample/DAS filters, vetoes, and `dtypes`. |
-| Production stays `WAITING` | Inspect live job status; pending/running chunks delay resubmission of failed chunks. Continue with `advance`, or use `--wait`. |
-| Production fails after the allowed tries | Inspect PicoProducer job logs and fix the cause. The failed run cannot be restarted by editing its recipe; start a new run with the corrected setup. |
+| Production stays `WAITING` | Inspect live job status; pending/running chunks delay resubmission of failed chunks. `advance` keeps checking them (every `--poll` seconds); `--no-wait` returns at once. |
+| Production fails after the allowed tries | Inspect PicoProducer job logs and fix the cause, then `taufw rerun <run_dir>` (menu: Continue > Rerun production (failed)): `max_tries` more tries for the failed chunks. Production cannot run again otherwise, nor be changed in the run's recipe: start a new run with the corrected setup. |
 | Local stage stays `NEW` with a preflight message | Fix the named missing environment/tool/config/input, then call `advance` on the same run. |
 | No working points to fit | Connect `inputs: {shapes: <shapes id or {path: ...}>}` to a shapes stage with both matching configs, or explicitly set eras and both WP lists. |
 | Plots/shapes read unexpected or missing tuples | Check the `Inputs:` line and the `--tuples` pattern of the commands in `plan`, then channel/setup naming, tags, and required variation tuples. |
