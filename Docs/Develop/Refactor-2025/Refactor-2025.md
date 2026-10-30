@@ -2166,7 +2166,7 @@ leave behind as long as nothing else can break, a read-only `--check`, Tab compl
 ## 55. Iterative runs: a run is a workspace (plan 24)
 
 **Date:** 2026-10-30
-**Status:** steps 1-2 done; steps 3-5 open. lxplus checks open: [TODO.md](TODO.md) section 1
+**Status:** steps 1-3 done; steps 4-5 open. lxplus checks open: [TODO.md](TODO.md) section 1
 **Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#55-iterative-runs-a-run-is-a-workspace-plan-24)
 
 **Why:** analysis is iteration (user, 2026-10-30): run up to a stage, look at its output, change a config, run it
@@ -2176,7 +2176,7 @@ again, then go on. A run could only go from start to end, with the recipe it sta
 
 1. Stop points (`--until`, `--next`), waiting for the jobs by default, `PAUSED`: done.
 2. The run's own recipe (`<run>/bundle/recipe.yml`, read by every advance): done.
-3. `taufw rerun <run> <id>` (replaces `retry`: archives `<id>` and every stage after it, then runs them again): open.
+3. `taufw rerun <run> <id>` (replaces `retry`: archives `<id>` and every stage after it, then runs them again): done.
 4. The menu (Advance until…, Rerun from…, Edit run config, Attempts, a confirm panel): open.
 5. Docs and the lxplus checks: open.
 
@@ -2252,3 +2252,39 @@ stage is archived and its record kept. Every change is recorded (run.json, and a
 recipe never changed is written as before), every BBB baseline (`framework.production`: a loose recipe, no bundle
 files; the run root is not part of the recorded tree), `retry` (step 3), the menu (step 4), a run started before
 CL §55 without `bundle/recipe.yml` (it keeps its run.json recipe).
+
+### Step 3: `taufw rerun`
+
+User decisions (2026-10-30): one command runs a stage again, `rerun` (retry merged into it); a rerun of X sets X and
+every stage after it in recipe order aside at once (they go `NEW`), then runs to the end (`--next`: X only;
+`--until`); every earlier attempt is kept. The start must come after production, except production `FAILED` after
+`max_tries` (CL §48 as it was). R1-R8: without an id the `FAILED` stage; refused with a `FAILED` stage before the
+start; a stage that never ran is not touched; `attempts` with `reason`; `retry` removed; `--dry-run`; no
+confirmation on the command line (nothing is deleted); lock and options as `advance`.
+
+**What changed:**
+
+- **`Framework.rerun(record, stage_id=None, ...)`** replaces `retry()`. Under the lock: the run's recipe is taken
+  first (an edit, step 2), then `_rerun_rows` decides (RerunError, nothing changed: no failed stage and no id, an id
+  that is not a stage, a `FAILED` stage before the start, production or a stage before it except production after
+  `max_tries`, a stage type that cannot run again), then `_rerun` sets each stage from the start on aside: what it left
+  (`logs/<id>/`, `stages/<id>/`, the manifest too) to `logs/<id>/attempt<N>/` (N: the next free number), `NEW`, its
+  message, artifacts, last status, request and sources cleared, the history event `rerun`. A stage that is `NEW` with
+  nothing left is not touched. Production after `max_tries`: `WAITING`, `max_tries` more tries, nothing moved.
+- **run.json:** a stage's `retries` is now `attempts`: `{time, attempt, reason: failed|rerun, from, state, message,
+  archive, recipe_version, bundle_changed}` (production: `max_tries`). A run saved with `retries` is read as
+  `attempts` (`reason: failed`); schema 3 stays (the BBB baseline records it).
+- **Stop points:** `--next` is the start (`until=NEXT_STAGE`); an `--until` before the start is refused
+  (StopPointError, nothing changed).
+- **`Framework.plan_rerun()`** / `taufw rerun --dry-run`: the edit of the run's recipe it would take, one row per stage
+  from the start (state, attempt, where it moves; "nothing to move", "(never ran)"), the bundle changes since the
+  start, a warning while an advance holds the lock. Nothing written, no lock; a refused rerun exits 1 the same way.
+- **The DONE warning** of step 2 is not given for a stage the rerun runs again.
+- **CLI:** `taufw rerun RUN_DIR [ID] [--next|--until ID] [--no-wait] [--poll S] [--take-lock] [--dry-run]`; `taufw retry`
+  is an argparse error; `RetryError` is `RerunError`. The end of a failed run names `taufw rerun`. Tab completion.
+- **Menu:** Continue > Retry runs `taufw rerun RUN_DIR` (its texts change in step 4).
+- **Docs:** `Framework/README.md` (quick start, the local stage table, a rerun paragraph with the `{path}` note of
+  S10), `Analyses/README.md`, `UsingFWWithCommands.md` ("Running stages again"), the menu FAQ, the stage docstrings.
+
+**Unchanged:** every BBB baseline (`framework.production` has no retry), the stages' `retry_state` and `retry_fields`
+(they say what a `FAILED` stage goes back to), the menu's screens.

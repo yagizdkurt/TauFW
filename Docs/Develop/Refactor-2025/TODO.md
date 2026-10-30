@@ -109,10 +109,10 @@ The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go he
 
 - [ ] **Retry of a production stage after max_tries (CL §48):** a short production run (e.g. `max_tries: 1`) where
       a chunk fails (a sample with a bad file, or `condor_rm` one job and remove its output): the run ends FAILED
-      "... after 1 tries" and `taufw` names `taufw retry`. Menu > Continue: "Run failed at production" with
+      "... after 1 tries" and `taufw` names `taufw rerun` (CL §55). Menu > Continue: "Run failed at production" with
       `Retry production`, "with 1 more tries (up to try 2)"; the grid-proxy check comes first when the proxy is gone.
       The retry resubmits only the failed chunks (PicoProducer try 2, `condor_q`), nothing is moved (job files,
-      `stages/production/`), run.json `retries` has `archive: null`, `max_tries: 2`; once the jobs end, the run merges
+      `stages/production/`), run.json `attempts` has `archive: null`, `max_tries: 2`; once the jobs end, the run merges
       and goes on. While a retry runs, a second Continue > Retry shows the lock dialog. `python3 Tests/run.py bbb
       check` 24/24 without re-lock (`framework.production`).
 
@@ -120,9 +120,9 @@ The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go he
       copy before it runs, or start with it missing); put the file back into `<run>/bundle/`; menu > Continue >
       the run shows "Run failed at sf_tauid" with `Retry sf_tauid` and the bundle change; Retry runs it and the later
       stages, and `hists`, `plots`, `tagger_roc*`, `sf_nominal` do not run again. Check `logs/sf_tauid/attempt1/`
-      (log and `stage/`), `run.json` (`retries`, `bundle.changed`), the manifests (`bundle_changed`: false for the
+      (log and `stage/`), `run.json` (`attempts`, `bundle.changed`), the manifests (`bundle_changed`: false for the
       first five, true from `sf_tauid` on), one warning in `run.log`. (2026-10-27: a retry of `sf_tauid` worked on lxplus in the CDTest run, but that run
-      started before CL §44, so the bundle check was not tested.) `taufw retry <run>` of a DONE run:
+      started before CL §44, so the bundle check was not tested.) `taufw rerun <run>` of a DONE run:
       one line, exit 1. `python3 Tests/run.py bbb check` 24/24 without re-lock (`framework.production`).
 
 - [ ] **No QCD for a setup (CL §43):** `taufw start Analyses/Examples/cmsdas26_ztt`: the mumu
@@ -152,6 +152,13 @@ The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go he
       "DONE with its old options". Remove a stage that nothing reads: archived in `logs/<id>/attempt1/`, run.json
       `removed`. Change `name`: refused, exit 1, nothing moves. A production recipe (BBB `framework.production`, or a
       small real one): an edit of the production stage is refused. `python3 Tests/run.py bbb` passes without a re-lock.
+- [ ] **`taufw rerun` (CL §55 step 3):** the cmsdas26_ztt run of the step 2 check, DONE: `taufw rerun <run> plots
+      --dry-run` lists `plots` and every stage after it with `logs/<id>/attempt1`, nothing moves; `taufw rerun <run>
+      plots --next` moves them (`ls <run>/logs/plots/attempt1/stage/manifest.json`), runs only `plots` (PAUSED);
+      `taufw advance <run>` runs the rest; `hists` keeps its history and output. `taufw rerun <run> hists --until
+      tagger_roc`. run.json `attempts` (reason rerun, from plots). `taufw rerun <run> production` of a production
+      run: refused, nothing changes. `taufw retry`: an argparse error. Menu > Continue > Retry of a FAILED run still
+      works (`rerun` behind it). Tab: `taufw rer<Tab>`, `taufw rerun <run> --d<Tab>`.
 - [ ] **User config settings (CL §41):** in an installed checkout without `Analyses/UserConfig.yaml`,
       `taufw userconfig` writes the lxplus guesses (`taufw/` on EOS; `run_root` if the AFS work area
       exists; values of `PicoProducer/config/config.json` if it exists); `taufw plan

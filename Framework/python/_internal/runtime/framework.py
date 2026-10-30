@@ -26,13 +26,13 @@ Pipeline map:
     run model:   stepwise. start() and advance() move the run as far as they can (until a stage waits for the
                  batch system, fails, is not ready or is not implemented), save run.json and return.
                  advance(wait=True) repeats this every `poll` seconds until the run no longer waits.
-    stop point:  until=<stage id> (start, advance, retry, run; `--until`, `--next` in taufw.py) stops the call once
+    stop point:  until=<stage id> (start, advance, rerun, run; `--until`, `--next` in taufw.py) stops the call once
                  that stage is DONE, also when it was DONE before; the run is then PAUSED (RunState). A run that
                  an advance works on now is RUNNING (run_state: read from its advance lock, never from run.json).
-                 until=NEXT_STAGE: the first stage that is not DONE (retry: the failed one), once the run's recipe
-                 is read.
+                 until=NEXT_STAGE: the first stage that is not DONE (rerun: its start), once the run's recipe is
+                 read.
     run recipe:  <run_dir>/bundle/recipe.yml is the run's own recipe (run_recipe.py, CL §55): every advance and
-                 retry reads it first, and takes a change after its checks (edit rules, `taufw check`, samples;
+                 rerun reads it first, and takes a change after its checks (edit rules, `taufw check`, samples;
                  a problem is a RecipeError and nothing moves): run.json recipe and recipe_changed, a copy in
                  recipes/recipe_<N>.yml; an added stage is NEW; a removed one is archived to logs/<id>/attempt<N>/
                  and its record moved to run.json removed; a changed stage that is DONE is kept (only recorded).
@@ -55,28 +55,32 @@ Pipeline map:
                  not one of these files). Every advance compares
                  that copy with its start: a change is warned about once and recorded (run.json bundle.changed;
                  the manifests of the stages that run after it: bundle_changed), CL §44.
-    retry:       a FAILED stage stops the run; advance() never moves it. retry() (taufw.py retry) sets it back
-                 to the state the stage gives (Stage.retry_state) and advances: the finished stages do not run
-                 again. A local stage starts from NEW (what the failed attempt left goes to
-                 logs/<id>/attempt<N>/); production, after max_tries, goes on WAITING with max_tries more tries
-                 (CL §48; its other failures: a new run).
+    rerun:       rerun(record, <id>) (taufw rerun, CL §55; it replaced retry): <id> and every stage after it in
+                 recipe order go back to NEW (what each left goes to logs/<id>/attempt<N>/, recorded in its
+                 `attempts`), then the run advances: <id> and the stages after it run again, those before it do
+                 not. Without <id>: the FAILED stage (a FAILED stage stops the run; advance() never moves it). The
+                 start must come after production (it cannot run twice yet), except production FAILED after
+                 max_tries: it goes on WAITING with max_tries more tries, nothing moved (CL §48).
+                 plan_rerun(): what a rerun would do, nothing written (`--dry-run`).
     samples:     plan() and start() compare the samples a production stage makes with those its readers' sample
                  model files ask for (samples.py): plan() lists the problems, start() refuses them (RecipeError).
 
 Public API:
   Framework.from_recipe(recipe_or_path, reporter, pico, fitter, histogrammer, plotter, tes_shapes) /
   from_record(record, ...)
-  plan, start, advance, retry, run, status    pipelines
+  plan, start, advance, rerun, run, status    pipelines
+  plan_rerun(record, stage_id) -> RerunPlan   what rerun() would do (`taufw rerun --dry-run`)
   make_bundle(target)                         a new analysis bundle with copies of the module configs used
   load_run(run_dir)                           the RunRecord of a run directory
-  failed_stage(record), retryable_stage(record)   the FAILED stage of a run; the one retry() would run again
+  failed_stage(record), retryable_stage(record)   the FAILED stage of a run; the one rerun() without a stage id
+                                              starts from (None if it cannot)
   next_stage(record)                          the first stage that is not DONE (`--next`)
   run_state(record), live_state(state, lock)  the RunState with RUNNING while an advance holds the run's lock
-  RetryError                                  retry() cannot run the failed stage again
+  RerunError                                  rerun() cannot start there
   StopPointError                              until= names no stage of the run
-  NEXT_STAGE                                  until= for the next stage (`--next` of advance and retry)
+  NEXT_STAGE                                  until= for the next stage (`--next` of advance and rerun)
   check_writable(directory, what)             write and remove a small file (RunDirectoryError if it fails)
-  RunPlan, RunSummary, StageSummary           records (bottom of this file)
+  RunPlan, RunSummary, StageSummary, RerunPlan   records (bottom of this file)
 """
 import os, json, re, shutil, time
 from contextlib import nullcontext
@@ -84,7 +88,7 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from typing import Mapping, Optional, Tuple
 from TauFW.Framework._internal.defaults import (DEFAULT_RUN_ROOT, RUN_LOG_NAME, DEFAULT_POLL_SECONDS, BUNDLE_DIR_NAME,
-                                                timestamp, default_file_io)
+                                                LOGS_DIR_NAME, timestamp, default_file_io)
 from TauFW.Framework._internal.recipes.bundle import (path_rows, snapshot, make_bundle, source_files, bundle_hashes,
                                                       bundle_changes, hashes_digest)
 from TauFW.Framework._internal.runtime.manifest import write_manifest, ManifestError
@@ -105,16 +109,17 @@ from TauFW.Framework.stages import (STAGES, StageState, StageContext, StageNotIm
 
 __all__ = ['Framework', 'RunPlan', 'StagePlan', 'RunSummary', 'StageSummary', 'load_run', 'check_writable',
            'failed_stage', 'retryable_stage', 'next_stage', 'run_state', 'live_state', 'RunDirectoryError',
-           'RetryError', 'StopPointError', 'RunLockError', 'RUN_LOG_NAME', 'DEFAULT_RUN_ROOT', 'NEXT_STAGE']
+           'RerunError', 'RerunPlan', 'StopPointError', 'RunLockError', 'RUN_LOG_NAME', 'DEFAULT_RUN_ROOT',
+           'NEXT_STAGE']
 
 
 # =============================================================================
 # ================================= CONSTANTS =================================
 
 
-NEXT_STAGE = ':next'  # until= for the first stage that is not DONE (retry: the failed one); never a stage id
+NEXT_STAGE = ':next'  # until= for the first stage that is not DONE (rerun: its start); never a stage id
 MAX_STEPS = 8  # most steps one stage may take in one advance() call (a safety net against a stage that never settles)
-ATTEMPT_DIR = 'attempt%d'              # logs/<id>/attempt<N>/: a failed attempt, moved there by a retry (CL §44)
+ATTEMPT_DIR = 'attempt%d'              # logs/<id>/attempt<N>/: an earlier attempt, moved there by a rerun (CL §55)
 ATTEMPT_NAME = re.compile(r'attempt\d+$')
 ATTEMPT_STAGE_DIR = 'stage'            # logs/<id>/attempt<N>/stage/: what the attempt left in stages/<id>/
 
@@ -223,18 +228,32 @@ class Framework:
         <run_dir>/advance.lock while it runs."""
         return self._locked(record, wait, poll, take_lock, until=until)
 
-    def retry(self, record, wait=False, poll=DEFAULT_POLL_SECONDS, take_lock=False, until=None):
-        """Run the FAILED stage of a run again, then go on like advance(): the finished stages do not run again.
-        The stage goes back to the state its retry_state() gives: NEW for a local stage, whose failed attempt
-        (logs/<id>/ and stages/<id>/) is moved to logs/<id>/attempt<N>/ first; WAITING for a production stage after
-        max_tries (nothing moved; CL §48). The attempt is recorded in the stage's `retries` (run.json), with the
-        bundle copy's changes since the start and the stage's retry_fields(). RetryError if the stage cannot be
-        retried or the run has no failed stage. Lock, wait, poll, until (NEXT_STAGE: the failed stage), the run's
-        recipe and side effects as in advance() (CL §44)."""
-        return self._locked(record, wait, poll, take_lock, retry=True, until=until)
+    def rerun(self, record, stage_id=None, wait=False, poll=DEFAULT_POLL_SECONDS, take_lock=False, until=None):
+        """Run stage `stage_id` and every stage after it in recipe order again, then go on like advance() (CL §55,
+        replacing retry, CL §44): each of them that left something (logs/<id>/, stages/<id>/) has it moved to
+        logs/<id>/attempt<N>/ (N: the next free number) and goes back to NEW; the attempt is recorded in its
+        `attempts` (run.json: reason failed|rerun, the start, its state and message, the archive, the recipe
+        version and the bundle copy's changes since the start). The stages before it are not touched.
+        stage_id None: the FAILED stage. Production FAILED after max_tries goes on WAITING with the max_tries of
+        its retry_fields() more tries, nothing moved (CL §48). RerunError (nothing changed) for another start of
+        production or before it, a FAILED stage before the start, a stage that cannot run again, or no stage.
+        until: as in advance() (NEXT_STAGE: the start only); not a stage before the start (StopPointError).
+        The run's recipe is read first (an edit is taken, as in advance()); lock, wait, poll and side effects as
+        in advance()."""
+        return self._locked(record, wait, poll, take_lock, rerun=True, start=stage_id, until=until)
 
-    def _locked(self, record, wait, poll, take_lock, retry=False, until=None):
-        """advance() or retry(): check the stop point and the run directory, take the run's advance lock, read the
+    def plan_rerun(self, record, stage_id=None):
+        """What rerun(record, stage_id) would do now, nothing written and no lock taken (`taufw rerun --dry-run`):
+        a RerunPlan. Raises what rerun() would: RecipeError for an edit of the run's recipe that it refuses,
+        RerunError."""
+        recipe, changes = self._pending_recipe(record)
+        start, production, rows = _rerun_rows(record, recipe or self._recipe_of(record), stage_id)
+        return RerunPlan(run_id=record.run_id, start=start, production=production, rows=tuple(rows),
+                         recipe_changes=changes, bundle_changed=self._bundle_changed(record),
+                         lock=read_lock(record.run_dir))
+
+    def _locked(self, record, wait, poll, take_lock, rerun=False, start=None, until=None):
+        """advance() or rerun(): check the stop point and the run directory, take the run's advance lock, read the
         run's recipe, then work."""
         _check_until(until, self._stage_ids(record), record.run_id)
         check_writable(record.run_dir, "run directory")
@@ -246,13 +265,21 @@ class Framework:
                 self.reporter.warning("Took over the advance lock of pid %s on %s (since %s, %s)"
                                       % (taken.get('pid'), taken.get('host'), taken.get('since'), why))
             self.reporter.attach_log(os.path.join(record.run_dir, RUN_LOG_NAME))
-            self._take_run_recipe(record)
+            done = self._take_run_recipe(record, warn=not rerun)
+            if rerun:
+                start, production, rows = _rerun_rows(record, self._recipe_of(record), start)
+                for stage_id in set(done) - {row['stage'] for row in rows}:  # the rerun does not run them again
+                    self._warn_old_options(record, stage_id)
+                ids = [stage_record.name for stage_record in record.stages]
+                until = start if until == NEXT_STAGE else until
+                if until is not None and ids.index(until) < ids.index(start):
+                    raise StopPointError("stage %r comes before %r, where the rerun starts: stop at %s or after it"
+                                         % (until, start, start))
+                self._rerun(record, start, production, rows)
             if until == NEXT_STAGE:
-                until = ((failed_stage(record) or (None,))[0] if retry else None) or next_stage(record)
+                until = next_stage(record)
                 if until is None:
                     self.reporter.message("Run %s: every stage is DONE, there is no next stage" % (record.run_id))
-            if retry:
-                self._retry_failed(record)
             return self._advance(record, wait, poll, lock, until)
 
     def _advance(self, record, wait, poll, lock, until=None):
@@ -427,74 +454,69 @@ class Framework:
                        bundle_changed=bool(record.bundle.get('changed')))
 
     # =========================================================================
-    # ========================= RETRY AND BUNDLE CHECK ========================
+    # ==================== RERUN, RUN RECIPE AND BUNDLE CHECK =================
 
-    def _retry_failed(self, record):
-        """retry(): set the FAILED stage of the run to its retry_state() again (NEW: what its failed attempt left is
-        moved to logs/<id>/attempt<N>/, _archive_attempt) and add the attempt to the stage's retries; its message,
-        artifacts and last status are cleared (the history keeps them). run.json is saved. Raises RetryError."""
-        failed = failed_stage(record)
-        if failed is None:
-            raise RetryError("Run %s has no failed stage (it is %s): nothing to retry. Continue it with: "
-                             "taufw advance %s" % (record.run_id, record.state, record.run_dir))
-        stage_id, name = failed
-        stage, stage_record = self._stage_for(stage_id), record.stage(stage_id)
-        state = stage.retry_state(stage_record) if hasattr(stage, 'retry_state') else None
-        if state is None:
-            raise RetryError("Stage %s (%s) cannot be retried (%s): start a new run; it can reuse the finished stages "
-                             "of this one through {path: %s}"
-                             % (stage_id, name, stage_record.message or "failed",
-                                StageContext(run_dir=record.run_dir).stage_dir('<id>')))
-        attempt = len(stage_record.retries) + 1
-        context = StageContext(run_dir=record.run_dir, stage_id=stage_id)
-        archive = (os.path.relpath(_archive_attempt(context.log_dir(), context.stage_dir(), attempt), record.run_dir)
-                   if state is StageState.NEW else None)  # from NEW: an empty output directory; production keeps its own
-        start = record.bundle.get('sha256')
-        changed = (bundle_changes(start, bundle_hashes(os.path.join(record.run_dir, BUNDLE_DIR_NAME)))
-                   if start is not None else None)  # None: a run without bundle hashes
-        stage_spec = next(spec for spec in self._recipe_of(record).stages if spec.id == stage_id)
-        fields = stage.retry_fields(stage_spec.spec, stage_record) if hasattr(stage, 'retry_fields') else {}
-        stage_record.retries.append(dict({'time': self._now(), 'attempt': attempt, 'message': stage_record.message,
-                                          'archive': archive, 'bundle_changed': changed}, **fields))
-        stage_record.state = state.value
-        stage_record.message = ""
-        stage_record.artifacts = []
-        stage_record.last_status = None
-        kept = "moved to %s" % (archive) if archive else "kept in place"
-        raised = "".join("; %s now %s" % (key, value) for key, value in fields.items())
-        stage_record.log('retry', "failed attempt %d %s%s" % (attempt, kept, raised), time=self._now())
+    def _rerun(self, record, start, production, rows):
+        """rerun() under the lock, with _rerun_rows() of the run: production after max_tries goes on as its
+        retry_state() and retry_fields() say (nothing moved; CL §48); otherwise every row that left something or
+        is not NEW has it archived (_archive_attempt) and goes back to NEW: its message, artifacts, last status,
+        request and sources are cleared (the history keeps them). Each gets an `attempts` entry; run.json is
+        saved."""
+        now, changed = self._now(), self._bundle_changed(record)
+        version = len(record.recipe_changed)
+        for row in rows:
+            stage_id = row['stage']
+            stage_record = record.stage(stage_id)
+            if row['state'] == StageState.NEW and row['archive'] is None:
+                continue  # never ran: nothing to keep
+            entry = {'time': now, 'attempt': row['attempt'], 'reason': 'failed' if row['state'] == StageState.FAILED
+                     else 'rerun', 'from': start, 'state': row['state'], 'message': stage_record.message,
+                     'archive': None, 'recipe_version': version, 'bundle_changed': changed}
+            if production:
+                stage, stage_spec = self._stage_for(stage_id), self._recipe_of(record).stage(stage_id)
+                fields = stage.retry_fields(stage_spec.spec, stage_record)
+                stage_record.attempts.append(dict(entry, **fields))
+                stage_record.state = StageState.WAITING.value
+                what = "kept in place; %s" % (", ".join("%s now %s" % item for item in fields.items()))
+            else:
+                if row['archive'] is not None:
+                    context = StageContext(run_dir=record.run_dir, stage_id=stage_id)
+                    _archive_attempt(context.log_dir(), context.stage_dir(), row['attempt'])
+                    entry['archive'] = row['archive']
+                stage_record.attempts.append(entry)
+                stage_record.state = StageState.NEW.value
+                stage_record.request = None
+                stage_record.sources = {}
+                what = "moved to %s" % (row['archive']) if row['archive'] else "nothing to move"
+            stage_record.message = ""
+            stage_record.artifacts = []
+            stage_record.last_status = None
+            stage_record.log('rerun', "rerun from %s: attempt %d (%s) %s" % (start, row['attempt'], row['state'], what),
+                             time=now)
+            self.reporter.message("Stage %s: rerun from %s; attempt %d (%s) %s"
+                                  % (stage_id, start, row['attempt'], row['state'], what))
+            self.reporter.event('stage_state', stage=stage_id, state=stage_record.state, message="rerun")
         record.save(self.files)
-        self.reporter.message("Stage %s: retry from %s; the failed attempt %d is %s%s"
-                              % (stage_id, state.value, attempt, kept, raised))
-        self.reporter.event('stage_state', stage=stage_id, state=state.value, message="retry")
 
-    def _take_run_recipe(self, record):
+    def _bundle_changed(self, record):
+        """The bundle copy's changes since the start (bundle_changes), or None for a run without hashes."""
+        start = record.bundle.get('sha256')
+        return (bundle_changes(start, bundle_hashes(os.path.join(record.run_dir, BUNDLE_DIR_NAME)))
+                if start is not None else None)
+
+    def _take_run_recipe(self, record, warn=True):
         """Read the run's own recipe (<run_dir>/bundle/recipe.yml, run_recipe.py) and, if it is not the one in
         run.json, check it and take it (CL §55): the edit rules, every check of `taufw check` and the samples check
         (RecipeError listing the problems; nothing is changed). Taken: the stage records follow the new order (an
         added stage NEW; a removed one archived, _remove_stage); a changed stage that is not DONE runs with its
         new options (its request is saved again), one that is DONE keeps its state and output and is warned
-        about; run.json recipe and recipe_changed, and a copy recipes/recipe_<N>.yml. A run without the file
-        (started before CL §55) keeps its run.json recipe."""
-        recipe, issues = read_run_recipe(record, full=False)
-        if (recipe is None and not issues) or (recipe is not None and saved_dict(recipe) == record.recipe):
-            return
-        path = run_recipe_file(record.run_dir)
-        recipe, issues = read_run_recipe(record)
-        if issues:
-            raise RecipeError(path, list(issues))
-        new = saved_dict(recipe)
-        changes = recipe_changes(record.recipe, new)
-        problems = edit_problems(record.recipe, new, changes)
-        if problems:
-            raise RecipeError(path, problems)
-        self.stages.update(_build_stages([stage_spec for stage_spec in recipe.stages
-                                          if stage_spec.id not in self.stages], recipe, self.reporter, self.apis))
-        problems, warnings = self._sample_issues(recipe)
-        if problems:
-            raise RecipeError(path, problems)
-        for warning in warnings:
-            self.reporter.warning(str(warning))
+        about (warn=False: the caller does, rerun); run.json recipe and recipe_changed, and a copy
+        recipes/recipe_<N>.yml. A run without the file (started before CL §55) keeps its run.json recipe.
+        Returns the ids of the changed stages that stay DONE."""
+        recipe, changes = self._pending_recipe(record, warn=True)
+        if recipe is None:
+            return []
+        new, path = saved_dict(recipe), run_recipe_file(record.run_dir)
         version, now = len(record.recipe_changed) + 1, self._now()
         self.files.make_directory(os.path.dirname(recipe_copy(record.run_dir, version)))
         self.files.copy_file(path, recipe_copy(record.run_dir, version), overwrite=True)
@@ -526,20 +548,46 @@ class Framework:
                               % (record.run_id, version, os.path.relpath(recipe_copy(record.run_dir, version),
                                                                          record.run_dir),
                                  changes_text(changes) or "no stage changed"))
-        for stage_id in done:
-            self.reporter.warning("Stage %s is DONE with its old options: the stages after it read that output. To run "
-                                  "it with the new ones: taufw rerun %s %s" % (stage_id, record.run_dir, stage_id))
+        for stage_id in done if warn else ():
+            self._warn_old_options(record, stage_id)
+        return done
+
+    def _warn_old_options(self, record, stage_id):
+        self.reporter.warning("Stage %s is DONE with its old options: the stages after it read that output. To run "
+                              "it with the new ones: taufw rerun %s %s" % (stage_id, record.run_dir, stage_id))
+
+    def _pending_recipe(self, record, warn=False):
+        """(Recipe, changes) of the run's recipe file if it is not the run.json recipe and passes every check
+        (_take_run_recipe), (None, None) if there is nothing to take. Writes nothing. RecipeError for a problem.
+        warn: report the samples check's warnings."""
+        recipe, issues = read_run_recipe(record, full=False)
+        if (recipe is None and not issues) or (recipe is not None and saved_dict(recipe) == record.recipe):
+            return None, None
+        path = run_recipe_file(record.run_dir)
+        recipe, issues = read_run_recipe(record)
+        if issues:
+            raise RecipeError(path, list(issues))
+        new = saved_dict(recipe)
+        changes = recipe_changes(record.recipe, new)
+        problems = edit_problems(record.recipe, new, changes)
+        if problems:
+            raise RecipeError(path, problems)
+        self.stages.update(_build_stages([stage_spec for stage_spec in recipe.stages
+                                          if stage_spec.id not in self.stages], recipe, self.reporter, self.apis))
+        problems, warnings = self._sample_issues(recipe)
+        if problems:
+            raise RecipeError(path, problems)
+        for warning in warnings if warn else ():
+            self.reporter.warning(str(warning))
+        return recipe, changes
 
     def _remove_stage(self, record, stage_record, version, now):
         """A stage that a change of the run's recipe removed: what it left (logs/<id>/, stages/<id>/) is moved to
         logs/<id>/attempt<N>/ (N: the next free number), and its record goes to run.json removed."""
         context = StageContext(run_dir=record.run_dir, stage_id=stage_record.name)
         log_dir, stage_dir = context.log_dir(), context.stage_dir()
-        left = os.path.isdir(stage_dir) or (os.path.isdir(log_dir) and any(not ATTEMPT_NAME.match(name)
-                                                                           for name in os.listdir(log_dir)))
         archive = None
-        if left:
-            os.makedirs(log_dir, exist_ok=True)
+        if _left_behind(log_dir, stage_dir):
             archive = os.path.relpath(_archive_attempt(log_dir, stage_dir, _next_attempt(log_dir)), record.run_dir)
         stage_record.log('removed', "removed in recipe version %d%s"
                          % (version, "; moved to %s" % (archive) if archive else ""), time=now)
@@ -717,6 +765,23 @@ class RunPlan:
 
 
 @dataclass(frozen=True)
+class RerunPlan:
+    """plan_rerun(): what a rerun would do. start: the stage it starts from; production: production after
+    max_tries (CL §48: WAITING again, nothing moved); rows: one dict per stage from the start on, {stage, state,
+    attempt (its N), archive (logs/<id>/attempt<N>, relative to the run directory; None: nothing to move)};
+    recipe_changes: the edit of the run's recipe the rerun takes first (recipe_changes(); None: none);
+    bundle_changed: the bundle copy's changes since the start (None: not known); lock: the advance lock if one is
+    held (read_lock)."""
+    run_id:         str
+    start:          str
+    production:     bool
+    rows:           Tuple[dict, ...]
+    recipe_changes: Optional[dict] = None
+    bundle_changed: Optional[dict] = None
+    lock:           Optional[dict] = None
+
+
+@dataclass(frozen=True)
 class StageSummary:
     """status() of one stage: saved state, attempt and message; live: the stage's live status (or None)."""
     stage:   str
@@ -777,8 +842,8 @@ def run_state(record):
 
 
 def retryable_stage(record):
-    """(id, stage name) of the FAILED stage that retry() would run again, or None: no failed stage, or one that
-    cannot be retried (Stage.retry_state: e.g. production other than after max_tries)."""
+    """(id, stage name) of the FAILED stage that rerun() without a stage id would start from, or None: no failed
+    stage, or one that cannot run again (Stage.retry_state: e.g. production other than after max_tries)."""
     failed = failed_stage(record)
     stage_class = STAGES.get(failed[1]) if failed else None
     return failed if stage_class and stage_class.retry_state(record.stage(failed[0])) is not None else None
@@ -788,8 +853,8 @@ class RunDirectoryError(OSError):
     """The run root or run directory cannot be written (see check_writable)."""
 
 
-class RetryError(ValueError):
-    """retry() cannot run the failed stage again; the message says why."""
+class RerunError(ValueError):
+    """rerun() cannot start there; the message says why."""
 
 
 class StopPointError(ValueError):
@@ -885,6 +950,61 @@ def _build_stages(stage_specs, recipe, reporter, apis):
     return stages
 
 
+def _rerun_rows(record, recipe, stage_id):
+    """(start, production, rows) of a rerun of a run whose stages are those of `recipe` (a stage the record does
+    not have yet is NEW): see rerun() and RerunPlan. Reads the run directory only. RerunError."""
+    states = {stage_record.name: stage_record for stage_record in record.stages}
+    specs = list(recipe.stages)
+    ids = [stage_spec.id for stage_spec in specs]
+    state = {stage_id: (states[stage_id].state if stage_id in states else StageState.NEW.value) for stage_id in ids}
+    if stage_id is None:
+        failed = [found for found in ids if state[found] == StageState.FAILED]
+        if not failed:
+            raise RerunError("Run %s has no failed stage (it is %s): name the stage to rerun from: taufw rerun %s "
+                             "<id> (stages: %s)" % (record.run_id, record.state, record.run_dir, ", ".join(ids)))
+        stage_id = failed[0]
+    if stage_id not in ids:
+        raise RerunError("Run %s has no stage %r to rerun from (stages: %s)" % (record.run_id, stage_id,
+                                                                               ", ".join(ids)))
+    index = ids.index(stage_id)
+    for earlier in ids[:index]:
+        if state[earlier] == StageState.FAILED:
+            raise RerunError("Stage %s, before %s, is FAILED: rerun from it: taufw rerun %s %s"
+                             % (earlier, stage_id, record.run_dir, earlier))
+    production = next((i for i, stage_spec in enumerate(specs) if stage_spec.stage == 'production'), None)
+    new_run = ("start a new run; it can reuse the finished stages of this one through {path: %s}"
+               % (StageContext(run_dir=record.run_dir).stage_dir('<id>')))
+    if production is not None and index <= production:
+        stage_record = states.get(stage_id)
+        if (index == production and stage_record is not None and state[stage_id] == StageState.FAILED
+                and STAGES['production'].retry_state(stage_record) is not None):
+            return stage_id, True, [{'stage': stage_id, 'state': state[stage_id], 'attempt':
+                                     len(stage_record.attempts) + 1, 'archive': None}]
+        why = ("production can run again only after its chunks failed max_tries times; it is %s%s"
+               % (state[stage_id], " (%s)" % (stage_record.message) if stage_record and stage_record.message else "")
+               if index == production else "it comes before production stage %s, which cannot run twice yet"
+               % (ids[production]))
+        raise RerunError("Stage %s (%s) cannot run again in this run: %s. To change it, %s"
+                         % (stage_id, specs[index].stage, why, new_run))
+    if not STAGES[specs[index].stage].retryable:
+        raise RerunError("Stage %s (%s) cannot run again: %s" % (stage_id, specs[index].stage, new_run))
+    rows = []
+    for stage_spec in specs[index:]:
+        context = StageContext(run_dir=record.run_dir, stage_id=stage_spec.id)
+        attempt = _next_attempt(context.log_dir())
+        left = _left_behind(context.log_dir(), context.stage_dir())
+        rows.append({'stage': stage_spec.id, 'state': state[stage_spec.id], 'attempt': attempt,
+                     'archive': os.path.join(LOGS_DIR_NAME, stage_spec.id, ATTEMPT_DIR % (attempt)) if left else None})
+    return stage_id, False, rows
+
+
+def _left_behind(log_dir, stage_dir):
+    """Whether a stage left something to archive: its output directory, or files in its log directory besides the
+    archives of earlier attempts."""
+    return os.path.isdir(stage_dir) or (os.path.isdir(log_dir) and any(not ATTEMPT_NAME.match(name)
+                                                                       for name in os.listdir(log_dir)))
+
+
 def _next_attempt(log_dir):
     """The next free N of logs/<id>/attempt<N>/ (1 if there is none)."""
     numbers = [int(name[len('attempt'):]) for name in (os.listdir(log_dir) if os.path.isdir(log_dir) else ())
@@ -895,12 +1015,11 @@ def _next_attempt(log_dir):
 def _archive_attempt(log_dir, stage_dir, attempt):
     """Move what a failed attempt of a stage left to <log_dir>/attempt<N>/: the files of its log directory (not
     the archives of earlier attempts) and its output directory, as stage/. The stage then starts again in an empty
-    output directory (the module APIs refuse a non-empty one). Returns the archive directory; RetryError if it
+    output directory (the module APIs refuse a non-empty one). Returns the archive directory; RerunError if it
     exists already."""
     archive = os.path.join(log_dir, ATTEMPT_DIR % (attempt))
     if os.path.exists(archive):
-        raise RetryError("%s exists already: the run's retries in run.json do not match its logs/ directory"
-                         % (archive))
+        raise RerunError("%s exists already: choose another attempt number" % (archive))
     os.makedirs(archive)
     for name in sorted(os.listdir(log_dir)):
         if not ATTEMPT_NAME.match(name):

@@ -808,7 +808,7 @@ taufw advance taufw_runs/mutau_2022_postEE_short_20261013-120000 --next
 ```
 
 The example timestamp above is illustrative; substitute the path printed by
-your `start` command. `start`, `advance` and `retry` wait for the batch jobs
+your `start` command. `start`, `advance` and `rerun` wait for the batch jobs
 until the run is done, failed or at its stop point; `--no-wait` makes them
 return as soon as a stage waits for jobs. `--poll`, `--until`, `--next` and
 `--no-wait` work on all three.
@@ -818,7 +818,16 @@ recipe the run started with, and the next `advance` reads it: edit it there to
 change the options of the stages that have not run yet, or to add and remove
 stages after production. Your bundle in `Analyses/` stays as it is (it is for
 new runs). `taufw status <run dir>` says what the next advance does with an
-edit; a stage that is already `DONE` keeps its output.
+edit; a stage that is already `DONE` keeps its output. To run a stage again
+with its new options, together with every stage after it:
+
+```bash
+taufw rerun <run dir> plots --dry-run   # what it would move and run
+taufw rerun <run dir> plots             # plots and the stages after it again
+taufw rerun <run dir> plots --next      # only plots; the later stages wait
+```
+
+Each earlier attempt is kept in `<run dir>/logs/<stage id>/attempt<N>/`.
 `start --run-root /path/to/runs` puts the run there instead of the recipe's
 [`run_root`](#where-the-runs-go-run_root).
 `status` reads recorded and live state without submitting jobs or saving changes.
@@ -929,13 +938,13 @@ prints the last 20 lines of its log.
 | `the tuples of stage 'production' do not record where they are` | The run's production finished before the Framework chose the tuples' place (CL §16). Start a new run, or name the tuples with `{external: <pattern>}`. |
 | `tuple directory ... not found` | The fixed part of an `{external: ...}` pattern does not exist on this machine (EOS not mounted, a typo). |
 | Exit code zero but the local stage fails | Read the command log for missing/stale expected outputs and nested ROOT/Combine failures. |
-| Editing YAML or a bundle file does not affect `advance` | The run uses the recipe stored in `run.json` and its bundle copy; start a new run to use edited settings. A file fixed in the run's `bundle/` copy is read by the stages that run after it (warned once, recorded in `run.json` `bundle.changed`; CL §44). |
-| A local stage is `FAILED` and Continue says it cannot advance | Fix the cause, then `taufw retry <run_dir>` (menu: Continue > Retry). The finished stages do not run again; the failed attempt is in `logs/<id>/attempt<N>/`. |
+| Editing YAML or a bundle file does not affect `advance` | The run reads its own copies: `<run_dir>/bundle/recipe.yml` (its recipe) and its bundle copy, not `Analyses/`. Edit those, or start a new run. A file fixed in the run's `bundle/` copy is read by the stages that run after it (warned once, recorded in `run.json` `bundle.changed`; CL §44). A stage that is already `DONE` keeps its output: `taufw rerun <run_dir> <stage id>`. |
+| A local stage is `FAILED` and Continue says it cannot advance | Fix the cause, then `taufw rerun <run_dir>` (menu: Continue > Retry). The stages before it do not run again; the failed attempt is in `logs/<id>/attempt<N>/`. |
 
 Preflight problems leave a local stage `NEW`, so they can be fixed and retried
 in the same run. A command failure leaves it `FAILED`: `advance` stops there;
 once the cause is fixed (a bundle file: in the run's `bundle/` copy),
-`taufw retry <run_dir>` runs the stage again and goes on (CL §44). An
+`taufw rerun <run_dir>` runs the stage again and goes on (CL §44, §55). An
 exception such as an unavailable scheduler is recorded without changing the
 stage state; retry `advance` after fixing the external problem. The CLI returns
 exit code 1 for a failed run; use status/messages to distinguish completion from

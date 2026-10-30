@@ -114,7 +114,9 @@ taufw advance taufw_runs/... --poll 900                     # to the end, checki
 taufw advance taufw_runs/... --until plots                  # stop once stage plots is DONE (the run is PAUSED)
 taufw advance taufw_runs/... --next                         # only the next stage that is not DONE
 taufw advance taufw_runs/... --no-wait                      # return as soon as a stage waits for jobs
-taufw retry   taufw_runs/...                                # a FAILED local stage again (cause fixed), then go on
+taufw rerun   taufw_runs/... shapes                         # shapes and every stage after it again, then go on
+taufw rerun   taufw_runs/...                                # the FAILED stage again (cause fixed), then go on
+taufw rerun   taufw_runs/... shapes --dry-run               # what it would move and run; nothing changes
 taufw plan    Analyses/tes_id_2025                          # the commands of the hists, plots, shapes, fit and python steps
 taufw init    my_tes --from Analyses/tes_id_2025            # new bundle Analyses/my_tes/: a copy of its files
 ```
@@ -182,7 +184,7 @@ succeed; until then a missing remote file is an ordinary unavailable check.
 
 ## Run model
 
-The run is **stepwise**. `start`, `advance` and `retry` move the run as far as they can and save `run.json`.
+The run is **stepwise**. `start`, `advance` and `rerun` move the run as far as they can and save `run.json`.
 While a stage waits for batch jobs they check them again every `--poll` seconds (600 by default) until the run is
 done, failed or at its stop point; with `--no-wait` they return at once (the run is `WAITING`: advance it later).
 A stop point, `--until <stage id>` or `--next` (the first stage that is not `DONE`), ends the call once that stage
@@ -212,7 +214,7 @@ The local stages (`controlhists`, `controlplots`, `shapes`, `fit`, `python`) tak
 | preflight finds a problem (no `cmsenv`, ROOT or `combine` missing, a config file missing, no shapes for the fit; a python step's file or function missing) | the stage stays `NEW`; the problem is its message and in its history; fix it and run `advance` again |
 | every command exits with 0 **and** writes its expected outputs | `DONE`, with the artifacts |
 | a command exits with another code, or does not write an expected output | `FAILED`; the message names the command, the exit code or the missing output, and the log; the last 20 log lines are printed |
-| the stage is `FAILED` and its cause is fixed | `taufw retry <run dir>` (menu: Continue > Retry): the failed attempt moves to `logs/<stage id>/attempt<N>/`, the stage is `NEW` again, then the run goes on like `advance`; the finished stages do not run again; `run.json` records the retry in the stage's `retries` (CL §44) |
+| the stage is `FAILED` and its cause is fixed | `taufw rerun <run dir>` (menu: Continue > Retry): the failed attempt moves to `logs/<stage id>/attempt<N>/`, the stage is `NEW` again, then the run goes on like `advance`; the stages before it do not run again; `run.json` records the attempt in the stage's `attempts` (CL §44, §55) |
 
 Each command's output goes to `<run dir>/logs/<stage id>/NN_<label>.log`, and `run.json` lists every command with its exit
 code and duration (`last_status.commands`). The expected outputs must be written by the command itself (modified
@@ -226,19 +228,29 @@ Run states (`RunState`): `NEW`, `PAUSED` (a stage started, none waits: stopped a
 not ready yet), `WAITING` (a stage waits for jobs), `DONE`, `FAILED` (a stage failed), `BLOCKED` (stopped at a stage
 that is not implemented). `RUNNING` is not saved: `taufw status` and the menu show it while an advance holds the
 run's lock (`run_state`, `live_state` in `framework.py`). `DONE`, `FAILED` and
-`BLOCKED` are final: advancing again changes nothing (a `FAILED` local stage can be retried, above; a `FAILED`
-production stage too, when its chunks still failed after `max_tries`: `taufw retry` gives it `max_tries` more
+`BLOCKED` are final: advancing again changes nothing (a `FAILED` local stage can run again, below; a `FAILED`
+production stage too, when its chunks still failed after `max_tries`: `taufw rerun` gives it `max_tries` more
 tries, resubmits only the failed chunks and moves nothing; its other failures need a new run, CL §48). `taufw`
 exits with 1 if the run failed.
 
-The run's bundle copy (`<run dir>/bundle/`) is checked at every `advance` and `retry`: `start` records the sha256 of
+`taufw rerun <run dir> <stage id>` runs a stage and every stage after it in recipe order again, whatever their
+state (CL §55): what each left (`logs/<id>/`, `stages/<id>/` with its manifest) moves to `logs/<id>/attempt<N>/`, it
+goes back to `NEW` and its `attempts` in `run.json` say why (`reason: failed` or `rerun`, `from`, the state and message
+it had, the archive, the version of the run's recipe). The stages before it are kept. Without a stage id it starts
+from the `FAILED` stage. It takes an edit of the run's recipe first, and goes on like `advance` (`--next`: the start
+only; `--until`). Refused, with nothing changed: production or a stage before it (production cannot run twice yet;
+except after `max_tries`, above), a `FAILED` stage before the start. `--dry-run` shows what it would move and run.
+Another run that reads a rerun stage through `{path: ...}` finds no manifest there any more: it refuses that input
+until it names the stage directory again once the stage is `DONE`.
+
+The run's bundle copy (`<run dir>/bundle/`) is checked at every `advance` and `rerun`: `start` records the sha256 of
 its files (`run.json` `bundle.sha256`), and a change (a file added, edited or removed, e.g. a fix before a retry) is
 warned about once and recorded in `bundle.changed`. Such a run is not clean: the manifests of the stages that ran
 after the change say `bundle_changed: true` (CL §44).
 
 The run's own recipe is `<run dir>/bundle/recipe.yml`: `start` writes the recipe file's text there (comments kept)
 and as `recipes/recipe_0.yml`, and it is not one of the bundle files above. Edit it between two advances to change
-the run: every `advance` and `retry` reads it, and a change is taken after the checks of `taufw check` and these rules
+the run: every `advance` and `rerun` reads it, and a change is taken after the checks of `taufw check` and these rules
 (`runtime/run_recipe.py`, CL §55):
 
 - The type of a stage id cannot change (a new type needs a new id), nor production and the stages before it,
@@ -383,7 +395,7 @@ creation/editing logic belongs in `_internal/recipes/`; the terminal widgets sta
 
 | File | Contents |
 |---|---|
-| `python/_internal/runtime/framework.py` | `Framework`: `plan`, `start`, `advance`, `retry`, `run`, `status`, `make_bundle`; stage dispatch; construction (`from_recipe`, `from_record`) |
+| `python/_internal/runtime/framework.py` | `Framework`: `plan`, `start`, `advance`, `rerun` (`plan_rerun`), `run`, `status`, `make_bundle`; stage dispatch; construction (`from_recipe`, `from_record`) |
 | `python/_internal/recipes/recipe.py` | `Recipe`, `StageSpec`, `Issue`, `RecipeError`: load and validate recipes (a bundle directory or a file): structure, stage ids, inputs (stage ids, `{path}`, `{external}`), at most one production; every problem at once |
 | `python/_internal/recipes/validation.py` | `check_recipe`, `RecipeCheck`: everything `recipe.py` checks plus the files a recipe names (and the stage directories of `{path}` inputs, `read_source`), without raising (`taufw check`, the menu) |
 | `python/_internal/runtime/manifest.py` | `write_manifest`, `read_stage_dir`, `StageDir`, `ManifestError`: the stage manifests (format 2) |

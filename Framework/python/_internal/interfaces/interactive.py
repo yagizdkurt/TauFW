@@ -413,9 +413,9 @@ class _Operations:
         return self._run_of(record, argv)
 
     def retry_run(self, record, take_lock=False):
-        """`taufw.py retry RUN_DIR` behind the menu: the failed stage again, then to the end (CL §44);
-        take_lock: take over the lock of a lost advance (--take-lock)."""
-        return self._run_of(record, ["retry", record.run_dir] + (["--take-lock"] if take_lock else []))
+        """`taufw.py rerun RUN_DIR` behind the menu: the failed stage and those after it again, then to the end
+        (CL §44, §55); take_lock: take over the lock of a lost advance (--take-lock)."""
+        return self._run_of(record, ["rerun", record.run_dir] + (["--take-lock"] if take_lock else []))
 
     @staticmethod
     def retry_info(record):

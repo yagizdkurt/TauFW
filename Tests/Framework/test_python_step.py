@@ -8,10 +8,10 @@ import textwrap
 import unittest
 
 import checkout  # noqa: F401  (must precede TauFW imports)
-from TauFW.Framework import Framework, Recipe, RecipeError, RetryError, RunRecord, SilentReporter
+from TauFW.Framework import Framework, Recipe, RecipeError, RerunError, RunRecord, SilentReporter
 from TauFW.Framework._internal.recipes.bundle import bundle_hashes
 from TauFW.Framework._internal.runtime.framework import (retryable_stage, next_stage, live_state, run_state,
-                                                         StopPointError)
+                                                         StopPointError, NEXT_STAGE)
 from TauFW.Framework._internal.runtime.run_lock import read_lock
 from TauFW.Framework.stages import PythonStage, StageContext, PreflightError
 from TauFW.Framework._internal.runtime.step_runner import _result
@@ -242,17 +242,19 @@ class RetryTests(PythonStepTestCase):
         with open(os.path.join(copy, "sf", "tauid.json"), "w") as stream:  # the fix: in the run's bundle copy
             stream.write("{}")
         fw, loaded = self.continued(record)
-        record = fw.retry(loaded)
+        record = fw.rerun(loaded)
         self.assertEqual(record.state, "DONE", record.stage("need").message)
         need = record.stage("need")
         self.assertEqual(need.message, "read {}")
         self.assertEqual((record.stage("make").history, os.path.getmtime(made)), (make_history, made_time))
-        self.assertEqual([h["event"] for h in need.history], ["failed", "retry", "done"])
+        self.assertEqual([h["event"] for h in need.history], ["failed", "rerun", "done"])
         archive = os.path.join("logs", "need", "attempt1")
         tauid = os.path.normpath("sf/tauid.json")
-        self.assertEqual(len(need.retries), 1)
-        self.assertEqual({key: need.retries[0][key] for key in ("attempt", "message", "archive", "bundle_changed")},
-                         {"attempt": 1, "message": failure, "archive": archive, "bundle_changed": {tauid: "added"}})
+        self.assertEqual(len(need.attempts), 1)
+        self.assertEqual({key: need.attempts[0][key] for key in ("attempt", "reason", "from", "message", "archive",
+                                                                 "bundle_changed")},
+                         {"attempt": 1, "reason": "failed", "from": "need", "message": failure, "archive": archive,
+                          "bundle_changed": {tauid: "added"}})
         # the failed attempt is kept: its logs and what it left in stages/need/; the retry starts empty
         logs = os.path.join(record.run_dir, "logs", "need")
         self.assertEqual(sorted(os.listdir(os.path.join(record.run_dir, archive))),
@@ -267,29 +269,29 @@ class RetryTests(PythonStepTestCase):
         self.assertIn("sf/tauid.json added".replace("/", os.sep), self.bundle_warnings()[0])
         saved = self.read_json(record.run_dir, "run.json")
         self.assertEqual([entry["files"] for entry in saved["bundle"]["changed"]], [{tauid: "added"}])
-        self.assertEqual(saved["stages"][1]["retries"], need.retries)
-        self.assertNotIn("retries", saved["stages"][0])  # never retried: written as before
+        self.assertEqual(saved["stages"][1]["attempts"], need.attempts)
+        self.assertNotIn("attempts", saved["stages"][0])  # never ran again: written as before
         manifests = {stage: self.read_json(record.run_dir, "stages", stage, "manifest.json")["bundle_changed"]
                      for stage in ("make", "need", "after")}
         self.assertEqual(manifests, {"make": False, "need": True, "after": True})
-        with self.assertRaises(RetryError) as context:  # DONE: nothing to retry
-            self.continued(record)[0].retry(RunRecord.load(record.run_dir))
-        self.assertIn("has no failed stage (it is DONE)", str(context.exception))
+        with self.assertRaises(RerunError) as context:  # DONE: no failed stage to start from
+            self.continued(record)[0].rerun(RunRecord.load(record.run_dir))
+        self.assertIn("has no failed stage (it is DONE): name the stage to rerun from", str(context.exception))
 
     def test_every_retry_is_archived_on_its_own(self):
         self.write("steps/need.py", NEED)
         record = self.start(step("need"))
         for attempt in (1, 2):
             fw, loaded = self.continued(record)
-            record = fw.retry(loaded)  # nothing fixed: it fails again
+            record = fw.rerun(loaded)  # nothing fixed: it fails again
             self.assertEqual(record.stage("need").state, "FAILED")
-            self.assertEqual([r["attempt"] for r in record.stage("need").retries], list(range(1, attempt + 1)))
+            self.assertEqual([r["attempt"] for r in record.stage("need").attempts], list(range(1, attempt + 1)))
         logs = os.path.join(record.run_dir, "logs", "need")
         self.assertEqual(sorted(os.listdir(logs)), ["01_need.log", "attempt1", "attempt2", "context.json"])
         for attempt in ("attempt1", "attempt2"):  # earlier attempts stay where they are, each with its own output
             self.assertEqual(sorted(os.listdir(os.path.join(logs, attempt))), ["01_need.log", "context.json", "stage"])
         self.assertEqual(os.listdir(os.path.join(record.run_dir, "stages", "need")), ["partial.txt"])  # the last one
-        self.assertEqual([r["bundle_changed"] for r in record.stage("need").retries], [{}, {}])  # nothing changed
+        self.assertEqual([r["bundle_changed"] for r in record.stage("need").attempts], [{}, {}])  # nothing changed
         self.assertEqual(self.bundle_warnings(), [])
         self.assertNotIn("changed", record.bundle)
 
@@ -324,9 +326,9 @@ class RetryTests(PythonStepTestCase):
         with open(os.path.join(record.run_dir, "bundle", "sf", "tauid.json"), "w") as stream:
             stream.write("{}")
         fw, loaded = self.continued(record)
-        record = fw.retry(loaded)
+        record = fw.rerun(loaded)
         self.assertEqual(record.state, "DONE")
-        self.assertIsNone(record.stage("need").retries[0]["bundle_changed"])  # not known
+        self.assertIsNone(record.stage("need").attempts[0]["bundle_changed"])  # not known
         self.assertEqual(self.bundle_warnings(), [])
         self.assertNotIn("changed", record.bundle)
 
@@ -557,6 +559,105 @@ class RunRecipeTests(PythonStepTestCase):
         self.assertIn("run_root: cannot change in a run", problems(run_root="/afs/x")[0])
         self.assertIn("a run without a production stage cannot get one",
                       edit_problems(dict(old, stages=[prep]), dict(old, stages=[prep, production]))[0].message)
+
+
+class RerunTests(PythonStepTestCase):
+    """Plan 24 step 3 (CL §55): taufw rerun <run> <id> runs <id> and every stage after it again."""
+    framework, three = StopPointTests.framework, StopPointTests.three
+    started, edit, read_run = RunRecipeTests.started, RunRecipeTests.edit, RunRecipeTests.read_run
+    warnings = RunRecipeTests.warnings
+
+    def rerun(self, record, *args, **options):
+        loaded = RunRecord.load(record.run_dir)
+        return Framework.from_record(loaded, reporter=self.reporter).rerun(loaded, *args, **options)
+
+    def test_a_rerun_archives_the_stage_and_those_after_it(self):
+        record = self.started(until=None)
+        made = os.path.join(record.run_dir, "stages", "make", "numbers.txt")
+        make = (os.path.getmtime(made), list(record.stage("make").history))
+        record = self.rerun(record, "use")
+        self.assertEqual(record.state, "DONE")
+        self.assertEqual((os.path.getmtime(made), record.stage("make").history), make)  # before the start: untouched
+        self.assertNotIn("attempts", self.read_run(record)["stages"][0])
+        for stage_id in ("use", "last"):
+            (attempt,) = record.stage(stage_id).attempts
+            archive = os.path.join("logs", stage_id, "attempt1")
+            self.assertEqual({key: attempt[key] for key in ("attempt", "reason", "from", "state", "archive",
+                                                           "recipe_version")},
+                             {"attempt": 1, "reason": "rerun", "from": "use", "state": "DONE", "archive": archive,
+                              "recipe_version": 0})
+            self.assertIn("manifest.json", os.listdir(os.path.join(record.run_dir, archive, "stage")))  # S10
+            self.assertEqual([h["event"] for h in record.stage(stage_id).history][-2:], ["rerun", "done"])
+        record = self.rerun(record, "last")
+        self.assertEqual([r["attempt"] for r in record.stage("last").attempts], [1, 2])
+        self.assertEqual(len(record.stage("use").attempts), 1)
+
+    def test_next_and_until(self):
+        record = self.started(until=None)
+        with self.assertRaises(StopPointError) as context:  # before the start: nothing changes
+            self.rerun(record, "use", until="make")
+        self.assertIn("stage 'make' comes before 'use', where the rerun starts", str(context.exception))
+        self.assertEqual([len(s.attempts) for s in RunRecord.load(record.run_dir).stages], [0, 0, 0])
+        record = self.rerun(record, "use", until=NEXT_STAGE)  # --next: the start only
+        self.assertEqual(([s.state for s in record.stages], record.state), (["DONE", "DONE", "NEW"], "PAUSED"))
+        self.assertEqual(record.stage("last").attempts[0]["archive"], os.path.join("logs", "last", "attempt1"))
+        record = self.rerun(record, "use")  # last never ran since: nothing to move, no attempt
+        self.assertEqual((len(record.stage("use").attempts), len(record.stage("last").attempts)), (2, 1))
+
+    def test_refused_starts(self):
+        self.write("steps/bad.py", "def run(ctx):\n    raise ValueError('bad')\n")
+        record = self.framework(step("make", options={"n": 1}), step("bad"), step("last", file="steps/make.py",
+                                                                                   options={"n": 1})).start(
+            run_root=os.path.join(self.root, "runs"))
+        self.assertEqual([s.state for s in record.stages], ["DONE", "FAILED", "NEW"])
+        for stage_id, text in (("last", "Stage bad, before last, is FAILED: rerun from it: taufw rerun"),
+                               ("nope", "has no stage 'nope' to rerun from (stages: make, bad, last)")):
+            with self.assertRaises(RerunError) as context:
+                self.rerun(record, stage_id)
+            self.assertIn(text, str(context.exception))
+        self.assertEqual([len(s.attempts) for s in RunRecord.load(record.run_dir).stages], [0, 0, 0])
+        record = self.rerun(record, "make")  # before the FAILED one: allowed, bad fails again
+        self.assertEqual([(s.state, len(s.attempts)) for s in record.stages], [("DONE", 1), ("FAILED", 1), ("NEW", 0)])
+        self.assertEqual([r["reason"] for r in record.stage("bad").attempts], ["failed"])
+
+    def test_the_rerun_takes_an_edit_of_the_recipe_first(self):
+        record = self.started(until=None)
+        self.edit(record, lambda data: data["stages"][0]["options"].update(n=4))
+        record = self.rerun(record, "make")
+        self.assertEqual(record.stage("make").artifacts[0]["n"], 4)
+        self.assertEqual(record.recipe_changed[0]["done"], ["make"])
+        self.assertEqual([s.attempts[0]["recipe_version"] for s in record.stages], [1, 1, 1])
+        self.assertEqual(self.warnings("old options"), [])  # the rerun runs make again: no warning
+
+    def test_dry_run_changes_nothing(self):
+        cli = load_cli(self)
+        record = self.started(until="use")
+        self.edit(record, lambda data: data["stages"][2]["options"].update(n=2))
+        before = self.read_run(record)
+        plan = Framework.from_record(record, reporter=self.reporter).plan_rerun(record, "use")
+        self.assertEqual((plan.start, plan.production, plan.recipe_changes, plan.lock),
+                         ("use", False, {"last": "changed"}, None))
+        self.assertEqual([(row["stage"], row["state"], row["archive"]) for row in plan.rows],
+                         [("use", "DONE", os.path.join("logs", "use", "attempt1")), ("last", "NEW", None)])
+        self.assertEqual(cli.main(["rerun", record.run_dir, "use", "--dry-run"]), 0)
+        self.assertEqual(cli.main(["rerun", record.run_dir, "nope", "--dry-run"]), 1)
+        self.assertEqual(self.read_run(record), before)
+        self.assertEqual(sorted(os.listdir(os.path.join(record.run_dir, "logs", "use"))),
+                         ["01_use.log", "context.json", "result.json"])
+        self.assertEqual(cli.main(["rerun", record.run_dir, "use"]), 0)
+        self.assertEqual(RunRecord.load(record.run_dir).state, "DONE")
+
+    def test_retries_of_an_older_run_are_read_as_attempts(self):
+        record = self.started()
+        data = self.read_run(record)
+        data["stages"][0]["retries"] = [{"time": "t", "attempt": 1, "message": "m", "archive": None}]
+        with open(record.path, "w") as stream:
+            json.dump(data, stream)
+        loaded = RunRecord.load(record.run_dir)
+        self.assertEqual(loaded.stage("make").attempts, [{"reason": "failed", "time": "t", "attempt": 1,
+                                                          "message": "m", "archive": None}])
+        loaded.save()
+        self.assertNotIn("retries", self.read_run(record)["stages"][0])
 
 
 class ResultTests(unittest.TestCase):

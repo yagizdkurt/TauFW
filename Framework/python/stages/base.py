@@ -15,7 +15,7 @@ The states of one stage:
                                                      FAILED ─▶ WAITING only by a retry, after max_tries (CL §48)
 
     local stage (controlhists, controlplots, shapes, fit, python):  NEW ─▶ DONE or FAILED, in one advance() call
-                                                     FAILED ─▶ NEW only by a retry (taufw.py retry, CL §44)
+                                                     DONE or FAILED ─▶ NEW only by a rerun (taufw rerun, CL §55)
 
 advance() never moves a FAILED stage. A retry is asked for explicitly: the stage says to which state
 (Stage.retry_state; None: it cannot be retried) and what the retry adds to its record (retry_fields). A stage that
@@ -178,7 +178,7 @@ class Stage:
                                                                      Ctrl-C waits until run.json records it
     retry_state(stage_record)                       -> StageState    the state a retry sets the FAILED stage to,
                                                                      or None (cannot be retried); a classmethod
-    retry_fields(spec, stage_record)                -> dict          what the retry adds to the stage's retries
+    retry_fields(spec, stage_record)                -> dict          what the retry adds to the stage's attempts
                                                                      entry in run.json
 
     `spec` is always the stage's Spec: the validated options of the stage from the recipe (for example a
@@ -191,7 +191,7 @@ class Stage:
     inputs = {}     # input slot -> kind of data it takes; None: any slot names, any kind (python steps)
     null_inputs = {}  # input slot -> what null means for it; the other slots must name an earlier stage
     outputs = ()    # kinds of data the stage makes; None: any kind (python steps)
-    retryable = False  # a FAILED stage may be set NEW again by taufw.py retry (CL §44): the local stages
+    retryable = False  # the stage may run again in its run (taufw rerun, CL §44, §55): the local stages
     requires = ()   # optional setup components (Framework._internal.installer.COMPONENTS) the stage always needs, e.g.
                     # ('combine',); a recipe adds more per stage with `requires:` (recipe.py)
     deep_checks = False  # plan() opens data files (the tuples' branches; slow on EOS) unless context.deep is False
@@ -216,12 +216,12 @@ class Stage:
 
     @classmethod
     def retry_state(cls, stage_record):
-        """The state taufw.py retry sets this FAILED stage to, or None if it cannot be retried (by default: NEW
+        """The state `taufw rerun` sets this FAILED stage to, or None if it cannot be retried (by default: NEW
         for the stages with `retryable`). A classmethod: the menu asks before any stage is built (CL §44, §48)."""
         return StageState.NEW if cls.retryable else None
 
     def retry_fields(self, spec, stage_record):
-        """What a retry adds to the stage's retries entry in run.json, besides the Framework's keys (none)."""
+        """What a retry adds to the stage's attempts entry in run.json, besides the Framework's keys (none)."""
         return {}
 
     def __repr__(self):

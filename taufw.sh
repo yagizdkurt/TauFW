@@ -272,7 +272,7 @@ _taufw_complete() {
   local options=''
   COMPREPLY=()
   if ((COMP_CWORD == 1)); then
-    mapfile -t COMPREPLY < <(compgen -W 'check plan start advance retry status init configs userconfig version
+    mapfile -t COMPREPLY < <(compgen -W 'check plan start advance rerun status init configs userconfig version
                                          -h --help' -- "$current")
     return
   fi
@@ -281,7 +281,7 @@ _taufw_complete() {
     plan) options='-h --help -v --verbose --local -m --maxevts' ;;
     start) options='-h --help -v --verbose --no-wait --poll --until --next --run-root' ;;
     advance) options='-h --help -v --verbose --no-wait --poll --until --next --take-lock' ;;
-    retry) options='-h --help -v --verbose --no-wait --poll --until --next --take-lock' ;;
+    rerun) options='-h --help -v --verbose --no-wait --poll --until --next --take-lock --dry-run' ;;
     status) options='-h --help -v --verbose' ;;
     init) options='-h --help -v --verbose --from --root' ;;
     configs) options='-h --help -v --verbose' ;;
@@ -302,7 +302,7 @@ _taufw_complete() {
   case $command in
     check | plan | start)
       mapfile -t COMPREPLY < <(compgen -d -- "$current"; _taufw_complete_recipes "$current") ;;
-    advance | retry | status) mapfile -t COMPREPLY < <(compgen -d -- "$current") ;;
+    advance | rerun | status) mapfile -t COMPREPLY < <(compgen -d -- "$current") ;;
     configs) mapfile -t COMPREPLY < <(compgen -W 'list update' -- "$current") ;;
   esac
 }

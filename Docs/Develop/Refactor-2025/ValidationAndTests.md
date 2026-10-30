@@ -975,3 +975,27 @@ unchanged; to confirm on lxplus without re-lock: [TODO.md](TODO.md) section 1.
   `n` of `b` in the run's file; `status` says "the next advance takes it"; `advance` runs `b` with `n=5`; an input
   to a missing stage and a new `name` are refused with the file's path.
 - Windows: `Tests/Framework` 465 tests OK (4 skipped); `Tests/check_harness.py` OK. lxplus: TODO section 1.
+
+### Step 3: `taufw rerun`
+
+- `Tests/Framework/test_python_step.py` `RerunTests` (real python steps):
+  - From a middle stage: the stage before it is untouched (file time, history, no `attempts`); the start and the
+    stage after it each get `attempts` `{attempt 1, reason rerun, from use, state DONE, archive logs/<id>/attempt1,
+    recipe_version 0}` with the manifest in the archive; a second rerun from the last stage makes `attempt2`.
+  - `--until` before the start is refused (nothing changed); `NEXT_STAGE` runs the start only (`PAUSED`, the later
+    stage archived and `NEW`); a stage that never ran since gets no attempt.
+  - Refused: a stage after the `FAILED` one, an unknown id; from before it: allowed, the `FAILED` one gets `reason
+    failed`.
+  - An edit of the run's recipe is taken first (`recipe_version` 1), with no DONE warning for the rerun stage.
+  - `plan_rerun` rows and recipe changes; `taufw rerun --dry-run` exit 0 (1 for an unknown id), run.json and the logs
+    unchanged; then `taufw rerun` to DONE.
+  - A run.json with `retries` reads as `attempts` and is saved without `retries`.
+- `Tests/Framework/test_framework.py`: the CL §48 test through `rerun()` (attempts entries with reason, from and
+  state; the second retry named `rerun(record, "production")`; a DONE production refused); the other production
+  failures refused with the new message; `taufw rerun` of a DONE run (no failed stage: exit 1, one warning naming
+  the stages); `test_parser` (`rerun` with `ID`, `--dry-run`; `retry` refused). `test_python_step.py` `RetryTests`
+  and `test_interactive.py` (Retry runs `rerun RUN_DIR`) moved to `rerun`.
+- By hand (Windows, the scratchpad run of step 2): `rerun RUN a --dry-run` (the pending edit and two rows), `rerun RUN
+  a --next` (the edit taken, `a` and `b` archived, only `a` runs, PAUSED), `rerun RUN` of a PAUSED run (the stages
+  named), `retry` an argparse error.
+- Windows: `Tests/Framework` 471 tests OK (4 skipped); `Tests/check_harness.py` OK. lxplus: TODO section 1.

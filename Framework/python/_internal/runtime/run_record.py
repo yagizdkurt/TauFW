@@ -13,12 +13,15 @@ A stage record's "name" is the stage's id. "sources" says which other runs' stag
 the stage (so a DONE or FAILED stage keeps what it read); {} for a stage without such inputs. "bundle" lists the
 bundle files copied to <run_dir>/bundle/ when the run started (empty for a run without bundle files).
 
-Retries and bundle changes (CL §44); these keys are only written when they have something to say:
-  stage "retries":  one entry per `taufw.py retry` of the stage: {time, attempt (1: the first failed attempt),
-                    message (why it failed), archive (where its logs and output were moved, relative to the run
-                    directory: logs/<id>/attempt<N>; null: nothing moved, production), bundle_changed (the bundle
-                    copy's changes since the start, as in "changed"; null: not known); production also
-                    max_tries (the raised limit of tries, CL §48)}
+Attempts and bundle changes (CL §44, §55); these keys are only written when they have something to say:
+  stage "attempts": one entry per earlier attempt of the stage that a `taufw rerun` set aside: {time, attempt (N:
+                    logs/<id>/attempt<N>), reason (failed: the stage had FAILED; rerun: it was run again from
+                    `from`), from (the stage the rerun started from), state (the stage's state then), message,
+                    archive (where its logs and output were moved, relative to the run directory; null: nothing
+                    moved, production), recipe_version (of the run's recipe then, 0: the start), bundle_changed
+                    (the bundle copy's changes since the start, as in "changed"; null: not known); production also
+                    max_tries (the raised limit of tries, CL §48)}. A run saved before CL §55 step 3 has "retries":
+                    read as "attempts" (reason failed).
   bundle "sha256":  {relative path: sha256} of the bundle copy when the run started (only with bundle files)
   bundle "changed": one entry per change of the bundle copy that an advance saw (it warns once per change):
                     {time, files: {path: added|changed|removed} since the start, digest (bundle.hashes_digest)}. A
@@ -53,7 +56,7 @@ Public API:
   RunRecord.state      overall state of the run, a RunState
   RunState             NEW, PAUSED, WAITING, DONE, FAILED, BLOCKED (from the stages); RUNNING (live: run_state)
   StageRecord          one stage's state, attempt, request, sources, submissions, last status, artifacts,
-                       history, retries
+                       history, attempts
 """
 import os
 from dataclasses import dataclass, field, asdict
@@ -91,7 +94,7 @@ class RunState(str, Enum):
 
     @property
     def finished(self):
-        """True if advancing the run again cannot change it (a FAILED run may still be retried: taufw.py retry,
+        """True if advancing the run again cannot change it (a FAILED run may still be rerun: taufw rerun,
         CL §44)."""
         return self in (RunState.DONE, RunState.FAILED, RunState.BLOCKED)
 
@@ -117,7 +120,7 @@ class StageRecord:
     last_status: Optional[dict] = None
     artifacts:   List[dict] = field(default_factory=list)
     history:     List[dict] = field(default_factory=list)
-    retries:     List[dict] = field(default_factory=list)
+    attempts:    List[dict] = field(default_factory=list)
 
     def log(self, event, detail="", time=None):
         """Add an entry to the stage's history."""
@@ -218,7 +221,7 @@ class RunRecord:
     def from_dict(cls, data):
         if data.get('schema') != SCHEMA:
             raise ValueError("Unsupported run.json schema %r (expected %s)" % (data.get('schema'), SCHEMA))
-        stages = [StageRecord(**s) for s in data['stages']]
+        stages = [StageRecord(**_attempts(s)) for s in data['stages']]
         return cls(run_id=data['run_id'], created=data['created'], updated=data['updated'], recipe=data['recipe'],
                    pico_config=data['pico_config'], stages=stages, schema=data['schema'],
                    bundle=data.get('bundle') or {}, recipe_changed=data.get('recipe_changed') or [],
@@ -227,12 +230,21 @@ class RunRecord:
     def to_dict(self):
         data = asdict(self)
         data.pop('run_dir')
-        for stage in data['stages']:  # a stage that was never retried is written as before CL §44
-            if not stage['retries']:
-                stage.pop('retries')
+        for stage in data['stages']:  # a stage that never ran again is written as before CL §44
+            if not stage['attempts']:
+                stage.pop('attempts')
         return {key: data[key] for key in ('schema', 'run_id', 'created', 'updated', 'recipe', 'recipe_changed',
                                            'pico_config', 'bundle', 'stages', 'removed')
                 if data[key] or key not in ('recipe_changed', 'removed')}  # a recipe never changed: as before
 
     def __repr__(self):
         return "<RunRecord %s: %s>" % (self.run_id, self.state)
+
+
+def _attempts(stage):
+    """A stage record of run.json with its "retries" (saved before CL §55 step 3, by `taufw retry`) as "attempts"."""
+    if 'retries' not in stage:
+        return stage
+    stage = dict(stage)
+    stage['attempts'] = [dict({'reason': 'failed'}, **entry) for entry in stage.pop('retries')]
+    return stage

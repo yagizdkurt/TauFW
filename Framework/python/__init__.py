@@ -9,13 +9,13 @@ recipe.
     record = fw.advance(record)           # later: check, resubmit or merge; then the local stages (controlhists, ...)
     print(fw.status(record))
 
-Command line: Framework/scripts/taufw.py (check, plan, start, advance, retry, status, init). New here? Read Framework/README.md
+Command line: Framework/scripts/taufw.py (check, plan, start, advance, rerun, status, init). New here? Read Framework/README.md
 first; analyses (recipe, configs, Python steps) live in Analyses/<name>/ (Analyses/README.md).
 
 Public API:
   Framework, load_run, RunPlan, RunSummary      the orchestrator (_internal/runtime/framework.py)
   RunDirectoryError                             a run root or run directory that cannot be written
-  RetryError                                    Framework.retry() cannot run the failed stage again (CL §44)
+  RerunError                                    Framework.rerun() cannot start there (CL §55)
   Recipe, StageSpec, Issue, RecipeError         recipes (_internal/recipes/recipe.py)
   check_recipe, RecipeCheck                     every problem of a recipe file, files included (_internal/recipes/validation.py)
   RunRecord, RunState, StageRecord              run.json (_internal/runtime/run_record.py)
@@ -34,11 +34,11 @@ from TauFW.Framework._internal.runtime.run_record import RunRecord, RunState, St
 from TauFW.Framework.stages import STAGES, StageState, StageOutcome
 from TauFW.Framework._internal.runtime.reporting import Reporter, FrameworkReporter, SilentReporter, EventReporter
 from TauFW.Framework._internal.runtime.framework import (Framework, load_run, RunPlan, RunSummary, RunDirectoryError,
-                                                         RetryError, StopPointError, next_stage, run_state)
+                                                         RerunError, StopPointError, next_stage, run_state)
 from TauFW.Framework._internal.runtime.run_lock import RunLockError, read_lock
 from TauFW.Framework._internal.version import current_version, VersionChecker
 
-__all__ = ['Framework', 'load_run', 'RunPlan', 'RunSummary', 'RunDirectoryError', 'RetryError', 'RunLockError',
+__all__ = ['Framework', 'load_run', 'RunPlan', 'RunSummary', 'RunDirectoryError', 'RerunError', 'RunLockError',
            'StopPointError', 'next_stage', 'run_state', 'read_lock',
            'Recipe', 'StageSpec', 'Issue', 'RecipeError',
            'check_recipe', 'RecipeCheck',

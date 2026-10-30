@@ -345,7 +345,7 @@ class MenuTests(unittest.TestCase):
         stage.history = [{"event": "resubmitted", "state": "SUBMITTED"}, {"event": "failed", "state": "FAILED"}]
         self.assertEqual(interactive._Operations.retry_info(record),
                          dict(stage="ntuples", type="production", message=stage.message, changed=None, tries=(2, 4)))
-        stage.retries = [{"attempt": 1, "max_tries": 4}]  # retried once and failed again after 4: up to 6
+        stage.attempts = [{"attempt": 1, "max_tries": 4}]  # retried once and failed again after 4: up to 6
         stage.attempt = 4
         self.assertEqual(interactive._Operations.retry_info(record)["tries"], (4, 6))
         stage.history[-2]["state"] = "MERGING"
@@ -542,7 +542,7 @@ class MenuTests(unittest.TestCase):
         record = self.record(state="FAILED")
         ui = FakeUI([0, 0])
         self.menu(ui).continue_run()
-        self.assertEqual([argv for argv, _ in self.started], [["retry", record.run_dir]])
+        self.assertEqual([argv for argv, _ in self.started], [["rerun", record.run_dir]])
         self.assertEqual(ui.screens[1][1][0], "Retry fit")
         self.assertEqual(self.started[0][1]["data"]["stages"][1]["state"], "FAILED")
         self.assertEqual(ui.screens[-1][0], "Run " + record.run_id)

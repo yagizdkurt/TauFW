@@ -9,7 +9,7 @@ made. This base class does the part that is the same for all of them:
     advance():  NEW ─▶ preflight ─┬─ problems ─▶ PreflightError (the stage stays NEW; fix it, advance again)
                                   └─ ready ────▶ run the commands ─┬─ all ok ─▶ DONE   (artifacts)
                                                                   └─ failed ─▶ FAILED (log tail, log path)
-    retry:      FAILED ─▶ NEW by taufw.py retry (the Framework moves the failed attempt to logs/<id>/attempt<N>/)
+    rerun:      DONE or FAILED ─▶ NEW by taufw rerun (the Framework moves the attempt to logs/<id>/attempt<N>/)
     plan():   the module's CommandPlan, with the preflight problems added to its notes
 
 A subclass sets `name` and `Spec`, and implements:
@@ -60,7 +60,7 @@ class LocalStage(Stage):
     """Base class of the stages that run scripts locally; see the module docstring.
     api: the module API object (a Fitter TauESID, a Histogrammer ControlHists, a Plotter ControlPlots, or a fake one
     in the tests)."""
-    retryable = True  # a retry starts from NEW in an empty output directory (CL §44)
+    retryable = True  # a rerun starts from NEW in an empty output directory (CL §44, §55)
 
     # =========================================================================
     # =============================== PIPELINES ===============================

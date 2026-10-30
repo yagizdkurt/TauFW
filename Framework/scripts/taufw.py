@@ -16,12 +16,14 @@ python3 "$TAUFW_BASE/Framework/scripts/taufw.py" instead.
                                                           (controlhists, controlplots, shapes, fit, python: run locally);
                                                           refused while another advance of the run is working
                                                           (--take-lock: take over a lost one of another machine)
-  taufw.py retry   RUN_DIR [STOP] [WAIT] [--take-lock]
-                                                          a FAILED run: run its failed stage again (a local stage:
-                                                          the failed attempt is moved to logs/<id>/attempt<N>/;
-                                                          production after max_tries: max_tries more tries for
-                                                          the failed chunks, CL §48), then continue like advance;
-                                                          the finished stages do not run again (CL §44)
+  taufw.py rerun   RUN_DIR [ID] [STOP] [WAIT] [--take-lock] [--dry-run]
+                                                          run stage ID and every stage after it again (default:
+                                                          the FAILED one): what each left is moved to
+                                                          logs/<id>/attempt<N>/, then continue like advance; the
+                                                          stages before ID do not run again. Production cannot
+                                                          (it cannot run twice yet), except after max_tries:
+                                                          max_tries more tries for the failed chunks (CL §48).
+                                                          --dry-run: what it would do, nothing changed (CL §55)
   taufw.py status RUN_DIR                                saved and live state of a run (read-only)
   taufw.py init    NAME [--from RECIPE] [--root DIR]      new analysis bundle Analyses/NAME/ (with copies of the
                                                           files of RECIPE's bundle and of the module configs it
@@ -37,8 +39,8 @@ python3 "$TAUFW_BASE/Framework/scripts/taufw.py" instead.
 
 RECIPE is an analysis bundle directory (Analyses/<name>, with recipe.yml) or a recipe file.
 STOP:  --until ID stops once stage ID is DONE, --next once the first stage that is not DONE is (start: the first
-       stage; retry: the failed one); the run is then PAUSED. Without them the run goes to its end.
-WAIT:  start, advance and retry wait for the batch jobs (a check every --poll S seconds) until the run is done,
+       stage; rerun: the stage it starts from); the run is then PAUSED. Without them the run goes to its end.
+WAIT:  start, advance and rerun wait for the batch jobs (a check every --poll S seconds) until the run is done,
        failed or at its stop point; --no-wait returns as soon as a stage waits for jobs (WAITING: advance it later).
 
 With $TAUFW_EVENTS set (the menu does that for a command it runs beside its screen), every command also writes its
@@ -60,7 +62,7 @@ import sys
 from argparse import ArgumentParser
 try:
     from TauFW.Framework import (Framework, Recipe, RecipeError, load_run, FrameworkReporter, EventReporter,
-                                 RunState, check_recipe, RunDirectoryError, RunLockError, RetryError,
+                                 RunState, check_recipe, RunDirectoryError, RunLockError, RerunError,
                                  StopPointError, run_state)
     from TauFW.Framework._internal.runtime.framework import retryable_stage, NEXT_STAGE
     from TauFW.Framework._internal.runtime.run_recipe import pending_change
@@ -199,14 +201,18 @@ def cmd_start(args):
 
 
 def cmd_advance(args):
-    """Continue a run (advance), or run its failed stage again and continue (retry)."""
+    """Continue a run (advance), or run a stage and those after it again and continue (rerun)."""
     reporter = _reporter(args)
     record = load_run(args.run_dir)
     framework = Framework.from_record(record, reporter=reporter)
-    step = framework.retry if args.command == 'retry' else framework.advance
-    until = NEXT_STAGE if args.next else args.until  # retry: the failed stage; advance: the first not DONE
+    until = NEXT_STAGE if args.next else args.until  # rerun: the stage it starts from; advance: the first not DONE
+    if args.command == 'rerun' and args.dry_run:
+        _show_rerun(reporter, framework.plan_rerun(record, args.stage))
+        return 0
+    options = dict(wait=not args.no_wait, poll=args.poll, take_lock=args.take_lock, until=until)
     try:
-        record = step(record, wait=not args.no_wait, poll=args.poll, take_lock=args.take_lock, until=until)
+        record = (framework.rerun(record, args.stage, **options) if args.command == 'rerun' else
+                  framework.advance(record, **options))
     except StopPointError as error:
         reporter.warning(str(error))
         return 1
@@ -357,6 +363,28 @@ def _interval(value):
     return "[%.4f, %.4f]" % (value['low'], value['high'])
 
 
+def _show_rerun(reporter, plan):
+    """What a rerun would do (Framework.plan_rerun), for --dry-run."""
+    reporter.header("Rerun of run %s from %s (dry run: nothing is changed)" % (plan.run_id, plan.start))
+    if plan.lock:
+        reporter.warning("An advance holds the run's lock now (pid %s on %s): the rerun would be refused until it "
+                         "ends" % (plan.lock.get('pid'), plan.lock.get('host')))
+    if plan.recipe_changes is not None:
+        reporter.message("bundle/recipe.yml was edited (%s): the rerun takes it first"
+                         % (", ".join("%s %s" % item for item in plan.recipe_changes.items()) or "no stage changed"))
+    if plan.production:
+        reporter.message("Stage %s: FAILED after max_tries; it goes on WAITING with max_tries more tries, nothing "
+                         "is moved (CL §48)" % (plan.start))
+    else:
+        reporter.table(["stage", "state", "attempt", "moved to"],
+                       [(row['stage'], row['state'], row['attempt'] if row['archive'] or row['state'] != 'NEW' else
+                         "", row['archive'] or ("nothing to move" if row['state'] != 'NEW' else "(never ran)"))
+                        for row in plan.rows])
+    if plan.bundle_changed:
+        reporter.message("Bundle files changed since the start: %s"
+                         % (", ".join("%s %s" % item for item in plan.bundle_changed.items())))
+
+
 def _finish(reporter, record):
     """Tell the user where the run is and how to continue it; return the exit code."""
     reporter.message("Run directory: %s" % (record.run_dir))
@@ -364,17 +392,17 @@ def _finish(reporter, record):
     if not RunState(record.state).finished:
         reporter.message("Continue with: taufw advance %s" % (record.run_dir))
     elif retry and retry[1] == 'production':  # CL §48: after max_tries
-        reporter.message("To resubmit the failed chunks of stage %s with more tries, run: taufw retry %s"
+        reporter.message("To resubmit the failed chunks of stage %s with more tries, run: taufw rerun %s"
                          % (retry[0], record.run_dir))
     elif retry:
-        reporter.message("Once the cause is fixed, run stage %s again with: taufw retry %s"
+        reporter.message("Once the cause is fixed, run stage %s again with: taufw rerun %s"
                          % (retry[0], record.run_dir))
     if record.state != RunState.FAILED and record.state != RunState.WAITING:
         bell()
     return 1 if record.state == RunState.FAILED else 0
 
 
-COMMANDS = {'check': cmd_check, 'plan': cmd_plan, 'start': cmd_start, 'advance': cmd_advance, 'retry': cmd_advance,
+COMMANDS = {'check': cmd_check, 'plan': cmd_plan, 'start': cmd_start, 'advance': cmd_advance, 'rerun': cmd_advance,
             'status': cmd_status, 'init': cmd_init,
             'configs': cmd_configs, 'userconfig': cmd_userconfig, 'version': cmd_version}
 
@@ -396,7 +424,7 @@ def build_parser():
     stop = waiter.add_mutually_exclusive_group()
     stop.add_argument('--until', default=None, metavar='ID', help="stop once stage ID is DONE (the run is PAUSED)")
     stop.add_argument('--next', action='store_true',
-                      help="stop once the next stage is DONE (the first that is not DONE; retry: the failed one)")
+                      help="stop once the next stage is DONE (the first that is not DONE; rerun: its start)")
     subparsers = parser.add_subparsers(dest='command', metavar='COMMAND')
     subparsers.required = True
     check = subparsers.add_parser('check', parents=[common], help="list every problem of a recipe")
@@ -415,10 +443,14 @@ def build_parser():
     advance.add_argument('run_dir', help="run directory (with run.json)")
     advance.add_argument('--take-lock', dest='take_lock', action='store_true',
                          help="take over the lock of a lost advance of this run on another machine")
-    retry = subparsers.add_parser('retry', parents=[common, waiter],
-                                  help="run the failed stage of a run again, then continue it")
-    retry.add_argument('run_dir', help="run directory (with run.json)")
-    retry.add_argument('--take-lock', dest='take_lock', action='store_true',
+    rerun = subparsers.add_parser('rerun', parents=[common, waiter],
+                                  help="run a stage and every stage after it again, then continue the run")
+    rerun.add_argument('run_dir', help="run directory (with run.json)")
+    rerun.add_argument('stage', nargs='?', default=None, metavar='ID',
+                       help="the stage to rerun from (default: the FAILED stage)")
+    rerun.add_argument('--dry-run', dest='dry_run', action='store_true',
+                       help="show what the rerun would move and run; nothing is changed")
+    rerun.add_argument('--take-lock', dest='take_lock', action='store_true',
                        help="take over the lock of a lost advance of this run on another machine")
     status =subparsers.add_parser('status', parents=[common], help="state of a run (read-only)")
     status.add_argument('run_dir', help="run directory (with run.json)")
@@ -462,7 +494,7 @@ def main(argv=None):
         if status and status != 130:
             bell()
         return status
-    except (RecipeError, RunDirectoryError, RunLockError, RetryError,
+    except (RecipeError, RunDirectoryError, RunLockError, RerunError,
             UserConfig.UserConfigError) as error:  # without a traceback
         reporter = _reporter(args)
         reporter.warning(str(error))

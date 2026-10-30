@@ -211,21 +211,32 @@ The next `advance` checks the file like `taufw check` does, and refuses an edit 
 before it, or a new type for a stage id. A stage that is already `DONE` keeps its output. Every version is kept in
 `"$run_dir"/recipes/`.
 
-## Retrying a failed stage
+## Running stages again
 
-Read the failure message and `run.log`, then fix the cause before retrying:
+`rerun` runs a stage and every stage after it again, then goes on like `advance`:
 
 ```bash
-taufw retry "$run_dir"
+taufw rerun "$run_dir" plots --dry-run   # what it would move and run; nothing changes
+taufw rerun "$run_dir" plots             # plots and every stage after it
+taufw rerun "$run_dir" plots --next      # only plots
 ```
 
-For production, retry is available when failed chunks have exhausted their allowed attempts.
+What each of them made before moves to `logs/<stage>/attempt<N>/`; the stages before `plots` are kept.
+Production and the stages before it cannot run again in the same run.
+
+To run a failed stage again, read the failure message and `run.log`, fix the cause, then:
+
+```bash
+taufw rerun "$run_dir"
+```
+
+For production, this works when failed chunks have exhausted their allowed attempts.
 It adds another `max_tries` attempts and resubmits only the failed chunks. Other production failures,
 such as no matching samples or an invalid merged tuple, need a new run after the cause is fixed.
 
-For a failed histogram, plot, fit, or Python stage, retry reruns that stage and keeps finished stages.
+For a failed histogram, plot, fit, or Python stage, it runs that stage again and keeps the stages before it.
 If the fix changes an analysis file, edit the run's own `bundle/` copy. The failed attempt's files and logs
-move to `logs/<stage>/attempt1/` for the first retry. Changes to the bundle copy are recorded in `run.json`.
+move to `logs/<stage>/attempt1/` the first time. Changes to the bundle copy are recorded in `run.json`.
 
 Repeating `advance` doesn't retry a stage marked `FAILED`. If a stage is still `NEW` because an environment
 or input check failed, fix that problem and use `advance` again.

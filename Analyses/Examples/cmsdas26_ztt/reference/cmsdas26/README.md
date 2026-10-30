@@ -106,7 +106,7 @@ tes 0.5% (from the SF file), lumi 1.4%, norm QCD 20%, WJ 15%, ZJ 15%, ZL 10%, To
 - m_vis peak with tau ID SF and TES: about 57k events / 5 GeV, as s.6 (s.18 is from another iteration).
 - The SFs are the team's own measurement, not official (TauPOG) ones.
 - In this run, `sf_tauid` failed (the SF file had not been committed: `*.json` of `.gitignore`), the file was copied
-  into the run's bundle by hand and the stage retried (`taufw retry`, CL §44). Same file as the committed one,
+  into the run's bundle by hand and the stage retried (`taufw retry`, CL §44; now `taufw rerun`, CL §55). Same file as the committed one,
   but run.json does not record it (the run started before the bundle check).
 
 **Tagger comparison, fixed method** (`stages/tagger_roc_fixed/roc_summary.txt`: the events where all three taggers

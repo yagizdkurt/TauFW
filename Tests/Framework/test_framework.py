@@ -13,7 +13,7 @@ from unittest import mock
 import checkout  # noqa: F401  (must precede TauFW imports)
 import fakes
 from TauFW.Framework import (Framework, Recipe, RecipeError, RunRecord, SilentReporter, StageState,
-                             RunDirectoryError, EventReporter, FrameworkReporter, RetryError)
+                             RunDirectoryError, EventReporter, FrameworkReporter, RerunError)
 from TauFW.Framework._internal.runtime.framework import failed_stage, retryable_stage
 from TauFW.Framework._internal.operations import EVENTS_ENV, EventReader, EventWriter
 from TauFW.Framework.stages import ProductionStage, StageOutcome, decide_next, Action
@@ -112,30 +112,36 @@ class StateMachineTests(FrameworkTestCase):
         self.assertEqual(record.stage("production").state, "FAILED")
         self.assertEqual((failed_stage(record), retryable_stage(record)), (("production", "production"),) * 2)
         failure = record.stage("production").message
-        record = fw.retry(RunRecord.load(record.run_dir))  # WAITING, then the check resubmits: try 3 of 4
+        record = fw.rerun(RunRecord.load(record.run_dir))  # WAITING, then the check resubmits: try 3 of 4
         stage = record.stage("production")
         self.assertEqual((stage.state, stage.attempt, record.state), ("SUBMITTED", 3, "WAITING"))
         self.assertIn("try 3 of 4", stage.message)
-        self.assertEqual({key: value for key, value in stage.retries[0].items() if key != "time"},
-                         {"attempt": 1, "message": failure, "archive": None, "bundle_changed": None, "max_tries": 4})
+        self.assertEqual({key: value for key, value in stage.attempts[0].items() if key != "time"},
+                         {"attempt": 1, "reason": "failed", "from": "production", "state": "FAILED", "message": failure,
+                          "archive": None, "recipe_version": 0, "bundle_changed": None, "max_tries": 4})
         self.assertEqual(pico.names(), ["plan", "submit", "status", "resubmit", "status", "status", "resubmit"])
-        self.assertEqual([h["event"] for h in stage.history], ["submitted", "resubmitted", "failed", "retry",
+        self.assertEqual([h["event"] for h in stage.history], ["submitted", "resubmitted", "failed", "rerun",
                                                                "resubmitted"])
         self.assertEqual([h["state"] for h in stage.history][-2:], ["WAITING", "SUBMITTED"])
-        self.assertIn("failed attempt 1 kept in place; max_tries now 4", stage.history[-2]["detail"])
+        self.assertIn("rerun from production: attempt 1 (FAILED) kept in place; max_tries now 4",
+                      stage.history[-2]["detail"])
         self.assertFalse(os.path.exists(os.path.join(record.run_dir, "logs", "production")))  # nothing archived
         record = fw.advance(fw.advance(record))  # try 3 failed -> try 4; try 4 failed: FAILED after 4 tries
         self.assertEqual((record.stage("production").state, record.stage("production").attempt), ("FAILED", 4))
         self.assertIn("after 4 tries", record.stage("production").message)
         pico.statuses = [fakes.failed("DY"), fakes.complete("DY", "TT")]
-        record = fw.retry(record)  # the second retry: up to 6; try 5 is submitted
-        self.assertEqual([r["max_tries"] for r in record.stage("production").retries], [4, 6])
-        self.assertEqual([r["attempt"] for r in record.stage("production").retries], [1, 2])
+        record = fw.rerun(record, "production")  # the second retry, named: up to 6; try 5 is submitted
+        self.assertEqual([r["max_tries"] for r in record.stage("production").attempts], [4, 6])
+        self.assertEqual([r["attempt"] for r in record.stage("production").attempts], [1, 2])
         self.assertIn("try 5 of 6", record.stage("production").message)
         record = fw.advance(record)  # complete: merged
         self.assertEqual((record.stage("production").state, record.state), ("DONE", "DONE"))
         saved = RunRecord.load(record.run_dir).stage("production")
-        self.assertEqual((saved.retries, saved.attempt), (record.stage("production").retries, 5))
+        self.assertEqual((saved.attempts, saved.attempt), (record.stage("production").attempts, 5))
+        with self.assertRaises(RerunError) as context:  # DONE: production cannot run twice
+            fw.rerun(record, "production")
+        self.assertIn("Stage production (production) cannot run again in this run: production can run again only "
+                      "after its chunks failed max_tries times; it is DONE", str(context.exception))
 
     def test_other_production_failures_cannot_be_retried(self):
         """CL §48: no samples, no job configs, a merged tuple that failed validation: refused, nothing changes."""
@@ -151,12 +157,14 @@ class StateMachineTests(FrameworkTestCase):
                 record = fw.advance(record)
             self.assertEqual(record.stage("production").state, "FAILED", expected)
             self.assertIsNone(retryable_stage(record), expected)
-            with self.assertRaises(RetryError) as context:
-                fw.retry(record)
-            self.assertIn("Stage production (production) cannot be retried (%s" % (expected), str(context.exception))
+            with self.assertRaises(RerunError) as context:
+                fw.rerun(record)
+            self.assertIn("Stage production (production) cannot run again in this run: production can run again "
+                          "only after its chunks failed max_tries times; it is FAILED (%s" % (expected),
+                          str(context.exception))
             self.assertIn("start a new run", str(context.exception))
             saved = RunRecord.load(record.run_dir).stage("production")
-            self.assertEqual((saved.state, saved.retries), ("FAILED", []))
+            self.assertEqual((saved.state, saved.attempts), ("FAILED", []))
 
     def test_complete_merges_and_records_artifacts(self):
         pico = fakes.FakePicoProducer(statuses=[fakes.complete("DY", "TT")])
@@ -705,11 +713,11 @@ class CommandLineTests(FrameworkTestCase):
             bell.assert_called_once_with()  # completion only; status and plan stay silent
             reporter = SilentReporter()
             self.cli.FrameworkReporter = lambda verbosity=0: reporter
-            self.assertEqual(self.cli.main(["retry", run_dir]), 1)  # CL §44: a DONE run has nothing to retry
+            self.assertEqual(self.cli.main(["rerun", run_dir]), 1)  # CL §55: a DONE run has no failed stage
             self.assertEqual(bell.call_count, 2)  # the rejected operation reports one error
             self.assertEqual([t for k, t in reporter.messages if k == "warning"],
-                             ["Run %s has no failed stage (it is DONE): nothing to retry. Continue it with: "
-                              "taufw advance %s" % (os.path.basename(run_dir), run_dir)])
+                             ["Run %s has no failed stage (it is DONE): name the stage to rerun from: taufw rerun %s "
+                              "<id> (stages: production)" % (os.path.basename(run_dir), run_dir)])
 
     def test_plan_and_start_of_a_missing_recipe_print_one_line(self):
         reporter = SilentReporter()
@@ -850,8 +858,13 @@ class CommandLineTests(FrameworkTestCase):
         self.assertEqual((args.run_dir, args.no_wait, args.poll, args.until, args.next), ("runs/x", False, 600, None, False))
         args = parser.parse_args(["advance", "runs/x", "--until", "plots"])
         self.assertEqual((args.until, args.next), ("plots", False))
-        args = parser.parse_args(["retry", "runs/x", "--next", "--take-lock"])  # CL §44
-        self.assertEqual((args.command, args.run_dir, args.next, args.take_lock), ("retry", "runs/x", True, True))
+        args = parser.parse_args(["rerun", "runs/x", "--next", "--take-lock"])  # CL §55
+        self.assertEqual((args.command, args.run_dir, args.stage, args.next, args.take_lock, args.dry_run),
+                         ("rerun", "runs/x", None, True, True, False))
+        args = parser.parse_args(["rerun", "runs/x", "shapes", "--dry-run"])
+        self.assertEqual((args.stage, args.dry_run), ("shapes", True))
+        with self.assertRaises(SystemExit):  # removed: rerun replaced it
+            parser.parse_args(["retry", "runs/x"])
         with self.assertRaises(SystemExit):
             parser.parse_args([])
         with self.assertRaises(SystemExit):  # one stop point

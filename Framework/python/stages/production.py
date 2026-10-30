@@ -20,10 +20,10 @@ configuration).
 The policy is set in the recipe: max_tries (default 3), merge.clean (default false), merge.force (default false).
 decide_next() only looks at numbers and changes nothing, so the policy is tested without a batch system.
 
-Retry (taufw.py retry, CL §48): a stage that FAILED because chunks still failed after max_tries goes back to
-WAITING with max_tries more tries (the new limit is in its retries entry in run.json, `max_tries`); the next check
-resubmits the failed chunks. Nothing is moved: the job files and the stage's directory stay. The other failures
-(no samples, no job configs, a merged tuple that failed validation) cannot be retried: start a new run.
+Retry (`taufw rerun <run>`, CL §48, §55): a stage that FAILED because chunks still failed after max_tries goes back
+to WAITING with max_tries more tries (the new limit is in its attempts entry in run.json, `max_tries`); the next
+check resubmits the failed chunks. Nothing is moved: the job files and the stage's directory stay. The other
+failures (no samples, no job configs, a merged tuple that failed validation) cannot be retried: start a new run.
 
 Inputs:  ProductionSpec (the recipe options), the stage's record (state, attempt), a PicoProducer.
 Outputs: a StageOutcome. Through PicoProducer: job files, batch jobs, and the merged tuples in <run_dir>/stages/<id>/.
@@ -95,7 +95,7 @@ def counts(status):
 
 def max_tries(spec, stage_record):
     """The stage's limit of tries: the recipe's max_tries, or the one its last retry set (CL §48)."""
-    raised = [entry['max_tries'] for entry in stage_record.retries if 'max_tries' in entry]
+    raised = [entry['max_tries'] for entry in stage_record.attempts if 'max_tries' in entry]
     return raised[-1] if raised else spec.max_tries
 
 

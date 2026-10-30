@@ -70,9 +70,9 @@ FAQ = (
      "failures (no samples, a merged tuple that failed validation) need a new "
      "run. A failed local stage (histograms, "
      "plots, shapes, fit, python step) can run again: fix the cause, then "
-     "Continue offers Retry (taufw retry). The finished stages are kept, "
+     "Continue offers Retry (taufw rerun). The stages before it are kept, "
      "the failed attempt is moved to logs/<id>/attempt<N>/, and run.json "
-     "records the retry. If the run's bundle copy was edited, every advance "
+     "records the attempt. If the run's bundle copy was edited, every advance "
      "warns once and run.json and the manifests say so (bundle_changed)."),
 
     ("Stages",
