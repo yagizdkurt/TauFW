@@ -202,11 +202,9 @@ def _draw(ui, screen, title, process, model, view, state):
     row = 1 if column > start + len(title) + 2 else 2  # no room next to the title: on the free line below it
     ui._line(screen, row, column if row == 1 else start, summary, color=ui.styles.get(role, 0))
     items = model.items()
-    if height < 12 or width < 40:
-        ui._line(screen, 3, 1, "Enlarge terminal (at least 40 x 12).")
-    elif view.mode == "output" or not items:
+    if view.mode == "output" or not items:
         lines = list(process.output.lines) + ([process.output.partial] if process.output.partial else [])
-        if not lines and model.loading(state) and height >= 12 and width >= 40:
+        if not lines and model.loading(state):
             from ._loading import draw_loading
             draw_loading(ui, screen, ui._panel(screen, 3, 1, height - 6, width - 2, model.output_title))
         else:

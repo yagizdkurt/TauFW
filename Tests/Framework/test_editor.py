@@ -28,11 +28,12 @@ class Terminal:
      KEY_NPAGE, KEY_BACKSPACE, KEY_DC, KEY_ENTER, KEY_F2, KEY_F10, KEY_RESIZE) = range(1000, 1014)
     KEY_F4, KEY_F5 = 1020, 1021
 
-    def __init__(self, keys, dimensions=(16, 64)):
+    def __init__(self, keys, dimensions=(24, 80)):
         self.keys = iter(keys)
         self.dimensions = dimensions
         self.frames, self.cursors, self.attributes, self.positions = [], [], [], []
         self.touched = 0
+        self.repaints = []  # the frame count when a window asked for a whole repaint (clearok)
 
     def getmaxyx(self):
         return self.dimensions
@@ -58,6 +59,10 @@ class Window:
 
     def timeout(self, milliseconds):
         pass
+
+    def clearok(self, flag):
+        if flag:
+            self.terminal.repaints.append(len(self.terminal.frames))
 
     def erase(self):
         self.lines = [" " * self.width for _ in range(self.height)]
@@ -95,7 +100,7 @@ class EditorTests(unittest.TestCase):
         self.path = self.root / "settings.yaml"
         self.path.write_text("# keep this comment\nvalue: old\n", encoding="utf-8")
 
-    def open(self, keys, validate=None, dimensions=(16, 64), appearance=None, reference=None):
+    def open(self, keys, validate=None, dimensions=(24, 80), appearance=None, reference=None):
         terminal = Terminal(keys, dimensions)
         result = edit_file(terminal, self.path, validate=validate, appearance=appearance,
                            reference=reference, curses_module=terminal)
@@ -144,6 +149,20 @@ class EditorTests(unittest.TestCase):
         self.assertIn("Unsaved changes", terminal.frames[6])
         self.assertTrue(self.path.read_text().startswith("X# keep"))
 
+    def test_resize_and_ctrl_l_repaint_the_whole_screen(self):
+        terminal = Terminal([], dimensions=(24, 80))
+
+        def resize():
+            terminal.dimensions = (30, 100)
+            return Terminal.KEY_RESIZE
+
+        terminal.keys = iter(["\x0c", resize, "\x1b"])
+        result = edit_file(terminal, self.path, curses_module=terminal)
+        self.assertIsNone(result.error)
+        self.assertEqual(terminal.repaints, [0, 1, 2])  # the first window, Ctrl+L, the window after the resize
+        self.assertEqual(len(terminal.frames), 3)
+        self.assertEqual(self.path.read_text(), "# keep this comment\nvalue: old\n")  # Ctrl+L types nothing
+
     def test_resize_preserves_reference_source_position_and_yaml_cursor(self):
         reference = self.reference("\n".join("line %d: " % i + "x" * 140 for i in range(80)), "example.txt")
         self.path.write_text("\n".join("yaml_%d: value" % i for i in range(60)), encoding="utf-8")
@@ -154,7 +173,7 @@ class EditorTests(unittest.TestCase):
             return Terminal.KEY_RESIZE
 
         terminal.keys = iter([Terminal.KEY_NPAGE, Terminal.KEY_F5, Terminal.KEY_NPAGE, Terminal.KEY_RIGHT,
-                              lambda: resize((24, 60)), lambda: resize((24, 160)),
+                              lambda: resize((24, 80)), lambda: resize((24, 160)),
                               Terminal.KEY_F5, Terminal.KEY_F4, Terminal.KEY_F4, Terminal.KEY_F5, "\x1b"])
         result = edit_file(terminal, self.path, reference=reference, curses_module=terminal)
         self.assertIsNone(result.error)
@@ -320,13 +339,35 @@ class EditorTests(unittest.TestCase):
         appearance = self.appearance()
         appearance["styles"] = {role: 0 for role in appearance["styles"]}
         original = self.path.read_bytes()
-        result, terminal = self.open(["X", "\x1b", "d"], dimensions=(10, 40), appearance=appearance)
+        result, terminal = self.open(["X", "\x1b", "d"], dimensions=(24, 80), appearance=appearance)
         self.assertFalse(result.saved)
         self.assertIn("Modified", terminal.frames[-1])
         self.assertIn("Unsaved changes", terminal.frames[-1])
         self.assertIn("F2 Save | D Discard | Esc Edit", terminal.frames[-1])
         self.assertIn("| TauFW |", terminal.frames[-1])
         self.assertEqual(self.path.read_bytes(), original)
+
+    def test_below_the_minimum_only_the_notice_and_no_edit(self):
+        """Below 80 x 24 the editor says so; typing is ignored, Esc with unsaved changes waits for a larger
+        terminal (where it asks to save), nothing is lost."""
+        terminal = Terminal([], dimensions=(24, 80))
+
+        def resize(dimensions):
+            terminal.dimensions = dimensions
+            return Terminal.KEY_RESIZE
+
+        terminal.keys = iter(["X", lambda: resize((10, 40)), "Y", "\x1b", lambda: resize((24, 80)),
+                              Terminal.KEY_F2])
+        result = edit_file(terminal, self.path, curses_module=terminal)
+        self.assertIsNone(result.error)
+        self.assertTrue(result.saved)
+        small = [frame for frame in terminal.frames if "Terminal too small" in frame]
+        self.assertTrue(small)
+        self.assertIn("Esc or Ctrl+C to close", small[0])
+        self.assertIn("Unsaved changes: enlarge the terminal", small[-1])
+        text = self.path.read_text(encoding="utf-8")
+        self.assertTrue(text.startswith("X"))
+        self.assertNotIn("Y", text.split("\n")[0])
 
     def test_text_operations_preserve_empty_lines_and_vertical_cursor_column(self):
         buffer = Buffer("alpha\nx\nlong line\n")
@@ -438,7 +479,7 @@ class EditorTests(unittest.TestCase):
             return Terminal.KEY_RESIZE
 
         def enlarge():
-            terminal.dimensions = (14, 45)
+            terminal.dimensions = (24, 80)
             return Terminal.KEY_RESIZE
 
         terminal.keys = iter([Terminal.KEY_END, shrink, enlarge, Terminal.KEY_NPAGE,
@@ -447,7 +488,7 @@ class EditorTests(unittest.TestCase):
         self.assertIsNone(result.error)
         self.assertFalse(result.saved)
         self.assertEqual(self.path.read_text(encoding="utf-8"), original)
-        self.assertIn("Enlarge terminal", "\n".join(terminal.frames))
+        self.assertIn("Terminal too small", "\n".join(terminal.frames))  # at 20 columns the notice is cut
         self.assertEqual(_width("a\t界e\u0301"), 5)
         self.assertEqual(_visible("a界z", 2, 2), " z")
 

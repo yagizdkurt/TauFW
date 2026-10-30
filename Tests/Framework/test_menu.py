@@ -253,13 +253,13 @@ class ScreenTests(unittest.TestCase):
         self.assertEqual(ui.main_menu(version=checking, live=True), 'refresh')
         self.assertEqual(ui.main_menu(version=available), 'continue')
         drawn = [call.args[2] for call in screen.addnstr.call_args_list]
-        self.assertIn('TauFW V0.1.0', drawn)
+        self.assertIn('V0.1.0', drawn)
         self.assertIn('New version available: 0.2.3 (installed: 0.1.0)', drawn)
 
     def test_version_notice_is_passive_and_readable_at_small_sizes_without_color(self):
         view = dict(installed='1.1.0', latest='1.2.3', status='available', checking=False,
                     available=True, error=None, stale=False)
-        for size in ((12, 64), (24, 80), (55, 100)):
+        for size in ((24, 80), (55, 100)):
             with self.subTest(size=size):
                 ui, screen, frames = self.rendered_terminal([27], size)
                 with mock.patch.object(ui, 'colors_enabled', return_value=False):
@@ -368,11 +368,12 @@ class ScreenTests(unittest.TestCase):
         curses.def_prog_mode.assert_called_once_with()
         curses.endwin.assert_called_once_with()
         curses.reset_prog_mode.assert_called_once_with()
+        screen.clearok.assert_called_once_with(True)  # the plain terminal's output is not left on the menu
         screen.refresh.assert_called()
 
     def curses(self, keys):
         screen = mock.Mock()
-        screen.getmaxyx.return_value = (12, 65)
+        screen.getmaxyx.return_value = (24, 80)  # the menu's minimum (MIN_COLUMNS x MIN_ROWS)
         screen.getch.side_effect = keys
         curses = mock.Mock()
         curses.error = RuntimeError
@@ -1171,7 +1172,7 @@ ConsoleUI(None)
         self.assertEqual([y - found[0] for y in found], [0, 1, 3, 4])
 
     def test_picker_columns_30_70_and_stage_table_at_supported_sizes(self):
-        for dimensions in ((12, 64), (24, 80), (36, 121), (24, 160)):
+        for dimensions in ((24, 80), (36, 121), (24, 160)):
             with self.subTest(dimensions=dimensions):
                 ui, screen, frames = self.rendered_terminal([27], dimensions)
                 preview = dict(name="example", stages=(("production", "production", ""),
@@ -1189,9 +1190,8 @@ ConsoleUI(None)
                     self.assertEqual(frames[0][row][divider], "|")
                     self.assertEqual(frames[0][row][left + span - 2], "|")
                 self.assertIn("Recipe: example", "\n".join(frames[0]))
-                if dimensions[0] >= 24:
-                    self.assertIn("1  production", "\n".join(frames[0]))
-                    self.assertIn("2  plots", "\n".join(frames[0]))
+                self.assertIn("1  production", "\n".join(frames[0]))
+                self.assertIn("2  plots", "\n".join(frames[0]))
 
     def test_create_action_and_edit_keys_are_scoped_to_recipe_rows(self):
         ui, screen, frames = self.rendered_terminal([ord("e"), ord("E"), 10])
@@ -1255,7 +1255,7 @@ ConsoleUI(None)
         self.assertIn("Return to the main menu.", "\n".join(frames[5]))
 
     def test_pipeline_scroll_wrap_and_reset_on_recipe_change(self):
-        ui, screen, frames = self.rendered_terminal([1004] * 12 + [1002, 27], (18, 64))
+        ui, screen, frames = self.rendered_terminal([1004] * 12 + [1002, 27], (24, 80))
         long_id = "very_long_custom_python_stage_identifier"
         stages = (("production", "production", ""), (long_id, "python", ""), ("fit", "fit", ""))
         view = dict(name="first", stages=stages)
@@ -1269,9 +1269,9 @@ ConsoleUI(None)
         self.assertTrue(all(len(line) <= 20 for line in cut))
         self.assertIn("2  very_long_cust...", cut)  # table rows are cut, never wrapped: the columns stay
 
-    def test_resize_message_ignores_selection_and_preserves_focus(self):
-        ui, screen, frames = self.rendered_terminal([], (24, 80))
-        events = iter(((1002, (11, 63)), (10, (24, 80)), (10, (24, 80))))
+    def test_below_the_minimum_only_the_notice_keys_wait_and_esc_goes_back(self):
+        ui, screen, frames = self.rendered_terminal([], (11, 63))
+        events = iter(((10, (11, 63)), (1002, (24, 80)), (10, (24, 80))))
 
         def key():
             value, dimensions = next(events)
@@ -1280,10 +1280,50 @@ ConsoleUI(None)
 
         screen.getch.side_effect = key
         preview = mock.Mock(return_value=dict(name="recipe", stages=(("fit", "fit", ""),)))
-        self.assertEqual(ui.select_recipe(["first", "second"], preview, position={"selected": 1}), ("select", 1))
-        self.assertIn("Enlarge terminal", "\n".join(frames[1]))
-        self.assertEqual(preview.call_args_list, [mock.call(0), mock.call(1)])
-        self.assertIn("> second", "\n".join(frames[2]))
+        # Enter while too small does nothing; the Down that came with the resize only draws again
+        self.assertEqual(ui.select_recipe(["first", "second"], preview, position={"selected": 1}), ("select", 0))
+        notice = "\n".join(frames[0])
+        self.assertIn("Terminal too small: at least 80 x 24.", notice)
+        self.assertIn("Enlarge it, or use the taufw commands (taufw --help).", notice)
+        self.assertIn("Esc or Ctrl+C to close", notice)
+        self.assertNotIn("Recipe", notice)  # nothing of the screen itself
+        self.assertIn("> first", "\n".join(frames[-1]))
+        ui, screen, frames = self.rendered_terminal([27], (11, 63))
+        self.assertEqual(ui.select_recipe(["first"], preview), ("back", None))
+        ui, screen, frames = self.rendered_terminal([10, 27], (12, 70))  # the installer is not guarded
+        self.assertIsNone(ui.setup_checklist([("root", "ROOT")], []))
+
+    def test_resize_and_ctrl_l_repaint_the_whole_screen_and_do_nothing_else(self):
+        ui, screen, frames = self.rendered_terminal([], (24, 80))
+        ui.curses.KEY_RESIZE = 410
+        events = iter(((12, (24, 80)), (410, (30, 100)), (1002, (30, 100)), (10, (30, 100))))
+
+        def key():
+            value, dimensions = next(events)
+            screen.getmaxyx.return_value = dimensions
+            return value
+
+        screen.getch.side_effect = key
+        self.assertEqual(ui.choose("Menu", ["first", "second"]), 1)  # only Down moves
+        self.assertEqual(screen.clearok.call_args_list, [mock.call(True)] * 2)
+        self.assertEqual(len(frames[-1]), 30)
+
+    def test_a_resized_panel_clears_the_screen_below_it(self):
+        ui, screen, frames = self.rendered_terminal([], (24, 80))
+        ui.curses.KEY_RESIZE = 410
+        events = iter(((410, (24, 80)), (410, (30, 100)), (10, (30, 100))))
+
+        def key():
+            value, dimensions = next(events)
+            screen.getmaxyx.return_value = dimensions
+            return value
+
+        screen.getch.side_effect = key
+        screen.addnstr(5, 0, "the screen below", 70, 0)
+        self.assertEqual(ui.message("Note", "Hello"), "ok")
+        self.assertIn("the screen below", "\n".join(frames[1]))  # Ctrl+L or the same size: it stays
+        self.assertNotIn("the screen below", "\n".join(frames[-1]))
+        self.assertIn("Hello", "\n".join(frames[-1]))
 
     def plan_view(self, errors=(), warnings=()):
         stages = [dict(id="prod", type="production", description="mutau tuples", reads="-", inputs="none",

@@ -6,8 +6,11 @@ from ._buffer import Buffer
 from ._reference import Reference
 from ._text import TAB_SIZE, _tail, _visible, _width
 
-MIN_COLUMNS = 40
-MIN_ROWS = 10
+MIN_COLUMNS = 80  # the menu's minimum (menu/_menu.py MIN_COLUMNS, MIN_ROWS), with the same notice below it
+MIN_ROWS = 24
+TOO_SMALL = ("Terminal too small: at least %d x %d." % (MIN_COLUMNS, MIN_ROWS),
+             "Enlarge it, or use the taufw commands (taufw --help).")
+TOO_SMALL_FOOTER = "Esc or Ctrl+C to close"
 SPLIT_COLUMNS = 110
 HEADER_ROWS = 3
 FRAME_AND_FOOTER_ROWS = 5
@@ -61,6 +64,11 @@ class Editor:
                         self.dimensions = None
                         continue  # A resize can invalidate a draw already in progress.
                     raise
+                if key == "\x0c":  # Ctrl+L: the next draw sends the whole screen again
+                    self.window.clearok(True)
+                    continue
+                if not self.usable() and key not in ("\x1b", "\x03"):
+                    continue  # nothing is shown: no edit either
                 if self.key(key):
                     return
         finally:
@@ -73,6 +81,10 @@ class Editor:
                 pass
             finally:
                 self.parent.touchwin()
+
+    def usable(self):
+        height, width = self.parent.getmaxyx()
+        return height >= MIN_ROWS and width >= MIN_COLUMNS
 
     def write(self, row, column, text, attribute=0):
         height, width = self.dimensions
@@ -132,34 +144,37 @@ class Editor:
             self.window = self.curses.newwin(*dimensions, 0, 0)
             self.window.keypad(True)
             self.window.timeout(-1)
+            self.window.clearok(True)  # a resize: the terminal may have rewrapped what was shown, send all again
         height, width = dimensions
         self.window.erase()
-        usable = height >= MIN_ROWS and width >= MIN_COLUMNS
-        self.header(usable)
+        if not self.usable():  # only the notice; unsaved changes wait until the terminal is large enough again
+            lines = TOO_SMALL + (("", "Unsaved changes: enlarge the terminal to save or discard them.")
+                                 if self.confirm else ())
+            for row, text in enumerate(lines):
+                self.write(row + 1, 1, text, self.style("warning") if row >= len(TOO_SMALL) else 0)
+            self.write(height - 2, 1, TOO_SMALL_FOOTER, self.style("accent"))
+            self.window.refresh()
+            return
+        self.header(True)
         cursor = None
-        if usable:
-            body_height = height - self.frame_top - 3
-            split = self.reference and self.reference_visible and width >= SPLIT_COLUMNS
-            editor_width = (width - 2) // 2 if split else width - 2
-            if not self.reference_focus or split:
-                name = self.document.path.name + (" *" if self.dirty else "")
-                if self.reference and not self.reference_focus:
-                    name = "> " + name
-                rect = self.panel(self.frame_top, 1, body_height, editor_width, _tail(name, editor_width - 6),
-                                  "muted" if self.reference_focus else "accent")
-                cursor = self.draw_buffer(rect)
-                self.draw_status(editor_width if split else None)
-            if self.reference and (self.reference_focus or split):
-                left = editor_width + 2 if split else 1
-                panel_width = width - left - 1
-                name = ("> " if self.reference_focus else "") + self.reference.path.name + " (read only)"
-                rect = self.panel(self.frame_top, left, body_height, panel_width,
-                                  _tail(name, panel_width - 6), "accent" if self.reference_focus else "muted")
-                self.draw_reference(rect)
-        else:
-            self.page = 1
-            self.write(min(2, max(0, height - 3)), 0,
-                       "Enlarge terminal (at least %d x %d)." % (MIN_COLUMNS, MIN_ROWS), self.style("warning"))
+        body_height = height - self.frame_top - 3
+        split = self.reference and self.reference_visible and width >= SPLIT_COLUMNS
+        editor_width = (width - 2) // 2 if split else width - 2
+        if not self.reference_focus or split:
+            name = self.document.path.name + (" *" if self.dirty else "")
+            if self.reference and not self.reference_focus:
+                name = "> " + name
+            rect = self.panel(self.frame_top, 1, body_height, editor_width, _tail(name, editor_width - 6),
+                              "muted" if self.reference_focus else "accent")
+            cursor = self.draw_buffer(rect)
+            self.draw_status(editor_width if split else None)
+        if self.reference and (self.reference_focus or split):
+            left = editor_width + 2 if split else 1
+            panel_width = width - left - 1
+            name = ("> " if self.reference_focus else "") + self.reference.path.name + " (read only)"
+            rect = self.panel(self.frame_top, left, body_height, panel_width,
+                              _tail(name, panel_width - 6), "accent" if self.reference_focus else "muted")
+            self.draw_reference(rect)
         if self.reference:
             self.write(height - 2, 1, "F2 Save | Esc Back | F4 Docs | F5 Pane", self.style("accent"))
             hint = "Arrows/PgUp/Dn Scroll | Home/End" if self.reference_focus else "Arrows/PgUp/Dn Move | Tab Indent"

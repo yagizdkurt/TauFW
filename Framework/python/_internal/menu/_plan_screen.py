@@ -18,7 +18,6 @@ Run editor. Also here: stage_table() (the stage table of the recipe list) and th
 __all__ = ["show_plan", "stage_table", "there_are", "table"]
 
 
-MIN_WIDTH, MIN_HEIGHT = 64, 12
 GAP = "  "  # between two columns of a table
 CUT = "..."
 START_HELP = {"error": "The recipe has errors (see Errors): it cannot start until they are fixed.",
@@ -191,27 +190,23 @@ def show_plan(ui, screen, title, view, position):
             screen.erase()
             height, width = screen.getmaxyx()
             ui._header(screen, title, badge=True)
-            usable = width >= MIN_WIDTH and height >= MIN_HEIGHT
             page = 1
             stage = view["stages"][selected] if isinstance(selected, int) else None
             steps = stage is not None and stage.get("steps")
-            if usable:
-                list_width = min(max(22, max(len(row[1]) for row in rows if row) + 6), width // 3)
-                top, left, lines, columns = ui._panel(screen, 3, 1, height - 6, list_width, "Plan")
-                at = [index for index, row in enumerate(rows) if row is not None and row[0] == selected][0]
-                first = max(0, at - lines + 1)
-                for row_index, row in enumerate(rows[first:first + lines]):
-                    if row is None:
-                        continue
-                    key, label, role = row
-                    ui._line(screen, top + row_index, left, (("> " if key == selected else "  ") + label)[:columns],
-                             key == selected, ui.styles.get(role, 0) if role else 0)
-                right = ui._panel(screen, 3, list_width, height - 6, width - list_width - 1, _title(view, selected))
-                content = _details(ui, view, selected, right[3], full)
-                offset, page = ui._viewport(screen, right, [text for text, _ in content], offset,
-                                            line_colors=[role for _, role in content])
-            else:
-                ui._line(screen, 3, 1, "Enlarge terminal (at least %d x %d)." % (MIN_WIDTH, MIN_HEIGHT))
+            list_width = min(max(22, max(len(row[1]) for row in rows if row) + 6), width // 3)
+            top, left, lines, columns = ui._panel(screen, 3, 1, height - 6, list_width, "Plan")
+            at = [index for index, row in enumerate(rows) if row is not None and row[0] == selected][0]
+            first = max(0, at - lines + 1)
+            for row_index, row in enumerate(rows[first:first + lines]):
+                if row is None:
+                    continue
+                key, label, role = row
+                ui._line(screen, top + row_index, left, (("> " if key == selected else "  ") + label)[:columns],
+                         key == selected, ui.styles.get(role, 0) if role else 0)
+            right = ui._panel(screen, 3, list_width, height - 6, width - list_width - 1, _title(view, selected))
+            content = _details(ui, view, selected, right[3], full)
+            offset, page = ui._viewport(screen, right, [text for text, _ in content], offset,
+                                        line_colors=[role for _, role in content])
             ui._footer(screen, "Up/Down Select | " +
                        ("Enter Start | " if selected == "start" and not view.get("errors") else "") + "E Edit | " +
                        (("F Short commands | " if full else "F Full commands | ") if steps else "") +
@@ -222,8 +217,6 @@ def show_plan(ui, screen, title, view, position):
                 return "back"
             if key in (ord("e"), ord("E")):
                 return "edit"
-            if not usable:
-                continue
             if key in (ui.curses.KEY_UP, ui.curses.KEY_DOWN):
                 step = 1 if key == ui.curses.KEY_DOWN else -1
                 selected, offset = keys[(keys.index(selected) + step) % len(keys)], 0

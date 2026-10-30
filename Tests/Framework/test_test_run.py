@@ -236,7 +236,8 @@ class TestScreenTests(unittest.TestCase):
         run = FakeRun(self.output, codes=(0,))
         curses, screen = self.curses([27], size=(10, 30))
         ConsoleUI(curses).test_run("Tests", run)
-        self.assertIn("Enlarge terminal (at least 40 x 12).", self.drawn(screen))
+        self.assertIn("Terminal too small: at least 80 x 24.", self.drawn(screen))
+        self.assertIn("Esc or Ctrl+C to close", self.drawn(screen))
 
 
 if __name__ == "__main__":

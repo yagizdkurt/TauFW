@@ -78,7 +78,7 @@ directory you run it in. `source taufw.sh` opens the menu unless your user confi
 `source taufw.sh --check` lists what works and what does not, and changes nothing (CL §54).
 
 Run `taufw` without arguments in an interactive Linux terminal to open the console menu (Python's
-standard-library `curses`). Up/Down moves, Enter selects, Esc goes back.
+standard-library `curses`). Up/Down moves, Enter selects, Esc goes back, Ctrl+L draws the screen again.
 
 - **Start a new run**: pick an analysis in `Analyses/` (or type a path) and see its stages. A recipe with
   problems is red and cannot start. **[Create a new run]** makes an empty draft analysis, `Analyses/<name>/`;

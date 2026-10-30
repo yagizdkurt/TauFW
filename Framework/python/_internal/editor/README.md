@@ -37,7 +37,7 @@ result = edit_file(screen, "settings.yaml", title="Settings",
 
 At 110 columns or more, the editor and the reference each use half of the
 width. Below that, the editor opens alone and the reference takes the
-body's full width when selected. The existing minimum remains 40 x 10.
+body's full width when selected.
 
 - F5 switches focus; on a narrow terminal it switches the visible pane too.
 - F4 hides the reference or opens it with focus. Hiding returns to editing.
@@ -76,7 +76,8 @@ the shared process and terminal still preclude isolation from hangs or crashes.
 The file sits inside an ASCII frame, with a marked active line, line numbers,
 cursor position, visible line range and save state. Save errors and the unsaved
 changes question appear in panels over the document. Long paths are shortened
-from the left so the filename stays visible. The minimum terminal is 40 x 10.
+from the left so the filename stays visible. The minimum terminal is 80 x 24, as for the menu: below it the
+editor only says so and ignores every key but Esc and Ctrl+C (unsaved changes wait for a larger terminal).
 
 The optional `appearance` dictionary supplies caller-owned presentation data:
 

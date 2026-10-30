@@ -11,7 +11,8 @@ FAQ = (
     ("Navigation", 
      "Use Up/Down to move and Enter to select. Esc goes back; "
      "at the main menu it exits. Page Up/Page Down scroll help, the pipeline or "
-     "a command's output. Ctrl+C goes back too; the editor asks before discarding changes."),
+     "a command's output. Ctrl+C goes back too; the editor asks before discarding changes. "
+     "Ctrl+L draws the screen again if anything is left on it (the menu also does this itself after a resize)."),
 
     ("Recipes",
      "An analysis is a directory in Analyses/ with recipe.yml (the stages "
@@ -28,8 +29,8 @@ FAQ = (
      "The new analysis is selected and labelled Draft. A draft cannot start until stages are configured. "
      "E opens the Run editor entry point for the selected analysis (the editor screen is coming next). "
      "Choose a recipe on the left; its pipeline appears on the right as a table: each stage, what it reads "
-     "and its description, with the number of errors and warnings above it. The picker needs at least 64 "
-     "columns and 12 rows. Select a recipe to open its plan: Overview, Errors and Warnings (when there are "
+     "and its description, with the number of errors and warnings above it. "
+     "Select a recipe to open its plan: Overview, Errors and Warnings (when there are "
      "any) and each stage's details (samples and jobs, or commands; F shows the commands in full). "
      "Start run is at the top: red and refused with errors, yellow with warnings. E edits; Esc goes back. "
      "This submits production jobs and creates taufw_runs/<name>_<timestamp>/ "
@@ -126,7 +127,7 @@ FAQ = (
      "repair the environment. S or Ctrl+C asks, then stops the test run; while it "
      "stops, K kills it at once. "
      "Integration tests and baseline creation/replacement remain explicit CLI "
-     "operations. The menu itself requires an interactive Linux terminal and "
+     "operations. The menu itself requires an interactive Linux terminal of at least 80 x 24 and "
      "working Framework imports. A test run goes on behind the menu: Esc leaves "
      "its screen, the main menu shows its state and Tests opens it again."),
      

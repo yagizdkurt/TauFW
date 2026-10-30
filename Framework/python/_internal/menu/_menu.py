@@ -37,6 +37,72 @@ LIST_EVERY = 0.5      # seconds between two draws of a list whose rows are still
 ESC_DELAY = 25        # ms curses waits after Esc for the rest of a key sequence (its default: 1000, a slow Esc)
 MODAL_WIDTH = 76      # columns of a panel over the screen at most
 REFRESH = "refresh"   # the answer of a live screen that was not answered in time: draw it again
+MIN_COLUMNS, MIN_ROWS = 80, 24  # every screen of the menu (and the editor) needs this much, else TOO_SMALL
+TOO_SMALL = ("Terminal too small: at least %d x %d." % (MIN_COLUMNS, MIN_ROWS),
+             "Enlarge it, or use the taufw commands (taufw --help).")
+TOO_SMALL_FOOTER = "Esc or Ctrl+C to close"
+REDRAW = 12  # Ctrl+L: draw the whole screen again, as after a resize
+
+
+class _Guarded:
+    """The screen a menu screen draws on, when the terminal may be smaller than MIN_COLUMNS x MIN_ROWS. Below
+    that, what the screen draws is never shown: reading a key shows TOO_SMALL instead and waits there. Esc answers
+    Esc (every screen closes on it), Ctrl+C raises as usual, a live screen's timeout (-1) lets it draw again;
+    once the terminal is large enough, a resize key, and the screen draws itself again. Everything else is the
+    screen's own."""
+
+    def __init__(self, screen, curses):
+        self._screen, self._curses = screen, curses
+
+    def __getattr__(self, name):
+        return getattr(self._screen, name)
+
+    def _small(self):
+        height, width = self._screen.getmaxyx()
+        return width < MIN_COLUMNS or height < MIN_ROWS
+
+    def refresh(self):
+        if not self._small():
+            self._screen.refresh()
+
+    def getch(self):
+        return self._read(self._screen.getch, 27)
+
+    def get_wch(self):
+        return self._read(self._screen.get_wch, "\x1b")
+
+    def _read(self, read, escape):
+        if not self._small():
+            return self._repaint(read())
+        while self._small():
+            self._notice()
+            key = self._repaint(read())
+            if key in (27, "\x1b"):
+                return escape
+            if key == -1:
+                return -1
+        return self._curses.KEY_RESIZE
+
+    def _repaint(self, key):
+        """A resize or Ctrl+L: the next refresh sends the whole screen again, as KEY_RESIZE (the screen draws
+        itself again). Curses otherwise sends only what changed since its last draw, and leaves what the terminal
+        itself moved on a resize (lines it rewrapped) on the screen."""
+        if key in (self._curses.KEY_RESIZE, REDRAW, chr(REDRAW)):
+            self._screen.clearok(True)
+            return self._curses.KEY_RESIZE
+        return key
+
+    def _notice(self):
+        screen = self._screen
+        height, width = screen.getmaxyx()
+        screen.erase()
+        for row, text in enumerate(TOO_SMALL + ("", TOO_SMALL_FOOTER)):
+            if row < height - 1:
+                try:
+                    screen.addnstr(row + 1, 1, text, max(0, width - 2), 0)
+                except self._curses.error:
+                    pass  # a resize between the size and the draw
+        screen.refresh()
 
 
 def _clock(seconds):
@@ -74,11 +140,14 @@ class ConsoleUI:
                 self.screen = None
         return self.curses.wrapper(run)
 
-    def _run(self, draw):
-        """draw(screen) on the session's screen, or in a curses session of its own outside one."""
+    def _run(self, draw, guard=True):
+        """draw(screen) on the session's screen, or in a curses session of its own outside one. guard: below
+        MIN_COLUMNS x MIN_ROWS the screen only says so (_Guarded); False for the installer's own screens."""
+        if not guard:
+            return draw(self.screen) if self.screen is not None else self.curses.wrapper(draw)
         if self.screen is not None:
-            return draw(self.screen)
-        return self.curses.wrapper(draw)
+            return draw(_Guarded(self.screen, self.curses))
+        return self.curses.wrapper(lambda screen: draw(_Guarded(screen, self.curses)))
 
     def in_terminal(self, function, pause=True):
         """Run function() on the plain terminal (a program that asks there), then "Press Enter" and back to the
@@ -98,6 +167,7 @@ class ConsoleUI:
             return result
         finally:
             self.curses.reset_prog_mode()
+            self.screen.clearok(True)  # the terminal may have been resized or scrolled meanwhile
             self.screen.refresh()
 
     @classmethod
@@ -287,37 +357,33 @@ class ConsoleUI:
                 screen.erase()
                 height, width = screen.getmaxyx()
                 self._header(screen, title, badge=True)
-                usable = width >= 64 and height >= 12
                 page = 1
-                if usable:
-                    span = 2 * ((width - 1) // 2)  # both panels, counting their shared border twice
-                    left = (width - (span - 1)) // 2
-                    # recipes 30%, pipeline 70%; the recipes keep room for their rows, up to half
-                    list_width = min(max(span * 3 // 10, 34), span // 2)
-                    left_rect = self._panel(screen, 3, left, height - 6, list_width, "Recipes")
-                    right_rect = self._panel(screen, 3, left + list_width - 1,
-                                             height - 6, span - list_width, "Pipeline")
-                    top, column, rows, columns = left_rect
-                    self._line(screen, top, column, "Recipe / bundle", color=self.styles["accent"])
-                    top, rows = top + 2, max(1, rows - 2)
-                    first = 0
-                    while offsets[selected] - offsets[first] >= rows:
-                        first += 1
-                    for index in range(first, len(choices)):
-                        row = offsets[index] - offsets[first]
-                        if row >= rows:
-                            break
-                        label = ("> " if index == selected else "  ") + choices[index]
-                        role = row_colors[index] if row_colors and index < len(row_colors) else None
-                        self._line(screen, top + row, column, label[:columns],
-                                   index == selected, self.styles.get(role, 0) if role else 0)
-                    view = preview(selected)
-                    line_colors = []
-                    lines = self._pipeline_lines(view, right_rect[3], colors=line_colors)
-                    offset, page = self._viewport(screen, right_rect, lines, offset,
-                                                  line_colors=line_colors)
-                else:
-                    self._line(screen, 3, 1, "Enlarge terminal (at least 64 x 12).")
+                span = 2 * ((width - 1) // 2)  # both panels, counting their shared border twice
+                left = (width - (span - 1)) // 2
+                # recipes 30%, pipeline 70%; the recipes keep room for their rows, up to half
+                list_width = min(max(span * 3 // 10, 34), span // 2)
+                left_rect = self._panel(screen, 3, left, height - 6, list_width, "Recipes")
+                right_rect = self._panel(screen, 3, left + list_width - 1,
+                                         height - 6, span - list_width, "Pipeline")
+                top, column, rows, columns = left_rect
+                self._line(screen, top, column, "Recipe / bundle", color=self.styles["accent"])
+                top, rows = top + 2, max(1, rows - 2)
+                first = 0
+                while offsets[selected] - offsets[first] >= rows:
+                    first += 1
+                for index in range(first, len(choices)):
+                    row = offsets[index] - offsets[first]
+                    if row >= rows:
+                        break
+                    label = ("> " if index == selected else "  ") + choices[index]
+                    role = row_colors[index] if row_colors and index < len(row_colors) else None
+                    self._line(screen, top + row, column, label[:columns],
+                               index == selected, self.styles.get(role, 0) if role else 0)
+                view = preview(selected)
+                line_colors = []
+                lines = self._pipeline_lines(view, right_rect[3], colors=line_colors)
+                offset, page = self._viewport(screen, right_rect, lines, offset,
+                                              line_colors=line_colors)
                 self._footer(screen, "Up/Down Move | Enter Select | " +
                              ("E Edit | " if selected in edit_indices else "") + "PgUp/Dn Pipeline | Esc Back")
                 screen.refresh()
@@ -328,8 +394,6 @@ class ConsoleUI:
                 if key == 27:
                     position.update(selected=selected, offset=offset)
                     return None
-                if not usable:
-                    continue
                 if key in (ord("e"), ord("E")) and selected in edit_indices:
                     position.update(selected=selected, offset=offset)
                     return "edit", selected
@@ -559,7 +623,9 @@ class ConsoleUI:
                            "Up/Down Move | Space/Enter Select | Esc Cancel")
                 screen.refresh()
                 key = screen.getch()
-                if key == self.curses.KEY_UP:
+                if key in (self.curses.KEY_RESIZE, REDRAW):  # not guarded: as _Guarded._repaint
+                    screen.clearok(True)
+                elif key == self.curses.KEY_UP:
                     focus = (focus - 1) % (len(components) + 2)
                 elif key == self.curses.KEY_DOWN:
                     focus = (focus + 1) % (len(components) + 2)
@@ -575,7 +641,7 @@ class ConsoleUI:
                         enabled.add(component)
                 elif key == 27:
                     return None
-        return draw(screen) if screen is not None else self._run(draw)
+        return draw(screen) if screen is not None else self._run(draw, guard=False)
 
     def _action(self, title, choices, actions, back="back", welcome=None, **layout):
         selected = self.choose(title, choices, welcome=welcome, **layout)
@@ -711,42 +777,36 @@ class ConsoleUI:
                 screen.erase()
                 height, width = screen.getmaxyx()
                 self._header(screen, title)
-                usable = height >= 12 and width >= 40
                 page = 1
-                if usable:
-                    list_height = max(4, (height - 6) // 2)
-                    top, left, rows, columns = self._panel(screen, 3, 1, list_height, width - 2,
-                                                          "Review" if review else "Select tests")
-                    first = max(0, focus - rows + 1)
-                    for index in range(first, min(len(items) + 2, first + rows)):
-                        if 0 < index <= len(items):
-                            item = items[index - 1]
-                            label = item["id"] if review else (
-                                "[x] " if item["id"] in enabled else "[ ] ") + item["id"]
-                        else:
-                            label = "[ Run ]" if index == 0 else "Back"
-                        self._line(screen, top + index - first, left, label[:columns], index == focus)
-                    rect = self._panel(screen, 3 + list_height, 1, height - list_height - 6,
-                                       width - 2, "Details")
-                    if 0 < focus <= len(items):
-                        item = items[focus - 1]
-                        text = item["description"]
-                        if item["dependencies"]:
-                            text += "\nDependencies: " + ", ".join(item["dependencies"])
+                list_height = max(4, (height - 6) // 2)
+                top, left, rows, columns = self._panel(screen, 3, 1, list_height, width - 2,
+                                                      "Review" if review else "Select tests")
+                first = max(0, focus - rows + 1)
+                for index in range(first, min(len(items) + 2, first + rows)):
+                    if 0 < index <= len(items):
+                        item = items[index - 1]
+                        label = item["id"] if review else (
+                            "[x] " if item["id"] in enabled else "[ ] ") + item["id"]
                     else:
-                        text = ("%d selected. Quiet output; failures show the last 80 lines and log paths."
-                                % (len(items) if review else len(enabled))) if focus == 0 else "Return without running tests."
-                    offset, page = self._viewport(screen, rect, self._wrap(text, rect[3]), offset)
+                        label = "[ Run ]" if index == 0 else "Back"
+                    self._line(screen, top + index - first, left, label[:columns], index == focus)
+                rect = self._panel(screen, 3 + list_height, 1, height - list_height - 6,
+                                   width - 2, "Details")
+                if 0 < focus <= len(items):
+                    item = items[focus - 1]
+                    text = item["description"]
+                    if item["dependencies"]:
+                        text += "\nDependencies: " + ", ".join(item["dependencies"])
                 else:
-                    self._line(screen, 3, 1, "Enlarge terminal (at least 40 x 12).")
+                    text = ("%d selected. Quiet output; failures show the last 80 lines and log paths."
+                            % (len(items) if review else len(enabled))) if focus == 0 else "Return without running tests."
+                offset, page = self._viewport(screen, rect, self._wrap(text, rect[3]), offset)
                 self._footer(screen, "Up/Down Move | Enter Run/Back | PgUp/Dn Details | Esc Back"
                              if review else "Up/Down Move | Space Toggle | Enter Run/Back | PgUp/Dn Details | Esc Back")
                 screen.refresh()
                 key = screen.getch()
                 if key == 27:
                     return None
-                if not usable:
-                    continue
                 if key in (self.curses.KEY_UP, self.curses.KEY_DOWN):
                     focus = (focus + (1 if key == self.curses.KEY_DOWN else -1)) % (len(items) + 2)
                     offset = 0
@@ -1056,19 +1116,15 @@ class ConsoleUI:
                 screen.erase()
                 height, width = screen.getmaxyx()
                 self._header(screen, "Help")
-                if width < 55 or height < 8:
-                    self._line(screen, 3, 1, "Enlarge terminal for FAQ (at least 55 x 8).")
-                    rows = 1
-                else:
-                    topics = self._panel(screen, 3, 1, height - 6, 27, "Topics")
-                    body = self._panel(screen, 3, 27, height - 6, width - 28, "Explanation")
-                    top, left, rows, columns = topics
-                    first = max(0, selected - rows + 1)
-                    for index in range(first, min(len(FAQ), first + rows)):
-                        label = ("> " if index == selected else "  ") + FAQ[index][0]
-                        self._line(screen, index - first + top, left, label[:columns], index == selected)
-                    lines = self._wrap(FAQ[selected][1], body[3])
-                    offset, rows = self._viewport(screen, body, lines, offset)
+                topics = self._panel(screen, 3, 1, height - 6, 27, "Topics")
+                body = self._panel(screen, 3, 27, height - 6, width - 28, "Explanation")
+                top, left, rows, columns = topics
+                first = max(0, selected - rows + 1)
+                for index in range(first, min(len(FAQ), first + rows)):
+                    label = ("> " if index == selected else "  ") + FAQ[index][0]
+                    self._line(screen, index - first + top, left, label[:columns], index == selected)
+                lines = self._wrap(FAQ[selected][1], body[3])
+                offset, rows = self._viewport(screen, body, lines, offset)
                 self._footer(screen, "Up/Down Topic | PgUp/PgDn Scroll | Esc Back")
                 screen.refresh()
                 key = screen.getch()
@@ -1112,8 +1168,9 @@ class ConsoleUI:
         """The grid certificate password typed in a panel (shown as *), or None (Esc). Kept nowhere."""
         def draw(screen):
             self._setup(screen)
-            value = ""
+            value, size = "", screen.getmaxyx()
             while True:
+                size = self._below(screen, size)
                 self._overlay(screen, "Grid Certificate", [
                     ("Renew your CMS grid proxy (voms-proxy-init -voms cms). The password goes to voms-proxy-init "
                      "only; it is not shown, kept or written anywhere.", None), ("", None),
@@ -1150,8 +1207,9 @@ class ConsoleUI:
         return that answer. Ctrl-C is the key 3. lines: (text, role) pairs, wrapped to the panel."""
         def draw(screen):
             self._setup(screen)
-            offset = 0
+            offset, size = 0, screen.getmaxyx()
             while True:
+                size = self._below(screen, size)
                 offset, page = self._overlay(screen, title, lines, footer, offset)
                 try:
                     key = screen.getch()
@@ -1164,6 +1222,14 @@ class ConsoleUI:
                         self.curses.KEY_NPAGE: page}
                 offset = max(0, offset + step.get(key, 0))
         return self._run(draw)
+
+    @staticmethod
+    def _below(screen, size):
+        """What is below a panel was drawn for the size it had when the panel opened: after a resize it is cleared
+        (the screen draws itself again once the panel closes). Return the current size."""
+        if screen.getmaxyx() != size:
+            screen.erase()
+        return screen.getmaxyx()
 
     def _overlay(self, screen, title, lines, footer, offset=0):
         """Draw a panel in the middle of the screen over what is there (the rows it covers are cleared); return
