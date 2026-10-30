@@ -9,6 +9,7 @@ session (FastSetup's checklist, the unit tests) each screen opens the terminal
 and restores it before returning.
 """
 import os
+import signal
 import sys
 import textwrap
 import time
@@ -44,15 +45,46 @@ TOO_SMALL_FOOTER = "Esc or Ctrl+C to close"
 REDRAW = 12  # Ctrl+L: draw the whole screen again, as after a resize
 
 
+_signalled = []  # SIGWINCH came since the last _follow_size (the size may be the same again)
+
+
+def _wake(signum, frame):
+    """Note the resize signal; it also ends a key read that waits in curses (_follow_size)."""
+    _signalled.append(signum)
+
+
+def _follow_size(curses, screen):
+    """Give curses the terminal's size; True if it changed or a resize signal came (the screen is then drawn
+    again, whole).
+    Curses learns a resize from SIGWINCH, but a library loaded later can take the signal for itself (ROOT does,
+    and a plan imports it): curses then keeps the old size for good. So the size is asked from the terminal here,
+    and SIGWINCH is set again each time to wake a waiting key read: a handler set in C replaces it unseen
+    (signal.getsignal only knows what Python set). The editor has a copy (editor/_screen.py)."""
+    try:
+        signal.signal(signal.SIGWINCH, _wake)
+    except (AttributeError, ValueError):
+        pass  # no SIGWINCH (Windows), or not the main thread
+    signalled = bool(_signalled)
+    del _signalled[:]
+    try:
+        columns, lines = os.get_terminal_size(sys.__stdout__.fileno())
+    except (AttributeError, OSError, ValueError):
+        return signalled  # not a terminal
+    if screen.getmaxyx() == (lines, columns):
+        return signalled
+    curses.resizeterm(lines, columns)
+    return True
+
+
 class _Guarded:
     """The screen a menu screen draws on, when the terminal may be smaller than MIN_COLUMNS x MIN_ROWS. Below
     that, what the screen draws is never shown: reading a key shows TOO_SMALL instead and waits there. Esc answers
     Esc (every screen closes on it), Ctrl+C raises as usual, a live screen's timeout (-1) lets it draw again;
     once the terminal is large enough, a resize key, and the screen draws itself again. Everything else is the
-    screen's own."""
+    screen's own. follow: the size is followed (_follow_size); False for the unit tests' screens."""
 
-    def __init__(self, screen, curses):
-        self._screen, self._curses = screen, curses
+    def __init__(self, screen, curses, follow=False):
+        self._screen, self._curses, self._follow = screen, curses, follow
 
     def __getattr__(self, name):
         return getattr(self._screen, name)
@@ -73,23 +105,41 @@ class _Guarded:
 
     def _read(self, read, escape):
         if not self._small():
-            return self._repaint(read())
+            return self._key(read)
         while self._small():
             self._notice()
-            key = self._repaint(read())
+            key = self._key(read)
             if key in (27, "\x1b"):
                 return escape
             if key == -1:
                 return -1
         return self._curses.KEY_RESIZE
 
-    def _repaint(self, key):
-        """A resize or Ctrl+L: the next refresh sends the whole screen again, as KEY_RESIZE (the screen draws
-        itself again). Curses otherwise sends only what changed since its last draw, and leaves what the terminal
-        itself moved on a resize (lines it rewrapped) on the screen."""
-        if key in (self._curses.KEY_RESIZE, REDRAW, chr(REDRAW)):
+    def _resized(self):
+        return self._follow and _follow_size(self._curses, self._screen)
+
+    def _key(self, read):
+        """read(), with every resize and Ctrl+L as KEY_RESIZE: the next refresh sends the whole screen again (the
+        screen draws itself again). Curses otherwise sends only what changed since its last draw, and leaves what
+        the terminal itself moved on a resize (lines it rewrapped) on the screen. A resize while the screen drew
+        answers at once; one during the read ends it (-1, or the curses.error of get_wch); one that came with a
+        key keeps the key."""
+        curses = self._curses
+        resized = self._resized()
+        if resized:
+            key = curses.KEY_RESIZE
+        else:
+            try:
+                key = read()
+            except curses.error:  # get_wch: no key (a resize signal ended the read)
+                if not self._resized():
+                    raise
+                key = curses.KEY_RESIZE
+            resized = self._resized()
+        if resized or key in (curses.KEY_RESIZE, REDRAW, chr(REDRAW)):
             self._screen.clearok(True)
-            return self._curses.KEY_RESIZE
+            if key in (-1, REDRAW, chr(REDRAW)):
+                key = curses.KEY_RESIZE
         return key
 
     def _notice(self):
@@ -117,8 +167,9 @@ class ConsoleUI:
     # =========================================================================
     # =========================== TERMINAL LIFECYCLE ==========================
 
-    def __init__(self, curses):
+    def __init__(self, curses, follow_size=False):
         self.curses = curses
+        self.follow_size = follow_size  # the size is asked from the terminal (_follow_size): open(), not the tests
         self.screen = None    # the screen of the session (session()), None outside it
         self._summaries = {}  # operation directory -> what its menu line keeps between draws (summary_model)
         self._main_action = None  # the main menu's line last selected: a live redraw keeps it
@@ -146,8 +197,13 @@ class ConsoleUI:
         if not guard:
             return draw(self.screen) if self.screen is not None else self.curses.wrapper(draw)
         if self.screen is not None:
-            return draw(_Guarded(self.screen, self.curses))
-        return self.curses.wrapper(lambda screen: draw(_Guarded(screen, self.curses)))
+            return draw(_Guarded(self.screen, self.curses, self.follow_size))
+        return self.curses.wrapper(lambda screen: draw(_Guarded(screen, self.curses, self.follow_size)))
+
+    def resized(self, screen):
+        """For a screen that is not guarded (the installer's): True if the terminal's size changed (_follow_size);
+        the screen then draws itself again, whole."""
+        return self.follow_size and _follow_size(self.curses, screen)
 
     def in_terminal(self, function, pause=True):
         """Run function() on the plain terminal (a program that asks there), then "Press Enter" and back to the
@@ -195,7 +251,7 @@ class ConsoleUI:
             parser.print_help()
             return None
         os.environ.setdefault("ESCDELAY", str(ESC_DELAY))  # read when curses starts; one set by the user is kept
-        return cls(curses)
+        return cls(curses, follow_size=True)
 
     def is_terminal_error(self, error):
         return isinstance(error, self.curses.error)
@@ -628,9 +684,9 @@ class ConsoleUI:
                            "Up/Down Move | Space/Enter Select | Esc Cancel")
                 screen.refresh()
                 key = screen.getch()
-                if key in (self.curses.KEY_RESIZE, REDRAW):  # not guarded: as _Guarded._repaint
+                if self.resized(screen) or key in (self.curses.KEY_RESIZE, REDRAW):  # not guarded: as _Guarded._key
                     screen.clearok(True)
-                elif key == self.curses.KEY_UP:
+                if key == self.curses.KEY_UP:
                     focus = (focus - 1) % (len(components) + 2)
                 elif key == self.curses.KEY_DOWN:
                     focus = (focus + 1) % (len(components) + 2)
@@ -871,7 +927,7 @@ class ConsoleUI:
                 appearance = dict(styles=styles, banner=self._badge,
                                   banner_spans=((1, 2, "TauFW", "brand"), (2, 2, self.version, "version")))
                 return edit_file(screen, path, validate=validate, title=title, reference=reference,
-                                 appearance=appearance, curses_module=self.curses)
+                                 appearance=appearance, curses_module=self.curses, follow_size=self.follow_size)
 
             result = self._run(draw)
             if result.error:

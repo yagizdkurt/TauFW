@@ -1,5 +1,8 @@
 # Author: Yagizhan Dinckurt (October 2026) (yagizdkurt)
 """Curses editor screen. Owns its window; never imports Menu or starts a session."""
+import os
+import signal
+import sys
 import textwrap
 
 from ._buffer import Buffer
@@ -18,9 +21,19 @@ LARGE_BANNER_TEXT_ROWS = 16  # branding must still leave a useful page of text
 MODAL_COLUMNS = 76
 
 
+_signalled = []  # SIGWINCH came since the last Editor.resized (the size may be the same again)
+
+
+def _wake(signum, frame):
+    """Note the resize signal; it also ends a key read that waits in curses (Editor.resized)."""
+    _signalled.append(signum)
+
+
 class Editor:
-    def __init__(self, parent, curses, document, title, validate, appearance=None, reference=None):
+    def __init__(self, parent, curses, document, title, validate, appearance=None, reference=None,
+                 follow_size=False):
         self.parent, self.curses, self.document = parent, curses, document
+        self.follow_size = follow_size
         self.title, self.validate = title, validate
         self.appearance = appearance or {}
         self.styles = dict(self.appearance.get("styles", {}))
@@ -54,13 +67,14 @@ class Editor:
                 pass  # Some terminals cannot change the cursor's visibility.
             while True:
                 try:
+                    self.resized()
                     self.draw()
                     try:
                         key = self.window.get_wch()
                     except KeyboardInterrupt:
                         key = "\x03"
                 except self.curses.error:
-                    if self.parent.getmaxyx() != self.dimensions:
+                    if self.resized() or self.parent.getmaxyx() != self.dimensions:
                         self.dimensions = None
                         continue  # A resize can invalidate a draw already in progress.
                     raise
@@ -81,6 +95,29 @@ class Editor:
                 pass
             finally:
                 self.parent.touchwin()
+
+    def resized(self):
+        """Give curses the terminal's size; True if it changed or a resize signal came (draw() opens a window of
+        the new size). As
+        menu/_menu.py _follow_size, which the editor does not import: ROOT, loaded by the menu, can take SIGWINCH
+        from curses, which would then keep the old size. SIGWINCH is set again each time to end a waiting read
+        (get_wch raises; the loop draws again)."""
+        if not self.follow_size:
+            return False
+        try:
+            signal.signal(signal.SIGWINCH, _wake)
+        except (AttributeError, ValueError):
+            pass  # no SIGWINCH (Windows), or not the main thread
+        signalled = bool(_signalled)
+        del _signalled[:]
+        try:
+            columns, lines = os.get_terminal_size(sys.__stdout__.fileno())
+        except (AttributeError, OSError, ValueError):
+            return signalled  # not a terminal
+        if self.parent.getmaxyx() == (lines, columns):
+            return signalled
+        self.curses.resizeterm(lines, columns)
+        return True
 
     def usable(self):
         height, width = self.parent.getmaxyx()

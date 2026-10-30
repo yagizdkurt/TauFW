@@ -391,9 +391,9 @@ def progress(ui, screen, worker):
             screen.refresh()
             frame += 1
             key = screen.getch()
-            if key in (ui.curses.KEY_RESIZE, 12):  # a resize or Ctrl+L: the next frame sends the whole screen
+            if ui.resized(screen) or key in (ui.curses.KEY_RESIZE, 12):  # or Ctrl+L: the next frame sends it all
                 screen.clearok(True)
-            elif key in (ord("l"), ord("L")):
+            if key in (ord("l"), ord("L")):
                 log_view, offset = not log_view, None
             elif key in (10, 13, ui.curses.KEY_ENTER) and worker.returncode is not None:
                 return worker.returncode

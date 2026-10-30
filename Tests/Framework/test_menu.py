@@ -1092,6 +1092,7 @@ ConsoleUI(None)
                             ui._setup(mock.Mock())
                         curses.set_escdelay.assert_called_with(int(delay))
                 self.assertIs(ui.curses, curses)
+                self.assertTrue(ui.follow_size)  # the real menu asks the terminal for its size (ConsoleUI(): no)
                 curses.reset_mock()
                 # the size from the terminal: an exported LINES/COLUMNS would hold it through every resize
                 with mock.patch.dict(os.environ, {"LINES": "51", "COLUMNS": "209"}):
@@ -1297,6 +1298,58 @@ ConsoleUI(None)
         self.assertEqual(ui.select_recipe(["first"], preview), ("back", None))
         ui, screen, frames = self.rendered_terminal([10, 27], (12, 70))  # the installer is not guarded
         self.assertIsNone(ui.setup_checklist([("root", "ROOT")], []))
+
+    def test_the_size_comes_from_the_terminal_when_curses_lost_the_resize_signal(self):
+        from TauFW.Framework._internal.menu import _menu
+        ui, screen, frames = self.rendered_terminal([], (24, 80))
+        ui.follow_size, ui.curses.KEY_RESIZE = True, 410
+        ui.curses.error = RuntimeError
+        terminal = [(80, 24)]
+        ui.curses.resizeterm.side_effect = lambda lines, columns: setattr(screen.getmaxyx, "return_value",
+                                                                          (lines, columns))
+        # as with ROOT loaded: curses gives no KEY_RESIZE, the read only ends (-1) when the size changes
+        events = iter(((-1, (100, 30)), (1002, (120, 40)), (1002, (120, 40)), (10, (120, 40))))
+
+        def key():
+            value, size = next(events)
+            terminal[0] = size
+            return value
+
+        screen.getch.side_effect = key
+        handlers = []
+        with mock.patch.object(_menu.signal, "SIGWINCH", 28, create=True), \
+                mock.patch.object(_menu.signal, "signal", side_effect=lambda number, handler: handlers.append(number)), \
+                mock.patch.object(_menu.os, "get_terminal_size",
+                                  side_effect=lambda fd: os.terminal_size(terminal[0])):
+            self.assertEqual(ui.choose("Menu", ["a", "b", "c"]), 2)  # the Down that came with a resize is kept
+        self.assertEqual(ui.curses.resizeterm.call_args_list, [mock.call(30, 100), mock.call(40, 120)])
+        self.assertEqual(len(frames[1]), 30)
+        self.assertEqual(len(frames[-1]), 40)
+        self.assertEqual(screen.clearok.call_args_list, [mock.call(True)] * 2)
+        self.assertTrue(handlers and set(handlers) == {28})  # set again at every key: a C handler replaces it unseen
+
+    def test_a_resize_signal_ends_a_typed_answer_wait_without_an_error(self):
+        from TauFW.Framework._internal.menu import _menu
+        ui, screen, frames = self.rendered_terminal([], (24, 80))
+        ui.follow_size, ui.curses.KEY_RESIZE, ui.curses.KEY_ENTER = True, 410, 343
+        ui.curses.error = RuntimeError
+        keys = iter(["a", "signal", "b", "\n", "error"])
+
+        def get_wch():
+            value = next(keys)
+            if value == "signal":
+                _menu._wake(28, None)
+            if value in ("signal", "error"):
+                raise RuntimeError("no input")
+            return value
+
+        screen.get_wch.side_effect = get_wch
+        with mock.patch.object(_menu.signal, "SIGWINCH", 28, create=True), \
+                mock.patch.object(_menu.signal, "signal"), \
+                mock.patch.object(_menu.os, "get_terminal_size", return_value=os.terminal_size((80, 24))):
+            self.assertEqual(ui.prompt("Path"), "ab")  # the same size again: drawn again, nothing typed
+            with self.assertRaises(RuntimeError):  # no signal, no resize: a real curses error
+                ui.prompt("Path")
 
     def test_resize_and_ctrl_l_repaint_the_whole_screen_and_do_nothing_else(self):
         ui, screen, frames = self.rendered_terminal([], (24, 80))

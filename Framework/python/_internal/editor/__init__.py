@@ -24,7 +24,8 @@ class EditResult:
     error: Optional[str] = None
 
 
-def edit_file(screen, path, *, validate=None, title="Text editor", appearance=None, reference=None, curses_module=None):
+def edit_file(screen, path, *, validate=None, title="Text editor", appearance=None, reference=None, curses_module=None,
+              follow_size=False):
     """Edit an existing UTF-8 file on an existing curses screen; always return EditResult.
 
     Expected save failures stay on the editor screen so the buffer can be fixed
@@ -35,6 +36,8 @@ def edit_file(screen, path, *, validate=None, title="Text editor", appearance=No
     editor. F5 switches panes; F4 shows/hides it. A missing reference is shown
     as a message in that pane and never prevents editing or saving.
     curses_module is optional dependency injection for terminal tests.
+    follow_size: the size is asked from the terminal at each key, as the menu does (a library such as ROOT can
+    take the resize signal from curses); False for terminal tests.
     This is an exception boundary, not isolation from hangs or process crashes.
     """
     editor = None
@@ -43,7 +46,8 @@ def edit_file(screen, path, *, validate=None, title="Text editor", appearance=No
         from ._screen import Editor
         if curses_module is None:
             import curses as curses_module
-        editor = Editor(screen, curses_module, Document(path), title, validate, appearance, reference)
+        editor = Editor(screen, curses_module, Document(path), title, validate, appearance, reference,
+                        follow_size=follow_size)
         editor.run()
         return EditResult(saved=editor.saved)
     except KeyboardInterrupt:

@@ -163,6 +163,31 @@ class EditorTests(unittest.TestCase):
         self.assertEqual(len(terminal.frames), 3)
         self.assertEqual(self.path.read_text(), "# keep this comment\nvalue: old\n")  # Ctrl+L types nothing
 
+    def test_the_size_comes_from_the_terminal_when_curses_lost_the_resize_signal(self):
+        from TauFW.Framework._internal.editor import _screen
+        terminal = Terminal([], dimensions=(24, 80))
+        terminal.resizeterm = lambda lines, columns: setattr(terminal, "dimensions", (lines, columns))
+        size = [(80, 24)]
+
+        def resize():  # as with ROOT loaded: no KEY_RESIZE, the signal only ends the read
+            size[0] = (100, 30)
+            _screen._wake(28, None)
+            raise TerminalError("no input")
+
+        def same_size():
+            _screen._wake(28, None)
+            raise TerminalError("no input")
+
+        terminal.keys = iter([resize, same_size, "\x1b"])
+        with mock.patch.object(_screen.signal, "SIGWINCH", 28, create=True), \
+                mock.patch.object(_screen.signal, "signal"), \
+                mock.patch.object(_screen.os, "get_terminal_size", side_effect=lambda fd: os.terminal_size(size[0])):
+            result = edit_file(terminal, self.path, curses_module=terminal, follow_size=True)
+        self.assertIsNone(result.error)
+        self.assertEqual(terminal.dimensions, (30, 100))
+        self.assertEqual(len(terminal.frames), 3)
+        self.assertEqual(len(terminal.frames[1].splitlines()), 30)
+
     def test_resize_preserves_reference_source_position_and_yaml_cursor(self):
         reference = self.reference("\n".join("line %d: " % i + "x" * 140 for i in range(80)), "example.txt")
         self.path.write_text("\n".join("yaml_%d: value" % i for i in range(60)), encoding="utf-8")
