@@ -1093,10 +1093,13 @@ ConsoleUI(None)
                         curses.set_escdelay.assert_called_with(int(delay))
                 self.assertIs(ui.curses, curses)
                 curses.reset_mock()
-                ConsoleUI.open(mock.Mock())
-                curses.setupterm.assert_called_once()
                 # the size from the terminal: an exported LINES/COLUMNS would hold it through every resize
-                self.assertEqual(curses.method_calls[:2], [mock.call.use_env(False), mock.call.setupterm()])
+                with mock.patch.dict(os.environ, {"LINES": "51", "COLUMNS": "209"}):
+                    ConsoleUI.open(mock.Mock())
+                    self.assertNotIn("LINES", os.environ)
+                    self.assertNotIn("COLUMNS", os.environ)
+                curses.setupterm.assert_called_once()
+                curses.use_env.assert_not_called()  # use_env(False) would also stop asking the terminal
                 for error, expected in [(OSError("unsupported"), "requires curses"),
                                         (RuntimeError("setup failed"), "Cannot initialize")]:
                     with self.subTest(error=error):
