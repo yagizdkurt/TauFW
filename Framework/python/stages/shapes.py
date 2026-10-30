@@ -65,8 +65,10 @@ class ShapesStage(LocalStage):
     def plan_commands(self, request):
         return self.api.plan_shapes(request)
 
+    deep_checks = True  # the nominal tuples' branches (TESShapes.preflight_shapes)
+
     def preflight(self, request, context):
-        problems = tuple(self.api.preflight_shapes(request))
+        problems = tuple(self.api.preflight_shapes(request, branches=context.deep))
         samples, tuples = getattr(request, 'samples', ()), getattr(request, 'tuples', None)
         if samples and hasattr(self.samples_api, 'samples_problems'):  # the files' content, the tuple files
             sample_problems = tuple(self.samples_api.samples_problems(samples, request.eras))

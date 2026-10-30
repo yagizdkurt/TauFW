@@ -331,6 +331,14 @@ class TupleInputTests(LocalStageTestCase):
                          os.path.join("<run_dir>", "stages", "production", "$ERA", "$GROUP"))
         self.assertEqual(plan.stages[1].plan.notes, ())  # no problem with the planned pattern
 
+    def test_a_quick_plan_leaves_out_the_checks_that_open_tuple_files(self):  # the menu's plan screen
+        fw = self.framework(PRODUCTION, connected(HISTS, tuples="production"), connected(SHAPES, tuples="production"))
+        fw.plan(deep=False)
+        fw.plan()
+        self.assertEqual(self.histogrammer.branches, [False, True])
+        self.assertEqual(self.tes_shapes.branches, [False, True])
+        self.assertEqual([stage.deep_checks for stage in fw.stages.values()], [False, True, True])
+
     def test_pattern_problems(self):
         stage = ControlHistsStage(self.histogrammer)
 

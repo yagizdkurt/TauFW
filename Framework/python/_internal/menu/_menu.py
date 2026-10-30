@@ -1031,11 +1031,12 @@ class ConsoleUI:
     def recipe_path(self, launch_dir):
         return self.prompt("Recipe path (relative to %s)" % launch_dir)
 
-    def recipe_plan(self, title, view, position=None):
+    def recipe_plan(self, title, view, position=None, update=None):
         """The plan of a recipe (operations.prepare_plan; see _plan_screen.py). Return "start", "edit" or
-        "back". position: the selected row and the details' offset, kept by the caller across an edit."""
+        "back". position: the selected row and the details' offset, kept by the caller across an edit. update:
+        while stages are checking, None or the whole plan that replaces view in place (check_plan's poll)."""
         position = position if position is not None else {}
-        return self._run(lambda screen: show_plan(self, screen, title, view, position))
+        return self._run(lambda screen: show_plan(self, screen, title, view, position, update))
 
     def select_run(self, summaries, advances=None, loading=None, position=None, live=False,
                    preview=None, mode="inspect", finding=False, advance_labels=None):

@@ -256,6 +256,10 @@ class ShapesVariationTests(TESShapesTestCase):  # §3 A: the variation tuples be
         self.assertTrue(problems[0].startswith("9 tuple file(s) of %s, era 2025" % (TT)), problems[0])
         preflight = self.shapes.preflight_shapes(self.request(tuples=self.tuples, samples=self.samples))
         self.assertTrue(set(problems) <= set(preflight))
+        read.clear()
+        quick = self.shapes.preflight_shapes(self.request(tuples=self.tuples, samples=self.samples), branches=False)
+        self.assertEqual(read, [])  # the menu's quick plan: no tuple file is opened
+        self.assertFalse(set(problems) & set(quick))
         with open(os.path.join(str(checkout.REPO), "Configs", "Fitter", "tes_id", "config_coarse_PNet.yml")) as stream:
             pnet = __import__("yaml").safe_load(stream)
         self.assertIn("rawPNetVSjet_2", branches.setup_branches(pnet))  # put in at $VSJET

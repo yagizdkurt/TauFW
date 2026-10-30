@@ -58,7 +58,7 @@ class ControlHists:
 
     Pipelines:    plan(request)                     -> CommandPlan   changes nothing
                   make(request, logdir, progress)   -> RunReport     runs fillhists.py
-                  preflight(request)                -> tuple of problems (empty: ready)
+                  preflight(request, branches=True) -> tuple of problems (empty: ready)
     Requests:     request(**fields)                 -> HistsRequest
     Construction: ControlHists(basedir, runner, read_yaml, python, find_module)
     """
@@ -98,9 +98,10 @@ class ControlHists:
             return report
         return RunReport(results=report.results, total=report.total, artifacts=plan.artifacts)
 
-    def preflight(self, request):
+    def preflight(self, request, branches=True):
         """What is missing to fill: CMSSW, ROOT, the tuple pattern's keys, the channel setups, the sample model files and (with both a tuple pattern and sample files) the tuple files of
-        the requested samples and their branches."""
+        the requested samples and their branches. branches=False leaves out the branches: the only check that opens
+        the tuple files (slow on EOS; the Framework's menu runs it apart)."""
         problems = []
         if 'CMSSW_BASE' not in os.environ:
             problems.append("CMSSW_BASE is not set (run cmsenv first)")
@@ -117,7 +118,8 @@ class ControlHists:
             if request.tuples and not sample_problems and '<' not in request.tuples:  # not a plan's placeholder
                 channels = [artifact['channel'] for artifact in self.plan(request).artifacts]
                 problems.extend(self.sample_file_problems(request.samples, request.eras, channels, request.tuples))
-                problems.extend(self.branch_problems(request))
+                if branches:
+                    problems.extend(self.branch_problems(request))
         return tuple(problems)
 
     # =========================================================================

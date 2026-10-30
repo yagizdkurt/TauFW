@@ -17,9 +17,11 @@ kept_run_row().
 """
 import json
 import os
+import shutil
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 from datetime import datetime
 from pathlib import Path
@@ -49,6 +51,8 @@ OPERATIONS_DIR = CHECKOUT / ".artifacts" / "menu" / "operations"  # what runs be
 TAUFW_SCRIPT = CHECKOUT / "Framework" / "scripts" / "taufw.py"
 PROXY_MARGIN = 60  # seconds a proxy must still be valid for (voms-proxy-info --valid 0:01 before)
 PROXY_INIT_TIMEOUT = 120  # seconds voms-proxy-init may take (it asks the VOMS server)
+PLAN_CHECK_TIMEOUT = 180  # seconds the plan screen's file checks may take (_PlanCheck), then Start opens
+PLAN_CHECK_MODULE = "TauFW.Framework._internal.interfaces.plan_check"
 USER_CONFIG_NAME = user_config.FILE_NAME
 
 
@@ -146,10 +150,12 @@ class _Operations:
         """The preview of the recipe as recipe_preview() left it, if no file of it changed since; else None."""
         return self._kept_value("preview", path, _recipe_signature)
 
-    def prepare_plan(self, path):
+    def prepare_plan(self, path, quick=False):
         """The plan screen's data: check the recipe, then dry-plan it without terminal output or writes (as
         `taufw.py plan` does). A recipe with problems, or one that cannot be planned, still has its stages and its
         errors (the screen shows them; it cannot start). Plain data: the menu never sees Framework objects.
+        quick: without the checks that open data files (Framework.plan deep=False); the stages that have them say
+        checking=True, and check_plan() makes the whole plan behind the screen.
         dict(name, path, overview (lines), errors, warnings, stages: dict(id, type, description, reads, inputs,
         files: (option, file, from), note (why it is not planned), samples: (era, channel, sample, files, chunks,
         try, conflict), jobs, cwd, subdirs, steps: (label, command line), notes))"""
@@ -163,16 +169,27 @@ class _Operations:
             reporter = SilentReporter()
             try:
                 framework = Framework.from_recipe(Recipe.load(str(path)), reporter=reporter)
-                plan = framework.plan()
+                plan = framework.plan(deep=not quick)
             except Exception as error:
                 view["errors"].append("Cannot plan the recipe: %s" % error)
             else:
                 _fill_plan(view, framework, plan)
                 view["warnings"] += [message for kind, message in reporter.messages if kind == "warning"]
+                if quick:
+                    for stage in stages:
+                        stage["checking"] = (stage["steps"] is not None
+                                             and getattr(framework.stages[stage["id"]], "deep_checks", False) is True)
         if view["errors"]:
             for stage in stages:
                 stage["note"] = "Cannot be planned until the errors are fixed."
         return view
+
+    def check_plan(self, path, view):
+        """The whole plan of a quick one (prepare_plan quick=True) made behind the plan screen, in a process of its
+        own (_PlanCheck): ROOT stays out of the menu, and the menu never waits. None if no stage is checking."""
+        if not any(stage.get("checking") for stage in view.get("stages", ())):
+            return None
+        return _PlanCheck(self.resolve_path(path), view, self.launch_dir)
 
     def run_roots(self):
         """Where runs are looked for: taufw_runs/ in the launch directory, runs.run_root of the user config, and the
@@ -538,6 +555,62 @@ class _Operations:
         return self.store.start("command", "%s %s" % (command, Path(target).name),
                                 [sys.executable, "-B", str(TAUFW_SCRIPT), command, str(target)],
                                 str(self.launch_dir), data=dict(command=command, target=str(target)))
+
+
+class _PlanCheck:
+    """`python -m plan_check <recipe> <file>`: the whole plan (prepare_plan) of a recipe whose quick plan the screen
+    shows, written as JSON. poll(): None while it runs, then once the view that replaces the quick one; if the process
+    failed or took longer than PLAN_CHECK_TIMEOUT, the quick one without checking stages and with a warning (Start
+    opens: a run checks every stage again when it starts it). cancel(): stop it (the screen was left)."""
+
+    def __init__(self, path, view, launch_dir, timeout=PLAN_CHECK_TIMEOUT):
+        self.view, self.timeout, self.started = view, timeout, time.monotonic()
+        self.answered = False  # poll() gave its view: later calls give None
+        self.directory = tempfile.mkdtemp(prefix="taufw-plan-")
+        self.output = os.path.join(self.directory, "plan.json")
+        with open(os.path.join(self.directory, "log"), "w") as log:  # its own session: no Ctrl+C, no resize
+            self.process = subprocess.Popen([sys.executable, "-B", "-m", PLAN_CHECK_MODULE, path, self.output],
+                                            cwd=str(launch_dir), stdin=subprocess.DEVNULL, stdout=log,
+                                            stderr=subprocess.STDOUT, start_new_session=True)
+
+    def poll(self):
+        if self.answered:
+            return None
+        if self.process.poll() is None:
+            if time.monotonic() - self.started < self.timeout:
+                return None
+            self.cancel()
+            self.answered = True
+            return self._failed("they did not finish in %d s" % self.timeout)
+        try:
+            with open(self.output) as stream:
+                view = json.load(stream)
+        except (OSError, ValueError):
+            view = None
+        reason = None if view is not None else "exit code %s%s" % (self.process.returncode, self._last_line())
+        self.cancel()
+        self.answered = True
+        return view if view is not None else self._failed(reason)
+
+    def cancel(self):
+        if self.process.poll() is None:
+            self.process.kill()
+            self.process.wait()
+        shutil.rmtree(self.directory, ignore_errors=True)
+
+    def _last_line(self):
+        try:
+            with open(os.path.join(self.directory, "log")) as stream:
+                lines = [line.strip() for line in stream if line.strip()]
+        except OSError:
+            return ""
+        return ": %s" % lines[-1] if lines else ""
+
+    def _failed(self, reason):
+        view = dict(self.view, warnings=list(self.view.get("warnings", ())) + [
+            "The tuple file checks did not run (%s); a run checks them when it starts the stage." % reason])
+        view["stages"] = [dict(stage, checking=False) for stage in self.view.get("stages", ())]
+        return view
 
 
 def _fill_plan(view, framework, plan):

@@ -33,6 +33,8 @@ FAQ = (
      "Select a recipe to open its plan: Overview, Errors and Warnings (when there are "
      "any) and each stage's details (samples and jobs, or commands; F shows the commands in full). "
      "Start run is at the top: red and refused with errors, yellow with warnings. E edits; Esc goes back. "
+     "The plan opens at once; the stages that open the tuple files to check their branches (hists, shapes) "
+     "do it behind the screen, with a turning mark in the list, and Start opens when they are done. "
      "This submits production jobs and creates taufw_runs/<name>_<timestamp>/ "
      "with run.json and run.log. Starting returns after submission."),
 

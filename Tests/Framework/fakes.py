@@ -216,11 +216,13 @@ class RunReport:
 @dataclass
 class _FakeLocalAPI:
     """problems: returned by every preflight; fail: label of the command that fails (exit code 2, log written).
-    Every call is recorded in calls; logdirs records where each run wrote its logs."""
+    Every call is recorded in calls; logdirs records where each run wrote its logs, branches the branches= of each
+    preflight that has it (False: a quick plan)."""
     problems: Tuple[str, ...] = ()
     fail: str = None
     calls: list = field(default_factory=list)
     logdirs: list = field(default_factory=list)
+    branches: list = field(default_factory=list)
     basedir: str = "/repo"  # the module directory that config_file() resolves against
 
     def _run(self, plan, logdir, progress):
@@ -272,8 +274,9 @@ class FakeHistogrammer(_FakeLocalAPI):
                           for c in request["configs"] for e in request["eras"])
         return CommandPlan(outdir, commands, artifacts)
 
-    def preflight(self, request):
+    def preflight(self, request, branches=True):
         self.calls.append(("preflight", request))
+        self.branches.append(branches)
         return self.problems
 
     def make(self, request, logdir, progress):
@@ -327,8 +330,9 @@ class FakeTESShapes(_FakeLocalAPI):
                                           "era": era, "jet_wp": jet, "ele_wp": ele, "config": config})
         return CommandPlan(request.get("outdir") or "/repo/shapes", tuple(commands), tuple(artifacts))
 
-    def preflight_shapes(self, request):
+    def preflight_shapes(self, request, branches=True):
         self.calls.append(("preflight_shapes", request))
+        self.branches.append(branches)
         return self.problems
 
     def make_shapes(self, request, logdir, progress):

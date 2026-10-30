@@ -51,8 +51,10 @@ class ControlHistsStage(LocalStage):
     def plan_commands(self, request):
         return self.api.plan(request)
 
+    deep_checks = True  # the tuples' branches (ControlHists.preflight)
+
     def preflight(self, request, context):
-        return self.api.preflight(request)
+        return self.api.preflight(request, branches=context.deep)
 
     def execute(self, request, logdir, progress):
         return self.api.make(request, logdir, progress)

@@ -57,7 +57,7 @@ class TESShapes:
 
     Pipelines:    plan_shapes(request)                     -> CommandPlan   changes nothing
                   make_shapes(request, logdir, progress)   -> RunReport     runs createinputsTES.py
-                  preflight_shapes(request)                -> tuple of problems (empty: ready)
+                  preflight_shapes(request, branches=True) -> tuple of problems (empty: ready)
                   variation_problems(request)              -> tuple of problems (part of preflight_shapes)
     Requests:     shapes_request(**fields)                 -> ShapesRequest
     Construction: TESShapes(basedir, runner, read_yaml, python, find_module)
@@ -91,9 +91,10 @@ class TESShapes:
         report = RunReport(results=self.runner.run_all(plan.commands, logdir, progress), total=len(plan.commands))
         return RunReport(results=report.results, total=report.total, artifacts=plan.artifacts if report.ok else ())
 
-    def preflight_shapes(self, request):
+    def preflight_shapes(self, request, branches=True):
         """What is missing to make the shapes: CMSSW, ROOT, the tuple pattern's keys, the config files, the sample model files (only that they exist: ControlHists.samples_problems reads
-        them), the output directory, and the variation tuples (variation_problems)."""
+        them), the output directory, the variation tuples (variation_problems) and the nominal tuples' branches
+        (branch_problems; branches=False leaves them out: the only check that opens the tuple files)."""
         problems = []
         if 'CMSSW_BASE' not in os.environ:
             problems.append("CMSSW_BASE is not set (run cmsenv first)")
@@ -105,7 +106,8 @@ class TESShapes:
         problems.extend("sample file %s not found" % (path) for path in request.samples if not os.path.isfile(path))
         problems.extend(output_dir_problems(request.outdir, tuples=request.tuples))
         problems.extend(self.variation_problems(request))
-        problems.extend(self.branch_problems(request))
+        if branches:
+            problems.extend(self.branch_problems(request))
         return tuple(problems)
 
     def variation_problems(self, request, maxshow=5):

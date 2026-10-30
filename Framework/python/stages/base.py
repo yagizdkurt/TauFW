@@ -119,6 +119,8 @@ class StageContext:
     pico_config: the PicoProducer configuration of the run (path), or None (PicoProducer's default)
     bundle_dir:  the bundle directory the path options are resolved against (a run: its copy, <run_dir>/bundle)
     stage_id:    the id of the stage this context is for
+    deep:        False: plan() leaves out the checks that open data files (Stage.deep_checks; the menu's plan screen
+                 runs them in a process of its own). advance() always checks everything.
     """
     run_dir:     str = ""
     upstream:    Mapping[str, Tuple[dict, ...]] = field(default_factory=dict)
@@ -128,6 +130,7 @@ class StageContext:
     pico_config: Optional[str] = None
     bundle_dir:  Optional[str] = None
     stage_id:    str = ""
+    deep:        bool = True
 
     def artifacts(self, stage=None, kind=None):
         """The upstream artifacts of one stage id (or of all stages), optionally only those of one kind."""
@@ -191,6 +194,7 @@ class Stage:
     retryable = False  # a FAILED stage may be set NEW again by taufw.py retry (CL §44): the local stages
     requires = ()   # optional setup components (Framework._internal.installer.COMPONENTS) the stage always needs, e.g.
                     # ('combine',); a recipe adds more per stage with `requires:` (recipe.py)
+    deep_checks = False  # plan() opens data files (the tuples' branches; slow on EOS) unless context.deep is False
 
     def plan(self, spec, context=None):
         raise StageNotImplemented(self.name)

@@ -3,8 +3,10 @@
 
 The injected operations object supplies launch_dir, recipes(), examples() (the example analyses, listed apart
 under [Examples] of the recipe list), resolve_path(value), load_run(path),
-can_advance(record), prepare_plan(path) (the plan screen's data: name, path, overview lines, errors, warnings and
-stage dicts, see _Operations.prepare_plan; with errors the recipe cannot start), and start_command(command,
+can_advance(record), prepare_plan(path, quick=True) (the plan screen's data: name, path, overview lines, errors,
+warnings and stage dicts, see _Operations.prepare_plan; with errors the recipe cannot start; quick: without the
+checks that open data files, its stages with them say checking), check_plan(path, view) (those checks behind the
+screen: poll() -> None or the view that replaces it, cancel(); None: nothing to check), and start_command(command,
 target), which starts a read-only command (`status` of a run directory) behind the menu and returns its Operation
 (kind "command"; its screen, ConsoleUI.command_output, stops it when it is left).
 Recipe views contain name, path, shown (the path as shown), ordered (stage id, type, description, reads) tuples,
@@ -146,7 +148,7 @@ class MenuNavigation:
                 if view.get("draft"):
                     self.ui.message("Analysis draft", "No stages configured. Press E for Run editor.")
                     continue
-                plan = self.operations.prepare_plan(path)
+                plan = self.operations.prepare_plan(path, quick=True)
             except KeyboardInterrupt:
                 return False
             except Exception as error:
@@ -157,27 +159,37 @@ class MenuNavigation:
 
     def _plan(self, path, plan):
         """The plan screen of a recipe until it starts (True) or the user goes back (False). E opens the Run
-        editor; the plan is read again after it."""
+        editor; the plan is read again after it. The checks that open data files run behind the screen
+        (check_plan); it is stopped when the screen is left."""
         position = {}
-        while True:
-            action = self.ui.recipe_plan("Start a new run / %s" % (plan.get("name") or path), plan,
-                                         position=position)
-            if action == "back":
-                return False
-            if action == "edit":
-                self.edit_analysis(path)
-                try:
-                    plan = self.operations.prepare_plan(path)
-                except KeyboardInterrupt:
+        check = None
+        try:
+            while True:
+                check = check or self.operations.check_plan(path, plan)
+                action = self.ui.recipe_plan("Start a new run / %s" % (plan.get("name") or path), plan,
+                                             position=position, update=check.poll if check else None)
+                if action == "back":
                     return False
-                except Exception as error:
-                    self.ui.operation_error(error)
-                    return False
-            elif action == "start":
-                if not self._grid_ready(self.operations.needs_grid_proxy(recipe=path)):
-                    continue
-                self._follow_run(self.operations.start_run(path))
-                return True
+                if action == "edit":
+                    if check:
+                        check.cancel()
+                        check = None
+                    self.edit_analysis(path)
+                    try:
+                        plan = self.operations.prepare_plan(path, quick=True)
+                    except KeyboardInterrupt:
+                        return False
+                    except Exception as error:
+                        self.ui.operation_error(error)
+                        return False
+                elif action == "start":
+                    if not self._grid_ready(self.operations.needs_grid_proxy(recipe=path)):
+                        continue
+                    self._follow_run(self.operations.start_run(path))
+                    return True
+        finally:
+            if check:
+                check.cancel()
 
     def _create_analysis(self):
         """Ask again after an error, keeping the name. Cancellation never creates a file."""

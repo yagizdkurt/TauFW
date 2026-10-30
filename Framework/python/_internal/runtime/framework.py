@@ -123,10 +123,11 @@ class Framework:
     # =========================================================================
     # =============================== PIPELINES ===============================
 
-    def plan(self, recipe=None):
+    def plan(self, recipe=None, deep=True):
         """What each stage would do, without changing anything. Placeholder stages are listed as not implemented.
         Each stage sees the artifacts that its input stages plan to make (e.g. the fit sees the planned shapes),
-        so the plan of a whole recipe is complete before anything runs."""
+        so the plan of a whole recipe is complete before anything runs. deep=False leaves out the checks that open
+        data files (StageContext.deep; the stages with Stage.deep_checks)."""
         recipe = recipe or self.recipe
         plans, planned = [], {}
         for stage_spec in recipe.stages:
@@ -134,7 +135,7 @@ class Framework:
             context = StageContext(upstream={**_inputs_of(stage_spec, planned), **found},
                                    inputs=_input_keys(stage_spec), external=stage_spec.external, sources=sources,
                                    pico_config=recipe.pico_config_path, bundle_dir=recipe.bundle_dir,
-                                   stage_id=stage_spec.id)
+                                   stage_id=stage_spec.id, deep=deep)
             paths = path_rows(stage_spec.spec, recipe.bundle_dir)
             if problems:  # an input from another run that cannot be read: nothing to plan with
                 plans.append(StagePlan(stage=stage_spec.id, plan=None, note="; ".join(problems), paths=paths,

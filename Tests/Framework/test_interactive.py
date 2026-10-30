@@ -50,7 +50,7 @@ class FakeUI(ConsoleUI):
         self.broken = broken
         return super().select_recipe(names, examples=examples)
 
-    def recipe_plan(self, title, view, position=None):
+    def recipe_plan(self, title, view, position=None, update=None):
         """The plan screen: the next choice is 0 Start run, 1 E (edit) or 2 Esc (back)."""
         self.plans.append(view)
         self.screens.append((title, ["Start run", "Edit", "Back"]))
@@ -792,7 +792,7 @@ class MenuTests(unittest.TestCase):
                                            SimpleNamespace(stage="fit", note="", plan=commands, paths=(),
                                                            sources={})])
             stage = SimpleNamespace(null_inputs={})
-            return SimpleNamespace(recipe=recipe, stages=dict(shapes=stage, fit=stage), plan=lambda: plan)
+            return SimpleNamespace(recipe=recipe, stages=dict(shapes=stage, fit=stage), plan=lambda deep=True: plan)
 
         self.framework.side_effect = build
         before = path.read_bytes()
@@ -811,6 +811,88 @@ class MenuTests(unittest.TestCase):
         self.assertEqual(plan["overview"][-1], "2 stage(s), 0 job(s), 1 command(s)")
         self.assertEqual(path.read_bytes(), before)
         self.assertFalse((self.root / "taufw_runs").exists())
+
+    def test_a_quick_plan_says_which_stages_check_behind_the_screen(self):
+        from TauFW.Utilities.Process import Command, CommandPlan
+        path = self.recipe_file(self.recipes / "test.json")
+        operations = self.menu(FakeUI()).operations
+        commands = CommandPlan(cwd="/runs/x", commands=(Command("one", (sys.executable, "x.py"), "/runs/x"),))
+        asked = []
+
+        def build(recipe, reporter):
+            plan = SimpleNamespace(bundle_dir=None, pico_config=None, sample_problems=(), sample_warnings=(),
+                                   stages=[SimpleNamespace(stage=stage, note="", plan=commands, paths=(), sources={})
+                                           for stage in ("shapes", "fit")])
+            stages = dict(shapes=SimpleNamespace(null_inputs={}, deep_checks=True), fit=SimpleNamespace(null_inputs={}))
+            return SimpleNamespace(recipe=recipe, stages=stages, plan=lambda deep=True: asked.append(deep) or plan)
+
+        self.framework.side_effect = build
+        view = operations.prepare_plan(path, quick=True)
+        self.assertEqual([stage["checking"] for stage in view["stages"]], [True, False])
+        self.assertIsNone(operations.check_plan(path, operations.prepare_plan(path)))  # nothing to check
+        self.assertEqual(asked, [False, True])
+        self.assertNotIn("checking", operations.prepare_plan(path)["stages"][0])
+
+    def test_the_whole_plan_is_made_in_a_process_of_its_own(self):
+        view = dict(name="quick", warnings=["one"], stages=[dict(id="shapes", checking=True)])
+        made = []
+
+        class Process:
+            def __init__(self, argv, cwd, stdin, stdout, stderr, start_new_session):
+                made.append(self)
+                self.argv, self.cwd, self.session, self.returncode, self.killed = argv, cwd, start_new_session, None, 0
+                stdout.write("Traceback\nImportError: no ROOT\n")
+
+            def poll(self):
+                return self.returncode
+
+            def kill(self):
+                self.killed += 1
+                self.returncode = -9
+
+            def wait(self):
+                return self.returncode
+
+        with mock.patch.object(interactive.subprocess, "Popen", Process):
+            check = interactive._PlanCheck("/a/recipe.yml", view, "/launch")
+            process = made[0]
+            self.assertEqual(process.argv[1:4], ["-B", "-m", interactive.PLAN_CHECK_MODULE])
+            self.assertEqual(process.argv[4], "/a/recipe.yml")
+            self.assertEqual((process.cwd, process.session), ("/launch", True))  # no Ctrl+C, no resize signal
+            self.assertIsNone(check.poll())  # it runs
+            with open(process.argv[5], "w") as stream:
+                json.dump(dict(name="whole", stages=[dict(id="shapes", notes=["lacks a branch"])]), stream)
+            process.returncode = 0
+            self.assertEqual(check.poll(), dict(name="whole", stages=[dict(id="shapes", notes=["lacks a branch"])]))
+            self.assertIsNone(check.poll())  # answered once
+            self.assertFalse(os.path.exists(check.directory))
+
+            check = interactive._PlanCheck("/a/recipe.yml", view, "/launch")
+            made[-1].returncode = 1  # it failed: the quick plan, Start opens, the reason as a warning
+            failed = check.poll()
+            self.assertEqual([stage["checking"] for stage in failed["stages"]], [False])
+            self.assertEqual(failed["warnings"][0], "one")
+            self.assertIn("did not run (exit code 1: ImportError: no ROOT)", failed["warnings"][1])
+            self.assertTrue(view["stages"][0]["checking"])  # the quick view itself is not changed
+
+            check = interactive._PlanCheck("/a/recipe.yml", view, "/launch", timeout=0)
+            self.assertIn("did not finish in 0 s", check.poll()["warnings"][1])
+            self.assertEqual(made[-1].killed, 1)
+            check = interactive._PlanCheck("/a/recipe.yml", view, "/launch")
+            check.cancel()  # the screen was left
+            self.assertEqual(made[-1].killed, 1)
+            self.assertFalse(os.path.exists(check.directory))
+
+    def test_the_process_writes_the_whole_plan(self):
+        from TauFW.Framework._internal.interfaces import plan_check
+        output = str(self.root / "plan.json")
+        with mock.patch.object(interactive, "_Operations") as operations:
+            operations.return_value.prepare_plan.return_value = dict(name="whole", stages=[dict(id="a", files=())])
+            self.assertEqual(plan_check.main(["/a/recipe.yml", output]), 0)
+        operations.return_value.prepare_plan.assert_called_once_with("/a/recipe.yml")  # the whole plan
+        with open(output) as stream:
+            self.assertEqual(json.load(stream), dict(name="whole", stages=[dict(id="a", files=[])]))
+        self.assertFalse(os.path.exists(output + ".part"))
 
     def test_the_plan_screen_opens_at_once_and_plans_once(self):
         path = self.recipe_file(self.recipes / "test.json")

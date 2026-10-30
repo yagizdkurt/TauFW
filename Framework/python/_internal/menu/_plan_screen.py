@@ -4,16 +4,26 @@
 The data is the plan that the operations computed in the menu's own process (prepare_plan: a dry plan, nothing
 is written; see _navigation.py for its keys). Two panels:
 
-    left  Start run          red and refused with errors, yellow with warnings (it still starts)
+    left  Start run          red and refused with errors, yellow with warnings (it still starts); closed while
+                             stages are checking
           Overview           where the run goes, the PicoProducer config, the totals (the focus when it opens)
           Errors (N)         only when there are any
           Warnings (N)       only when there are any
-          1 <stage id> ...   one row per stage
-    right the selected row's details: a stage's inputs, files, samples (production) or commands (local stages)
+          1 <stage id> ...   one row per stage; a turning mark while its checks run
+    right the selected row's details: a stage's inputs, files, samples (production) or commands (local stages);
+          the decay animation while the stage is checking
+
+The screen opens with a quick plan: the checks that open data files (the tuples' branches, slow on EOS) run behind
+it in a process of their own (update(): None, or the whole plan that then replaces the view, in place). Until it
+comes, the stages that have them say checking and Start is closed.
 
 F switches the commands of a local stage between one cut line each and the full, wrapped command. E opens the
 Run editor. Also here: stage_table() (the stage table of the recipe list) and there_are() ("There are 2 errors").
 """
+
+import time
+
+from ._loading import draw_loading
 
 __all__ = ["show_plan", "stage_table", "there_are", "table"]
 
@@ -22,7 +32,12 @@ GAP = "  "  # between two columns of a table
 CUT = "..."
 START_HELP = {"error": "The recipe has errors (see Errors): it cannot start until they are fixed.",
               "warning": "Start a run of this recipe. It has warnings (see Warnings); it can still run.",
-              None: "Start a run of this recipe: create its run directory and advance it once."}
+              None: "Start a run of this recipe: create its run directory and advance it once.",
+              "checking": "The tuple files of the stages marked in the list are checked (their branches). Start "
+                          "opens when the checks are done; the other rows can be read meanwhile."}
+CHECKING = "Checking the tuple files (their branches)..."
+FRAME = 0.15  # seconds between two draws while stages are checking (the animation's frame)
+SPIN = "|/-\\"  # the mark of a checking stage in the list, one character per frame
 
 
 # =============================================================================
@@ -79,11 +94,19 @@ def _headed(lines):
     return [(line, "accent" if index == 0 else None) for index, line in enumerate(lines)]
 
 
-def _rows(view):
-    """The rows of the left panel: (key, label, role); None is an empty line between two groups."""
+def _checking(view):
+    return any(stage.get("checking") for stage in view.get("stages", ()))
+
+
+def _rows(view, mark=""):
+    """The rows of the left panel: (key, label, role); None is an empty line between two groups. mark: after the
+    label of a checking stage."""
     errors, warnings = view.get("errors", ()), view.get("warnings", ())
     start = "error" if errors else "warning" if warnings else "good"
-    rows = [("start", "Start run", start), None, ("overview", "Overview", None)]
+    if _checking(view):
+        rows = [("start", "Start run (wait)", None), None, ("overview", "Overview", None)]
+    else:
+        rows = [("start", "Start run", start), None, ("overview", "Overview", None)]
     if errors:
         rows.append(("errors", "Errors (%d)" % len(errors), "error"))
     if warnings:
@@ -91,7 +114,8 @@ def _rows(view):
     rows.append(None)
     for index, stage in enumerate(view.get("stages", ())):
         role = "error" if errors else "warning" if stage.get("note") else None
-        rows.append((index, "%d %s" % (index + 1, stage["id"]), role))
+        label = "%d %s" % (index + 1, stage["id"]) + (" " + mark if mark and stage.get("checking") else "")
+        rows.append((index, label, role))
     return rows
 
 
@@ -115,6 +139,9 @@ def _details(ui, view, key, width, full):
 
     errors, warnings = view.get("errors", ()), view.get("warnings", ())
     if key == "start":
+        if _checking(view):
+            add(START_HELP["checking"])
+            return lines
         add(START_HELP["error" if errors else "warning" if warnings else None],
             "error" if errors else "warning" if warnings else None)
         return lines
@@ -176,23 +203,26 @@ def _details(ui, view, key, width, full):
 # ================================== SCREEN ===================================
 
 
-def show_plan(ui, screen, title, view, position):
-    """Draw the plan until the user answers: "start" (Enter on Start run, only without errors), "edit" (E) or
-    "back" (Esc). position: the selected row, the details' offset and the command form, kept by the caller."""
+def show_plan(ui, screen, title, view, position, update=None):
+    """Draw the plan until the user answers: "start" (Enter on Start run, only without errors and once no stage is
+    checking), "edit" (E) or "back" (Esc). position: the selected row, the details' offset and the command form,
+    kept by the caller. update: while stages are checking, asked at every frame (see the module's docstring)."""
     ui._setup(screen)
-    rows = _rows(view)
-    keys = [row[0] for row in rows if row is not None]
     selected = position.get("selected", "overview")
-    selected = selected if selected in keys else "overview"
     offset, full = position.get("offset", 0), position.get("full", False)
     try:
         while True:
+            checking = _checking(view)
+            screen.timeout(int(FRAME * 1000) if checking and update else -1)
+            rows = _rows(view, SPIN[int(time.monotonic() / FRAME) % len(SPIN)] if checking else "")
+            keys = [row[0] for row in rows if row is not None]
+            selected = selected if selected in keys else "overview"
             screen.erase()
             height, width = screen.getmaxyx()
             ui._header(screen, title, badge=True)
             page = 1
             stage = view["stages"][selected] if isinstance(selected, int) else None
-            steps = stage is not None and stage.get("steps")
+            steps = stage is not None and stage.get("steps") and not stage.get("checking")
             list_width = min(max(22, max(len(row[1]) for row in rows if row) + 6), width // 3)
             top, left, lines, columns = ui._panel(screen, 3, 1, height - 6, list_width, "Plan")
             at = [index for index, row in enumerate(rows) if row is not None and row[0] == selected][0]
@@ -204,15 +234,24 @@ def show_plan(ui, screen, title, view, position):
                 ui._line(screen, top + row_index, left, (("> " if key == selected else "  ") + label)[:columns],
                          key == selected, ui.styles.get(role, 0) if role else 0)
             right = ui._panel(screen, 3, list_width, height - 6, width - list_width - 1, _title(view, selected))
-            content = _details(ui, view, selected, right[3], full)
-            offset, page = ui._viewport(screen, right, [text for text, _ in content], offset,
-                                        line_colors=[role for _, role in content])
-            ui._footer(screen, "Up/Down Select | " +
-                       ("Enter Start | " if selected == "start" and not view.get("errors") else "") + "E Edit | " +
+            if stage is not None and stage.get("checking"):
+                ui._line(screen, right[0], right[1], CHECKING[:right[3]], color=ui.styles["accent"])
+                draw_loading(ui, screen, (right[0] + 1, right[1], right[2] - 1, right[3]))
+            else:
+                content = _details(ui, view, selected, right[3], full)
+                offset, page = ui._viewport(screen, right, [text for text, _ in content], offset,
+                                            line_colors=[role for _, role in content])
+            can_start = selected == "start" and not view.get("errors") and not checking
+            ui._footer(screen, "Up/Down Select | " + ("Enter Start | " if can_start else "") + "E Edit | " +
                        (("F Short commands | " if full else "F Full commands | ") if steps else "") +
                        "PgUp/Dn Details | Esc Back")
             screen.refresh()
             key = screen.getch()
+            if checking and update:
+                done = update()
+                if done is not None:  # the whole plan: in place, the caller keeps it
+                    view.clear()
+                    view.update(done)
             if key in (27, 3):
                 return "back"
             if key in (ord("e"), ord("E")):
@@ -226,7 +265,7 @@ def show_plan(ui, screen, title, view, position):
                 offset = max(0, offset - page)
             elif key in (ord("f"), ord("F")) and steps:
                 full, offset = not full, 0
-            elif key in (10, 13, ui.curses.KEY_ENTER) and selected == "start" and not view.get("errors"):
+            elif key in (10, 13, ui.curses.KEY_ENTER) and can_start:
                 return "start"
     except KeyboardInterrupt:
         return "back"

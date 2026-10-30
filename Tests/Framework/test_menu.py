@@ -787,6 +787,24 @@ class ScreenTests(unittest.TestCase):
         ui.continue_actions.return_value = "wait"
         return ui, operations, record
 
+    def test_the_plan_checks_behind_its_screen_until_the_screen_is_left(self):
+        ui, operations = mock.Mock(), idle_operations()
+        checks = [mock.Mock(), mock.Mock()]
+        operations.check_plan.side_effect = checks
+        first, second = dict(name="first"), dict(name="second")
+        operations.prepare_plan.return_value = second
+        ui.recipe_plan.side_effect = ["edit", "back"]
+        self.assertFalse(MenuNavigation(ui, operations)._plan("r.yml", first))
+        self.assertEqual(operations.check_plan.call_args_list, [mock.call("r.yml", first), mock.call("r.yml", second)])
+        self.assertEqual([c.kwargs["update"] for c in ui.recipe_plan.call_args_list], [checks[0].poll, checks[1].poll])
+        checks[0].cancel.assert_called_once_with()  # before the editor: its plan is read again
+        checks[1].cancel.assert_called_once_with()  # Esc
+        operations.prepare_plan.assert_called_once_with("r.yml", quick=True)
+        operations.check_plan.side_effect = [None]  # nothing to check
+        ui.recipe_plan.side_effect = ["back"]
+        self.assertFalse(MenuNavigation(ui, operations)._plan("r.yml", first))
+        self.assertIsNone(ui.recipe_plan.call_args.kwargs["update"])
+
     def test_navigation_uses_injected_operations(self):
         ui, operations, record = self.runs_menu()
         operations.recipes.return_value = [Path("recipes/example.yml")]
@@ -806,7 +824,7 @@ class ScreenTests(unittest.TestCase):
         self.assertEqual(ui.select_run.call_args.kwargs["advances"], [None])
         operations.load_run.assert_called_once_with("runs/example")
         operations.can_advance.assert_called_once_with(record)
-        operations.prepare_plan.assert_called_once_with(str(Path("recipes/example.yml")))
+        operations.prepare_plan.assert_called_once_with(str(Path("recipes/example.yml")), quick=True)
         ui.operation_error.assert_not_called()
 
     def test_examples_open_from_the_recipe_list(self):
@@ -841,7 +859,7 @@ class ScreenTests(unittest.TestCase):
         ui.command_output.side_effect = ["refresh", "refresh", "back"]
         self.assertEqual(MenuNavigation(ui, operations).run(), 0)
         path = str(Path("recipes/example.yml"))
-        self.assertEqual(operations.prepare_plan.call_args_list, [mock.call(path)] * 2)  # again after the edit
+        self.assertEqual(operations.prepare_plan.call_args_list, [mock.call(path, quick=True)] * 2)  # after the edit
         self.assertEqual([call.args[:2] for call in ui.recipe_plan.call_args_list],
                          [("Start a new run / example", dict(name="example")),
                           ("Start a new run / example 2", dict(name="example 2"))])
@@ -1416,6 +1434,35 @@ ConsoleUI(None)
         self.assertIn("> Start run", start)
         self.assertIn("it cannot start until they are fixed", start)
         self.assertNotIn("Enter Start", start)
+
+    def test_checking_stages_turn_a_mark_show_the_decay_and_keep_start_closed(self):
+        # Down to the checking stage, back to Start run, Enter (closed), a frame (the whole plan comes), Enter
+        ui, screen, frames = self.rendered_terminal([1002, 1002, 1001, 1001, 1001, 10, -1, 10], (24, 100))
+        view = self.plan_view()
+        view["stages"][1]["checking"] = True
+        whole = self.plan_view(warnings=("plots: 2 tuple file(s) lack branch(es)",))
+        answers = iter([None] * 6 + [whole])
+        from TauFW.Framework._internal.menu import _plan_screen
+        with mock.patch.object(_plan_screen.time, "monotonic", return_value=0.61):  # mark "|", decay frame 4
+            self.assertEqual(ui.recipe_plan("Start a new run / analysis", view, {}, update=lambda: next(answers)),
+                             "start")
+        screen.timeout.assert_any_call(150)  # a frame of the animation
+        checking = "\n".join(frames[2])
+        self.assertIn("> 2 plots |", checking)  # the turning mark
+        self.assertIn("Checking the tuple files (their branches)...", checking)
+        self.assertIn("tau-", checking)  # the decay
+        self.assertNotIn("python3 plot.py", checking)
+        self.assertNotIn("F Full commands", checking)
+        closed = "\n".join(frames[5])
+        self.assertIn("> Start run (wait)", closed)
+        self.assertIn("Start opens when the checks are done", closed)
+        self.assertNotIn("Enter Start", closed)
+        self.assertIs(view["warnings"], whole["warnings"])  # replaced in place: the caller has the whole plan
+        opened = "\n".join(frames[-1])
+        self.assertIn("Warnings (1)", opened)
+        self.assertIn("Enter Start", opened)
+        self.assertNotIn("2 plots |", opened)
+        self.assertEqual(screen.timeout.call_args_list[-1], mock.call(-1))  # nothing checks: no frames
 
     def test_the_plan_screen_shows_samples_and_short_or_full_commands(self):
         ui, screen, frames = self.rendered_terminal([1002, 1002, ord("f"), ord("f"), 27], (24, 100))

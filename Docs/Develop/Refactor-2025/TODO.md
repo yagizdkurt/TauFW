@@ -317,6 +317,15 @@ Parts 1–5 are done (CL §5–§8; the Part 2 changelog section was removed).
 
 ## 6. Framework
 
+- [ ] **Plan checks: open each tuple file once (user 2026-10-30: later).** The menu's plan screen runs the checks
+      that open data files behind the screen, in a process of its own (`interfaces/plan_check.py`, `_PlanCheck`);
+      Start opens when they are done. Measured on lxplus for `tes_id_2025`: 164 `tuple_branches` calls, ~10.7 s of
+      the ~12 s plan, almost all in `TFile.Open` on EOS (~97 ms a file; the branch list ~1.5 ms); `import ROOT`
+      1.7 s. The hists and shapes stages read the same `<sample>_<channel>.root` files (82 files, each opened twice).
+      A cache in `Histogrammer/python/sample/branches.py` `tuple_branches` keyed by (path, mtime, size), files that
+      cannot be opened not kept, at most ~5000 entries: ~10.7 s -> ~5-6 s. A run's own process checks every stage
+      again when it starts it, so a stale entry could only hide a warning on the plan screen.
+
 - [ ] **Retry of a production stage whose merged tuple failed validation (CL §48 left it out, decision B2).** The
       retry after `max_tries` is done (CL §48); a failed merge is still refused. Rule: `retry_state` -> MERGING when
       the stage was MERGING before FAILED. Problem first: with `merge.clean` the valid samples' job directories are

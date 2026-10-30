@@ -238,6 +238,11 @@ class ControlHistsTests(unittest.TestCase):
         self.assertIn("m_ll (Muon0_Run2025C_mumu.root)", problems[1])  # data: the cuts only
         self.assertIn("idweight_2 (DYto2Tau_Bin-MLL-50to120_mutau.root)", problems[2])
         self.assertEqual(len(reads), 2*(len(sample_model.mc)+1))
+        reads.clear()
+        quick = histogrammer.preflight(request, branches=False)  # the menu's quick plan: no tuple file is opened
+        self.assertEqual(reads, [])
+        self.assertFalse([problem for problem in quick if "lack branch" in problem])
+        self.assertTrue(set(problems) <= set(histogrammer.preflight(request)))
         # -r takes the tau ID SFs out of the weight (not for mumu); no ROOT, a placeholder or no samples: no check
         self.assertEqual(len(histogrammer.branch_problems(Request(eras=["2025"], configs=["mutau"],
                                                                        samples=samples, tuples=tuples,
