@@ -28,6 +28,8 @@ Outputs: a RecipeCheck. Nothing is written.
 
 Public API:
   check_recipe(path, files=None, allow_draft=False) -> RecipeCheck
+  check_recipe_data(data, source, bundle_dir, path, outside_dir) -> RecipeCheck   the same for a recipe dict, e.g. a
+                run's own recipe (bundle_dir: the run's bundle copy; outside_dir: what ../x is relative to)
   read_source(stage_spec, slot, path) -> StageDir   the source of a {path: ...} input (raises ManifestError)
   RecipeCheck   name, path, recipe (None if invalid), stages ((stage id, type, description) of every stage whose
                 options are valid), issues (Issue), warnings (Issue: the recipe can run with them), ok
@@ -45,7 +47,7 @@ from TauFW.Framework.stages.local import fixed_directory
 from TauFW.Framework._internal.recipes.recipe import (Recipe, RecipeError, Issue, read_recipe, recipe_warnings,
                                                       _external_problem, _path_problem, _outside_made_absolute)
 
-__all__ = ['check_recipe', 'RecipeCheck', 'read_source']
+__all__ = ['check_recipe', 'check_recipe_data', 'RecipeCheck', 'read_source']
 
 
 # =============================================================================
@@ -63,8 +65,14 @@ def check_recipe(path, files=None, *, allow_draft=False):
     except Exception as error:  # unreadable file, YAML syntax error, ...
         return RecipeCheck(name=os.path.basename(path), path=path,
                            issues=(Issue("", "cannot read %s: %s" % (path, error)),))
-    recipe, stage_specs, issues = Recipe.parse(_outside_made_absolute(data, bundle_dir), source, bundle_dir,
-                                             allow_empty=allow_draft)
+    return check_recipe_data(data, source, bundle_dir, path, allow_draft=allow_draft)
+
+
+def check_recipe_data(data, source, bundle_dir, path, outside_dir=None, *, allow_draft=False):
+    """check_recipe() of a recipe dict read from `path`: its paths are resolved against bundle_dir, and a relative
+    path above it (../x) against outside_dir (default: bundle_dir), as Recipe.load() does."""
+    data = _outside_made_absolute(data, outside_dir or bundle_dir)
+    recipe, stage_specs, issues = Recipe.parse(data, source, bundle_dir, allow_empty=allow_draft)
     pico = data.get('pico') if isinstance(data, dict) else None
     issues = list(issues) + _file_issues(pico.get('config') if isinstance(pico, dict) else None, stage_specs,
                                          bundle_dir)

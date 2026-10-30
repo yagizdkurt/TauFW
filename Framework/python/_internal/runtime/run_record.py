@@ -3,7 +3,7 @@
 
     {"schema": 2, "run_id": "...", "created": "...", "updated": "...",
      "recipe": {...}, "pico_config": {"path": "...", "snapshot": {...}},
-     "bundle": {"source": "/.../Analyses/tes_id_2025", "files": ["recipe.yml", "config_coarse_TT.yml", ...]},
+     "bundle": {"source": "/.../Analyses/tes_id_2025", "files": ["config_coarse_TT.yml", ...]},
      "stages": [{"name": "production", "state": "WAITING", "attempt": 2, "message": "...",
                  "request": {...}, "sources": {}, "submissions": [...], "last_status": {...}, "artifacts": [...],
                  "history": [{"time": "...", "event": "submitted", "state": "SUBMITTED", "detail": "..."}]}]}
@@ -24,6 +24,16 @@ Retries and bundle changes (CL §44); these keys are only written when they have
                     {time, files: {path: added|changed|removed} since the start, digest (bundle.hashes_digest)}. A
                     run with this key is not clean: its stages did not all read the same bundle. The stages that
                     became DONE after a change say so in their manifest (bundle_changed: true).
+
+The run's own recipe (CL §55, run_recipe.py): "recipe" is the version of <run_dir>/bundle/recipe.yml the stages run
+with; an advance that finds the file changed checks it and takes it. These keys are only written when they have
+something to say:
+  "recipe_changed": one entry per change taken: {time, version (N: a copy is recipes/recipe_<N>.yml; 0 is the
+                    start), stages: {id: added|removed|changed|moved}, done: [ids of changed stages that stay DONE
+                    with their old options]}
+  "removed":        the records of the stages a change removed, as in "stages", each with removed: {time, version,
+                    archive (where its logs and output were moved, relative to the run directory; null: none)}. They
+                    are not part of the run's state.
 
 Schema 3 (2026-10-17, R4): StageRecord.sources, and manifest format 2 (manifest.py). Schema 2 (2026-10-14):
 required stage ids and inputs in the recipe, the run directory with logs/<id>/ and stages/<id>/. Runs of another
@@ -126,6 +136,8 @@ class RunRecord:
     schema:      int = SCHEMA
     run_dir:     str = ""
     bundle:      dict = field(default_factory=dict)
+    recipe_changed: List[dict] = field(default_factory=list)
+    removed:     List[dict] = field(default_factory=list)
 
     # =========================================================================
     # ================================= STATE =================================
@@ -209,7 +221,8 @@ class RunRecord:
         stages = [StageRecord(**s) for s in data['stages']]
         return cls(run_id=data['run_id'], created=data['created'], updated=data['updated'], recipe=data['recipe'],
                    pico_config=data['pico_config'], stages=stages, schema=data['schema'],
-                   bundle=data.get('bundle') or {})
+                   bundle=data.get('bundle') or {}, recipe_changed=data.get('recipe_changed') or [],
+                   removed=data.get('removed') or [])
 
     def to_dict(self):
         data = asdict(self)
@@ -217,8 +230,9 @@ class RunRecord:
         for stage in data['stages']:  # a stage that was never retried is written as before CL §44
             if not stage['retries']:
                 stage.pop('retries')
-        return {key: data[key] for key in ('schema', 'run_id', 'created', 'updated', 'recipe', 'pico_config',
-                                           'bundle', 'stages')}
+        return {key: data[key] for key in ('schema', 'run_id', 'created', 'updated', 'recipe', 'recipe_changed',
+                                           'pico_config', 'bundle', 'stages', 'removed')
+                if data[key] or key not in ('recipe_changed', 'removed')}  # a recipe never changed: as before
 
     def __repr__(self):
         return "<RunRecord %s: %s>" % (self.run_id, self.state)

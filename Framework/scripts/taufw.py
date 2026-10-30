@@ -61,8 +61,9 @@ from argparse import ArgumentParser
 try:
     from TauFW.Framework import (Framework, Recipe, RecipeError, load_run, FrameworkReporter, EventReporter,
                                  RunState, check_recipe, RunDirectoryError, RunLockError, RetryError,
-                                 StopPointError, next_stage, run_state)
-    from TauFW.Framework._internal.runtime.framework import retryable_stage, failed_stage
+                                 StopPointError, run_state)
+    from TauFW.Framework._internal.runtime.framework import retryable_stage, NEXT_STAGE
+    from TauFW.Framework._internal.runtime.run_recipe import pending_change
     from TauFW.Framework._internal.recipes.bundle import BundleError, make_bundle
     from TauFW.Framework._internal.recipes.configs import LOCK_NAME, lock_changes, update
     from TauFW.Framework._internal.defaults import (DEFAULT_RUN_ROOT, DEFAULT_POLL_SECONDS, ANALYSES_DIR, CONFIGS_DIR,
@@ -203,12 +204,7 @@ def cmd_advance(args):
     record = load_run(args.run_dir)
     framework = Framework.from_record(record, reporter=reporter)
     step = framework.retry if args.command == 'retry' else framework.advance
-    until = args.until
-    if args.next:  # retry: the failed stage; advance: the first stage that is not DONE
-        until = ((failed_stage(record) or (None,))[0] if args.command == 'retry' else None) or next_stage(record)
-        if until is None:
-            reporter.message("Run %s: every stage is DONE, there is no next stage" % (record.run_id))
-            return _finish(reporter, record)
+    until = NEXT_STAGE if args.next else args.until  # retry: the failed stage; advance: the first not DONE
     try:
         record = step(record, wait=not args.no_wait, poll=args.poll, take_lock=args.take_lock, until=until)
     except StopPointError as error:
@@ -231,6 +227,9 @@ def cmd_status(args):
     reporter.header("Run %s: %s" % (summary.run_id, run_state(record)))
     reporter.table(["stage", "state", "attempt", "message"],
                    [(s.stage, s.state, s.attempt, s.message) for s in summary.stages])
+    pending = pending_change(record)  # the run's recipe file was edited since the last advance (CL §55)
+    if pending:
+        reporter.warning(pending)
     for stage in summary.stages:
         if stage.live is not None and hasattr(stage.live, 'samples'):  # production: a PicoProducer StageStatus
             reporter.header("Stage %s: jobs" % (stage.stage))

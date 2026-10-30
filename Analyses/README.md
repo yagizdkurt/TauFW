@@ -812,6 +812,13 @@ your `start` command. `start`, `advance` and `retry` wait for the batch jobs
 until the run is done, failed or at its stop point; `--no-wait` makes them
 return as soon as a stage waits for jobs. `--poll`, `--until`, `--next` and
 `--no-wait` work on all three.
+
+**A run has its own recipe.** `<run dir>/bundle/recipe.yml` is a copy of the
+recipe the run started with, and the next `advance` reads it: edit it there to
+change the options of the stages that have not run yet, or to add and remove
+stages after production. Your bundle in `Analyses/` stays as it is (it is for
+new runs). `taufw status <run dir>` says what the next advance does with an
+edit; a stage that is already `DONE` keeps its output.
 `start --run-root /path/to/runs` puts the run there instead of the recipe's
 [`run_root`](#where-the-runs-go-run_root).
 `status` reads recorded and live state without submitting jobs or saving changes.

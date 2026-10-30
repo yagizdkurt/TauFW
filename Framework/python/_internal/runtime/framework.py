@@ -7,8 +7,8 @@ Purpose:  run the stages of an analysis (production -> shapes -> fit) one after 
           production stage, for example, calls the PicoProducer API).
 Inputs:   a recipe (a Recipe, an analysis bundle directory, or a .yml/.json file) and the files it names.
 Outputs:  a run directory <run_root>/<name>_<YYYYmmdd-HHMMSS>/ (run_root: the recipe's, default taufw_runs/)
-          with run.json (the state), run.log (the messages), bundle/ (a copy of the bundle files the run uses),
-          logs/<stage id>/ (the Framework's files of each stage) and stages/<stage id>/ (what the stage makes,
+          with run.json (the state), run.log (the messages), bundle/ (a copy of the bundle files the run uses,
+          and recipe.yml: the run's own recipe), recipes/ (a copy of every version of it), logs/<stage id>/ (the Framework's files of each stage) and stages/<stage id>/ (what the stage makes,
           and its manifest.json once it is DONE; production: its merged pico tuples,
           <era>/<group>/<sample>_<channel>.root, with their pattern on the artifacts).
 
@@ -29,6 +29,13 @@ Pipeline map:
     stop point:  until=<stage id> (start, advance, retry, run; `--until`, `--next` in taufw.py) stops the call once
                  that stage is DONE, also when it was DONE before; the run is then PAUSED (RunState). A run that
                  an advance works on now is RUNNING (run_state: read from its advance lock, never from run.json).
+                 until=NEXT_STAGE: the first stage that is not DONE (retry: the failed one), once the run's recipe
+                 is read.
+    run recipe:  <run_dir>/bundle/recipe.yml is the run's own recipe (run_recipe.py, CL §55): every advance and
+                 retry reads it first, and takes a change after its checks (edit rules, `taufw check`, samples;
+                 a problem is a RecipeError and nothing moves): run.json recipe and recipe_changed, a copy in
+                 recipes/recipe_<N>.yml; an added stage is NEW; a removed one is archived to logs/<id>/attempt<N>/
+                 and its record moved to run.json removed; a changed stage that is DONE is kept (only recorded).
     stage data:  every stage gets a StageContext: the run directory (logs: <run_dir>/logs/<stage id>/, output:
                  <run_dir>/stages/<stage id>/),
                  its inputs (slot -> stage id, from the recipe) and the artifacts of those stages once they are
@@ -44,7 +51,8 @@ Pipeline map:
                  while it works and waits; a second advance of the run is refused (RunLockError), also from another
                  machine, until the lock is released or lost (then taken over: see run_lock.py).
     bundle:      start() copies the bundle files the recipe uses to <run_dir>/bundle/; the run reads them from
-                 there, so later edits of the bundle never change a run (see bundle.py). Every advance compares
+                 there, so later edits of the bundle never change a run (see bundle.py; the run's recipe.yml is
+                 not one of these files). Every advance compares
                  that copy with its start: a change is warned about once and recorded (run.json bundle.changed;
                  the manifests of the stages that run after it: bundle_changed), CL §44.
     retry:       a FAILED stage stops the run; advance() never moves it. retry() (taufw.py retry) sets it back
@@ -66,12 +74,13 @@ Public API:
   run_state(record), live_state(state, lock)  the RunState with RUNNING while an advance holds the run's lock
   RetryError                                  retry() cannot run the failed stage again
   StopPointError                              until= names no stage of the run
+  NEXT_STAGE                                  until= for the next stage (`--next` of advance and retry)
   check_writable(directory, what)             write and remove a small file (RunDirectoryError if it fails)
   RunPlan, RunSummary, StageSummary           records (bottom of this file)
 """
 import os, json, re, shutil, time
 from contextlib import nullcontext
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from typing import Mapping, Optional, Tuple
 from TauFW.Framework._internal.defaults import (DEFAULT_RUN_ROOT, RUN_LOG_NAME, DEFAULT_POLL_SECONDS, BUNDLE_DIR_NAME,
@@ -81,7 +90,10 @@ from TauFW.Framework._internal.recipes.bundle import (path_rows, snapshot, make_
 from TauFW.Framework._internal.runtime.manifest import write_manifest, ManifestError
 from TauFW.Framework._internal.recipes.recipe import Recipe, RecipeError, Issue
 from TauFW.Framework._internal.recipes.samples import sample_issues
-from TauFW.Framework._internal.runtime.run_record import RunRecord, RunState
+from TauFW.Framework._internal.runtime.run_record import RunRecord, RunState, StageRecord
+from TauFW.Framework._internal.runtime.run_recipe import (write_run_recipe, read_run_recipe, run_recipe_file,
+                                                          recipe_copy, recipe_changes, edit_problems, changes_text,
+                                                          saved_dict)
 from TauFW.Framework._internal.runtime.run_lock import RunLock, RunLockError, read_lock
 from TauFW.Framework._internal.runtime.interrupts import deferred_interrupt
 from TauFW.Framework._internal import user_settings
@@ -93,13 +105,14 @@ from TauFW.Framework.stages import (STAGES, StageState, StageContext, StageNotIm
 
 __all__ = ['Framework', 'RunPlan', 'StagePlan', 'RunSummary', 'StageSummary', 'load_run', 'check_writable',
            'failed_stage', 'retryable_stage', 'next_stage', 'run_state', 'live_state', 'RunDirectoryError',
-           'RetryError', 'StopPointError', 'RunLockError', 'RUN_LOG_NAME', 'DEFAULT_RUN_ROOT']
+           'RetryError', 'StopPointError', 'RunLockError', 'RUN_LOG_NAME', 'DEFAULT_RUN_ROOT', 'NEXT_STAGE']
 
 
 # =============================================================================
 # ================================= CONSTANTS =================================
 
 
+NEXT_STAGE = ':next'  # until= for the first stage that is not DONE (retry: the failed one); never a stage id
 MAX_STEPS = 8  # most steps one stage may take in one advance() call (a safety net against a stage that never settles)
 ATTEMPT_DIR = 'attempt%d'              # logs/<id>/attempt<N>/: a failed attempt, moved there by a retry (CL §44)
 ATTEMPT_NAME = re.compile(r'attempt\d+$')
@@ -186,6 +199,7 @@ class Framework:
         if recipe.bundle_dir:  # first: a bundle that is too large stops here, before the run directory exists
             record.bundle = snapshot(recipe, os.path.join(record.run_dir, BUNDLE_DIR_NAME))
         self.files.make_directory(record.run_dir)
+        write_run_recipe(recipe, record.run_dir, self.files)
         self.reporter.attach_log(os.path.join(record.run_dir, RUN_LOG_NAME))
         self.reporter.header("TauFW run %s" % (record.run_id))
         self.reporter.message("Run directory: %s" % (record.run_dir))
@@ -196,12 +210,15 @@ class Framework:
         """Step the stages in order until one waits for the batch system, fails or is not implemented. run.json is
         saved after every step. With wait=True, this is repeated every `poll` seconds while the run is waiting.
         until: a stage id: stop once that stage is DONE (at once if it is DONE already); the run is then PAUSED.
-        StopPointError (before the lock is taken) if it names no stage of the run.
+        StopPointError (before the lock is taken) if it names no stage of the run. NEXT_STAGE: the first stage
+        that is not DONE, after the run's recipe is read (none: the run is DONE, nothing to stop after).
         The run directory is first tried with a small file written and removed (RunDirectoryError if that fails,
         e.g. an expired AFS token), before any stage moves. The run's advance lock is held throughout
         (run_lock.py): RunLockError if another advance holds it; take_lock=True takes over a lost lock of another
         machine (a lost lock of this machine, whose process is gone, is always taken over).
-        Before the stages move, the run's bundle copy is compared with its start (_check_bundle, CL §44).
+        Before the stages move, the run's own recipe (bundle/recipe.yml) is read and an edit of it taken
+        (_take_run_recipe, CL §55; RecipeError if it is refused, and nothing moves), and the run's bundle copy is
+        compared with its start (_check_bundle, CL §44).
         Side effects: whatever the stages do (production: submit, resubmit, merge); run.json and run.log;
         <run_dir>/advance.lock while it runs."""
         return self._locked(record, wait, poll, take_lock, until=until)
@@ -212,13 +229,14 @@ class Framework:
         (logs/<id>/ and stages/<id>/) is moved to logs/<id>/attempt<N>/ first; WAITING for a production stage after
         max_tries (nothing moved; CL §48). The attempt is recorded in the stage's `retries` (run.json), with the
         bundle copy's changes since the start and the stage's retry_fields(). RetryError if the stage cannot be
-        retried or the run has no failed stage. Lock, wait, poll, until and side effects as in advance() (CL §44)."""
+        retried or the run has no failed stage. Lock, wait, poll, until (NEXT_STAGE: the failed stage), the run's
+        recipe and side effects as in advance() (CL §44)."""
         return self._locked(record, wait, poll, take_lock, retry=True, until=until)
 
     def _locked(self, record, wait, poll, take_lock, retry=False, until=None):
-        """advance() or retry(): check the stop point and the run directory, take the run's advance lock, then
-        work."""
-        _check_until(until, [stage_spec.id for stage_spec in self._recipe_of(record).stages], record.run_id)
+        """advance() or retry(): check the stop point and the run directory, take the run's advance lock, read the
+        run's recipe, then work."""
+        _check_until(until, self._stage_ids(record), record.run_id)
         check_writable(record.run_dir, "run directory")
         with RunLock(record.run_dir, take=take_lock) as lock:
             if lock.taken is not None:
@@ -227,8 +245,13 @@ class Framework:
                        "no sign of life for %.0f s" % (taken.get('quiet', 0)))
                 self.reporter.warning("Took over the advance lock of pid %s on %s (since %s, %s)"
                                       % (taken.get('pid'), taken.get('host'), taken.get('since'), why))
+            self.reporter.attach_log(os.path.join(record.run_dir, RUN_LOG_NAME))
+            self._take_run_recipe(record)
+            if until == NEXT_STAGE:
+                until = ((failed_stage(record) or (None,))[0] if retry else None) or next_stage(record)
+                if until is None:
+                    self.reporter.message("Run %s: every stage is DONE, there is no next stage" % (record.run_id))
             if retry:
-                self.reporter.attach_log(os.path.join(record.run_dir, RUN_LOG_NAME))
                 self._retry_failed(record)
             return self._advance(record, wait, poll, lock, until)
 
@@ -237,6 +260,7 @@ class Framework:
         self.reporter.attach_log(os.path.join(record.run_dir, RUN_LOG_NAME))
         self.reporter.event('run', run_id=record.run_id, run_dir=record.run_dir)
         while True:
+            self._take_run_recipe(record)
             self._check_bundle(record)
             stopped = self._advance_stages(record, lock, until)
             record.save(self.files)
@@ -444,6 +468,92 @@ class Framework:
                               % (stage_id, state.value, attempt, kept, raised))
         self.reporter.event('stage_state', stage=stage_id, state=state.value, message="retry")
 
+    def _take_run_recipe(self, record):
+        """Read the run's own recipe (<run_dir>/bundle/recipe.yml, run_recipe.py) and, if it is not the one in
+        run.json, check it and take it (CL §55): the edit rules, every check of `taufw check` and the samples check
+        (RecipeError listing the problems; nothing is changed). Taken: the stage records follow the new order (an
+        added stage NEW; a removed one archived, _remove_stage); a changed stage that is not DONE runs with its
+        new options (its request is saved again), one that is DONE keeps its state and output and is warned
+        about; run.json recipe and recipe_changed, and a copy recipes/recipe_<N>.yml. A run without the file
+        (started before CL §55) keeps its run.json recipe."""
+        recipe, issues = read_run_recipe(record, full=False)
+        if (recipe is None and not issues) or (recipe is not None and saved_dict(recipe) == record.recipe):
+            return
+        path = run_recipe_file(record.run_dir)
+        recipe, issues = read_run_recipe(record)
+        if issues:
+            raise RecipeError(path, list(issues))
+        new = saved_dict(recipe)
+        changes = recipe_changes(record.recipe, new)
+        problems = edit_problems(record.recipe, new, changes)
+        if problems:
+            raise RecipeError(path, problems)
+        self.stages.update(_build_stages([stage_spec for stage_spec in recipe.stages
+                                          if stage_spec.id not in self.stages], recipe, self.reporter, self.apis))
+        problems, warnings = self._sample_issues(recipe)
+        if problems:
+            raise RecipeError(path, problems)
+        for warning in warnings:
+            self.reporter.warning(str(warning))
+        version, now = len(record.recipe_changed) + 1, self._now()
+        self.files.make_directory(os.path.dirname(recipe_copy(record.run_dir, version)))
+        self.files.copy_file(path, recipe_copy(record.run_dir, version), overwrite=True)
+        kept = {stage_record.name: stage_record for stage_record in record.stages}
+        for stage_id, change in changes.items():
+            if change == 'removed':
+                self._remove_stage(record, kept.pop(stage_id), version, now)
+        done = [stage_id for stage_id, change in changes.items()
+                if change == 'changed' and kept[stage_id].state == StageState.DONE]
+        stages = []
+        for stage_spec in recipe.stages:
+            stage_record = kept.get(stage_spec.id)
+            if stage_record is None:
+                stage_record = StageRecord(name=stage_spec.id)
+                stage_record.log('added', "added in recipe version %d" % (version), time=now)
+            elif stage_spec.id in done:
+                stage_record.log('recipe', "changed in recipe version %d; DONE with its old options" % (version),
+                                 time=now)
+            elif changes.get(stage_spec.id) == 'changed':
+                stage_record.request = None  # saved again at its next step, with the new options
+                stage_record.log('recipe', "changed in recipe version %d" % (version), time=now)
+            stages.append(stage_record)
+        record.stages = stages
+        record.recipe = new
+        record.recipe_changed.append({'time': now, 'version': version, 'stages': changes, 'done': done})
+        self.recipe = recipe
+        record.save(self.files)
+        self.reporter.message("The recipe of run %s changed (version %d, %s): %s"
+                              % (record.run_id, version, os.path.relpath(recipe_copy(record.run_dir, version),
+                                                                         record.run_dir),
+                                 changes_text(changes) or "no stage changed"))
+        for stage_id in done:
+            self.reporter.warning("Stage %s is DONE with its old options: the stages after it read that output. To run "
+                                  "it with the new ones: taufw rerun %s %s" % (stage_id, record.run_dir, stage_id))
+
+    def _remove_stage(self, record, stage_record, version, now):
+        """A stage that a change of the run's recipe removed: what it left (logs/<id>/, stages/<id>/) is moved to
+        logs/<id>/attempt<N>/ (N: the next free number), and its record goes to run.json removed."""
+        context = StageContext(run_dir=record.run_dir, stage_id=stage_record.name)
+        log_dir, stage_dir = context.log_dir(), context.stage_dir()
+        left = os.path.isdir(stage_dir) or (os.path.isdir(log_dir) and any(not ATTEMPT_NAME.match(name)
+                                                                           for name in os.listdir(log_dir)))
+        archive = None
+        if left:
+            os.makedirs(log_dir, exist_ok=True)
+            archive = os.path.relpath(_archive_attempt(log_dir, stage_dir, _next_attempt(log_dir)), record.run_dir)
+        stage_record.log('removed', "removed in recipe version %d%s"
+                         % (version, "; moved to %s" % (archive) if archive else ""), time=now)
+        record.removed.append(_jsonable(dict(asdict(stage_record),
+                                             removed={'time': now, 'version': version, 'archive': archive})))
+        self.reporter.message("Stage %s: removed from the recipe%s" % (stage_record.name,
+                                                                         "; moved to %s" % (archive) if archive else ""))
+
+    def _stage_ids(self, record):
+        """The stage ids of a run, as its next advance sees them: those of its recipe file if it can be read
+        (its change is checked later), else those of run.json."""
+        recipe, _ = read_run_recipe(record, full=False)
+        return [stage_spec.id for stage_spec in (recipe or self._recipe_of(record)).stages]
+
     def _check_bundle(self, record):
         """Compare the run's bundle copy with its hashes from the start (run.json bundle.sha256). A change not seen
         before is warned about once and added to bundle.changed: the run is not clean any more (run_record.py).
@@ -534,35 +644,16 @@ class Framework:
         runner:  the ProcessRunner of the python steps (default: new).
         tes_shapes: the API of the shapes stage (default: TauFW.Histogrammer.api.TESShapes(); the Fitter's until
                  CL §22 H3).
-        Only the APIs of the stages in the recipe are built. Only reads files."""
+        Only the APIs of the stages in the recipe are built (a stage that an edit of the run's recipe adds gets
+        them later, _take_run_recipe). Only reads files."""
         if isinstance(recipe, str):
             recipe = Recipe.load(recipe)
         reporter = reporter or FrameworkReporter()
-        stages = {}
-        for stage_spec in recipe.stages:
-            name, stage_id = stage_spec.stage, stage_spec.id
-            if name == 'production':
-                settings = user_settings.production_settings()
-                stages[stage_id] = ProductionStage(pico or _picoproducer(recipe, reporter, settings.overrides),
-                                                   settings)
-            elif name == 'controlhists':
-                histogrammer = histogrammer or _histogrammer()
-                stages[stage_id] = ControlHistsStage(histogrammer)
-            elif name == 'controlplots':
-                plotter = plotter or _plotter()
-                stages[stage_id] = ControlPlotsStage(plotter)
-            elif name == 'shapes':
-                tes_shapes = tes_shapes or _tes_shapes()
-                histogrammer = histogrammer or _histogrammer()
-                stages[stage_id] = ShapesStage(tes_shapes, samples_api=histogrammer)
-            elif name == 'fit':
-                fitter = fitter or _fitter()
-                stages[stage_id] = FitStage(fitter)
-            elif name == 'python':
-                stages[stage_id] = PythonStage(runner=runner)
-            else:
-                stages[stage_id] = STAGES[name]()
-        return cls(recipe, stages, reporter=reporter)
+        apis = dict(pico=pico, fitter=fitter, histogrammer=histogrammer, plotter=plotter, runner=runner,
+                    tes_shapes=tes_shapes)
+        framework = cls(recipe, _build_stages(recipe.stages, recipe, reporter, apis), reporter=reporter)
+        framework.apis = apis
+        return framework
 
     @classmethod
     def from_record(cls, record, reporter=None, pico=None, fitter=None, histogrammer=None, plotter=None,
@@ -581,6 +672,7 @@ class Framework:
         self.files = files or default_file_io()
         self.sleep = sleep or time.sleep
         self.clock = clock or datetime.now
+        self.apis = {}  # the module APIs of from_recipe(), for the stages an edit of a run's recipe adds
 
     def close(self):
         """Nothing is held open; kept for `with Framework.from_recipe(...) as fw:`."""
@@ -705,8 +797,9 @@ class StopPointError(ValueError):
 
 
 def _check_until(until, stage_ids, name):
-    """StopPointError if `until` is given and is not one of the stage ids of the run (or recipe) `name`."""
-    if until is not None and until not in stage_ids:
+    """StopPointError if `until` is given and is not one of the stage ids of the run (or recipe) `name` (nor
+    NEXT_STAGE)."""
+    if until is not None and until != NEXT_STAGE and until not in stage_ids:
         raise StopPointError("%s has no stage %r to stop after (stages: %s)" % (name, until, ", ".join(stage_ids)))
 
 
@@ -760,6 +853,43 @@ def _read_sources(stage_spec):
         sources[slot] = source.summary()
         artifacts[path] = source.artifacts
     return sources, artifacts, problems
+
+
+def _build_stages(stage_specs, recipe, reporter, apis):
+    """stage id -> Stage object for some stages of a recipe. apis: the module APIs to use (pico, fitter,
+    histogrammer, plotter, runner, tes_shapes; None: built here, and kept in apis for the next stages)."""
+    stages = {}
+    for stage_spec in stage_specs:
+        name, stage_id = stage_spec.stage, stage_spec.id
+        if name == 'production':
+            settings = user_settings.production_settings()
+            stages[stage_id] = ProductionStage(apis.get('pico') or _picoproducer(recipe, reporter, settings.overrides),
+                                               settings)
+        elif name == 'controlhists':
+            apis['histogrammer'] = apis.get('histogrammer') or _histogrammer()
+            stages[stage_id] = ControlHistsStage(apis['histogrammer'])
+        elif name == 'controlplots':
+            apis['plotter'] = apis.get('plotter') or _plotter()
+            stages[stage_id] = ControlPlotsStage(apis['plotter'])
+        elif name == 'shapes':
+            apis['tes_shapes'] = apis.get('tes_shapes') or _tes_shapes()
+            apis['histogrammer'] = apis.get('histogrammer') or _histogrammer()
+            stages[stage_id] = ShapesStage(apis['tes_shapes'], samples_api=apis['histogrammer'])
+        elif name == 'fit':
+            apis['fitter'] = apis.get('fitter') or _fitter()
+            stages[stage_id] = FitStage(apis['fitter'])
+        elif name == 'python':
+            stages[stage_id] = PythonStage(runner=apis.get('runner'))
+        else:
+            stages[stage_id] = STAGES[name]()
+    return stages
+
+
+def _next_attempt(log_dir):
+    """The next free N of logs/<id>/attempt<N>/ (1 if there is none)."""
+    numbers = [int(name[len('attempt'):]) for name in (os.listdir(log_dir) if os.path.isdir(log_dir) else ())
+               if ATTEMPT_NAME.match(name)]
+    return max(numbers, default=0) + 1
 
 
 def _archive_attempt(log_dir, stage_dir, attempt):

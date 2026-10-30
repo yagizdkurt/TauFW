@@ -195,6 +195,22 @@ This command needs to stay running. Use `screen` or `tmux` if you want it to kee
 Stopping `advance` doesn't cancel batch jobs that were already submitted. Run it again on the same folder
 to continue. Running `start` again creates a separate run.
 
+## Changing a run's recipe
+
+A run keeps its own copy of the recipe in `"$run_dir"/bundle/recipe.yml`. To change a stage that has not run yet,
+edit that file, not the one in `Analyses/`:
+
+```bash
+taufw start Analyses/Examples/cmsdas26_ztt --until plots
+vim "$run_dir"/bundle/recipe.yml      # e.g. change an option of the next stage
+taufw status "$run_dir"               # "bundle/recipe.yml was edited (...): the next advance takes it"
+taufw advance "$run_dir" --next
+```
+
+The next `advance` checks the file like `taufw check` does, and refuses an edit of production or of the stages
+before it, or a new type for a stage id. A stage that is already `DONE` keeps its output. Every version is kept in
+`"$run_dir"/recipes/`.
+
 ## Retrying a failed stage
 
 Read the failure message and `run.log`, then fix the cause before retrying:

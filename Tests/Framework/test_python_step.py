@@ -138,8 +138,8 @@ class PythonStepTests(PythonStepTestCase):
         self.assertEqual((manifest["stage_id"], manifest["stage"], manifest["inputs"], manifest["artifacts"]),
                          ("make", "python", None, make.artifacts))
         self.assertEqual(sorted(record.bundle["files"]), sorted(os.path.normpath(p) for p in (  # the whole bundle
-            "configs/pico.json", "configs/scale.txt", "recipe.yml", "steps/helper.py", "steps/make.py",
-            "steps/use.py")))
+            "configs/pico.json", "configs/scale.txt", "steps/helper.py", "steps/make.py",
+            "steps/use.py")))  # not recipe.yml: the run's own recipe, outside the hashes (CL §55)
         loaded = RunRecord.load(record.run_dir)
         self.assertEqual([s.name for s in loaded.stages], ["make", "use"])  # stage records are named by id
         self.assertEqual(loaded.recipe["stages"][1]["inputs"], {"numbers": "make"})
@@ -389,6 +389,174 @@ class StopPointTests(PythonStepTestCase):
             self.assertEqual(live_state(state, lock), shown, (state, lock))
         record = self.three().start(run_root=os.path.join(self.root, "runs"), until="make")
         self.assertEqual(run_state(record), "PAUSED")  # no advance holds the lock now
+
+
+class RunRecipeTests(PythonStepTestCase):
+    """Plan 24 step 2 (CL §55): <run_dir>/bundle/recipe.yml is the run's own recipe; every advance takes its edits."""
+    framework, three = StopPointTests.framework, StopPointTests.three
+
+    def started(self, until="make"):
+        return self.three().start(run_root=os.path.join(self.root, "runs"), until=until)
+
+    def edit(self, record, change):
+        """Change the run's recipe file (JSON, as the tests write it) with change(data)."""
+        path = os.path.join(record.run_dir, "bundle", "recipe.yml")
+        with open(path) as stream:
+            data = json.load(stream)
+        change(data)
+        with open(path, "w") as stream:
+            json.dump(data, stream)
+        return path
+
+    def advance(self, record, **options):
+        loaded = RunRecord.load(record.run_dir)
+        return Framework.from_record(loaded, reporter=self.reporter).advance(loaded, **options)
+
+    def warnings(self, text):
+        return [message for kind, message in self.reporter.messages if kind == "warning" and text in message]
+
+    def test_the_run_starts_with_a_copy_of_the_recipe_file(self):
+        self.write("recipe.yml", "# my comment\n" + json.dumps({"name": "steps", "stages": [step("make", options={
+            "n": 2})]}))
+        record = Framework(Recipe.load(self.bundle), {"make": PythonStage()}, reporter=self.reporter,
+                           clock=Clock()).start(run_root=os.path.join(self.root, "runs"))
+        for path in (("bundle", "recipe.yml"), ("recipes", "recipe_0.yml")):
+            with open(os.path.join(record.run_dir, *path)) as stream:
+                self.assertTrue(stream.read().startswith("# my comment\n"), path)  # the text, comments kept
+        saved = self.read_run(record)
+        self.assertNotIn("recipe.yml", saved["bundle"]["files"])
+        self.assertNotIn("recipe.yml", saved["bundle"]["sha256"])
+        self.assertEqual([key for key in ("recipe_changed", "removed") if key in saved], [])  # never changed
+        recipe = Recipe.from_dict({"name": "code", "stages": [step("make", options={"n": 1})]}, bundle_dir=self.bundle)
+        record = Framework(recipe, {"make": PythonStage()}, reporter=self.reporter,
+                           clock=Clock()).start(run_root=os.path.join(self.root, "runs"))
+        self.assertEqual(self.advance(record).recipe_changed, [])  # a Recipe made in code: its dict, read back the same
+
+    def read_run(self, record):
+        with open(record.path) as stream:
+            return json.load(stream)
+
+    def test_a_new_stage_runs_with_its_new_options(self):
+        record = self.started()
+        self.edit(record, lambda data: data["stages"][2]["options"].update(n=4))
+        record = self.advance(record)
+        self.assertEqual(record.state, "DONE")
+        self.assertEqual(record.stage("last").artifacts[0]["n"], 4)
+        self.assertEqual([(c["version"], c["stages"], c["done"]) for c in record.recipe_changed],
+                         [(1, {"last": "changed"}, [])])
+        self.assertEqual(record.recipe["stages"][2]["options"], {"n": 4})
+        self.assertTrue(os.path.isfile(os.path.join(record.run_dir, "recipes", "recipe_1.yml")))
+        self.assertIn("recipe", [h["event"] for h in record.stage("last").history])
+        self.assertEqual(self.warnings("bundle copy"), [])  # recipe.yml is not a bundle file
+        self.assertIn(("message", "The recipe of run %s changed (version 1, %s): last changed"
+                       % (record.run_id, os.path.join("recipes", "recipe_1.yml"))), self.reporter.messages)
+        self.assertEqual(self.advance(record).recipe_changed, record.recipe_changed)  # taken once
+
+    def test_a_done_stage_is_only_recorded(self):
+        record = self.started()
+        made = list(record.stage("make").artifacts)
+        self.edit(record, lambda data: data["stages"][0]["options"].update(n=9))
+        record = self.advance(record, until="use")
+        self.assertEqual([s.state for s in record.stages], ["DONE", "DONE", "NEW"])
+        self.assertEqual(record.stage("make").artifacts, made)  # kept: made with n=3
+        self.assertEqual(record.recipe_changed[0]["done"], ["make"])
+        self.assertEqual(len(self.warnings("Stage make is DONE with its old options")), 1)
+        self.assertIn("taufw rerun %s make" % (record.run_dir), self.warnings("old options")[0])
+
+    def test_added_and_removed_stages(self):
+        record = self.started(until="use")
+        self.edit(record, lambda data: data["stages"].__setitem__(1, step("extra", file="steps/make.py",
+                                                                          options={"n": 2})))
+        record = self.advance(record)
+        self.assertEqual(([s.name for s in record.stages], record.state), (["make", "extra", "last"], "DONE"))
+        self.assertEqual(record.recipe_changed[0]["stages"], {"extra": "added", "use": "removed"})
+        removed = record.removed[0]
+        archive = os.path.join("logs", "use", "attempt1")
+        self.assertEqual((removed["name"], removed["state"], removed["removed"]["archive"]), ("use", "DONE", archive))
+        self.assertEqual(sorted(os.listdir(os.path.join(record.run_dir, archive))),
+                         ["01_use.log", "context.json", "result.json", "stage"])
+        self.assertFalse(os.path.exists(os.path.join(record.run_dir, "stages", "use")))
+        self.assertEqual(self.read_run(record)["removed"][0]["name"], "use")
+        self.edit(record, lambda data: data["stages"].insert(1, step("use", inputs={"numbers": "make"})))
+        record = self.advance(record)  # the id again: a new record, the next attempt number
+        self.assertEqual((record.stage("use").state, len(record.removed)), ("DONE", 1))
+        self.edit(record, lambda data: data["stages"].pop(1))
+        record = self.advance(record)
+        self.assertEqual([r["removed"]["archive"] for r in record.removed], [archive, os.path.join("logs", "use",
+                                                                                                    "attempt2")])
+
+    def test_a_refused_edit_changes_nothing(self):
+        record = self.started()
+        saved = self.read_run(record)
+        for change, text in (
+                (lambda data: data["stages"].pop(0), "no stage 'make' in the recipe"),  # use reads it: the checks of taufw check
+                (lambda data: data.update(name="other"), "name: cannot change in a run"),
+                (lambda data: data["stages"][2].update(file="steps/nope.py"), "is not a file of the bundle")):
+            path = self.edit(record, change)
+            with self.assertRaises(RecipeError) as context:
+                self.advance(record)
+            self.assertIn(text, str(context.exception))
+            self.assertEqual(self.read_run(record)["stages"], saved["stages"])
+            self.assertNotIn("recipe_changed", self.read_run(record))
+            self.assertIsNone(read_lock(record.run_dir))
+            shutil.copy(os.path.join(record.run_dir, "recipes", "recipe_0.yml"), path)  # undone
+
+    def test_next_and_status_see_the_edited_recipe(self):
+        cli = load_cli(self)
+        record = self.started()
+        self.edit(record, lambda data: data["stages"].pop(1))  # use, the next stage, is removed
+        from TauFW.Framework._internal.runtime.run_recipe import pending_change
+        self.assertEqual(pending_change(RunRecord.load(record.run_dir)),
+                         "%s was edited (use removed): the next advance takes it" % (os.path.join("bundle",
+                                                                                                  "recipe.yml")))
+        self.assertEqual(cli.main(["status", record.run_dir]), 0)
+        self.assertEqual(cli.main(["advance", record.run_dir, "--next"]), 0)  # the next stage of the new recipe
+        record = RunRecord.load(record.run_dir)
+        self.assertEqual(([s.name for s in record.stages], record.state), (["make", "last"], "DONE"))
+        self.assertIsNone(pending_change(record))
+        self.edit(record, lambda data: data.update(name="other"))
+        self.assertIn("the next advance refuses it (name: cannot change", pending_change(record))
+        self.assertEqual(cli.main(["advance", record.run_dir]), 1)
+
+    def test_a_run_without_the_file_keeps_its_recipe(self):
+        record = self.started()
+        os.remove(os.path.join(record.run_dir, "bundle", "recipe.yml"))  # a run started before CL §55
+        record = self.advance(record)
+        self.assertEqual((record.state, record.recipe_changed), ("DONE", []))
+
+    def test_edit_rules(self):
+        from TauFW.Framework._internal.runtime.run_recipe import edit_problems, recipe_changes
+        production = {"stage": "production", "id": "production", "inputs": None, "eras": ["2018"]}
+        hists = {"stage": "controlhists", "id": "hists", "inputs": {"tuples": "production"}}
+        plots = {"stage": "controlplots", "id": "plots", "inputs": {"hists": "hists"}}
+        prep = step("prep")
+        old = {"name": "x", "pico": {"config": None}, "stages": [prep, production, hists, plots]}
+
+        def problems(**changes):
+            new = json.loads(json.dumps(old))
+            new.update(changes)
+            return [str(issue) for issue in edit_problems(old, new)]
+
+        self.assertEqual(problems(stages=[prep, production, plots, hists]), [])  # after production: free
+        self.assertEqual(problems(stages=[prep, production, dict(hists, eras=["2022"])]), [])
+        self.assertEqual(recipe_changes(old, dict(old, stages=[prep, production, plots, hists])),
+                         {"plots": "moved", "hists": "moved"})
+        for stages, text in (([prep, dict(production, eras=["2022"]), hists, plots], "Undo: production changed"),
+                             ([dict(prep, options={"a": 1}), production, hists, plots], "Undo: prep changed"),
+                             ([production, prep, hists, plots], "Undo: prep moved, production moved"),
+                             ([step("new"), prep, production, hists], "Undo: new added"),
+                             ([prep, hists, plots], "Undo: production removed")):
+            found = problems(stages=stages)
+            self.assertEqual(len(found), 1, found)
+            self.assertIn("stages: stage 'production' (production) and the stages before it cannot change", found[0])
+            self.assertIn(text, found[0])
+        self.assertIn("stage 'hists' is a controlhists stage in this run: a stage of another type needs another id",
+                      problems(stages=[prep, production, dict(hists, stage="shapes"), plots])[0])
+        self.assertIn("pico.config: cannot change in a run with a production stage",
+                      problems(pico={"config": "pico.json"})[0])
+        self.assertIn("run_root: cannot change in a run", problems(run_root="/afs/x")[0])
+        self.assertIn("a run without a production stage cannot get one",
+                      edit_problems(dict(old, stages=[prep]), dict(old, stages=[prep, production]))[0].message)
 
 
 class ResultTests(unittest.TestCase):

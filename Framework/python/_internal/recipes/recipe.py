@@ -99,7 +99,7 @@ Public API:
   RecipeError          invalid recipe (its .issues list every problem)
 """
 import os, re, copy
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Optional, Tuple
 from TauFW.Framework._internal.recipes.bundle import leaves_bundle, is_bundle, is_absolute, path_rows
 from TauFW.Framework._internal.recipes.configs import copy_warnings
@@ -187,7 +187,9 @@ class Recipe:
     pico_config: the PicoProducer configuration as written (None: PicoProducer's default); see pico_config_path.
     bundle_dir:  the directory the path options are resolved against (the bundle; None: none).
     run_root:    the parent directory of the runs, absolute, as written (None: not set).
-    warnings:    what the recipe should change, though it can run (recipe_warnings)."""
+    warnings:    what the recipe should change, though it can run (recipe_warnings).
+    path:        the file it was read from (Recipe.load; None: made in code): a run starts with a copy of its text
+                 as its own recipe (run_recipe.py)."""
     name:        str
     stages:      Tuple[StageSpec, ...]
     pico_config: Optional[str] = None
@@ -195,6 +197,7 @@ class Recipe:
     bundle_dir:  Optional[str] = None
     run_root:    Optional[str] = None
     warnings:    Tuple[Issue, ...] = field(default=(), compare=False)
+    path:        Optional[str] = field(default=None, compare=False)
 
     def stage(self, stage_id):
         """The StageSpec with this id, or None."""
@@ -231,7 +234,8 @@ class Recipe:
         except Exception as error:  # a missing or unreadable file, a YAML syntax error, ...
             reason = "no such file" if not os.path.exists(path) else str(error)
             raise RecipeError(path, [Issue("", "cannot read the recipe: %s" % (reason))]) from None
-        return cls.from_dict(_outside_made_absolute(data, directory), source=source, bundle_dir=directory)
+        recipe = cls.from_dict(_outside_made_absolute(data, directory), source=source, bundle_dir=directory)
+        return replace(recipe, path=recipe_file(path))
 
     @classmethod
     def from_dict(cls, data, source="<recipe>", bundle_dir=None):
@@ -297,6 +301,11 @@ class Recipe:
 
 # =============================================================================
 # ============================== READING FILES ================================
+
+
+def recipe_file(path):
+    """The recipe file of a bundle directory (its recipe.yml) or recipe file, absolute."""
+    return os.path.abspath(os.path.join(path, RECIPE_NAME) if os.path.isdir(path) else path)
 
 
 def read_recipe(path, files=None):

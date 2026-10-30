@@ -2163,17 +2163,27 @@ leave behind as long as nothing else can break, a read-only `--check`, Tab compl
 **Unchanged:** the installation, the installation record, the menu, every BBB baseline.
 
 
-## 55. Stop points, waiting by default, `PAUSED` (iterative runs, step 1)
+## 55. Iterative runs: a run is a workspace (plan 24)
 
 **Date:** 2026-10-30
-**Status:** done (lxplus check open: [TODO.md](TODO.md) section 1)
-**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#55-stop-points-waiting-by-default-paused-iterative-runs-step-1)
+**Status:** steps 1-2 done; steps 3-5 open. lxplus checks open: [TODO.md](TODO.md) section 1
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#55-iterative-runs-a-run-is-a-workspace-plan-24)
 
 **Why:** analysis is iteration (user, 2026-10-30): run up to a stage, look at its output, change a config, run it
-again, then go on. A run could only go from start to end. This is step 1 of the plan "a run is a workspace"
-(`LocalR/architecture/24-iterative-runs.md`: next the run's own editable recipe, then `taufw rerun <run> <id>`
-replacing `retry`, then the menu). User decisions: the stop point is a stage id; waiting for the jobs is the
-default (`--wait` removed); a stopped run is `PAUSED` (TODO B2).
+again, then go on. A run could only go from start to end, with the recipe it started with. The plan
+(`LocalR/architecture/24-iterative-runs.md`): one run directory is a workspace, every earlier try is kept in
+`logs/<id>/attempt<N>/`. All its steps are in this section:
+
+1. Stop points (`--until`, `--next`), waiting for the jobs by default, `PAUSED`: done.
+2. The run's own recipe (`<run>/bundle/recipe.yml`, read by every advance): done.
+3. `taufw rerun <run> <id>` (replaces `retry`: archives `<id>` and every stage after it, then runs them again): open.
+4. The menu (Advance until…, Rerun from…, Edit run config, Attempts, a confirm panel): open.
+5. Docs and the lxplus checks: open.
+
+### Step 1: stop points, waiting by default, `PAUSED`
+
+User decisions: the stop point is a stage id; waiting for the jobs is the default (`--wait` removed); a stopped run
+is `PAUSED` (TODO B2).
 
 **What changed:**
 
@@ -2200,3 +2210,45 @@ default (`--wait` removed); a stopped run is `PAUSED` (TODO B2).
   `Docs/Guide/4-Concepts/UsingFWWithCommands.md`, the menu's FAQ.
 
 **Unchanged:** run.json (the run state is not saved), every BBB baseline, `retry`, the bundle check.
+
+### Step 2: the run's own recipe
+
+User decisions (2026-10-30): `<run>/bundle/recipe.yml` is the run's recipe, in every run; it is never one of the
+bundle files (`bundle.files`, `sha256`, `bundle.changed`), so the BBB baseline of `framework.production` keeps
+`files: []`. Every advance reads it. Anything may change except the type of a stage id, production and every stage
+before it (production cannot run twice yet), `name` and `run_root`. The checks of `taufw check` and the samples
+check run on the edit. A change of a `DONE` stage is only recorded (the user chooses where to rerun from). A removed
+stage is archived and its record kept. Every change is recorded (run.json, and a full copy of the file).
+
+**What changed:**
+
+- **The file:** `start` writes `<run>/bundle/recipe.yml`: a copy of the recipe file's text, comments kept (a loose
+  `.json` recipe too: JSON is YAML; a `Recipe` made in code: its dict), and the same as `<run>/recipes/recipe_0.yml`.
+  `Recipe.path` is the file `Recipe.load` read. Its paths are read as at the start: against the run's bundle copy,
+  `../x` against the source bundle (`bundle.source`). New module `runtime/run_recipe.py` (reading, `recipe_changes`,
+  `edit_problems`, `pending_change`).
+- **Bundle copy:** `snapshot` and `bundle_hashes` leave `recipe.yml` out (bundle runs listed it before); the hashes of
+  a run started earlier lose it before a comparison (`without_recipe`), so they show no false change.
+- **Every advance and retry** (`Framework._take_run_recipe`, at the start of each check while it waits too) reads
+  the file; nothing to do when it is the run.json `recipe`. Otherwise, before any stage moves: the edit rules, every
+  check of `taufw check` (`validation.check_recipe_data`, split from `check_recipe`) and the samples check; a problem
+  is a `RecipeError` naming the file (exit 1), nothing changes, the file stays as it is.
+- **Taking a change:** the stage records follow the new order. An added stage is `NEW`. A removed one: its
+  `logs/<id>/` and `stages/<id>/` go to `logs/<id>/attempt<N>/` (N: the next free number) and its record to run.json
+  `removed` (with `removed: {time, version, archive}`); the same id added later is a new record. A changed stage
+  that is `NEW` or `FAILED` runs with its new options (its saved `request` is cleared); a `DONE` one keeps its state
+  and output, the history says so and a warning names `taufw rerun <run> <id>` (step 3). run.json `recipe` is the new
+  version, `recipe_changed` gets `{time, version, stages: {id: added|removed|changed|moved}, done}`, and the file is
+  copied to `recipes/recipe_<N>.yml`. A stage type that the run did not have gets its module API then
+  (`_build_stages`, split from `from_recipe`).
+- **Stop points:** `--until` accepts the stage ids of the edited file; `--next` of `advance` and `retry` is
+  `NEXT_STAGE`, resolved after the file is taken (the next stage of the new recipe; the "every stage is DONE"
+  message moved from taufw.py into the Framework).
+- **`taufw status`** says when the file was edited since the last advance, and whether the next advance takes it
+  ("bundle/recipe.yml was edited (fit changed): the next advance takes it") or refuses it (the first problem).
+- **TODO:** lift the production rule once production can run twice ([TODO.md](TODO.md) section 6).
+
+**Unchanged:** run.json schema 3 (`recipe_changed`, `removed` are written only when they have entries: a run whose
+recipe never changed is written as before), every BBB baseline (`framework.production`: a loose recipe, no bundle
+files; the run root is not part of the recorded tree), `retry` (step 3), the menu (step 4), a run started before
+CL §55 without `bundle/recipe.yml` (it keeps its run.json recipe).

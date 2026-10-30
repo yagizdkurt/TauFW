@@ -37,7 +37,10 @@ file put there before a retry): snapshot() records the sha256 of every copied fi
 copy with them (CL §44, framework.py). A bundle (a directory with recipe.yml) is copied whole, so a
 Python step can import the files next to it and read any bundle file (ctx.path); hidden files, __pycache__ and
 taufw_runs/ are left out, and a bundle above MAX_BUNDLE_BYTES is refused (keep data files outside the bundle). For
-a loose recipe file, only the files its options name are copied.
+a loose recipe file, only the files its options name are copied. The recipe itself is not one of these files:
+<run_dir>/bundle/recipe.yml is the run's own recipe, written by run_recipe.py (also for a loose recipe file), and
+its changes are recorded there (run.json recipe_changed), so it is never in bundle.files, the hashes or
+bundle.changed (CL §55).
 
 Inputs:  a Recipe (its bundle directory and its stages' path options).
 Outputs: resolved paths; snapshot() and make_bundle() write files.
@@ -65,7 +68,7 @@ from dataclasses import replace
 from TauFW.Framework._internal.defaults import CONFIGS_DIR, RECIPE_NAME, DEFAULT_RUN_ROOT
 
 __all__ = ['resolve', 'where', 'leaves_bundle', 'is_absolute', 'resolve_spec', 'path_rows', 'bundle_files', 'snapshot',
-           'bundle_hashes', 'bundle_changes', 'hashes_digest', 'is_bundle', 'make_bundle', 'source_files',
+           'bundle_hashes', 'bundle_changes', 'hashes_digest', 'without_recipe', 'is_bundle', 'make_bundle', 'source_files',
            'BundleError', 'STEP_TEMPLATE', 'MAX_BUNDLE_BYTES']
 
 
@@ -165,10 +168,11 @@ def bundle_files(recipe):
 
 def snapshot(recipe, target):
     """Copy the recipe's bundle (or, for a loose recipe file, the files its options name) to `target` (a run's
-    bundle/ directory), keeping the relative paths. Nothing is copied if the bundle is too large (BundleError).
+    bundle/ directory), keeping the relative paths; not its recipe.yml (the run's recipe is run_recipe.py's).
+    Nothing is copied if the bundle is too large (BundleError).
     Returns the record saved in run.json: {source: bundle directory, files: [relative paths]}."""
     if is_bundle(recipe.bundle_dir):
-        files = _bundle_tree(recipe.bundle_dir)
+        files = tuple(relative for relative in _bundle_tree(recipe.bundle_dir) if relative != RECIPE_NAME)
     else:
         files = bundle_files(recipe)
     size = sum(os.path.getsize(os.path.join(recipe.bundle_dir, relative)) for relative in files)
@@ -187,14 +191,16 @@ def snapshot(recipe, target):
 
 def bundle_hashes(directory):
     """{relative path: sha256} of every file of a run's bundle copy (the files a run would copy: no hidden files,
-    __pycache__ or run directories); {} if the directory does not exist."""
+    __pycache__ or run directories; not the run's recipe.yml); {} if the directory does not exist."""
     if not os.path.isdir(directory):
         return {}
-    return {relative: _sha256(os.path.join(directory, relative)) for relative in _bundle_tree(directory)}
+    return {relative: _sha256(os.path.join(directory, relative)) for relative in _bundle_tree(directory)
+            if relative != RECIPE_NAME}
 
 
 def bundle_changes(before, after):
     """{relative path: 'added', 'changed' or 'removed'} from one bundle_hashes() to another, sorted by path."""
+    before, after = without_recipe(before), without_recipe(after)
     changes = {}
     for relative in sorted(set(before) | set(after)):
         if relative not in before:
@@ -208,7 +214,12 @@ def bundle_changes(before, after):
 
 def hashes_digest(hashes):
     """One sha256 of a whole bundle_hashes(): equal digests, equal bundle copies."""
-    return hashlib.sha256(json.dumps(hashes, sort_keys=True).encode('utf-8')).hexdigest()
+    return hashlib.sha256(json.dumps(without_recipe(hashes), sort_keys=True).encode('utf-8')).hexdigest()
+
+
+def without_recipe(hashes):
+    """bundle_hashes() without recipe.yml: the hashes of a run started before CL §55 have it."""
+    return {relative: digest for relative, digest in hashes.items() if relative != RECIPE_NAME}
 
 
 def is_bundle(directory):

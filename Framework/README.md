@@ -29,7 +29,7 @@ The words below are used everywhere in the code and in this README.
 
 | Term | Meaning | In the code |
 |---|---|---|
-| **analysis bundle** | A directory `Analyses/<name>/` with `recipe.yml`, the config files the recipe uses and its Python steps; every path is relative to the directory of `recipe.yml`. A stage's path option names a bundle file, a `Configs/` template, an absolute file or (controlhists) a channel name; no module directory is searched (CL §38). A run copies the bundle to `<run dir>/bundle/` and reads only that copy. | `bundle.py` |
+| **analysis bundle** | A directory `Analyses/<name>/` with `recipe.yml`, the config files the recipe uses and its Python steps; every path is relative to the directory of `recipe.yml`. A stage's path option names a bundle file, a `Configs/` template, an absolute file or (controlhists) a channel name; no module directory is searched (CL §38). A run copies the bundle to `<run dir>/bundle/` and reads only that copy; its `recipe.yml` there is the run's own recipe (below). | `bundle.py` |
 | **recipe** | A YAML file that says what to run: a name, the PicoProducer configuration and a list of stages with their options. You write it; the Framework checks it before anything runs. | `Recipe` (`recipe.py`) |
 | **stage** | One step of the analysis: `production` (NanoAOD → pico tuples), `controlhists` (the histograms of the control plots, in a file), `controlplots` (the control plots drawn from that file), `shapes` (fit input shapes), `fit` (TES + tau ID fit), `python` (a Python file of the bundle). Each stage calls the API of its own package. | `Stage` subclasses (`stages/`) |
 | **stage id** | The name of a stage in a run, required for every stage (`id:`): `run.json` records, the stage's directories (`stages/<id>/`, `logs/<id>/`) and upstream artifacts are keyed by it, and `inputs:` refer to it. Unique; letters, digits, `_`, `.`, `-` (not `.` or `..`). Any stage may have any id. | `StageSpec.id` |
@@ -236,6 +236,20 @@ its files (`run.json` `bundle.sha256`), and a change (a file added, edited or re
 warned about once and recorded in `bundle.changed`. Such a run is not clean: the manifests of the stages that ran
 after the change say `bundle_changed: true` (CL §44).
 
+The run's own recipe is `<run dir>/bundle/recipe.yml`: `start` writes the recipe file's text there (comments kept)
+and as `recipes/recipe_0.yml`, and it is not one of the bundle files above. Edit it between two advances to change
+the run: every `advance` and `retry` reads it, and a change is taken after the checks of `taufw check` and these rules
+(`runtime/run_recipe.py`, CL §55):
+
+- The type of a stage id cannot change (a new type needs a new id), nor production and the stages before it,
+  `pico.config` in a run with production, `name` or `run_root`. Anything else may: options, stages added, removed or
+  moved after production (anything, in a run without production).
+- A changed stage that is `NEW` or `FAILED` runs with its new options. One that is `DONE` keeps its output (a warning
+  says so): rerun it to use them. An added stage is `NEW`; a removed one moves to `logs/<id>/attempt<N>/`.
+- `run.json` `recipe` is the version the stages run with; `recipe_changed` lists each change, and
+  `recipes/recipe_<N>.yml` is a copy of version N. A problem refuses the advance (exit 1) before any stage moves;
+  fix the file and advance again. `taufw status` says when the file was edited and what the next advance will do.
+
 If a stage raises an error (for example, the batch system cannot be reached), the error is recorded in the stage's
 history, the state is unchanged, and the command fails; run `advance` again when the problem is solved.
 
@@ -281,7 +295,9 @@ config (it keeps `config.json`).
 <run_root>/<name>_<YYYYmmdd-HHMMSS>/
   run.json    the run record (below)
   run.log     plain-text copy of the messages of every start/advance
-  bundle/     the run's copy of the bundle: the stages read their bundle files from here, never from the source
+  bundle/     the run's copy of the bundle: the stages read their bundle files from here, never from the source;
+              bundle/recipe.yml is the run's own recipe (it may be edited, above)
+  recipes/    recipe_<N>.yml: a copy of every version of the run's recipe (0: the start)
   logs/<stage id>/
               the Framework's files of a stage: one log per command of the local stages, NN_<label>.log (header
               with cwd and command line, the command's output, footer with exit code, duration and missing
@@ -323,12 +339,14 @@ of the stage) and in the reader's manifest.
  "recipe": {"name": "...", "pico": {"config": null}, "stages": [...]},
  "pico_config": {"path": ".../config/config.json", "snapshot": {...},
                  "user_config": {"path": ".../Analyses/UserConfig.yaml", "settings": ["production.outdir", ...]}},
- "bundle": {"source": ".../Analyses/tes_id_2025", "files": ["recipe.yml", "config_coarse_TT.yml", ...]},
+ "bundle": {"source": ".../Analyses/tes_id_2025", "files": ["config_coarse_TT.yml", ...]},
  "stages": [{"name": "production", "state": "WAITING", "attempt": 2, "message": "...",
              "request": {...}, "sources": {}, "submissions": [...], "last_status": {...}, "artifacts": [...],
              "history": [{"time": "...", "event": "resubmitted", "state": "SUBMITTED", "detail": "..."}]}]}
 ```
-- A run always continues with the recipe stored in `run.json` and its `bundle/` copy, not with the current files.
+- A run always continues with its own recipe (`bundle/recipe.yml`, the version taken last in `run.json` `recipe`)
+  and its `bundle/` copy, not with the current files of the source bundle. `recipe_changed` (each change) and
+  `removed` (the records of removed stages) are written only once there is one.
   The PicoProducer configuration and the user config are read again at every `advance` (TODO: use the snapshot).
 - `pico_config.user_config` is there only when the user config gave a production setting; `snapshot` already has
   its values.

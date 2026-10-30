@@ -933,9 +933,11 @@ unchanged; to confirm on lxplus without re-lock: [TODO.md](TODO.md) section 1.
   `check_import_boundaries` (known debt, 0 new pairs) and `check_root` (no ROOT) fail as before.
 
 
-## 55. Stop points, waiting by default, `PAUSED` (iterative runs, step 1)
+## 55. Iterative runs: a run is a workspace (plan 24)
 
-**Change:** [CL §55](Refactor-2025.md#55-stop-points-waiting-by-default-paused-iterative-runs-step-1)
+**Change:** [CL §55](Refactor-2025.md#55-iterative-runs-a-run-is-a-workspace-plan-24)
+
+### Step 1: stop points, waiting by default, `PAUSED`
 
 - `Tests/Framework/test_python_step.py` `StopPointTests` (real python steps): `start(until="make")` leaves
   `DONE, NEW, NEW`, `PAUSED`, `next_stage` = `use`; an advance with the same stop point runs nothing (history
@@ -951,3 +953,25 @@ unchanged; to confirm on lxplus without re-lock: [TODO.md](TODO.md) section 1.
   `test_run_screen.py` (the "Paused" card, "Paused at fit").
 - Windows: `python -m unittest discover` in `Tests/Framework`: 457 tests OK (4 skipped); `Tests/check_harness.py`
   OK. lxplus: TODO section 1.
+
+### Step 2: the run's own recipe
+
+- `Tests/Framework/test_python_step.py` `RunRecipeTests` (real python steps):
+  - `bundle/recipe.yml` and `recipes/recipe_0.yml` start with the file's comment, `recipe.yml` is not in
+    `bundle.files`/`sha256`, run.json has no `recipe_changed`/`removed`; a `Recipe` made in code reads back the same.
+  - A changed `NEW` stage runs with its new options: `recipe_changed` version 1 `{last: changed}`,
+    `recipes/recipe_1.yml`, the history event, no bundle warning, taken once.
+  - A changed `DONE` stage keeps its artifacts, `done: [make]`, one warning naming `taufw rerun`.
+  - Added and removed stages: the new order, `removed` with `logs/use/attempt1` (logs and `stage/`), the same id
+    again as a new record, removed again into `attempt2`.
+  - Refused edits change nothing: run.json, no lock left. The cases: an input naming a removed stage, `name`, a
+    missing step file.
+  - `--next` after the next stage is removed, `pending_change` (taken, refused), `taufw status`, `advance` exit 1.
+  - A run without the file keeps its recipe.
+  - `edit_problems`: free after production (moved, changed), the production rule (changed, moved, added before,
+    removed), a type change, `pico.config`, `run_root`, no production added.
+- `test_bundle.py`, `test_python_step.py`: `bundle.files` without `recipe.yml`.
+- By hand (Windows, scratchpad bundle with a comment and a `../shared/outside.py` step): `start --until a`; edit
+  `n` of `b` in the run's file; `status` says "the next advance takes it"; `advance` runs `b` with `n=5`; an input
+  to a missing stage and a new `name` are refused with the file's path.
+- Windows: `Tests/Framework` 465 tests OK (4 skipped); `Tests/check_harness.py` OK. lxplus: TODO section 1.

@@ -144,6 +144,14 @@ The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go he
       Advance to the end; the run list shows `PAUSED`/`RUNNING`. A production recipe: `taufw start` keeps checking
       the jobs (600 s) without `--wait`; `--no-wait` returns `WAITING`. `python3 Tests/run.py bbb` passes without
       a re-lock (`framework.production` now passes `--no-wait`). Tab: `taufw advance --u<Tab>`.
+- [ ] **The run's own recipe (CL §55 step 2):** a run of `Analyses/Examples/cmsdas26_ztt` started with
+      `--until plots`: `<run>/bundle/recipe.yml` has the bundle's comments, `<run>/recipes/recipe_0.yml` too, run.json
+      `bundle.files` has no `recipe.yml`. Edit an option of `tagger_roc` in the run's file: `taufw status <run>` says
+      "the next advance takes it"; `taufw advance <run> --next` prints "The recipe of run ... changed (version 1,
+      recipes/recipe_1.yml): tagger_roc changed" and runs it with the new option. Edit `plots` (DONE): the warning
+      "DONE with its old options". Remove a stage that nothing reads: archived in `logs/<id>/attempt1/`, run.json
+      `removed`. Change `name`: refused, exit 1, nothing moves. A production recipe (BBB `framework.production`, or a
+      small real one): an edit of the production stage is refused. `python3 Tests/run.py bbb` passes without a re-lock.
 - [ ] **User config settings (CL §41):** in an installed checkout without `Analyses/UserConfig.yaml`,
       `taufw userconfig` writes the lxplus guesses (`taufw/` on EOS; `run_root` if the AFS work area
       exists; values of `PicoProducer/config/config.json` if it exists); `taufw plan
@@ -324,6 +332,12 @@ Parts 1–5 are done (CL §5–§8; the Part 2 changelog section was removed).
       `corrections/BTagTool.py:131,139,148`.
 
 ## 6. Framework
+
+- [ ] **A run's recipe: let production and the stages before it change (CL §55 step 2, user 2026-10-30).** An edit
+      of `<run>/bundle/recipe.yml` may not touch production or any stage before it, nor `pico.config`
+      (`run_recipe.edit_problems`), because production cannot run twice: its job files are outside the run and a
+      run has one `pico.config`. Once production can run again in the same run (a new job directory per attempt,
+      `taufw rerun <run> production`), lift the rule: only the type of a stage id stays fixed.
 
 - [ ] **Plan checks: open each tuple file once (user 2026-10-30: later).** The menu's plan screen runs the checks
       that open data files behind the screen, in a process of its own (`interfaces/plan_check.py`, `_PlanCheck`);

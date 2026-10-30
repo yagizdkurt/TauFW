@@ -121,8 +121,8 @@ class RunSnapshotTests(BundleTestCase):
         copy = os.path.join(record.run_dir, "bundle")
         self.assertEqual(record.bundle["source"], self.bundle)
         self.assertEqual(sorted(record.bundle["files"]), sorted(os.path.normpath(p) for p in (  # the whole bundle
-            "pico.json", "tt.yml", "mm.yml", "setup_mumu.yml",
-            "recipe.yml")))
+            "pico.json", "tt.yml", "mm.yml", "setup_mumu.yml")))  # not recipe.yml: the run's own recipe (CL §55)
+        self.assertTrue(os.path.isfile(os.path.join(copy, "recipe.yml")))
         self.write("tt.yml", "edited after the start\n")
         self.tes_shapes.problems = ()
         loaded = RunRecord.load(record.run_dir)
