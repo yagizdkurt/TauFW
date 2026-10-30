@@ -11,6 +11,18 @@ from TauFW.Framework._internal.recipes.recipe import name_problem
 EMPTY_RECIPE = Path(__file__).resolve().parents[1] / "empty_recipe.yml"
 
 
+def analysis_name_problem(root, name):
+    """Why `name` cannot be a new analysis in root (the name rule, or the directory exists), or None."""
+    problem = name_problem(name)
+    if problem:
+        return "Analysis name " + problem
+    if name in (".", "..") or name.endswith("."):
+        return "Analysis name must not be '.' or '..' or end with a dot."
+    if (Path(root) / name).exists():
+        return "%s already exists. Choose another analysis name." % (Path(root).resolve() / name)
+    return None
+
+
 def create_analysis(root, name):
     """Create root/name/recipe.yml from the empty template and return the bundle path.
 

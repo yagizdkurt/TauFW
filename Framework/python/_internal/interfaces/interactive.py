@@ -36,7 +36,7 @@ from TauFW.Framework._internal.defaults import (ANALYSES_DIR, BUNDLE_DIR_NAME, C
 from TauFW.Framework._internal.runtime.run_record import RunRecord, RunState
 from TauFW.Framework._internal.recipes.recipe import Recipe, RecipeError, read_recipe
 from TauFW.Framework._internal.recipes.validation import check_recipe, check_recipe_data
-from TauFW.Framework._internal.recipes.analysis import create_analysis
+from TauFW.Framework._internal.recipes.analysis import analysis_name_problem, create_analysis
 from TauFW.Framework._internal.recipes.bundle import bundle_changes, bundle_hashes, path_rows
 from TauFW.Framework._internal.runtime.framework import (Framework, RerunError, next_stage, retryable_stage,
                                                          _run_recipe)
@@ -140,6 +140,37 @@ class _Operations:
     def create_analysis(self, name):
         """Create a draft in the same root that the recipe picker discovers."""
         return create_analysis(self.recipes_dir, name)
+
+    def check_analysis_name(self, name):
+        """The line under the name field of Create a new analysis, at every key: (True, the folder it makes) or
+        (False, why it cannot be made)."""
+        if not name:
+            return False, "Letters, digits, _ . - : it names the folder and the recipe."
+        problem = analysis_name_problem(self.recipes_dir, name)
+        return (False, problem) if problem else (True, "Creates %s/%s/" % (self.recipes_dir.name, name))
+
+    def check_recipe_path(self, value):
+        """The line under the path field of Enter a recipe path: (True, the recipe found) or (False, why not)."""
+        if not value:
+            return False, "A bundle directory (with recipe.yml) or a .yml, .yaml or .json recipe file."
+        path = Path(self.resolve_path(value))
+        if path.is_dir():
+            return ((True, "Bundle %s" % path) if (path / RECIPE_NAME).is_file() else
+                    (False, "%s has no %s." % (path, RECIPE_NAME)))
+        if path.is_file():
+            return ((True, "Recipe %s" % path) if path.suffix in (".yml", ".yaml", ".json") else
+                    (False, "%s is not a .yml, .yaml or .json file." % path))
+        return False, "%s does not exist." % path
+
+    def check_run_path(self, value):
+        """The line under the path field of Enter another run directory: (True, the run) or (False, why not)."""
+        if not value:
+            return False, "A run directory: the one with run.json."
+        path = Path(self.resolve_path(value))
+        if (path / RUN_RECORD_NAME).is_file():
+            return True, "Run %s" % path
+        return False, ("%s has no %s: not a run directory." % (path, RUN_RECORD_NAME) if path.is_dir() else
+                       "%s does not exist." % path)
 
     def recipe_preview(self, path):
         """Check the recipe (validation.py) without constructing stage APIs: its stages and every problem; a

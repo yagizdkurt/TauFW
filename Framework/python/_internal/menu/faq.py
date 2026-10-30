@@ -24,8 +24,10 @@ FAQ = (
      "the bundle, made when it starts."),
 
     ("Starting a run", 
-     "Use [Create a new run] at the top of the list to choose an analysis name and create "
-     "Analyses/<name>/recipe.yml with an empty pipeline. Esc cancels; existing files are never overwritten. "
+     "Use [Create a new run] at the top of the list to create Analyses/<name>/recipe.yml with an empty "
+     "pipeline: a panel over the list asks for the name and checks it as you type (the folder it makes, or "
+     "why it cannot: a name of letters, digits, _ . -, not taken). Esc cancels; existing files are never "
+     "overwritten. A typed recipe path or run directory is asked the same way. "
      "The new analysis is selected and labelled Draft. A draft cannot start until stages are configured. "
      "E opens the files of the selected analysis (Analyses/<name>/): choose one, Enter edits it; its "
      "recipe.yml is checked before it is saved. Edits here are for new runs; a run has its own copy. "

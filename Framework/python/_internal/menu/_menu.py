@@ -1025,11 +1025,50 @@ class ConsoleUI:
         action = rows[selected][0]
         return (action, selected - first) if action == "select" else (action, None)
 
-    def analysis_name(self, default=""):
-        return self.prompt("Define analysis name", default=default)
+    def analysis_name(self, default="", check=None):
+        """The name of a new analysis, asked in a panel over the recipe list (ask_text), or None."""
+        return self.ask_text("Create a new analysis", [
+            ("A new folder in Analyses/ with an empty recipe.yml: add its stages, then start it.", None)],
+            "Name", check=check, default=default, action="Create")
 
-    def recipe_path(self, launch_dir):
-        return self.prompt("Recipe path (relative to %s)" % launch_dir)
+    def recipe_path(self, launch_dir, check=None):
+        """A recipe typed in a panel over the recipe list (ask_text), or None."""
+        return self.ask_text("Enter a recipe path", [
+            ("A bundle directory or a .yml, .yaml or .json recipe file, relative to %s or absolute." % launch_dir,
+             None)], "Path", check=check, action="Open")
+
+    def ask_text(self, title, lines, label, check=None, default="", action="Accept"):
+        """A text field in a panel over the current screen: the value typed (stripped; Enter), or None (Esc,
+        Ctrl-C). lines: (text, role) pairs above the field. check(value) -> (ok, text): the line under the field,
+        asked at every key (red when not ok); Enter only when ok."""
+        def draw(screen):
+            self._setup(screen)
+            value, size = default, screen.getmaxyx()
+            while True:
+                size = self._below(screen, size)
+                ok, note = check(value.strip()) if check else (True, "")
+                inner = max(10, min(size[1] - 4, MODAL_WIDTH)) - 4
+                field = label + ": "
+                room = max(1, inner - len(field) - 1)
+                rows = list(lines) + [("", None), (field + value[-room:] + "_", "accent")]
+                if note:
+                    rows.append((note, None if ok else "error"))
+                self._overlay(screen, title, rows, "Type | %sEsc Cancel" % ("Enter %s | " % action if ok else ""),
+                              offset=len(rows))
+                try:
+                    key = screen.get_wch()
+                except KeyboardInterrupt:
+                    return None
+                if key in ("\n", "\r", self.curses.KEY_ENTER):
+                    if ok:
+                        return value.strip()
+                elif key in ("\x1b", "\x03"):
+                    return None
+                elif key in ("\b", "\x7f", self.curses.KEY_BACKSPACE):
+                    value = value[:-1]
+                elif isinstance(key, str) and key.isprintable():
+                    value += key
+        return self._run(draw)
 
     def recipe_plan(self, title, view, position=None, update=None):
         """The plan of a recipe (operations.prepare_plan; see _plan_screen.py). Return "start", "edit" or
@@ -1116,8 +1155,11 @@ class ConsoleUI:
                     return "back"
         return self._run(draw)
 
-    def run_path(self, launch_dir):
-        return self.prompt("Run directory (relative to %s)" % launch_dir)
+    def run_path(self, launch_dir, check=None):
+        """A run directory typed in a panel over the run list (ask_text), or None."""
+        return self.ask_text("Enter another run directory", [
+            ("The directory of a run (with run.json), relative to %s or absolute." % launch_dir, None)],
+            "Path", check=check, action="Open")
 
     def run_actions(self, view):
         """The actions of a run (a run_preview view, see _run_picker._actions) as a list, for a terminal too narrow

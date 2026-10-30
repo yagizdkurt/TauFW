@@ -1155,13 +1155,34 @@ class ScreenTests(unittest.TestCase):
             ui.select_run([("broken", None, None)])
         self.assertEqual(choose.call_args.args[1],
                          ["broken | UNREADABLE", "Enter another run directory", "Back"])
-        with mock.patch.object(ui, "prompt", return_value=None) as prompt:
-            self.assertIsNone(ui.recipe_path("launch"))
+        with mock.patch.object(ui, "ask_text", return_value=None) as ask:
+            self.assertIsNone(ui.recipe_path("launch", check=len))
             self.assertIsNone(ui.run_path("launch"))
-        self.assertEqual(prompt.call_args_list, [
-            mock.call("Recipe path (relative to launch)"),
-            mock.call("Run directory (relative to launch)"),
-        ])
+            self.assertIsNone(ui.analysis_name(default="x"))
+        self.assertEqual([(call.args[0], call.args[2], call.kwargs.get("check")) for call in ask.call_args_list],
+                         [("Enter a recipe path", "Path", len), ("Enter another run directory", "Path", None),
+                          ("Create a new analysis", "Name", None)])
+        self.assertIn("relative to launch or absolute", ask.call_args_list[0].args[1][0][0])
+
+    def test_the_text_panel_checks_as_it_is_typed(self):
+        """A panel over the screen: the check's line under the field at every key; Enter only when it passes;
+        Backspace, Esc."""
+        curses, screen = self.curses([])
+        ui = ConsoleUI(curses)
+        seen = []
+
+        def check(value):
+            seen.append(value)
+            return (True, "Creates Analyses/%s/" % value) if value.isalnum() else (False, "bad " + value)
+
+        screen.get_wch.side_effect = ["a", "!", "\n", "\x7f", "b", "\n"]  # Enter on "a!" is refused
+        self.assertEqual(ui.ask_text("Create", [("intro", None)], "Name", check=check), "ab")
+        self.assertEqual(seen, ["", "a", "a!", "a!", "a", "ab"])  # checked at every key
+        texts = [call.args[2] for call in screen.addnstr.call_args_list]
+        self.assertTrue(any(text.startswith("Name: ab_") for text in texts))
+        self.assertTrue(any("Creates Analyses/ab/" in text for text in texts))
+        screen.get_wch.side_effect = ["x", "\x1b"]
+        self.assertIsNone(ui.ask_text("Create", [], "Name", check=check))
 
     def test_import_is_silent_without_framework_or_curses(self):
         """The menu lives in TauFW.Framework._internal but imports none of the Framework's own modules: the package
@@ -1340,12 +1361,14 @@ ConsoleUI(None)
         ui.analysis_name.side_effect = ["taken", "new_analysis"]
         ui.run_files.return_value = ("back", None)
         MenuNavigation(ui, operations).start()
-        self.assertEqual(ui.analysis_name.call_args_list, [mock.call(default=""), mock.call(default="taken")])
+        self.assertEqual(ui.analysis_name.call_args_list, [mock.call(default="", check=operations.check_analysis_name),
+                                                            mock.call(default="taken",
+                                                                      check=operations.check_analysis_name)])
         self.assertEqual(operations.create_analysis.call_args_list, [mock.call("taken"), mock.call("new_analysis")])
         self.assertEqual(ui.select_recipe.call_args_list[1].kwargs["position"]["selected"], 1)
         self.assertEqual(ui.select_recipe.call_args_list[1].kwargs["drafts"], [True])
         self.assertEqual([call.args[0] for call in ui.message.call_args_list],
-                         ["Analysis created", "Analysis draft"])
+                         ["Analysis draft"])  # created: back to the list at once (no panel), selected
         operations.analysis_files.assert_called_once_with(str(path))  # E: its files (CL §55, M8)
         operations.prepare_plan.assert_not_called()
         operations.start_run.assert_not_called()

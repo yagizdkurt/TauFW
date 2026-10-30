@@ -607,6 +607,22 @@ def _choices(error=None):
                 pending=None if error else "bundle/recipe.yml was edited (fit changed): the next advance takes it")
 
 
+def _name_check(name):
+    """A made-up check_analysis_name: tes_2025 exists; a name needs letters, digits, _ . -."""
+    if not name:
+        return False, "Letters, digits, _ . - : it names the folder and the recipe."
+    if name == "tes_2025":
+        return False, "/afs/cern.ch/user/u/username/TauFW/Analyses/tes_2025 already exists. Choose another name."
+    if not all(c.isalnum() or c in "_.-" for c in name):
+        return False, "Analysis name must be a word of letters, digits, '_', '.' or '-' (got %r)" % name
+    return True, "Creates Analyses/%s/" % name
+
+
+def _path_check(value):
+    """A made-up check of a typed path: only an empty one is refused."""
+    return (True, "Found " + value) if value else (False, "Type a path.")
+
+
 RUN_FILES = [
     dict(path="recipe.yml", file="recipe", recipe=True, read_by=[], state="edited, not taken yet"),
     dict(path="config_mutau_2025.yml", file="config", recipe=False, read_by=["histograms", "plots"],
@@ -751,6 +767,16 @@ SCENARIOS = [
              lambda ui, directory: _over_blank(ui, lambda: ui.message("An advance works on this run", [(
                  "An advance of this run runs on %s (pid 23411): edit its files once it ends, so the stages it "
                  "runs read one version of them." % REMOTE_HOST, "warning")]))),
+    Scenario("Start a run", "create a new analysis: the name checked as it is typed",
+             lambda ui, directory: _over_blank(ui, lambda: ui.analysis_name(default="tes_2026", check=_name_check))),
+    Scenario("Start a run", "create a new analysis: a name that cannot be used",
+             lambda ui, directory: _over_blank(ui, lambda: ui.analysis_name(default="tes 2026", check=_name_check))),
+    Scenario("Start a run", "enter a recipe path",
+             lambda ui, directory: _over_blank(ui, lambda: ui.recipe_path("/afs/cern.ch/user/u/username/TauFW",
+                                                                          check=_path_check))),
+    Scenario("Continue", "enter another run directory",
+             lambda ui, directory: _over_blank(ui, lambda: ui.run_path("/afs/cern.ch/user/u/username/TauFW",
+                                                                       check=_path_check))),
     Scenario("Start a run", "edit an analysis (E)",
              lambda ui, directory: ui.run_files("Edit analysis / tes_2025", [
                  dict(item, state="") for item in RUN_FILES[:4]], lambda path: FILE_TEXT.get(path, ["{}"]))),

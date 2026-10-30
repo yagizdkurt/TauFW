@@ -81,7 +81,8 @@ Run `taufw` without arguments in an interactive Linux terminal to open the conso
 standard-library `curses`). Up/Down moves, Enter selects, Esc goes back, Ctrl+L draws the screen again.
 
 - **Start a new run**: pick an analysis in `Analyses/` (or type a path) and see its stages. A recipe with
-  problems is red and cannot start. **[Create a new run]** makes an empty draft analysis, `Analyses/<name>/`;
+  problems is red and cannot start. **[Create a new run]** makes an empty draft analysis, `Analyses/<name>/` (the name
+  is asked in a panel over the list and checked as it is typed);
   **E** lists the analysis' files and edits the one chosen (its `recipe.yml` is checked before it is saved).
   Selecting a recipe opens its plan, computed in the menu's own process
   (nothing is written): the overview, errors, warnings and each stage's details. **Start run** launches it.

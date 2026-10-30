@@ -137,6 +137,12 @@ The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go he
       then `00:01 | taufw status` (no `RUNNING`/`DONE`); View detailed plan says `READING PLAN`. The run list
       shows `menutest_20261021-180111` (stopped at `second`) as `PAUSED`; during "Advance to the end" of a run it
       shows `RUNNING`, and again during `taufw advance <run_dir>` from a second terminal.
+- [ ] **Text panel for names and paths (menu, 2026-10-30):** Start > [Create a new run]: a panel over the recipe
+      list (the list stays visible around it); type `tes 2026` (red reason, no "Enter Create"), an existing name
+      (red "already exists"), then a free one ("Creates Analyses/<name>/"), Enter: back to the list with the new
+      draft selected, no other panel. Esc creates nothing. Start > Enter a recipe path and Continue > Enter another
+      run directory: the same panel, "does not exist" / "has no recipe.yml" / "not a run directory" while typing.
+      Tests > UI preview: the four new panels. At 80x24.
 - [ ] **User config settings (CL §41):** in an installed checkout without `Analyses/UserConfig.yaml`,
       `taufw userconfig` writes the lxplus guesses (`taufw/` on EOS; `run_root` if the AFS work area
       exists; values of `PicoProducer/config/config.json` if it exists); `taufw plan

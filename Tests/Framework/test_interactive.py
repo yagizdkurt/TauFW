@@ -32,6 +32,7 @@ class FakeUI(ConsoleUI):
         self.plans = []  # the view of each plan screen shown
         self.output_answers = iter(())  # what command_output answers ("back" once these are used)
         self.choice_views = []  # the view of each stage picker shown
+        self.checks = []  # what the text panel's check said of each value typed
         self.edits = []  # (title, path, validate) of each file the editor opened
 
     def choose(self, title, choices, welcome=None, **layout):
@@ -40,6 +41,12 @@ class FakeUI(ConsoleUI):
 
     def prompt(self, title, default=""):
         return next(self.prompts)
+
+    def ask_text(self, title, lines, label, check=None, default="", action="Accept"):
+        """The text panel: the next prompt, after the check's answer for it is kept (checks)."""
+        value = next(self.prompts)
+        self.checks.append(check(value) if check and value is not None else None)
+        return value
 
     def message(self, title, lines, role=None):
         lines = [(lines, role)] if isinstance(lines, str) else lines
@@ -732,6 +739,28 @@ class MenuTests(unittest.TestCase):
         self.assertEqual(menu.run(), 0)
         menu.operations.advance_run.assert_called_once()
         self.assertEqual(menu.ui.screens[-1][0], "TauFW")
+
+    def test_the_text_panel_checks_names_and_paths(self):
+        """What the text panel says under its field as the user types: a new analysis' name, a recipe, a run."""
+        operations = self.menu(FakeUI()).operations
+        self.recipe_file(self.recipes / "taken.yml")
+        (self.recipes / "taken").mkdir()
+        self.assertEqual(operations.check_analysis_name("new_one"), (True, "Creates recipes/new_one/"))
+        for name, words in (("", "Letters, digits"), ("a b", "must be a word"), ("taken", "already exists"),
+                            ("x.", "end with a dot")):
+            ok, text = operations.check_analysis_name(name)
+            self.assertFalse(ok, name)
+            self.assertIn(words, text)
+        record = self.record()
+        recipe = self.recipe_file(self.root / "loose.json")
+        for value, ok, words in (("loose.json", True, "Recipe "), ("recipes", False, "has no recipe.yml"),
+                                 ("nothing.yml", False, "does not exist"), ("", False, "bundle directory")):
+            self.assertEqual(operations.check_recipe_path(value)[0], ok, value)
+            self.assertIn(words, operations.check_recipe_path(value)[1])
+        self.assertEqual(operations.check_run_path(record.run_dir), (True, "Run " + str(Path(record.run_dir))))
+        self.assertIn("not a run directory", operations.check_run_path(str(self.root))[1])
+        self.assertIn("does not exist", operations.check_run_path("missing")[1])
+        self.assertTrue(recipe.is_file())
 
     def test_back_from_continue_goes_back_to_the_picker(self):
         self.record()

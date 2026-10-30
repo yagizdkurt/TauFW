@@ -138,7 +138,7 @@ class MenuNavigation:
                 created = self._create_analysis()
                 continue
             if action == "manual":
-                value = self.ui.recipe_path(self.operations.launch_dir)
+                value = self.ui.recipe_path(self.operations.launch_dir, check=self.operations.check_recipe_path)
                 if not value:
                     continue
                 path = self.operations.resolve_path(value)
@@ -196,19 +196,19 @@ class MenuNavigation:
                 check.cancel()
 
     def _create_analysis(self):
-        """Ask again after an error, keeping the name. Cancellation never creates a file."""
+        """The name, asked in a panel over the recipe list that checks it as it is typed (check_analysis_name);
+        once made, back to the list with the new analysis selected. An error the check could not see (e.g. a
+        directory made meanwhile) is shown, then the panel again with the name. Cancellation never creates a
+        file."""
         value = ""
         while True:
-            value = self.ui.analysis_name(default=value)
+            value = self.ui.analysis_name(default=value, check=self.operations.check_analysis_name)
             if value is None:
                 return None
             try:
-                path = self.operations.create_analysis(value)
+                return self.operations.create_analysis(value)
             except Exception as error:
                 self.ui.operation_error(error)
-                continue
-            self.ui.message("Analysis created", "Analysis created: %s\nPress E to edit its recipe.yml." % path, "good")
-            return path
 
     def edit_analysis(self, path):
         """The Start screen's E: the files of the analysis bundle (Analyses/<name>/), the editor on the one chosen
@@ -289,7 +289,7 @@ class MenuNavigation:
                 if action == "back":
                     return None
                 if action == "manual":
-                    value = self.ui.run_path(self.operations.launch_dir)
+                    value = self.ui.run_path(self.operations.launch_dir, check=self.operations.check_run_path)
                     if not value:
                         continue
                     path = self.operations.resolve_path(value)
