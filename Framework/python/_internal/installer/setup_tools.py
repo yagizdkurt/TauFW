@@ -44,9 +44,16 @@ def main(argv=None):
 
     manifest = commands.add_parser("manifest", help="Record the components this installation selected.")
     manifest.add_argument("--path", required=True, help="The setup manifest (Framework/python/_internal/).")
-    manifest.add_argument("components", nargs="*", choices=[name for name, _ in COMPONENTS])
+    # Checked by hand: before Python 3.12, argparse tests an empty nargs="*" list against choices and rejects it.
+    manifest.add_argument("components", nargs="*", metavar="{%s}" % ",".join(name for name, _ in COMPONENTS))
 
     args = parser.parse_args(argv)
+    if args.command == "manifest":
+        known = [name for name, _ in COMPONENTS]
+        for name in args.components:
+            if name not in known:
+                manifest.error("argument components: invalid choice: %r (choose from %s)"
+                               % (name, ", ".join(repr(k) for k in known)))
     if args.command == "environment":
         for warning in python_environment_warnings():
             print(warning)
