@@ -3,7 +3,7 @@
 
 Start and Continue open it (interactive.py starts the advance behind the
 menu); the UI preview shows it with made-up runs. The operation runs
-`taufw.py advance [--wait]` (or `start --wait`); its Framework events
+`taufw.py advance [--next]` (or `start`); its Framework events
 (Framework/python/_internal/runtime/reporting.py) build a RunProgress, the model of the
 operation screen (_operation_screen.py):
 
@@ -53,7 +53,7 @@ ROLES = {"RUN": "accent", "SUBMITTED": "waiting", "WAITING": "waiting", "MERGING
          "FAILED": "error", "NOT_IMPLEMENTED": "warning", "STOP": "warning"}
 COMMANDS = {"run": "[ RUN]", "ok": "[ ok ]", "failed": "[FAIL]"}
 ENDED = {"DONE": ("COMPLETE", "good"), "WAITING": ("WAITING FOR JOBS", "waiting"), "FAILED": ("FAILED", "error"),
-         "BLOCKED": ("BLOCKED", "warning")}
+         "BLOCKED": ("BLOCKED", "warning"), "PAUSED": ("PAUSED", "waiting")}
 LOST_TEXT = ("The advance gave no sign of life for minutes: its login session ended or its machine restarted.")
 
 
@@ -188,6 +188,14 @@ class RunProgress(ScreenModel):
                                          None), where]
         if self.run_state == "BLOCKED":
             return "Blocked at %s" % name, [("Stage %s is not implemented yet." % name, "warning"), where]
+        if self.run_state == "PAUSED" and stage is not None and stage["message"].startswith("not ready"):
+            return "Not ready at %s" % name, [(stage["message"], "warning"),
+                                              ("Fix it, then Continue: the finished stages are kept.", None), where]
+        if self.run_state == "PAUSED":
+            last = _last_done(self.stages)
+            return "Paused", [("Stopped after %s; %s is next." % (last, name) if last else "%s is next." % name,
+                               "waiting"),
+                              ("Look at its output, then Continue (Next stage only, or to the end).", None), where]
         if stage is not None and stage["state"] == "FAILED":
             then = ("If its chunks still failed after max_tries, Continue offers Retry %s (more tries); other "
                     "production failures need a new run." % name if stage["type"] == "production" else
@@ -355,6 +363,8 @@ def run_summary(operation, kept=None):
         return "Waiting for jobs", "waiting"
     if state == DONE and run.run_state == "BLOCKED":
         return "Blocked at %s" % name, "warning"
+    if state == DONE and run.run_state == "PAUSED":
+        return ("Paused at %s" % name if stage else "Paused"), "waiting"
     if state == DONE:
         return "Done", "good"
     return ("Failed at %s" % name if stage and stage["state"] == "FAILED" else "Failed"), "error"
@@ -362,6 +372,16 @@ def run_summary(operation, kept=None):
 
 # =============================================================================
 # ================================ HELPERS ====================================
+
+
+def _last_done(stages):
+    """The id of the last DONE stage before the first one that is not DONE, or None."""
+    last = None
+    for stage in stages.values():
+        if stage["state"] != "DONE":
+            break
+        last = stage["id"]
+    return last
 
 
 def _running(stage):

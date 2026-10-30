@@ -396,25 +396,26 @@ class _Operations:
     # ========================= RUNS BEHIND THE MENU ==========================
 
     def start_run(self, recipe):
-        """`taufw.py start RECIPE --wait` behind the menu (to the end: DONE, FAILED, or until it is stopped);
+        """`taufw.py start RECIPE` behind the menu (to the end: DONE, FAILED, or until it is stopped);
         return its Operation (kind "run"). Its data: run_id (the recipe's name until the run directory exists),
         run_dir (empty until then: the screen takes both from the `run` event) and the recipe's stages."""
         loaded = Recipe.load(str(recipe))
         stages = [dict(id=stage["id"], type=stage["stage"], state="NEW", message="", info=_stage_info(stage))
                   for stage in loaded.to_dict()["stages"]]
-        return self._start_run(loaded.name, ["start", str(recipe), "--wait"],
+        return self._start_run(loaded.name, ["start", str(recipe)],
                                dict(run_id=loaded.name, run_dir="", stages=stages))
 
-    def advance_run(self, record, wait=True, take_lock=False):
-        """`taufw.py advance RUN_DIR` behind the menu, with --wait (to the end) or once; take_lock: take over
-        the lock of a lost advance (--take-lock). The earlier advances of the run count as seen."""
-        argv = ["advance", record.run_dir] + (["--wait"] if wait else []) + (["--take-lock"] if take_lock else [])
+    def advance_run(self, record, next_only=False, take_lock=False):
+        """`taufw.py advance RUN_DIR` behind the menu: to the end (waiting for the jobs), or with next_only only
+        the next stage (--next: the run is then PAUSED); take_lock: take over the lock of a lost advance
+        (--take-lock). The earlier advances of the run count as seen."""
+        argv = ["advance", record.run_dir] + (["--next"] if next_only else []) + (["--take-lock"] if take_lock else [])
         return self._run_of(record, argv)
 
     def retry_run(self, record, take_lock=False):
-        """`taufw.py retry RUN_DIR --wait` behind the menu: the failed stage again, then to the end (CL §44);
+        """`taufw.py retry RUN_DIR` behind the menu: the failed stage again, then to the end (CL §44);
         take_lock: take over the lock of a lost advance (--take-lock)."""
-        return self._run_of(record, ["retry", record.run_dir, "--wait"] + (["--take-lock"] if take_lock else []))
+        return self._run_of(record, ["retry", record.run_dir] + (["--take-lock"] if take_lock else []))
 
     @staticmethod
     def retry_info(record):

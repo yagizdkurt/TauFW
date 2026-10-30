@@ -1150,13 +1150,13 @@ class ConsoleUI:
                                           "Choose another run."])
 
     def continue_actions(self, run_id):
-        """"wait" (advance to the end), "advance" (one step) or "back"; both run behind the menu."""
-        return self._action("Continue: %s" % run_id, ["Advance to the end", "Advance once", "Back"],
-                            ["wait", "advance", "back"],
+        """"wait" (advance to the end), "next" (the next stage only) or "back"; both run behind the menu."""
+        return self._action("Continue: %s" % run_id, ["Advance to the end", "Next stage only", "Back"],
+                            ["wait", "next", "back"],
                             descriptions=["Advance behind the menu until the run is done or failed; jobs are "
                                           "checked every 10 minutes. You can leave the screen.",
-                                          "One step: check the jobs, resubmit, merge or run the next stages, then "
-                                          "stop.",
+                                          "Run the next stage that is not done (waiting for its jobs), then stop: "
+                                          "the run is paused, look at its output and Continue when you like it.",
                                           "Choose another run."])
 
     def grid_proxy_needed(self):

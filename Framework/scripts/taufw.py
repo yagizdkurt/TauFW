@@ -10,13 +10,13 @@ python3 "$TAUFW_BASE/Framework/scripts/taufw.py" instead.
   taufw.py plan    RECIPE [--local [-m N]]                show each stage's plan and the files it reads;
                                                           nothing is written
                                                           (--local: quick local test of the production stage)
-  taufw.py start   RECIPE [--run-root DIR] [--wait [--poll S]]   new run: run directory, run.json, first steps
-  taufw.py advance RUN_DIR [--wait [--poll S]] [--take-lock]
+  taufw.py start   RECIPE [--run-root DIR] [STOP] [WAIT]  new run: run directory, run.json, then like advance
+  taufw.py advance RUN_DIR [STOP] [WAIT] [--take-lock]
                                                           continue a run: check, resubmit, merge, next stages
                                                           (controlhists, controlplots, shapes, fit, python: run locally);
                                                           refused while another advance of the run is working
                                                           (--take-lock: take over a lost one of another machine)
-  taufw.py retry   RUN_DIR [--wait [--poll S]] [--take-lock]
+  taufw.py retry   RUN_DIR [STOP] [WAIT] [--take-lock]
                                                           a FAILED run: run its failed stage again (a local stage:
                                                           the failed attempt is moved to logs/<id>/attempt<N>/;
                                                           production after max_tries: max_tries more tries for
@@ -36,6 +36,10 @@ python3 "$TAUFW_BASE/Framework/scripts/taufw.py" instead.
                                                           config says taufw_user.open_menu_on_start: false
 
 RECIPE is an analysis bundle directory (Analyses/<name>, with recipe.yml) or a recipe file.
+STOP:  --until ID stops once stage ID is DONE, --next once the first stage that is not DONE is (start: the first
+       stage; retry: the failed one); the run is then PAUSED. Without them the run goes to its end.
+WAIT:  start, advance and retry wait for the batch jobs (a check every --poll S seconds) until the run is done,
+       failed or at its stop point; --no-wait returns as soon as a stage waits for jobs (WAITING: advance it later).
 
 With $TAUFW_EVENTS set (the menu does that for a command it runs beside its screen), every command also writes its
 messages and the Framework's events (TauFW.Framework._internal.runtime.reporting) to that file; the output does not
@@ -56,8 +60,9 @@ import sys
 from argparse import ArgumentParser
 try:
     from TauFW.Framework import (Framework, Recipe, RecipeError, load_run, FrameworkReporter, EventReporter,
-                                 RunState, check_recipe, RunDirectoryError, RunLockError, RetryError)
-    from TauFW.Framework._internal.runtime.framework import retryable_stage
+                                 RunState, check_recipe, RunDirectoryError, RunLockError, RetryError,
+                                 StopPointError, next_stage, run_state)
+    from TauFW.Framework._internal.runtime.framework import retryable_stage, failed_stage
     from TauFW.Framework._internal.recipes.bundle import BundleError, make_bundle
     from TauFW.Framework._internal.recipes.configs import LOCK_NAME, lock_changes, update
     from TauFW.Framework._internal.defaults import (DEFAULT_RUN_ROOT, DEFAULT_POLL_SECONDS, ANALYSES_DIR, CONFIGS_DIR,
@@ -183,7 +188,12 @@ def cmd_start(args):
     if not args.run_root:  # --run-root chooses the place, so the recipe's run_root warnings do not apply
         _show_warnings(reporter, framework.recipe.warnings)
     reporter.message("Run root: %s" % (run_root_line(framework.recipe, args.run_root)))
-    record = framework.run(run_root=args.run_root, wait=args.wait, poll=args.poll)
+    until = framework.recipe.stages[0].id if args.next and framework.recipe.stages else args.until
+    try:
+        record = framework.run(run_root=args.run_root, wait=not args.no_wait, poll=args.poll, until=until)
+    except StopPointError as error:
+        reporter.warning(str(error))
+        return 1
     return _finish(reporter, record)
 
 
@@ -193,8 +203,17 @@ def cmd_advance(args):
     record = load_run(args.run_dir)
     framework = Framework.from_record(record, reporter=reporter)
     step = framework.retry if args.command == 'retry' else framework.advance
+    until = args.until
+    if args.next:  # retry: the failed stage; advance: the first stage that is not DONE
+        until = ((failed_stage(record) or (None,))[0] if args.command == 'retry' else None) or next_stage(record)
+        if until is None:
+            reporter.message("Run %s: every stage is DONE, there is no next stage" % (record.run_id))
+            return _finish(reporter, record)
     try:
-        record = step(record, wait=args.wait, poll=args.poll, take_lock=args.take_lock)
+        record = step(record, wait=not args.no_wait, poll=args.poll, take_lock=args.take_lock, until=until)
+    except StopPointError as error:
+        reporter.warning(str(error))
+        return 1
     except RunLockError as error:
         reporter.warning("Cannot %s run %s: %s" % (args.command, record.run_id, error))
         reporter.event('error', message=str(error))
@@ -209,7 +228,7 @@ def cmd_status(args):
     reporter = _reporter(args)
     record = load_run(args.run_dir)
     summary = Framework.from_record(record, reporter=reporter).status(record)
-    reporter.header("Run %s: %s" % (summary.run_id, summary.state))
+    reporter.header("Run %s: %s" % (summary.run_id, run_state(record)))
     reporter.table(["stage", "state", "attempt", "message"],
                    [(s.stage, s.state, s.attempt, s.message) for s in summary.stages])
     for stage in summary.stages:
@@ -370,10 +389,15 @@ def build_parser():
     common = ArgumentParser(add_help=False)  # options of every command
     common.add_argument('-v', '--verbose', dest='verbose', type=int, nargs='?', const=1, default=0,
                         help="set verbosity")
-    waiter = ArgumentParser(add_help=False)  # options of the commands that can wait for jobs
-    waiter.add_argument('--wait', action='store_true', help="keep advancing while the run waits for jobs")
+    waiter = ArgumentParser(add_help=False)  # options of the commands that advance a run
+    waiter.add_argument('--no-wait', dest='no_wait', action='store_true',
+                        help="return as soon as a stage waits for batch jobs (default: wait for them)")
     waiter.add_argument('--poll', type=int, default=DEFAULT_POLL_SECONDS, metavar='S',
-                        help="seconds between checks with --wait, default=%(default)d")
+                        help="seconds between two checks of the jobs, default=%(default)d")
+    stop = waiter.add_mutually_exclusive_group()
+    stop.add_argument('--until', default=None, metavar='ID', help="stop once stage ID is DONE (the run is PAUSED)")
+    stop.add_argument('--next', action='store_true',
+                      help="stop once the next stage is DONE (the first that is not DONE; retry: the failed one)")
     subparsers = parser.add_subparsers(dest='command', metavar='COMMAND')
     subparsers.required = True
     check = subparsers.add_parser('check', parents=[common], help="list every problem of a recipe")

@@ -105,6 +105,8 @@ class RunProgressTests(unittest.TestCase):
               event("run_state", run_id="tes_2025", state="WAITING")], 0, "DONE", "Waiting for jobs",
              "WAITING FOR JOBS"),
             ([event("stage_step", stage="plots", type="plotter", state="NEW")], 2, "FAILED", "Failed", "FAILED"),
+            (plots(event("stage_state", T + 6, stage="plots", state="DONE", message="2 command(s) ran"),
+                   event("run_state", T + 6, run_id="tes_2025", state="PAUSED")), 0, "DONE", "Paused", "PAUSED"),
         ]
         for events, code, state, title, line in cases:
             with self.subTest(title=title):
@@ -112,6 +114,8 @@ class RunProgressTests(unittest.TestCase):
                 run.feed(events)
                 run.finish(code, lost=state == "LOST", state=state)
                 card = run.card()
+                if title == "Paused":  # --next, --until (plan 24)
+                    self.assertEqual(card[1][0], ("Stopped after plots; fit is next.", "waiting"))
                 self.assertEqual(card[0], title)
                 self.assertEqual(card[1][-1], ("Run dir: /eos/runs/tes_2025", None))  # the full path
                 self.assertEqual(run.states[state][0], line)
@@ -225,6 +229,7 @@ class RunLabelTests(unittest.TestCase):
                  (self.advance("jobs", ago=8.0), ("1/5 ntuples, waiting for jobs", "waiting")),
                  (self.advance("complete"), ("Done", "good")),
                  (self.advance("waiting"), ("Waiting for jobs", "waiting")),
+                 (self.advance("paused"), ("Paused at fit", "waiting")),
                  (self.advance("failed"), ("Failed at plots", "error")),
                  (self.advance("stopped"), ("Stopped at plots", "warning")),
                  (self.advance("lost"), ("Lost - Continue to resume", "error"))]

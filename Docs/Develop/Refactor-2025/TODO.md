@@ -135,7 +135,15 @@ The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go he
       the state line says `READING STATUS | ... | taufw status` with `Reading the run status...` in the Output,
       then `00:01 | taufw status` (no `RUNNING`/`DONE`); View detailed plan says `READING PLAN`. The run list
       shows `menutest_20261021-180111` (stopped at `second`) as `PAUSED`; during "Advance to the end" of a run it
-      shows `RUNNING`, and again during `taufw advance <run_dir> --wait` from a second terminal.
+      shows `RUNNING`, and again during `taufw advance <run_dir>` from a second terminal.
+- [ ] **Stop points, waiting by default, PAUSED (CL §55):** a run of `Analyses/Examples/cmsdas26_ztt`:
+      `taufw start Analyses/Examples/cmsdas26_ztt --until plots` stops with `Stopped after stage plots (--until)`
+      and `Run ...: PAUSED`; `taufw status <run>` says `PAUSED` (and `RUNNING` while `taufw advance <run>` runs in
+      a second terminal); `taufw advance <run> --next` runs only `tagger_roc`; `taufw advance <run> --until nope`
+      prints the stage list and exits 1. In the menu: Continue > Next stage only (one stage, the "Paused" card),
+      Advance to the end; the run list shows `PAUSED`/`RUNNING`. A production recipe: `taufw start` keeps checking
+      the jobs (600 s) without `--wait`; `--no-wait` returns `WAITING`. `python3 Tests/run.py bbb` passes without
+      a re-lock (`framework.production` now passes `--no-wait`). Tab: `taufw advance --u<Tab>`.
 - [ ] **User config settings (CL §41):** in an installed checkout without `Analyses/UserConfig.yaml`,
       `taufw userconfig` writes the lxplus guesses (`taufw/` on EOS; `run_root` if the AFS work area
       exists; values of `PicoProducer/config/config.json` if it exists); `taufw plan
@@ -344,31 +352,9 @@ Parts 1–5 are done (CL §5–§8; the Part 2 changelog section was removed).
       warning, or run the steps elsewhere. (2) A reader of another run's stage (`{path: ...}`) records the source's
       `manifest_sha256` but not its `bundle_changed`: add it to `StageDir.summary()` if the readers should see it.
       (3) `taufw status` does not show `bundle.changed` or `retries` yet.
-- [ ] **`RUNNING` means "half done", not "an advance works on it" (user, 2026-10-27; menu workaround CL §42).**
-      `RunRecord.state` (`Framework/python/run_record.py`) is computed from the stage states only, and `RUNNING` is
-      its last rule: everything that is not FAILED, all DONE, WAITING, BLOCKED or all NEW. So a run whose advance
-      was stopped between two stages (`slow: DONE`, `second: NEW`) says `RUNNING` forever, also days later, until
-      it is advanced again. Seen in the menu (2026-10-27): `menutest_20261021-180111 | RUNNING | ... | advance:
-      Stopped at second`, and `taufw status` printed `=== Run ...: RUNNING ===`.
-      **Done for now (B1, CL §42):** only the menu's run list says `PAUSED` (`MenuNavigation._summary`: no running
-      advance behind the menu and no live `advance.lock`). `run.json`, `taufw status`, `RunState` and the
-      Continue checks are unchanged, so the menu and the CLI disagree (`PAUSED` vs `RUNNING`).
-      **To do (B2, the real fix):** split the state in the Framework:
-      (1) the state computed from the stages: rename the last rule `RUNNING` -> `PAUSED` (a stage started, none
-      waits for jobs, nothing failed: "advance it again"). Small: `RunState` is not written to `run.json` (it is
-      computed), but its string is printed by `status`, `start`/`advance` (`=== Run ...: X ===`), checked by tests
-      (`Tests/Framework`, BBB records with the run state: check which, a re-lock needs approval), named in
-      `Framework/README.md` (terms table and "Run states") and the Manual's example outputs (real lxplus output
-      only: paste them again).
-      (2) `RUNNING` only while an advance holds the run lock: `status` reads `read_lock(run_dir)` (already used by
-      the menu) and says `RUNNING (advance on <host> since <time>)`; a lost lock says `PAUSED (advance lost on
-      <host>)`. Decide where: in `RunRecord.state` (then it needs the run dir and reads a file, a property that does
-      IO), or in a `status`-level helper (`run_state(record)` next to `read_lock`; the record keeps the pure stage
-      state). Preferred: the helper, `RunRecord.state` stays pure.
-      (3) Then remove the menu workaround (`_summary`, its test `test_a_running_run_that_no_advance_works_on_is_paused`)
-      and let the list show the Framework's state; `select_run` colors `PAUSED` like `WAITING` (yellow) already.
-      `RunState.finished` and `can_advance` do not change (`PAUSED` is not final).
-      Recipes are not used by others yet (2026-10-26), so the rename is low risk; scripts are not affected.
+- [x] **`RUNNING` means "half done", not "an advance works on it" (user, 2026-10-27).** Done in CL §55 (B2):
+      the state from the stages says `PAUSED`, `RUNNING` only while an advance holds the run lock
+      (`run_state`/`live_state` in `framework.py`, `taufw status`, the menu list); the menu workaround is gone.
 - [ ] **Run list: an advance started from the CLI on another machine (CL §42).** `PAUSED` in the menu trusts the
       run lock for advances that are not behind the menu. A live lock of another machine shows `RUNNING`; one that
       gave no sign of life for `LOST_AFTER` (120 s, e.g. a slow EOS/AFS) shows `PAUSED` although it may still work.

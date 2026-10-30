@@ -509,7 +509,7 @@ class MenuTests(unittest.TestCase):
         self.menu(ui).continue_run()
         self.assertIn(newest.run_id + " | WAITING", ui.screens[0][1][0])
         (argv, options), = self.started
-        self.assertEqual(argv, ["advance", newest.run_dir, "--wait"])
+        self.assertEqual(argv, ["advance", newest.run_dir])  # waits for the jobs by default
         self.assertEqual((options["kind"], options["title"], options["escalate"], options["signal"]),
                          ("run", newest.run_id, False, "command"))
         self.assertEqual(options["data"], dict(run_id=newest.run_id, run_dir=newest.run_dir, stages=[
@@ -521,10 +521,10 @@ class MenuTests(unittest.TestCase):
                                                                          ["Output", "stages/fit/"]])]))
         self.assertEqual(ui.screens[-1][0], "Run " + newest.run_id)
 
-    def test_advance_once(self):
+    def test_next_stage_only(self):
         record = self.record()
         self.menu(FakeUI([0, 1])).continue_run()
-        self.assertEqual([argv for argv, _ in self.started], [["advance", record.run_dir]])
+        self.assertEqual([argv for argv, _ in self.started], [["advance", record.run_dir, "--next"]])
 
     def test_terminal_runs_offer_inspection_without_advancing(self):
         for state, title in (("DONE", "DONE"), ("FAILED", "Run failed at fit"), ("NOT_IMPLEMENTED", "BLOCKED")):
@@ -538,11 +538,11 @@ class MenuTests(unittest.TestCase):
         self.assertEqual([argv[0] for argv, _ in self.started], ["status"] * 3)  # never an advance
 
     def test_retry_of_a_failed_run(self):
-        """CL §44: Continue on a FAILED run whose stage can be retried runs `taufw.py retry RUN --wait`."""
+        """CL §44: Continue on a FAILED run whose stage can be retried runs `taufw.py retry RUN`."""
         record = self.record(state="FAILED")
         ui = FakeUI([0, 0])
         self.menu(ui).continue_run()
-        self.assertEqual([argv for argv, _ in self.started], [["retry", record.run_dir, "--wait"]])
+        self.assertEqual([argv for argv, _ in self.started], [["retry", record.run_dir]])
         self.assertEqual(ui.screens[1][1][0], "Retry fit")
         self.assertEqual(self.started[0][1]["data"]["stages"][1]["state"], "FAILED")
         self.assertEqual(ui.screens[-1][0], "Run " + record.run_id)
@@ -659,7 +659,7 @@ class MenuTests(unittest.TestCase):
         menu.start()
         self.assertEqual(ui.screens[0][1][1:-3], expected)
         self.assertEqual(ui.screens[0][1][-3:], ["Enter another recipe path", "[Examples]", "Back"])
-        self.assertEqual([argv for argv, _ in self.started], [["start", str(recipes_dir / "tes_id_2025"), "--wait"]])
+        self.assertEqual([argv for argv, _ in self.started], [["start", str(recipes_dir / "tes_id_2025")]])
 
     def test_examples_are_listed_under_examples(self):
         """[Examples] (the row above Back) opens the list of Analyses/Examples/; the validation demo is red there."""
@@ -675,7 +675,7 @@ class MenuTests(unittest.TestCase):
         self.assertEqual(ui.screens[1][1], expected + ["Back"])  # no create action, no other path
         self.assertEqual(ui.broken, [name == "broken" for name in expected])  # the validation demo
         self.assertEqual([argv for argv, _ in self.started],
-                         [["start", str(examples_dir / "cmsdas26_ztt"), "--wait"]])
+                         [["start", str(examples_dir / "cmsdas26_ztt")]])
 
     def test_dispatch_uses_semantic_actions_without_screen_positions(self):
         ui = mock.Mock()
@@ -902,7 +902,7 @@ class MenuTests(unittest.TestCase):
         self.menu(ui).start()
         self.assertEqual(ui.recipe_plan.call_args.args[0], "Start a new run / test")
         self.assertEqual(self.framework.call_count, 1)
-        self.assertEqual([argv for argv, _ in self.started], [["start", str(path), "--wait"]])
+        self.assertEqual([argv for argv, _ in self.started], [["start", str(path)]])
         ui.command_output.assert_not_called()
         ui.operation_error.assert_not_called()
 

@@ -692,13 +692,13 @@ class CommandLineTests(FrameworkTestCase):
         with mock.patch.object(self.cli.Framework, "from_recipe",
                                side_effect=lambda r, reporter=None, fake=pico, **kw: real(r, reporter=reporter, pico=fake)), \
                 mock.patch.object(self.cli, "bell") as bell:
-            self.assertEqual(self.cli.main(["start", recipe, "--run-root", self.root]), 0)
+            self.assertEqual(self.cli.main(["start", recipe, "--run-root", self.root, "--no-wait"]), 0)
             runs = os.listdir(self.root)
             run_dir = os.path.join(self.root, [r for r in runs if r.startswith("test_mutau_")][0])
             self.assertEqual(RunRecord.load(run_dir).state, "WAITING")
-            self.assertEqual(self.cli.main(["advance", run_dir]), 0)  # pending
+            self.assertEqual(self.cli.main(["advance", run_dir, "--no-wait"]), 0)  # pending
             bell.assert_not_called()
-            self.assertEqual(self.cli.main(["advance", run_dir, "--wait", "--poll", "0"]), 0)
+            self.assertEqual(self.cli.main(["advance", run_dir, "--poll", "0"]), 0)  # waits by default
             self.assertEqual(RunRecord.load(run_dir).state, "DONE")
             self.assertEqual(self.cli.main(["status", run_dir]), 0)
             self.assertEqual(self.cli.main(["plan", recipe]), 0)
@@ -748,7 +748,7 @@ class CommandLineTests(FrameworkTestCase):
             self.assertEqual(self.cli.main(["plan", recipe]), 0)
             self.assertEqual(warnings(), [not_reviewed])
             reporter.messages.clear()
-            self.assertEqual(self.cli.main(["start", recipe]), 0)
+            self.assertEqual(self.cli.main(["start", recipe, "--no-wait"]), 0)
             self.assertEqual(warnings(), [not_reviewed])
         with open(path) as stream:
             text = stream.read()
@@ -784,7 +784,7 @@ class CommandLineTests(FrameworkTestCase):
             self.assertIn("Run root: %s (default: no run_root in the recipe)" % (os.path.abspath("taufw_runs")),
                           [t for k, t in reporter.messages if k == "message"])
             reporter.messages.clear()
-            self.assertEqual(self.cli.main(["start", recipe, "--run-root", self.root]), 0)
+            self.assertEqual(self.cli.main(["start", recipe, "--run-root", self.root, "--no-wait"]), 0)
             self.assertNotIn(warning, [t for k, t in reporter.messages if k == "warning"])  # --run-root chose
             self.assertIn("Run root: %s (--run-root)" % (self.root), [t for k, t in reporter.messages])
             with open(recipe, "w") as stream:
@@ -813,7 +813,7 @@ class CommandLineTests(FrameworkTestCase):
              mock.patch.dict(os.environ, {EVENTS_ENV: path}):
             pico.submit = mock.Mock(side_effect=lambda *a, **k: seen.append(os.environ.get(EVENTS_ENV)) or
                                     fakes.FakePicoProducer.submit(pico, *a, **k))
-            self.assertEqual(self.cli.main(["start", recipe, "--run-root", self.root]), 0)
+            self.assertEqual(self.cli.main(["start", recipe, "--run-root", self.root, "--no-wait"]), 0)
             self.assertNotIn(EVENTS_ENV, os.environ)  # removed before any stage runs a command
         self.assertEqual(seen, [None])
         events = EventReader(path).read()
@@ -841,16 +841,23 @@ class CommandLineTests(FrameworkTestCase):
 
     def test_parser(self):
         parser = self.cli.build_parser()
-        args = parser.parse_args(["start", "r.yml", "--run-root", "runs", "--wait", "--poll", "30"])
-        self.assertEqual((args.command, args.recipe, args.run_root, args.wait, args.poll), ("start", "r.yml", "runs", True, 30))
+        args = parser.parse_args(["start", "r.yml", "--run-root", "runs", "--no-wait", "--poll", "30"])
+        self.assertEqual((args.command, args.recipe, args.run_root, args.no_wait, args.poll),
+                         ("start", "r.yml", "runs", True, 30))
         args = parser.parse_args(["plan", "r.yml", "--local", "-m", "50"])
         self.assertEqual((args.local, args.maxevts), (True, 50))
         args = parser.parse_args(["advance", "runs/x"])
-        self.assertEqual((args.run_dir, args.wait, args.poll), ("runs/x", False, 600))
-        args = parser.parse_args(["retry", "runs/x", "--wait", "--take-lock"])  # CL §44
-        self.assertEqual((args.command, args.run_dir, args.wait, args.take_lock), ("retry", "runs/x", True, True))
+        self.assertEqual((args.run_dir, args.no_wait, args.poll, args.until, args.next), ("runs/x", False, 600, None, False))
+        args = parser.parse_args(["advance", "runs/x", "--until", "plots"])
+        self.assertEqual((args.until, args.next), ("plots", False))
+        args = parser.parse_args(["retry", "runs/x", "--next", "--take-lock"])  # CL §44
+        self.assertEqual((args.command, args.run_dir, args.next, args.take_lock), ("retry", "runs/x", True, True))
         with self.assertRaises(SystemExit):
             parser.parse_args([])
+        with self.assertRaises(SystemExit):  # one stop point
+            parser.parse_args(["advance", "runs/x", "--next", "--until", "plots"])
+        with self.assertRaises(SystemExit):  # removed: waiting is the default
+            parser.parse_args(["advance", "runs/x", "--wait"])
 
 
 if __name__ == "__main__":

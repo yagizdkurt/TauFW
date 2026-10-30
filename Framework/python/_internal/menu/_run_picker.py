@@ -9,7 +9,7 @@ from ._operation_screen import printable
 MIN_WIDTH, MIN_HEIGHT = 120, 18
 ACTION_HELP = {
     "wait": "Check jobs every 10 minutes and advance until done or failed. You can leave the progress screen.",
-    "advance": "Check jobs once, resubmit failed chunks, merge or run the next stages, then stop.",
+    "next": "Run the next stage that is not done (waiting for its jobs), then stop: the run is paused.",
     "retry": "Run the failed stage again, then continue to the end. Finished stages and the failed log are kept.",
     "retry_production": "Resubmit the failed chunks with more tries, then continue to the end. Job files stay.",
     "inspect": "Show the saved stage states and live job counts without changing the run.",
@@ -26,7 +26,7 @@ def _actions(view):
         if lock and not (lock.get("lost") and lock.get("local")):
             return [("select", "Review lost advance / take over" if lock.get("lost") else "View advance lock"),
                     ("inspect", "Inspect status")]
-        return [("wait", "Advance to the end"), ("advance", "Advance once"), ("inspect", "Inspect status")]
+        return [("wait", "Advance to the end"), ("next", "Next stage only"), ("inspect", "Inspect status")]
     retry = view.get("retry")
     return ([("retry", "Retry %s" % retry["stage"])] if retry else []) + [("inspect", "Inspect status")]
 

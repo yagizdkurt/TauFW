@@ -799,12 +799,19 @@ taufw start Analyses/Examples/mutau_short
 taufw status taufw_runs/mutau_2022_postEE_short_20261013-120000
 taufw advance taufw_runs/mutau_2022_postEE_short_20261013-120000
 
-# Repeated checks while waiting for batch jobs (default interval: 600 seconds).
-taufw advance taufw_runs/mutau_2022_postEE_short_20261013-120000 --wait --poll 900
+# Check the batch jobs every 900 seconds instead of 600 (the default) until the run is done.
+taufw advance taufw_runs/mutau_2022_postEE_short_20261013-120000 --poll 900
+
+# Stop once stage `plots` is DONE, or after the next stage only; the run is then PAUSED.
+taufw advance taufw_runs/mutau_2022_postEE_short_20261013-120000 --until plots
+taufw advance taufw_runs/mutau_2022_postEE_short_20261013-120000 --next
 ```
 
 The example timestamp above is illustrative; substitute the path printed by
-your `start` command. `--wait` and `--poll` also work on `start`.
+your `start` command. `start`, `advance` and `retry` wait for the batch jobs
+until the run is done, failed or at its stop point; `--no-wait` makes them
+return as soon as a stage waits for jobs. `--poll`, `--until`, `--next` and
+`--no-wait` work on all three.
 `start --run-root /path/to/runs` puts the run there instead of the recipe's
 [`run_root`](#where-the-runs-go-run_root).
 `status` reads recorded and live state without submitting jobs or saving changes.
@@ -828,11 +835,12 @@ opens the optional console menu. It can select recipes, show a plan before
 starting, continue saved runs, and inspect status. See the
 [Framework quick start](../Framework/README.md#quick-start) for menu controls.
 
-Production normally submits and returns while waiting for jobs. Once it
-finishes, an `advance` can merge tuples and start all following local stages in
-the same call. Plots, shapes, fit, and python step commands run sequentially on the
-current machine and can keep a single `start` or `advance` busy for hours even
-without `--wait`; that flag controls batch polling, not local execution.
+Production submits its jobs, then `start` checks them every `--poll` seconds
+(with `--no-wait` it returns while they run). Once they finish, the same call
+merges the tuples and starts the following local stages. Plots, shapes, fit,
+and python step commands run sequentially on the current machine and can keep
+a single `start` or `advance` busy for hours even with `--no-wait`; that flag
+controls batch polling, not local execution.
 
 The recipe is saved into the run record and the bundle is copied into the run
 directory. Editing the source YAML or a bundle file later does not change an

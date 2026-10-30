@@ -348,9 +348,10 @@ def _run_data(states):
                         for name, kind in RUN_STAGES])
 
 
-def _advance_script(stages, fail=None, stop=None):
+def _advance_script(stages, fail=None, stop=None, end="DONE"):
     """The script of an advance (see _MockOperation) of local stages: fail: the label of the plots command that
-    fails; stop: the script ends with the plots command of that index running."""
+    fails; stop: the script ends with the plots command of that index running; end: the run's state at the end
+    (PAUSED: stopped by --next)."""
     steps = [(0.0, dict(kind="run", run_id=RUN_ID, run_dir=RUN_DIR)),
              (0.0, ("output", ">>> Advancing run %s" % RUN_ID))]
     at = 0.5
@@ -385,12 +386,13 @@ def _advance_script(stages, fail=None, stop=None):
                             message="%d command(s) ran" % len(commands))),
                   (at, ("output", "Stage %s: DONE" % name))]
         at += 0.5
-    return steps + [(at, dict(kind="run_state", run_id=RUN_ID, state="DONE")),
-                    (at, ("output", "Run %s: DONE" % RUN_ID))]
+    return steps + [(at, dict(kind="run_state", run_id=RUN_ID, state=end)),
+                    (at, ("output", "Run %s: %s" % (RUN_ID, end)))]
 
 
 def _jobs_script(checks=4, poll=15.0, wait=True, first=0):
-    """An advance of a production stage whose jobs run: a check every `poll` seconds (wait: with --wait)."""
+    """An advance of a production stage whose jobs run: a check every `poll` seconds (wait: False with
+    --no-wait)."""
     steps, at = [(0.0, dict(kind="run", run_id=RUN_ID, run_dir=RUN_DIR))], 0.5
     for check in range(first, first + checks):
         done = 270 * check
@@ -411,13 +413,15 @@ def _jobs_script(checks=4, poll=15.0, wait=True, first=0):
 
 def _advance(directory, kind="advancing", run_id=None, **options):
     """A made-up advance of RUN_ID: advancing (live; ends complete), jobs (live, Advance to the end), complete,
-    waiting (an Advance once that ended), failed, stopped or lost."""
+    waiting (an advance --no-wait that ended), paused (Next stage only), failed, stopped or lost."""
     local = ("plots", "fit", "results")
     data = _run_data(dict(ntuples="DONE", histograms="DONE"))
     if kind == "jobs":
         data, script, end = _run_data({}), _jobs_script(), RUNNING
     elif kind == "waiting":
         data, script, end = _run_data(dict(ntuples="WAITING")), _jobs_script(checks=1, wait=False, first=3), DONE
+    elif kind == "paused":
+        script, end = _advance_script(local[:1], end="PAUSED"), DONE
     elif kind == "failed":
         script, end = _advance_script(local, fail=FAILED_COMMAND[0]), FAILED
     elif kind in ("stopped", "lost"):
@@ -650,7 +654,8 @@ SCENARIOS = [
     Scenario("Run", "advancing (ends complete)", _run("advancing")),
     Scenario("Run", "waiting for jobs, Advance to the end", _run("jobs")),
     Scenario("Run result", "complete", _run("complete")),
-    Scenario("Run result", "waiting for jobs (Advance once)", _run("waiting")),
+    Scenario("Run result", "waiting for jobs (advance --no-wait)", _run("waiting")),
+    Scenario("Run result", "paused (Next stage only)", _run("paused")),
     Scenario("Run result", "failed", _run("failed")),
     Scenario("Run result", "stopped", _run("stopped")),
     Scenario("Run result", "lost", _run("lost")),

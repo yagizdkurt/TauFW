@@ -2161,3 +2161,42 @@ leave behind as long as nothing else can break, a read-only `--check`, Tab compl
   keeps a script bash can source.
 
 **Unchanged:** the installation, the installation record, the menu, every BBB baseline.
+
+
+## 55. Stop points, waiting by default, `PAUSED` (iterative runs, step 1)
+
+**Date:** 2026-10-30
+**Status:** done (lxplus check open: [TODO.md](TODO.md) section 1)
+**Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#55-stop-points-waiting-by-default-paused-iterative-runs-step-1)
+
+**Why:** analysis is iteration (user, 2026-10-30): run up to a stage, look at its output, change a config, run it
+again, then go on. A run could only go from start to end. This is step 1 of the plan "a run is a workspace"
+(`LocalR/architecture/24-iterative-runs.md`: next the run's own editable recipe, then `taufw rerun <run> <id>`
+replacing `retry`, then the menu). User decisions: the stop point is a stage id; waiting for the jobs is the
+default (`--wait` removed); a stopped run is `PAUSED` (TODO B2).
+
+**What changed:**
+
+- **Stop point:** `Framework.start/advance/retry/run(..., until=<stage id>)` end the call once that stage is `DONE`
+  (at once when it was `DONE` before; "Stopped after stage X (--until)"). An id that is not a stage of the run is
+  `StopPointError` before anything is made or the lock is taken. `next_stage(record)`: the first stage that is not
+  `DONE`.
+- **CLI:** `start`, `advance`, `retry` take `--until ID` or `--next` (start: the first stage; retry: the failed one;
+  a run with every stage `DONE` says so). They wait for the batch jobs by default (a check every `--poll` s, 600);
+  `--no-wait` returns as soon as a stage waits for jobs (the old default). `--wait` is gone (an error). Tab
+  completion knows the new options.
+- **Run states:** the state from the stages ends with `PAUSED` instead of `RUNNING` (a stage started, none waits,
+  failed or is blocked: a stop point, or a local stage that is not ready). `RUNNING` is the live state only:
+  `run_state(record)` / `live_state(state, lock)` say `RUNNING` while a lock that is not lost is held on a `NEW` or
+  `PAUSED` run; `taufw status` prints it. The menu's run list uses the same rule (it reads the lock itself, the menu
+  imports nothing of TauFW); its CL §42 workaround is gone.
+- **Menu:** Continue offers "Advance to the end" and "Next stage only" (`advance --next`; "Advance once" removed);
+  Start, Continue and Retry no longer pass `--wait`. The run screen has a "Paused" card ("Stopped after plots; fit
+  is next.") and a "Not ready at X" card for a stage whose preflight stopped it; the run line says "Paused at X". UI
+  preview: "Run result / paused (Next stage only)".
+- **Tests:** `framework.production` (BBB) passes `--no-wait` to start and advance, so it does what it did before;
+  its baseline does not change (the command output is not recorded, `status` of the DONE run is the same).
+- **Docs:** `Framework/README.md` (terms, quick start, run model, run states), `Analyses/README.md`,
+  `Docs/Guide/4-Concepts/UsingFWWithCommands.md`, the menu's FAQ.
+
+**Unchanged:** run.json (the run state is not saved), every BBB baseline, `retry`, the bundle check.

@@ -931,3 +931,23 @@ unchanged; to confirm on lxplus without re-lock: [TODO.md](TODO.md) section 1.
 - `Tests/Setup/test_setup_runner.py`: the installer screen's UTF-8 marks are ✓ and ✗ (were `?`).
 - `Tests/run.py checks` on Windows: the same 14 of 16 pass (Utilities 96, Framework 437, Setup 74);
   `check_import_boundaries` (known debt, 0 new pairs) and `check_root` (no ROOT) fail as before.
+
+
+## 55. Stop points, waiting by default, `PAUSED` (iterative runs, step 1)
+
+**Change:** [CL §55](Refactor-2025.md#55-stop-points-waiting-by-default-paused-iterative-runs-step-1)
+
+- `Tests/Framework/test_python_step.py` `StopPointTests` (real python steps): `start(until="make")` leaves
+  `DONE, NEW, NEW`, `PAUSED`, `next_stage` = `use`; an advance with the same stop point runs nothing (history
+  unchanged); `until="use"`, then to the end; an unknown stop point makes no run directory and moves nothing (no
+  lock left); `taufw advance --next` runs one stage, `--until nope` exits 1, `--next` on a DONE run exits 0;
+  `live_state` table (PAUSED/NEW + live lock -> RUNNING, lost lock, WAITING and DONE unchanged) and `run_state`.
+- `Tests/Framework/test_framework.py`: `test_parser` (`--no-wait`, `--until`, `--next` with `retry`, `--next` and
+  `--until` together refused, `--wait` refused); the CLI tests with a waiting production pass `--no-wait`, and
+  `advance --poll 0` waits until DONE by default.
+- `Tests/Framework/test_menu.py`: `test_a_paused_run_that_an_advance_works_on_is_running` (replaces the CL §42 test),
+  Continue "next" -> `advance_run(record, next_only=True)`; `test_run_picker.py` ("Next stage only");
+  `test_interactive.py` (argv without `--wait`; `test_next_stage_only` -> `advance RUN --next`);
+  `test_run_screen.py` (the "Paused" card, "Paused at fit").
+- Windows: `python -m unittest discover` in `Tests/Framework`: 457 tests OK (4 skipped); `Tests/check_harness.py`
+  OK. lxplus: TODO section 1.

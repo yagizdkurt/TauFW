@@ -3,7 +3,7 @@
 
 Two advances of one run (a second terminal, another lxplus node, the menu and
 the CLI) would both submit, resubmit or merge the same jobs. Framework.advance
-holds this lock while it works (also while it waits with --wait):
+holds this lock while it works (also while it waits for the jobs):
 
     with RunLock(run_dir, take=False) as lock:     RunLockError if another advance holds it
         ... lock.check() ...                       RunLockError if it was taken over meanwhile

@@ -34,12 +34,12 @@ from TauFW.Framework._internal.runtime.run_record import RunRecord, RunState, St
 from TauFW.Framework.stages import STAGES, StageState, StageOutcome
 from TauFW.Framework._internal.runtime.reporting import Reporter, FrameworkReporter, SilentReporter, EventReporter
 from TauFW.Framework._internal.runtime.framework import (Framework, load_run, RunPlan, RunSummary, RunDirectoryError,
-                                                         RetryError)
+                                                         RetryError, StopPointError, next_stage, run_state)
 from TauFW.Framework._internal.runtime.run_lock import RunLockError, read_lock
 from TauFW.Framework._internal.version import current_version, VersionChecker
 
 __all__ = ['Framework', 'load_run', 'RunPlan', 'RunSummary', 'RunDirectoryError', 'RetryError', 'RunLockError',
-           'read_lock',
+           'StopPointError', 'next_stage', 'run_state', 'read_lock',
            'Recipe', 'StageSpec', 'Issue', 'RecipeError',
            'check_recipe', 'RecipeCheck',
            'RunRecord', 'RunState', 'StageRecord', 'STAGES', 'StageState', 'StageOutcome',

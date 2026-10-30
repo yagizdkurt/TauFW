@@ -279,9 +279,9 @@ _taufw_complete() {
   case $command in
     check) options='-h --help -v --verbose' ;;
     plan) options='-h --help -v --verbose --local -m --maxevts' ;;
-    start) options='-h --help -v --verbose --wait --poll --run-root' ;;
-    advance) options='-h --help -v --verbose --wait --poll --take-lock' ;;
-    retry) options='-h --help -v --verbose --wait --poll --take-lock' ;;
+    start) options='-h --help -v --verbose --no-wait --poll --until --next --run-root' ;;
+    advance) options='-h --help -v --verbose --no-wait --poll --until --next --take-lock' ;;
+    retry) options='-h --help -v --verbose --no-wait --poll --until --next --take-lock' ;;
     status) options='-h --help -v --verbose' ;;
     init) options='-h --help -v --verbose --from --root' ;;
     configs) options='-h --help -v --verbose' ;;
@@ -290,7 +290,7 @@ _taufw_complete() {
     *) return ;;
   esac
   case $previous in
-    --poll | -m | --maxevts) return ;;
+    --poll | -m | --maxevts | --until) return ;;
     --run-root | --root) mapfile -t COMPREPLY < <(compgen -d -- "$current"); return ;;
     --from) mapfile -t COMPREPLY < <(compgen -d -- "$current"; _taufw_complete_recipes "$current")
             return ;;

@@ -23,7 +23,7 @@ files, validates values, or invokes commands. Grid callbacks are grid_proxy_vali
 None when voms-proxy-init cannot read the password from stdin, and renew_grid_proxy_in_terminal() (it asks on the
 plain terminal, ConsoleUI.in_terminal). Test callbacks are test_catalog(), start_tests(family, cases, title, expected), which
 returns the Framework._internal.operations.Operation that the test screen follows, and tests_operation(), the last test
-run (or None). Run callbacks: start_run(recipe), advance_run(record, wait, take_lock) and retry_run(record, take_lock)
+run (or None). Run callbacks: start_run(recipe), advance_run(record, next_only, take_lock) and retry_run(record, take_lock)
 (the failed stage of a FAILED run again, then to the end) start taufw.py behind the menu and return its Operation
 (kind "run"); retry_info(record) is what a retry would do (dict(stage, type, message, changed[, tries]), or None: no
 retry); run_operations() (the advances for the main menu), run_operation(run_dir)
@@ -278,17 +278,17 @@ class MenuNavigation:
             browser.close()
 
     def _summary(self, row, advance):
-        """(run_id, state, updated) of a run row. A RUNNING run (run.json: a stage started, none waits) that no
-        advance works on now (none behind the menu, no live run lock: advanced from the CLI) is PAUSED: it waits
-        for the next advance. Only the list says so; run.json and `taufw.py status` still say RUNNING (see
-        Docs/Develop/Refactor-2025/TODO.md)."""
+        """(run_id, state, updated) of a run row, with the live state (the rule of the Framework's live_state; the
+        menu imports nothing of TauFW): a NEW or PAUSED run that an advance works on now (behind the menu, or a live
+        run lock: from the CLI) is RUNNING. The row is kept while run.json does not change, the lock is read here
+        every time."""
         if row[2] is None:
             return _name(row[1]), None, None
         run_id, state, updated = row[2]
-        if state == "RUNNING" and not (advance is not None and advance.running):
-            lock = self.operations.run_lock(row[1])
-            if lock is None or lock.get("lost"):
-                state = "PAUSED"
+        if state in ("NEW", "PAUSED"):
+            lock = dict(lost=False) if advance is not None and advance.running else self.operations.run_lock(row[1])
+            if lock is not None and not lock.get("lost"):
+                state = "RUNNING"
         return run_id, state, updated
 
     def _kept_row(self, run_dir):
@@ -313,7 +313,7 @@ class MenuNavigation:
         self._command("Run status: %s" % record.run_id, "status", record.run_dir, refresh=True)
 
     def continue_run(self):
-        """Pick a run and advance it behind the menu: to the end (taufw.py advance --wait) or once. A run that an
+        """Pick a run and advance it behind the menu: to the end (taufw.py advance) or the next stage only. A run that an
         advance works on now opens its screen; one whose lock another advance holds shows the lock (a lost one
         may be taken over)."""
         while True:
@@ -350,13 +350,14 @@ class MenuNavigation:
                 take_lock = self._take_lock(record)
                 if take_lock is None:
                     break
-                action = chosen if chosen in ("wait", "advance") else self.ui.continue_actions(record.run_id)
+                action = chosen if chosen in ("wait", "next") else self.ui.continue_actions(record.run_id)
                 chosen = None
                 if action == "back":
                     break
                 if not self._grid_ready(self.operations.needs_grid_proxy(record=record)):
                     continue
-                self._follow_run(self.operations.advance_run(record, wait=action == "wait", take_lock=take_lock))
+                self._follow_run(self.operations.advance_run(record, next_only=action == "next",
+                                                             take_lock=take_lock))
                 return
 
     def _take_lock(self, record):

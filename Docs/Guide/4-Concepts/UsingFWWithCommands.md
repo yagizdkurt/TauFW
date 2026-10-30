@@ -163,7 +163,9 @@ This creates a new run folder under `run_root`, copies the bundle into it, and s
 Save the run folder path printed in the output. The run reads its own `bundle/` copy from then on;
 changes in the original analysis folder don't affect it.
 
-`start` returns when the run has to wait for batch jobs, unless you add `--wait`.
+`start` waits for the batch jobs (it checks them every 600 seconds) and goes on to the end of the recipe.
+Add `--no-wait` to return as soon as the run has to wait for jobs, or `--until <stage id>` (`--next`: only the
+first stage) to stop after a stage: the run is then `PAUSED` until you advance it again.
 You can override the configured run root for a new run with `--run-root` followed by a full directory path.
 Choose a location with enough space for the merged tuples.
 
@@ -180,12 +182,13 @@ taufw advance "$run_dir"
 `status` reads the run and checks the jobs without changing anything. `advance` moves it forward:
 it checks production jobs, resubmits failed chunks while attempts remain, and merges completed outputs.
 It skips stages that are already `DONE` and can start the next stage in the same call.
-If jobs are still running, it returns so you can come back later.
+While jobs are still running it checks them again every 600 seconds; with `--no-wait` it returns so you can come
+back later. `--until <stage id>` and `--next` stop it after a stage, as for `start`.
 
-To keep checking every 900 seconds (15 minutes):
+To check every 900 seconds (15 minutes) instead:
 
 ```bash
-taufw advance "$run_dir" --wait --poll 900
+taufw advance "$run_dir" --poll 900
 ```
 
 This command needs to stay running. Use `screen` or `tmux` if you want it to keep checking after you log out.

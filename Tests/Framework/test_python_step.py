@@ -10,10 +10,23 @@ import unittest
 import checkout  # noqa: F401  (must precede TauFW imports)
 from TauFW.Framework import Framework, Recipe, RecipeError, RetryError, RunRecord, SilentReporter
 from TauFW.Framework._internal.recipes.bundle import bundle_hashes
-from TauFW.Framework._internal.runtime.framework import retryable_stage
+from TauFW.Framework._internal.runtime.framework import (retryable_stage, next_stage, live_state, run_state,
+                                                         StopPointError)
+from TauFW.Framework._internal.runtime.run_lock import read_lock
 from TauFW.Framework.stages import PythonStage, StageContext, PreflightError
 from TauFW.Framework._internal.runtime.step_runner import _result
 from test_framework import Clock
+
+
+def load_cli(test):
+    """taufw.py as a module (as CommandLineTests loads it), with a reviewed user config and silent output."""
+    import importlib.util
+    checkout.reviewed_user_config(test)
+    spec = importlib.util.spec_from_file_location("taufw_cli", str(checkout.TAUFW_SCRIPT))
+    cli = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cli)
+    cli.FrameworkReporter = lambda verbosity=0: SilentReporter()
+    return cli
 
 MAKE = '''
 import os
@@ -316,6 +329,66 @@ class RetryTests(PythonStepTestCase):
         self.assertIsNone(record.stage("need").retries[0]["bundle_changed"])  # not known
         self.assertEqual(self.bundle_warnings(), [])
         self.assertNotIn("changed", record.bundle)
+
+
+class StopPointTests(PythonStepTestCase):
+    """Plan 24 step 1: until= (--until, --next) stops a run after a stage; it is then PAUSED."""
+
+    def framework(self, *stages):
+        self.write("recipe.yml", json.dumps({"name": "steps", "pico": {"config": None}, "stages": list(stages)}))
+        recipe = Recipe.load(self.bundle)
+        return Framework(recipe, {s.id: PythonStage() for s in recipe.stages}, reporter=self.reporter,
+                         sleep=lambda s: None, clock=Clock())
+
+    def three(self):
+        return self.framework(step("make", options={"n": 3}), step("use", inputs={"numbers": "make"}),
+                              step("last", file="steps/make.py", options={"n": 1}))
+
+    def test_a_run_stops_after_the_stage_and_goes_on_later(self):
+        record = self.three().start(run_root=os.path.join(self.root, "runs"), until="make")
+        self.assertEqual([s.state for s in record.stages], ["DONE", "NEW", "NEW"])
+        self.assertEqual((record.state, next_stage(record)), ("PAUSED", "use"))
+        self.assertIn(("message", "Stopped after stage make (--until)"), self.reporter.messages)
+        history = list(record.stage("make").history)
+        fw = Framework.from_record(RunRecord.load(record.run_dir), reporter=self.reporter)
+        record = fw.advance(RunRecord.load(record.run_dir), until="make")  # DONE already: stops at once
+        self.assertEqual(([s.state for s in record.stages], record.stage("make").history), (["DONE", "NEW", "NEW"],
+                                                                                           history))
+        record = fw.advance(record, until="use")
+        self.assertEqual([s.state for s in record.stages], ["DONE", "DONE", "NEW"])
+        record = fw.advance(record)  # no stop point: to the end
+        self.assertEqual((record.state, next_stage(record)), ("DONE", None))
+
+    def test_an_unknown_stop_point_changes_nothing(self):
+        fw, runs = self.three(), os.path.join(self.root, "runs")
+        with self.assertRaises(StopPointError) as context:
+            fw.start(run_root=runs, until="fit")
+        self.assertIn("has no stage 'fit' to stop after (stages: make, use, last)", str(context.exception))
+        self.assertFalse(os.path.exists(runs))
+        record = fw.start(run_root=runs, until="make")
+        with self.assertRaises(StopPointError):
+            Framework.from_record(record, reporter=self.reporter).advance(record, until="fit")
+        self.assertEqual([s.state for s in RunRecord.load(record.run_dir).stages], ["DONE", "NEW", "NEW"])
+        self.assertIsNone(read_lock(record.run_dir))
+
+    def test_next_on_the_command_line(self):
+        cli = load_cli(self)
+        record = self.three().start(run_root=os.path.join(self.root, "runs"), until="make")
+        self.assertEqual(cli.main(["advance", record.run_dir, "--next"]), 0)
+        self.assertEqual([s.state for s in RunRecord.load(record.run_dir).stages], ["DONE", "DONE", "NEW"])
+        self.assertEqual(cli.main(["advance", record.run_dir, "--until", "nope"]), 1)
+        self.assertEqual(cli.main(["advance", record.run_dir]), 0)
+        self.assertEqual(RunRecord.load(record.run_dir).state, "DONE")
+        self.assertEqual(cli.main(["advance", record.run_dir, "--next"]), 0)  # nothing left: says so
+
+    def test_live_state(self):
+        live, lost = dict(lost=False), dict(lost=True)
+        for state, lock, shown in (("PAUSED", None, "PAUSED"), ("PAUSED", live, "RUNNING"), ("PAUSED", lost, "PAUSED"),
+                                   ("NEW", live, "RUNNING"), ("WAITING", live, "WAITING"), ("DONE", live, "DONE"),
+                                   ("FAILED", None, "FAILED")):
+            self.assertEqual(live_state(state, lock), shown, (state, lock))
+        record = self.three().start(run_root=os.path.join(self.root, "runs"), until="make")
+        self.assertEqual(run_state(record), "PAUSED")  # no advance holds the lock now
 
 
 class ResultTests(unittest.TestCase):

@@ -102,7 +102,8 @@ FAQ = (
      "taufw plan RECIPE previews; taufw start RECIPE "
      "starts; taufw advance RUN_DIR continues; taufw status RUN_DIR "
      "inspects. taufw userconfig makes or shows your user config. "
-     "Add --wait --poll 600 to advance for polling. Use --help for "
+     "They wait for batch jobs (--no-wait: return); --until ID or --next "
+     "stops after a stage. Use --help for "
      "command options. pico.py and the other package entry points remain "
      "available independently."),
 

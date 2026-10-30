@@ -26,6 +26,9 @@ Pipeline map:
     run model:   stepwise. start() and advance() move the run as far as they can (until a stage waits for the
                  batch system, fails, is not ready or is not implemented), save run.json and return.
                  advance(wait=True) repeats this every `poll` seconds until the run no longer waits.
+    stop point:  until=<stage id> (start, advance, retry, run; `--until`, `--next` in taufw.py) stops the call once
+                 that stage is DONE, also when it was DONE before; the run is then PAUSED (RunState). A run that
+                 an advance works on now is RUNNING (run_state: read from its advance lock, never from run.json).
     stage data:  every stage gets a StageContext: the run directory (logs: <run_dir>/logs/<stage id>/, output:
                  <run_dir>/stages/<stage id>/),
                  its inputs (slot -> stage id, from the recipe) and the artifacts of those stages once they are
@@ -59,7 +62,10 @@ Public API:
   make_bundle(target)                         a new analysis bundle with copies of the module configs used
   load_run(run_dir)                           the RunRecord of a run directory
   failed_stage(record), retryable_stage(record)   the FAILED stage of a run; the one retry() would run again
+  next_stage(record)                          the first stage that is not DONE (`--next`)
+  run_state(record), live_state(state, lock)  the RunState with RUNNING while an advance holds the run's lock
   RetryError                                  retry() cannot run the failed stage again
+  StopPointError                              until= names no stage of the run
   check_writable(directory, what)             write and remove a small file (RunDirectoryError if it fails)
   RunPlan, RunSummary, StageSummary           records (bottom of this file)
 """
@@ -76,7 +82,7 @@ from TauFW.Framework._internal.runtime.manifest import write_manifest, ManifestE
 from TauFW.Framework._internal.recipes.recipe import Recipe, RecipeError, Issue
 from TauFW.Framework._internal.recipes.samples import sample_issues
 from TauFW.Framework._internal.runtime.run_record import RunRecord, RunState
-from TauFW.Framework._internal.runtime.run_lock import RunLock, RunLockError
+from TauFW.Framework._internal.runtime.run_lock import RunLock, RunLockError, read_lock
 from TauFW.Framework._internal.runtime.interrupts import deferred_interrupt
 from TauFW.Framework._internal import user_settings
 from TauFW.Framework._internal.runtime.reporting import FrameworkReporter
@@ -86,8 +92,8 @@ from TauFW.Framework.stages import (STAGES, StageState, StageContext, StageNotIm
                                     PythonStage)
 
 __all__ = ['Framework', 'RunPlan', 'StagePlan', 'RunSummary', 'StageSummary', 'load_run', 'check_writable',
-           'failed_stage', 'retryable_stage', 'RunDirectoryError', 'RetryError', 'RunLockError', 'RUN_LOG_NAME',
-           'DEFAULT_RUN_ROOT']
+           'failed_stage', 'retryable_stage', 'next_stage', 'run_state', 'live_state', 'RunDirectoryError',
+           'RetryError', 'StopPointError', 'RunLockError', 'RUN_LOG_NAME', 'DEFAULT_RUN_ROOT']
 
 
 # =============================================================================
@@ -104,10 +110,10 @@ class Framework:
     """Runs the stages of one recipe.
 
     Pipelines:      plan(recipe=None)                         -> RunPlan     changes nothing
-                    start(recipe=None, run_root=None)         -> RunRecord   new run directory, then advance()
-                    advance(record, wait, poll, take_lock)    -> RunRecord   step the stages in order; saves run.json
-                    retry(record, wait, poll, take_lock)      -> RunRecord   the FAILED stage NEW again, then advance
-                    run(recipe=None, run_root, wait, poll)    -> RunRecord   start(), then advance() while waiting
+                    start(recipe=None, run_root=None, until)  -> RunRecord   new run directory, then advance()
+                    advance(record, wait, poll, take_lock, until) -> RunRecord   step the stages in order; saves run.json
+                    retry(record, wait, poll, take_lock, until)   -> RunRecord   the FAILED stage NEW again, then advance
+                    run(recipe=None, run_root, wait, poll, until) -> RunRecord   start(), then advance() while waiting
                     status(record)                            -> RunSummary  read-only: saved and live state
                     make_bundle(target, name)                 -> paths       new bundle from this recipe
     Stage dispatch: _advance_stages, _advance_stage, _apply, _write_manifest, _stage_for
@@ -156,8 +162,9 @@ class Framework:
                        bundle_dir=recipe.bundle_dir, sample_problems=tuple(problems),
                        sample_warnings=tuple(warnings))
 
-    def start(self, recipe=None, run_root=None):
-        """Create the run directory, copy the bundle files and write run.json, then call advance() once.
+    def start(self, recipe=None, run_root=None, until=None):
+        """Create the run directory, copy the bundle files and write run.json, then call advance() once (until: as
+        in advance(); StopPointError before anything is made if it names no stage of the recipe).
         run_root: the parent of the run directory; it takes precedence over the recipe's run_root, then comes
         runs.run_root of the user config (user_settings.py), and without any of them it is taufw_runs/ (in the
         working directory). A run_root that is given (here or in the recipe) is
@@ -165,6 +172,7 @@ class Framework:
         Side effects: creates <run_root>/<name>_<time>/ with run.json, run.log and bundle/, and runs the first
         stage steps (the production stage, for example, submits its jobs)."""
         recipe = recipe or self.recipe
+        _check_until(until, [stage_spec.id for stage_spec in recipe.stages], recipe.name)
         problems, warnings = self._sample_issues(recipe)
         if problems:  # before anything is made: production would not make what the readers ask for
             raise RecipeError(recipe.source, problems)
@@ -182,11 +190,13 @@ class Framework:
         self.reporter.header("TauFW run %s" % (record.run_id))
         self.reporter.message("Run directory: %s" % (record.run_dir))
         record.save(self.files)
-        return self.advance(record)
+        return self.advance(record, until=until)
 
-    def advance(self, record, wait=False, poll=DEFAULT_POLL_SECONDS, take_lock=False):
+    def advance(self, record, wait=False, poll=DEFAULT_POLL_SECONDS, take_lock=False, until=None):
         """Step the stages in order until one waits for the batch system, fails or is not implemented. run.json is
         saved after every step. With wait=True, this is repeated every `poll` seconds while the run is waiting.
+        until: a stage id: stop once that stage is DONE (at once if it is DONE already); the run is then PAUSED.
+        StopPointError (before the lock is taken) if it names no stage of the run.
         The run directory is first tried with a small file written and removed (RunDirectoryError if that fails,
         e.g. an expired AFS token), before any stage moves. The run's advance lock is held throughout
         (run_lock.py): RunLockError if another advance holds it; take_lock=True takes over a lost lock of another
@@ -194,19 +204,21 @@ class Framework:
         Before the stages move, the run's bundle copy is compared with its start (_check_bundle, CL §44).
         Side effects: whatever the stages do (production: submit, resubmit, merge); run.json and run.log;
         <run_dir>/advance.lock while it runs."""
-        return self._locked(record, wait, poll, take_lock)
+        return self._locked(record, wait, poll, take_lock, until=until)
 
-    def retry(self, record, wait=False, poll=DEFAULT_POLL_SECONDS, take_lock=False):
+    def retry(self, record, wait=False, poll=DEFAULT_POLL_SECONDS, take_lock=False, until=None):
         """Run the FAILED stage of a run again, then go on like advance(): the finished stages do not run again.
         The stage goes back to the state its retry_state() gives: NEW for a local stage, whose failed attempt
         (logs/<id>/ and stages/<id>/) is moved to logs/<id>/attempt<N>/ first; WAITING for a production stage after
         max_tries (nothing moved; CL §48). The attempt is recorded in the stage's `retries` (run.json), with the
         bundle copy's changes since the start and the stage's retry_fields(). RetryError if the stage cannot be
-        retried or the run has no failed stage. Lock, wait, poll and side effects as in advance() (CL §44)."""
-        return self._locked(record, wait, poll, take_lock, retry=True)
+        retried or the run has no failed stage. Lock, wait, poll, until and side effects as in advance() (CL §44)."""
+        return self._locked(record, wait, poll, take_lock, retry=True, until=until)
 
-    def _locked(self, record, wait, poll, take_lock, retry=False):
-        """advance() or retry(): check the run directory, take the run's advance lock, then work."""
+    def _locked(self, record, wait, poll, take_lock, retry=False, until=None):
+        """advance() or retry(): check the stop point and the run directory, take the run's advance lock, then
+        work."""
+        _check_until(until, [stage_spec.id for stage_spec in self._recipe_of(record).stages], record.run_id)
         check_writable(record.run_dir, "run directory")
         with RunLock(record.run_dir, take=take_lock) as lock:
             if lock.taken is not None:
@@ -218,16 +230,18 @@ class Framework:
             if retry:
                 self.reporter.attach_log(os.path.join(record.run_dir, RUN_LOG_NAME))
                 self._retry_failed(record)
-            return self._advance(record, wait, poll, lock)
+            return self._advance(record, wait, poll, lock, until)
 
-    def _advance(self, record, wait, poll, lock):
+    def _advance(self, record, wait, poll, lock, until=None):
         """advance() while the lock is held."""
         self.reporter.attach_log(os.path.join(record.run_dir, RUN_LOG_NAME))
         self.reporter.event('run', run_id=record.run_id, run_dir=record.run_dir)
         while True:
             self._check_bundle(record)
-            self._advance_stages(record, lock)
+            stopped = self._advance_stages(record, lock, until)
             record.save(self.files)
+            if stopped:
+                self.reporter.message("Stopped after stage %s (--until)" % (until))
             self.reporter.message("Run %s: %s" % (record.run_id, record.state))
             self.reporter.event('run_state', run_id=record.run_id, state=RunState(record.state).value)
             if not (wait and record.state == RunState.WAITING):
@@ -236,11 +250,11 @@ class Framework:
             self.reporter.event('wait', seconds=poll)
             self.sleep(poll)
 
-    def run(self, recipe=None, run_root=None, wait=False, poll=DEFAULT_POLL_SECONDS):
-        """start(), and with wait=True keep advancing until the run no longer waits."""
-        record = self.start(recipe, run_root)
+    def run(self, recipe=None, run_root=None, wait=False, poll=DEFAULT_POLL_SECONDS, until=None):
+        """start(), and with wait=True keep advancing until the run no longer waits (until: as in advance())."""
+        record = self.start(recipe, run_root, until=until)
         if wait and record.state == RunState.WAITING:
-            record = self.advance(record, wait=True, poll=poll)
+            record = self.advance(record, wait=True, poll=poll, until=until)
         return record
 
     def status(self, record):
@@ -279,8 +293,9 @@ class Framework:
     # =========================================================================
     # ============================ STAGE DISPATCH =============================
 
-    def _advance_stages(self, record, lock=None):
-        """Advance the stages in recipe order, and stop where the run cannot go further for now.
+    def _advance_stages(self, record, lock=None, until=None):
+        """Advance the stages in recipe order, and stop where the run cannot go further for now, or once the stage
+        `until` is DONE. Returns True only when it stopped there.
 
         A stage may take several steps in one call (for example MERGING -> DONE, then the next stage starts).
         For each stage, in order:
@@ -305,6 +320,8 @@ class Framework:
                     lock.check()
                 state = StageState(stage_record.state)
                 if state is StageState.DONE:
+                    if stage_spec.id == until:
+                        return True  # the stop point (--until, --next): the later stages wait for the next advance
                     break  # this stage is finished: continue with the next stage
                 if state.terminal:
                     return  # FAILED or NOT_IMPLEMENTED: the later stages cannot start
@@ -330,6 +347,7 @@ class Framework:
                     return  # the stage now waits for the batch system: come back later
             else:
                 return  # MAX_STEPS reached without settling: stop here
+        return False
 
     def _advance_stage(self, stage_spec, stage_record, context):
         """One step of one stage. If the stage raises an error, the error is written to the stage's history (the
@@ -642,6 +660,30 @@ def failed_stage(record):
     return None
 
 
+def next_stage(record):
+    """The id of the first stage of a run (recipe order) that is not DONE, or None if all are: what `--next` stops
+    after."""
+    for stage in record.recipe.get('stages', ()):
+        if record.stage(stage['id']).state != StageState.DONE:
+            return stage['id']
+    return None
+
+
+def live_state(state, lock):
+    """The RunState of a run whose stages give `state` (RunRecord.state) and whose advance lock is `lock`
+    (read_lock: None when no advance holds it): RUNNING when a lock that is not lost is held on a run that is NEW or
+    PAUSED (a local stage stays NEW while it works); otherwise `state`. A WAITING run that an advance polls stays
+    WAITING."""
+    if state in (RunState.NEW, RunState.PAUSED) and lock is not None and not lock.get('lost'):
+        return RunState.RUNNING
+    return RunState(state)
+
+
+def run_state(record):
+    """The live RunState of a run: live_state() of its stages and of its advance lock (a file read)."""
+    return live_state(record.state, read_lock(record.run_dir))
+
+
 def retryable_stage(record):
     """(id, stage name) of the FAILED stage that retry() would run again, or None: no failed stage, or one that
     cannot be retried (Stage.retry_state: e.g. production other than after max_tries)."""
@@ -656,6 +698,16 @@ class RunDirectoryError(OSError):
 
 class RetryError(ValueError):
     """retry() cannot run the failed stage again; the message says why."""
+
+
+class StopPointError(ValueError):
+    """until= (--until) names no stage of the run."""
+
+
+def _check_until(until, stage_ids, name):
+    """StopPointError if `until` is given and is not one of the stage ids of the run (or recipe) `name`."""
+    if until is not None and until not in stage_ids:
+        raise StopPointError("%s has no stage %r to stop after (stages: %s)" % (name, until, ", ".join(stage_ids)))
 
 
 def check_writable(directory, what):

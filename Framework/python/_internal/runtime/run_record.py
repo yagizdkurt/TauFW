@@ -41,7 +41,7 @@ Outputs: run.json in the run directory.
 Public API:
   RunRecord.create(recipe, run_root, pico_config, now) / RunRecord.load(run_dir) / record.save()
   RunRecord.state      overall state of the run, a RunState
-  RunState             NEW, RUNNING, WAITING, DONE, FAILED, BLOCKED
+  RunState             NEW, PAUSED, WAITING, DONE, FAILED, BLOCKED (from the stages); RUNNING (live: run_state)
   StageRecord          one stage's state, attempt, request, sources, submissions, last status, artifacts,
                        history, retries
 """
@@ -68,10 +68,12 @@ SCHEMA = 3  # version of the run.json and run directory layout; increase it when
 
 
 class RunState(str, Enum):
-    """Overall state of a run, computed from the states of its stages (see RunRecord.state).
+    """Overall state of a run, computed from the states of its stages (see RunRecord.state), except RUNNING: an
+    advance holds the run's lock now (framework.run_state reads it; never computed from the stages alone).
     It is a str, so it compares equal to the plain strings ('WAITING', ...) and prints as one."""
     NEW     = 'NEW'      # no stage has started
-    RUNNING = 'RUNNING'  # a stage is working (none waits, failed or is blocked)
+    PAUSED  = 'PAUSED'   # a stage started, none waits, failed or is blocked: advance it again (e.g. after --until)
+    RUNNING = 'RUNNING'  # an advance works on it now (live state, framework.run_state)
     WAITING = 'WAITING'  # a stage waits for batch jobs: advance again later
     DONE    = 'DONE'     # every stage is done
     FAILED  = 'FAILED'   # a stage failed
@@ -132,7 +134,8 @@ class RunRecord:
     def state(self):
         """The overall RunState, computed from the stage states. The first rule that matches wins:
         a stage FAILED -> FAILED; all stages DONE -> DONE; a stage waits for jobs -> WAITING;
-        a placeholder stage was reached -> BLOCKED; nothing started -> NEW; otherwise RUNNING."""
+        a placeholder stage was reached -> BLOCKED; nothing started -> NEW; otherwise PAUSED (never RUNNING: whether
+        an advance works on the run is in its lock, framework.run_state)."""
         states = [s.state for s in self.stages]
         if StageState.FAILED in states:
             return RunState.FAILED
@@ -144,7 +147,7 @@ class RunRecord:
             return RunState.BLOCKED
         if all(s == StageState.NEW for s in states):
             return RunState.NEW
-        return RunState.RUNNING
+        return RunState.PAUSED
 
     def stage(self, name):
         """The StageRecord of a stage id."""

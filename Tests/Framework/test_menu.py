@@ -815,7 +815,7 @@ class ScreenTests(unittest.TestCase):
         ui.recipe_plan.return_value = "start"
         self.assertEqual(MenuNavigation(ui, operations).run(), 0)
         operations.start_run.assert_called_once_with(str(Path("recipes/example.yml")))
-        operations.advance_run.assert_called_once_with(record, wait=True, take_lock=False)
+        operations.advance_run.assert_called_once_with(record, next_only=False, take_lock=False)
         advanced = operations.advance_run.return_value
         self.assertEqual(ui.run_progress.call_args_list, [mock.call("Run example", started),
                                                           mock.call("Run example", advanced)])
@@ -885,11 +885,11 @@ class ScreenTests(unittest.TestCase):
         ui.continue_actions.assert_not_called()
         operations.mark_seen.assert_not_called()
 
-    def test_continue_once_and_the_run_lock(self):
+    def test_continue_next_stage_and_the_run_lock(self):
         ui, operations, record = self.runs_menu()
-        ui.continue_actions.return_value = "advance"
+        ui.continue_actions.return_value = "next"
         MenuNavigation(ui, operations).continue_run()
-        operations.advance_run.assert_called_once_with(record, wait=False, take_lock=False)
+        operations.advance_run.assert_called_once_with(record, next_only=True, take_lock=False)
         live = dict(host="lxplus999", pid=1, since="14:02", quiet=10, lost=False, local=False)
         for lock, choice, take in ((live, "back", None), (dict(live, lost=True), "take", True),
                                    (dict(live, lost=True, local=True), None, False)):
@@ -904,19 +904,19 @@ class ScreenTests(unittest.TestCase):
                 if take is None:
                     operations.advance_run.assert_not_called()
                 else:
-                    operations.advance_run.assert_called_once_with(record, wait=True, take_lock=take)
+                    operations.advance_run.assert_called_once_with(record, next_only=False, take_lock=take)
 
     def test_inline_continue_action_is_rechecked_before_advancing(self):
         for state, allowed in (("WAITING", True), ("DONE", False)):
             with self.subTest(state=state):
                 ui, operations, record = self.runs_menu()
-                ui.select_run.side_effect = [("advance", 0), ("back", None)]
+                ui.select_run.side_effect = [("next", 0), ("back", None)]
                 record.state = state
                 operations.can_advance.return_value = allowed
                 ui.terminal_run_actions.return_value = "back"
                 MenuNavigation(ui, operations).continue_run()
                 if allowed:
-                    operations.advance_run.assert_called_once_with(record, wait=False, take_lock=False)
+                    operations.advance_run.assert_called_once_with(record, next_only=True, take_lock=False)
                     ui.continue_actions.assert_not_called()
                 else:
                     operations.advance_run.assert_not_called()
@@ -1036,7 +1036,7 @@ class ScreenTests(unittest.TestCase):
             (ui.tests_menu, (), ["all", "checks", "normal", "bbb", "environment", "preview", "back"]),
             (ui.test_family, ("Normal",), ["all", "choose", "back"]),
             (ui.terminal_run_actions, ("DONE",), ["inspect", "back"]),
-            (ui.continue_actions, ("run",), ["wait", "advance", "back"]),
+            (ui.continue_actions, ("run",), ["wait", "next", "back"]),
             (ui.grid_proxy_needed, (), ["renew", "back"]),
             (ui.select_recipe, (["example.yml"],),
              [("create", None), ("select", 0), ("manual", None), ("examples", None), ("back", None)]),
@@ -1531,16 +1531,19 @@ ConsoleUI(None)
                                          ("a_1", "DONE", "today")], [False, False, False], False))
         self.assertEqual(drawn[1][3], {"selected": 1})  # b_2 stayed selected while the rows moved
 
-    def test_a_running_run_that_no_advance_works_on_is_paused(self):
+    def test_a_paused_run_that_an_advance_works_on_is_running(self):
+        """The rule of the Framework's live_state: run.json says PAUSED (or NEW), the lock or the menu RUNNING."""
         dirs = ["runs/r"]
-        for advance, lock, shown in ((mock.Mock(running=True), None, "RUNNING"),   # behind the menu now
-                                     (None, dict(lost=False), "RUNNING"),          # from the CLI: a live lock
-                                     (None, dict(lost=True), "PAUSED"),
-                                     (mock.Mock(running=False), None, "PAUSED")):  # the advance stopped
-            with self.subTest(shown=shown, lock=lock):
+        for saved, advance, lock, shown in (("PAUSED", mock.Mock(running=True), None, "RUNNING"),  # behind the menu
+                                            ("PAUSED", None, dict(lost=False), "RUNNING"),  # from the CLI: a live lock
+                                            ("NEW", None, dict(lost=False), "RUNNING"),     # start's first stage
+                                            ("PAUSED", None, dict(lost=True), "PAUSED"),
+                                            ("PAUSED", mock.Mock(running=False), None, "PAUSED"),  # it stopped
+                                            ("WAITING", None, dict(lost=False), "WAITING")):
+            with self.subTest(saved=saved, shown=shown, lock=lock):
                 ui, operations = mock.Mock(), idle_operations()
                 operations.run_directories.return_value = dirs
-                operations.run_row.return_value = ("today", dirs[0], ("r", "RUNNING", "today"))
+                operations.run_row.return_value = ("today", dirs[0], ("r", saved, "today"))
                 operations.run_advances.side_effect = lambda run_dirs: [advance]
                 operations.run_lock.return_value = lock
                 ui.select_run.return_value = ("back", None)

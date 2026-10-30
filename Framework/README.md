@@ -46,7 +46,7 @@ The words below are used everywhere in the code and in this README.
 | **stage record** | The part of `run.json` that belongs to one stage: its state, attempt, submissions, last status, artifacts and history. | `StageRecord` |
 | **step** | One call of `Stage.advance()`: it moves a stage from one state to the next (for example `NEW` → `SUBMITTED`). | `StageOutcome` |
 | **stage state** | Where one stage is: `NEW`, `SUBMITTED`, `WAITING`, `MERGING`, `DONE`, `FAILED`, `NOT_IMPLEMENTED`. | `StageState` (`stages/base.py`) |
-| **run state** | Where the whole run is, computed from the stage states: `NEW`, `RUNNING`, `WAITING`, `DONE`, `FAILED`, `BLOCKED`. | `RunState` (`run_record.py`) |
+| **run state** | Where the whole run is, computed from the stage states: `NEW`, `PAUSED`, `WAITING`, `DONE`, `FAILED`, `BLOCKED`; `RUNNING` while an advance works on it (its lock). | `RunState` (`run_record.py`), `run_state` (`framework.py`) |
 | **advance** | "Do whatever can be done now": take steps until a stage waits for the batch system, fails or is not implemented. | `Framework.advance` |
 | **chunk** | One batch job of a sample. A sample with many files is split into several chunks. | PicoProducer |
 | **attempt** | How many times the production stage has submitted its jobs (first submission + resubmissions), limited by `max_tries`. | `StageRecord.attempt` |
@@ -85,8 +85,8 @@ standard-library `curses`). Up/Down moves, Enter selects, Esc goes back, Ctrl+L 
   **E** opens the Run editor (coming next). Selecting a recipe opens its plan, computed in the menu's own process
   (nothing is written): the overview, errors, warnings and each stage's details. **Start run** launches it.
 - **Continue an existing run**: the runs in `taufw_runs/`, in the user config's `runs.run_root` and in every
-  recipe's `run_root` (newest first), or another run directory. Advance once or until done (polling every 600 s
-  by default); a failed stage can be retried. A `RUNNING` run that nothing advances now is listed as `PAUSED`.
+  recipe's `run_root` (newest first), or another run directory. Advance to the end (the jobs are checked every
+  600 s by default) or only the next stage, then the run is `PAUSED`; a failed stage can be retried.
 - **Inspect run status**: the read-only `taufw status` of a run, with Refresh.
 - **Tests**: the automated tests on a live screen ([Tests/README.md](../Tests/README.md)).
 - **Grid Certificate**: the state of your grid proxy; select it to create or renew it.
@@ -110,7 +110,10 @@ taufw plan    Analyses/Examples/mutau_short --local          # quick local test:
 taufw start   Analyses/Examples/mutau_short                  # creates taufw_runs/<name>_<time>/, submits the jobs
 taufw advance taufw_runs/mutau_2022_postEE_short_20261013-120000  # check; resubmit failed chunks; merge when complete
 taufw status  taufw_runs/mutau_2022_postEE_short_20261013-120000  # recorded and live state (read-only)
-taufw advance taufw_runs/... --wait --poll 900              # keep advancing every 15 minutes until done
+taufw advance taufw_runs/... --poll 900                     # to the end, checking the jobs every 15 minutes
+taufw advance taufw_runs/... --until plots                  # stop once stage plots is DONE (the run is PAUSED)
+taufw advance taufw_runs/... --next                         # only the next stage that is not DONE
+taufw advance taufw_runs/... --no-wait                      # return as soon as a stage waits for jobs
 taufw retry   taufw_runs/...                                # a FAILED local stage again (cause fixed), then go on
 taufw plan    Analyses/tes_id_2025                          # the commands of the hists, plots, shapes, fit and python steps
 taufw init    my_tes --from Analyses/tes_id_2025            # new bundle Analyses/my_tes/: a copy of its files
@@ -179,8 +182,11 @@ succeed; until then a missing remote file is an ordinary unavailable check.
 
 ## Run model
 
-The run is **stepwise**. `start` and `advance` move the run as far as they can, save `run.json` and return; they
-never sleep unless asked with `--wait`. One `advance`:
+The run is **stepwise**. `start`, `advance` and `retry` move the run as far as they can and save `run.json`.
+While a stage waits for batch jobs they check them again every `--poll` seconds (600 by default) until the run is
+done, failed or at its stop point; with `--no-wait` they return at once (the run is `WAITING`: advance it later).
+A stop point, `--until <stage id>` or `--next` (the first stage that is not `DONE`), ends the call once that stage
+is `DONE`; the run is then `PAUSED`, and the next `advance` goes on from there. One step through the stages:
 
 1. goes through the stages in recipe order, skipping the ones that are `DONE`;
 2. lets the current stage take steps until it waits for the batch system, fails, or finishes (then the next stage
@@ -216,8 +222,10 @@ neither the exit code nor an old file is trusted.
 A stage that is not implemented yet (none at the moment) reports `NOT_IMPLEMENTED`; the run then stops in state
 `BLOCKED`, and the earlier stages keep their results.
 
-Run states (`RunState`): `NEW`, `RUNNING` (e.g. a local stage is not ready yet), `WAITING` (a stage waits for jobs),
-`DONE`, `FAILED` (a stage failed), `BLOCKED` (stopped at a stage that is not implemented). `DONE`, `FAILED` and
+Run states (`RunState`): `NEW`, `PAUSED` (a stage started, none waits: stopped at a stop point, or a local stage is
+not ready yet), `WAITING` (a stage waits for jobs), `DONE`, `FAILED` (a stage failed), `BLOCKED` (stopped at a stage
+that is not implemented). `RUNNING` is not saved: `taufw status` and the menu show it while an advance holds the
+run's lock (`run_state`, `live_state` in `framework.py`). `DONE`, `FAILED` and
 `BLOCKED` are final: advancing again changes nothing (a `FAILED` local stage can be retried, above; a `FAILED`
 production stage too, when its chunks still failed after `max_tries`: `taufw retry` gives it `max_tries` more
 tries, resubmits only the failed chunks and moves nothing; its other failures need a new run, CL §48). `taufw`

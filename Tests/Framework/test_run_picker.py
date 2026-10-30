@@ -37,9 +37,9 @@ class RunPickerTests(unittest.TestCase):
         ui, screen = self.terminal([10, 1002, 10])
         preview = mock.Mock(return_value=dict(run_id="tes_2025", state="WAITING", can_advance=True,
                                              stages=[dict(id="ntuples", state="WAITING")]))
-        self.assertEqual(ui.select_run(self.summaries, preview=preview, mode="continue"), ("advance", 0))
+        self.assertEqual(ui.select_run(self.summaries, preview=preview, mode="continue"), ("next", 0))
         self.assertEqual(screen.getch.call_count, 3)
-        self.assertTrue(any(call.args[2] == "> Advance once" for call in screen.addnstr.call_args_list))
+        self.assertTrue(any(call.args[2] == "> Next stage only" for call in screen.addnstr.call_args_list))
 
     def test_resize_keeps_run_and_status_scroll_and_narrow_enter_selects(self):
         ui, screen = self.terminal([])

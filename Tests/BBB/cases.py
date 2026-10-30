@@ -458,16 +458,16 @@ def framework_production(workspace):
         return masked(ws.normalize(data))
 
     result = {"plan": ws.execute(taufw, "plan", recipe)["lines"]}
-    ws.execute(taufw, "start", recipe, "--run-root", runs)  # submits DY (2 chunks) and TT (2 chunks)
+    ws.execute(taufw, "start", recipe, "--run-root", runs, "--no-wait")  # submits DY (2 chunks) and TT (2 chunks)
     result["started"] = record()
     out = ws.root / "jobout" / "2018" / "mutau"
     for sample, chunk in (("DYJetsToLL_M-50", 0), ("DYJetsToLL_M-50", 1), ("TTTo2L2Nu", 0)):
         ws.write_pico(out / sample / ("pico_mutau_%d.root" % chunk))
     (run_dir,) = list(runs.iterdir())
-    ws.execute(taufw, "advance", run_dir)  # TT chunk 1 is missing: resubmitted (try 2)
+    ws.execute(taufw, "advance", run_dir, "--no-wait")  # TT chunk 1 is missing: resubmitted (try 2)
     result["resubmitted"] = record()
     ws.write_pico(out / "TTTo2L2Nu" / "pico_mutau_1.root")
-    ws.execute(taufw, "advance", run_dir)  # complete: merged and cleaned; the run is DONE
+    ws.execute(taufw, "advance", run_dir, "--no-wait")  # complete: merged and cleaned; the run is DONE
     result["done"] = record()
     result["status"] = masked(ws.execute(taufw, "status", run_dir)["lines"])
     # CL §16 step 5: the merged tuples are in the production stage's directory of the run, not in picodir
