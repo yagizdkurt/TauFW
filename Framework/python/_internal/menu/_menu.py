@@ -180,6 +180,9 @@ class ConsoleUI:
             return None
         try:
             import curses
+            # The size from the terminal, not from LINES/COLUMNS: a shell that exports them gives the size at the
+            # start, and curses would keep it through every resize (KEY_RESIZE comes, the size never changes).
+            curses.use_env(False)
             curses.setupterm()
         except (ImportError, OSError) as error:
             print("The TauFW menu requires curses and a supported terminal: %s" % error, file=sys.stderr)

@@ -1092,9 +1092,11 @@ ConsoleUI(None)
                             ui._setup(mock.Mock())
                         curses.set_escdelay.assert_called_with(int(delay))
                 self.assertIs(ui.curses, curses)
-                curses.setupterm.reset_mock()
+                curses.reset_mock()
                 ConsoleUI.open(mock.Mock())
                 curses.setupterm.assert_called_once()
+                # the size from the terminal: an exported LINES/COLUMNS would hold it through every resize
+                self.assertEqual(curses.method_calls[:2], [mock.call.use_env(False), mock.call.setupterm()])
                 for error, expected in [(OSError("unsupported"), "requires curses"),
                                         (RuntimeError("setup failed"), "Cannot initialize")]:
                     with self.subTest(error=error):
