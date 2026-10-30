@@ -647,6 +647,29 @@ class RerunTests(PythonStepTestCase):
         self.assertEqual(cli.main(["rerun", record.run_dir, "use"]), 0)
         self.assertEqual(RunRecord.load(record.run_dir).state, "DONE")
 
+    def test_the_menu_data_of_a_run_with_an_edited_recipe(self):
+        """CL §55 step 4 (interactive.py on a real run): the files of Edit run config, the rerun hint after a save,
+        the stage pickers' dry reruns."""
+        from TauFW.Framework._internal.interfaces.interactive import _Operations
+        operations = _Operations(launch_dir=self.root, recipes_dir=self.root,
+                                 operations_dir=os.path.join(self.root, "operations"))
+        record = self.started(until=None)
+        self.assertIsNone(operations.rerun_suggestion(record, "recipe.yml"))  # nothing changed
+        self.edit(record, lambda data: data["stages"][0]["options"].update(n=4))
+        files = {item["path"]: item for item in operations.run_files(record)}
+        self.assertEqual(list(files)[0], "recipe.yml")
+        self.assertEqual(files["recipe.yml"]["state"], "edited, not taken yet")
+        make, use = os.path.normpath("steps/make.py"), os.path.normpath("steps/use.py")
+        self.assertEqual((files[make]["read_by"], files[use]["read_by"]), (["make", "last"], ["use"]))
+        self.assertEqual(operations.rerun_suggestion(record, "recipe.yml")["stage"], "make")
+        self.assertEqual(operations.rerun_suggestion(record, use)["stage"], "use")
+        view = operations.stage_choices(record)
+        self.assertIn("make changed", view["pending"])
+        self.assertEqual([(row["id"], row["plan"]["kept"]) for row in view["stages"]],
+                         [("make", []), ("use", ["make"]), ("last", ["make", "use"])])
+        self.assertEqual(view["stages"][0]["plan"]["recipe_changes"], {"make": "changed"})
+        self.assertEqual(self.read_run(record)["recipe"]["stages"][0]["options"], {"n": 3})  # nothing was taken
+
     def test_retries_of_an_older_run_are_read_as_attempts(self):
         record = self.started()
         data = self.read_run(record)

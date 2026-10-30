@@ -2166,7 +2166,7 @@ leave behind as long as nothing else can break, a read-only `--check`, Tab compl
 ## 55. Iterative runs: a run is a workspace (plan 24)
 
 **Date:** 2026-10-30
-**Status:** steps 1-3 done; steps 4-5 open. lxplus checks open: [TODO.md](TODO.md) section 1
+**Status:** steps 1-4 done; step 5 (the lxplus checks) open: [TODO.md](TODO.md) section 1
 **Tests/Validation:** [ValidationAndTests.md](ValidationAndTests.md#55-iterative-runs-a-run-is-a-workspace-plan-24)
 
 **Why:** analysis is iteration (user, 2026-10-30): run up to a stage, look at its output, change a config, run it
@@ -2177,7 +2177,7 @@ again, then go on. A run could only go from start to end, with the recipe it sta
 1. Stop points (`--until`, `--next`), waiting for the jobs by default, `PAUSED`: done.
 2. The run's own recipe (`<run>/bundle/recipe.yml`, read by every advance): done.
 3. `taufw rerun <run> <id>` (replaces `retry`: archives `<id>` and every stage after it, then runs them again): done.
-4. The menu (Advance until…, Rerun from…, Edit run config, Attempts, a confirm panel): open.
+4. The menu (Advance until…, Rerun from…, Edit run config, History, a confirm panel): done.
 5. Docs and the lxplus checks: open.
 
 ### Step 1: stop points, waiting by default, `PAUSED`
@@ -2288,3 +2288,49 @@ confirmation on the command line (nothing is deleted); lock and options as `adva
 
 **Unchanged:** every BBB baseline (`framework.production` has no retry), the stages' `retry_state` and `retry_fields`
 (they say what a `FAILED` stage goes back to), the menu's screens.
+
+### Step 4: the menu
+
+User decisions (2026-10-30, M1-M9, E1-E6): Continue offers the actions a run's state allows, in a fixed order;
+a DONE run is no longer only "Inspect". Rerun from... and Advance until... choose the stage on a screen of their
+own, with what happens on the right; a rerun asks first (to the end, or that stage only). Edit run config lists
+the run's files (40%) with the selected one (60%), Enter opens the editor (no docs pane yet); its recipe is checked
+before a save, and a save is refused while an advance holds the lock. After a save that made a DONE stage stale,
+a panel offers to rerun from it. History shows the recipe versions and every attempt. The Start screen's E opens
+the same file screen on the analysis bundle. Only E is a new key.
+
+**What changed:**
+
+- **Continue > a run** (`_run_picker._actions`): Advance to the end, Next stage only: `<id>`, Advance until… (a
+  run that can advance); Rerun `<id>` (failed) (a FAILED run); Rerun from…, Edit run config, History, Inspect
+  status (always); while an advance works on it: Follow (or the lock), History, Inspect. The pane says when the run's
+  recipe was edited (`pending_change`), marks the next stage and the stages with earlier attempts. **E** opens
+  Edit run config. A narrow terminal gets the same list (`ConsoleUI.run_actions`, replacing `continue_actions` and
+  `terminal_run_actions`).
+- **Stage picker** (`_run_tools.pick_stage`, `ConsoleUI.stage_choice`): the stages left (a stage that cannot be
+  chosen is dim, with `fixed` or `blocked`), right what a rerun from it sets aside and keeps (or why it cannot), or
+  which stages an advance until it runs. The data is `stage_choices(record)` (interactive.py) from
+  `Framework.plan_reruns` (new: `plan_rerun` of every stage with one read of the run's recipe).
+- **Confirm panel** (`ConsoleUI.confirm_rerun` over `ConsoleUI.ask`, a new panel with a choice): what runs again,
+  that nothing is deleted, the edited recipe; Rerun to the end / Rerun `<id>` only / Cancel (a cancel goes back to the
+  picker on the same stage). Rerun `<id>` (failed) opens it at once; production after `max_tries`: "Resubmit … with N
+  more tries". Then the lock and the grid proxy, as for an advance.
+- **Edit run config** (`_run_tools.pick_file`, `ConsoleUI.run_files`): `recipe.yml` first, then the text files of
+  the run's bundle copy (`.yml/.yaml/.json/.py/.txt/.md/.sh/.C/.h`); markers `recipe`, `edited`, `added` are never
+  cut (the name is). The right panel: what the file is, which stages read it, what changed, then the file with line
+  numbers. Enter: the editor (`run_file_validator`: the lock at the save too, and for the recipe the checks of
+  `taufw check` and the run's edit rules). After a save, `rerun_suggestion` names the first DONE stage it concerns
+  (the recipe: a changed stage; another file: a stage whose path options name it) and a panel offers Rerun from it.
+- **History** (`_run_tools.show_history`, `ConsoleUI.run_history`): Recipe versions (v0 the start, each change, the
+  DONE stages kept, the copy in `recipes/`), the stages with their attempts (newest first: reason, the start, the
+  state then, time, message, archive), the removed stages; Tab into the attempts, Enter: the attempt's logs (the
+  last 200 lines of each) in a panel (`attempt_log`).
+- **Start > E** (`MenuNavigation.edit_analysis`): the same file screen on `Analyses/<name>/` (`analysis_files`,
+  `analysis_validator`: `taufw check` of the recipe, a draft allowed); the "Run editor (coming next)" message is gone.
+- **Commands behind the menu:** `advance_run(…, until=)`, `rerun_run(record, stage_id, next_only, take_lock)`
+  (replaces `retry_run`). The run screen's info box says "Earlier attempts"; the result cards name the new actions.
+- **UI preview:** 13 new scenarios (the actions of a paused and of a done run, the pickers, the confirm panels, the
+  file screens, the hint after a save, the lock refusal, History).
+- **Docs:** `Framework/README.md` (menu), `Analyses/README.md`, the menu's FAQ.
+
+**Unchanged:** the Framework's behaviour (only `plan_reruns` is new), the CLI, every BBB baseline.

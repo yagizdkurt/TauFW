@@ -23,10 +23,14 @@ files, validates values, or invokes commands. Grid callbacks are grid_proxy_vali
 None when voms-proxy-init cannot read the password from stdin, and renew_grid_proxy_in_terminal() (it asks on the
 plain terminal, ConsoleUI.in_terminal). Test callbacks are test_catalog(), start_tests(family, cases, title, expected), which
 returns the Framework._internal.operations.Operation that the test screen follows, and tests_operation(), the last test
-run (or None). Run callbacks: start_run(recipe), advance_run(record, next_only, take_lock) and retry_run(record, take_lock)
-(the failed stage of a FAILED run again, then to the end) start taufw.py behind the menu and return its Operation
-(kind "run"); retry_info(record) is what a retry would do (dict(stage, type, message, changed[, tries]), or None: no
-retry); run_operations() (the advances for the main menu), run_operation(run_dir)
+run (or None). Run callbacks: start_run(recipe), advance_run(record, next_only, take_lock, until) and
+rerun_run(record, stage_id, next_only, take_lock) (a stage and those after it again, CL §55) start taufw.py behind
+the menu and return its Operation (kind "run"); retry_info(record) is what a rerun of the failed stage would do
+(dict(stage, type, message, changed[, tries]), or None); run_preview(run_dir) the run picker's view of a run;
+stage_choices(record) the stage pickers' data (Rerun from..., Advance until...); run_files(record) /
+analysis_files(path), file_text(path), run_file_validator(record, path) / analysis_validator(path, relative) and
+rerun_suggestion(record, path) Edit run config and the Start screen's E; run_history(record) and
+attempt_log(record, archive) History; run_operations() (the advances for the main menu), run_operation(run_dir)
 (the advance of a run that runs now), run_advances(run_dirs) (for the run list), run_lock(run_dir) (its advance lock
 or None), mark_seen(operation), needs_grid_proxy(recipe=, record=). running_operations() lists what runs behind the
 menu, stop_operation(operation) stops one.
@@ -146,7 +150,7 @@ class MenuNavigation:
             try:
                 view = self.operations.recipe_preview(path) if action == "manual" else previews[index]
                 if view.get("draft"):
-                    self.ui.message("Analysis draft", "No stages configured. Press E for Run editor.")
+                    self.ui.message("Analysis draft", "No stages configured. Press E to edit its recipe.yml.")
                     continue
                 plan = self.operations.prepare_plan(path, quick=True)
             except KeyboardInterrupt:
@@ -203,12 +207,33 @@ class MenuNavigation:
             except Exception as error:
                 self.ui.operation_error(error)
                 continue
-            self.ui.message("Analysis created", "Analysis created: %s\nPress E for Run editor." % path, "good")
+            self.ui.message("Analysis created", "Analysis created: %s\nPress E to edit its recipe.yml." % path, "good")
             return path
 
     def edit_analysis(self, path):
-        """Run editor entry point; its screen is designed in the next step."""
-        self.ui.message("Run editor", "Run editor will be added in the next step.\nAnalysis: %s" % path)
+        """The Start screen's E: the files of the analysis bundle (Analyses/<name>/), the editor on the one chosen
+        (CL §55, M8: edits from Start go to the analysis, not to a run); its recipe.yml is checked before a save."""
+        name = str(path).replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
+        self._edit_files("Edit analysis / %s" % (name), lambda: self.operations.analysis_files(path),
+                         lambda item: self.operations.analysis_validator(path, item["path"]))
+
+    def _edit_files(self, title, files_of, validator_of, suggest=None):
+        """The file screen until Esc, the editor on the file chosen. suggest(item), after a save: None, or
+        dict(stage, text) of a DONE stage to rerun from (asked here). Returns that stage if the user chose to
+        rerun from it, else None."""
+        position = {}
+        while True:
+            files = files_of()
+            action, index = self.ui.run_files(title, files, self.operations.file_text, position)
+            if action != "edit":
+                return None
+            item = files[index]
+            saved = self.ui.edit_file(item["file"], validator_of(item), title="%s / %s" % (title, item["path"]))
+            hint = suggest(item) if saved and suggest else None
+            if hint and self.ui.ask("%s is DONE with its old %s" % (hint["stage"], "options" if item.get("recipe")
+                                                                      else "file"),
+                                    [(hint["text"], None)], ["Rerun from %s..." % hint["stage"], "Later"]) == 0:
+                return hint["stage"]
 
     def _kept_preview(self, path):
         """The kept check of a recipe, or None while it is read (asked for here if it is not)."""
@@ -313,55 +338,127 @@ class MenuNavigation:
         self._command("Run status: %s" % record.run_id, "status", record.run_dir, refresh=True)
 
     def continue_run(self):
-        """Pick a run and advance it behind the menu: to the end (taufw.py advance) or the next stage only. A run that an
-        advance works on now opens its screen; one whose lock another advance holds shows the lock (a lost one
-        may be taken over)."""
+        """Pick a run and act on it (CL §55 step 4): advance it behind the menu (to the end, the next stage only, or
+        until a stage), rerun from a stage, edit its files, or look at its History or status. A run that an advance
+        works on now opens its screen; one whose lock another advance holds shows the lock (a lost one may be
+        taken over). Back to the run list after an action that started nothing."""
         while True:
             picked = self._pick_run("continue")
             if picked is None:
                 return
             record, chosen = picked
-            if chosen == "inspect":
-                self._inspect_record(record)
-                continue
-            while True:
-                advancing = self.operations.run_operation(record.run_dir)
-                if advancing is not None:
-                    self._follow_run(advancing)
-                    return
-                if not self.operations.can_advance(record):
-                    retry = self.operations.retry_info(record)
-                    action = "retry" if chosen == "retry" and retry else \
-                        self.ui.terminal_run_actions(record.state, retry=retry)
-                    chosen = None
-                    if action == "inspect":
-                        self.inspect(record)
-                        continue
-                    if action != "retry":
-                        break
-                    take_lock = self._take_lock(record)  # a retry takes the run's lock too
-                    if take_lock is None:
-                        break
-                    if not self._grid_ready(self.operations.needs_grid_proxy(record=record)):  # production resubmits
-                        continue
-                    # the failed stage again, then to the end (CL §44; production after max_tries: CL §48)
-                    self._follow_run(self.operations.retry_run(record, take_lock=take_lock))
-                    return
-                take_lock = self._take_lock(record)
-                if take_lock is None:
-                    break
-                action = chosen if chosen in ("wait", "next") else self.ui.continue_actions(record.run_id)
-                chosen = None
-                if action == "back":
-                    break
-                if not self._grid_ready(self.operations.needs_grid_proxy(record=record)):
-                    continue
-                self._follow_run(self.operations.advance_run(record, next_only=action == "next",
-                                                             take_lock=take_lock))
+            if self._run_action(record, chosen):
                 return
 
+    def _run_action(self, record, chosen):
+        """One action on a run (chosen in the run picker; "select" or None: ask with the run's actions). True once
+        an advance or a rerun started (its screen was shown), False to go back to the run list."""
+        advancing = self.operations.run_operation(record.run_dir)
+        take = False
+        if chosen in ("wait", "next", "until") and not self.operations.can_advance(record):
+            chosen = None  # the picker's view was older than the run (it finished meanwhile): ask again
+        if chosen in (None, "select"):
+            if advancing is not None:
+                self._follow_run(advancing)
+                return True
+            view = self.operations.run_preview(record.run_dir)
+            lock = view.get("lock")
+            if lock and not (lock.get("lost") and lock.get("local")):
+                if self._take_lock(record) is None:
+                    return False
+                take, view = True, dict(view, lock=None)
+            chosen = self.ui.run_actions(view)
+        if chosen == "inspect":
+            self.inspect(record)
+            return False
+        if chosen == "history":
+            self.ui.run_history("History / %s" % (record.run_id), self.operations.run_history(record),
+                                lambda archive: self.operations.attempt_log(record, archive))
+            return False
+        if chosen == "back":
+            return False
+        if advancing is not None:
+            self._follow_run(advancing)
+            return True
+        preset = None
+        if chosen == "edit":
+            preset = self._edit_run(record)
+            if preset is None:
+                return False
+            chosen = "rerun"
+        if chosen == "until":
+            until = self._choose_stage(record, "until")
+            if until is None:
+                return False
+        elif chosen in ("rerun", "rerun_failed"):
+            picked = self._choose_rerun(record, preset, failed=chosen == "rerun_failed")
+            if picked is None:
+                return False
+            stage_id, next_only = picked
+        elif chosen not in ("wait", "next"):
+            return False
+        take_lock = take or self._take_lock(record)
+        if take_lock is None:
+            return False
+        if not self._grid_ready(self.operations.needs_grid_proxy(record=record)):  # production may (re)submit
+            return False
+        if chosen == "until":
+            operation = self.operations.advance_run(record, take_lock=take_lock, until=until)
+        elif chosen in ("rerun", "rerun_failed"):
+            operation = self.operations.rerun_run(record, stage_id, next_only=next_only, take_lock=take_lock)
+        else:
+            operation = self.operations.advance_run(record, next_only=chosen == "next", take_lock=take_lock)
+        self._follow_run(operation)
+        return True
+
+    def _choose_stage(self, record, mode, preset=None):
+        """The stage picker (Rerun from..., Advance until...): the stage chosen, or None."""
+        view = self.operations.stage_choices(record)
+        title = ("Rerun from / %s" if mode == "rerun" else "Advance until / %s") % (record.run_id)
+        action, stage_id = self.ui.stage_choice(title, view, mode, {"selected": preset} if preset else {})
+        return stage_id if action == "pick" else None
+
+    def _choose_rerun(self, record, preset=None, failed=False):
+        """The start of a rerun and its confirm panel: (stage id, next_only) or None. failed: the FAILED stage
+        (Rerun X (failed)), without the picker; otherwise the picker, opened on preset."""
+        while True:
+            view = self.operations.stage_choices(record)
+            if failed:
+                info = self.operations.retry_info(record)
+                stage_id = info["stage"] if info else None
+            else:
+                info = None
+                action, stage_id = self.ui.stage_choice("Rerun from / %s" % (record.run_id), view, "rerun",
+                                                        {"selected": preset} if preset else {})
+                if action != "pick":
+                    return None
+            row = next((row for row in view["stages"] if row["id"] == stage_id), None)
+            if row is None or row.get("plan") is None or view.get("error"):
+                self.ui.message("Cannot rerun", (view.get("error") or (row or {}).get("why") or
+                                                 "The run has no stage to rerun."), "error")
+                return None
+            answer = self.ui.confirm_rerun(row, pending=view.get("pending"), failed=info)
+            if answer is not None:
+                return stage_id, answer == "one"
+            if failed:
+                return None
+            preset = stage_id  # cancelled: the picker again, on the same stage
+
+    def _edit_run(self, record):
+        """Edit run config: refused while an advance works on the run (S15); the run's files, the editor on the
+        one chosen. Returns the stage to rerun from if a save made a DONE stage stale and the user chose it."""
+        lock = self.operations.run_lock(record.run_dir)
+        if lock is not None and not (lock.get("lost") and lock.get("local")):
+            self.ui.message("An advance works on this run", [
+                ("An advance of this run runs on %s (pid %s): edit its files once it ends, so the stages it runs "
+                 "read one version of them." % (lock.get("host", "?"), lock.get("pid", "?")), "warning")])
+            return None
+        return self._edit_files("Edit run config / %s" % (record.run_id), lambda: self.operations.run_files(record),
+                                lambda item: self.operations.run_file_validator(record, item["path"]),
+                                suggest=lambda item: self.operations.rerun_suggestion(record, item["path"]))
+
     def _take_lock(self, record):
-        """Before an advance or a retry: False (no lock, or a lost one of this machine, which taufw.py takes over
+        """Before an advance or a rerun: False (no lock, or a lost one of this machine, which taufw.py takes over
         itself), True (the user takes over a lost lock: --take-lock), None (locked: back)."""
         lock = self.operations.run_lock(record.run_dir)
         if lock is None or (lock.get("lost") and lock.get("local")):

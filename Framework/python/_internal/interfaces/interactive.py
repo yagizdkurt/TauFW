@@ -3,10 +3,14 @@
 
 Discovery, path resolution, record access, validation, and CLI dispatch belong
 here. Presentation and screen transitions live in TauFW.Framework._internal.menu. Every
-command runs behind the menu as taufw.py (OperationStore): start/advance/retry
+command runs behind the menu as taufw.py (OperationStore): start/advance/rerun
 (kind "run"), status (kind "command", read only) and the tests; the
 menu's own process reads recipes, run.json, check_recipe and a dry plan (the plan screen). The
 User Config action creates a missing config and opens the independent Editor.
+
+Iterative runs (CL §55 step 4): Continue's pickers (stage_choices: a dry rerun of every stage), Edit run config
+and the Start screen's E (run_files / analysis_files, file_text, the validators of a save, rerun_suggestion after
+it) and History (run_history, attempt_log) get plain data from here; the menu imports no Framework module.
 Install components opens FastSetup on the terminal and returns to the menu when it closes.
 
 What Start and Continue list (a recipe's check, a run's row) is kept with the
@@ -30,11 +34,15 @@ from TauFW.Framework._internal.defaults import (ANALYSES_DIR, BUNDLE_DIR_NAME, C
                                                 EXAMPLES_DIR_NAME, RECIPE_NAME, RUN_RECORD_NAME, STAGES_DIR_NAME,
                                                 TIME_FORMAT)
 from TauFW.Framework._internal.runtime.run_record import RunRecord, RunState
-from TauFW.Framework._internal.recipes.recipe import Recipe, read_recipe
-from TauFW.Framework._internal.recipes.validation import check_recipe
+from TauFW.Framework._internal.recipes.recipe import Recipe, RecipeError, read_recipe
+from TauFW.Framework._internal.recipes.validation import check_recipe, check_recipe_data
 from TauFW.Framework._internal.recipes.analysis import create_analysis
-from TauFW.Framework._internal.recipes.bundle import bundle_changes, bundle_hashes
-from TauFW.Framework._internal.runtime.framework import Framework, retryable_stage
+from TauFW.Framework._internal.recipes.bundle import bundle_changes, bundle_hashes, path_rows
+from TauFW.Framework._internal.runtime.framework import (Framework, RerunError, next_stage, retryable_stage,
+                                                         _run_recipe)
+from TauFW.Framework._internal.runtime.run_recipe import (read_run_recipe, recipe_changes, edit_problems,
+                                                          pending_change, saved_dict, changes_text, RECIPE_COPY,
+                                                          RECIPES_DIR_NAME)
 from TauFW.Framework._internal.runtime.reporting import SilentReporter
 from TauFW.Framework._internal.runtime.plan_text import command_line, inputs_line, run_root_line
 from TauFW.Framework._internal.runtime.run_lock import read_lock
@@ -54,6 +62,9 @@ PROXY_INIT_TIMEOUT = 120  # seconds voms-proxy-init may take (it asks the VOMS s
 PLAN_CHECK_TIMEOUT = 180  # seconds the plan screen's file checks may take (_PlanCheck), then Start opens
 PLAN_CHECK_MODULE = "TauFW.Framework._internal.interfaces.plan_check"
 USER_CONFIG_NAME = user_config.FILE_NAME
+TEXT_SUFFIXES = (".yml", ".yaml", ".json", ".py", ".txt", ".md", ".sh", ".C", ".h")  # the files Edit lists
+PREVIEW_LINES = 2000  # lines of a file the file screen shows (file_text)
+LOG_LINES = 200       # last lines of each log file of an earlier attempt (attempt_log)
 
 
 class _Operations:
@@ -241,11 +252,17 @@ class _Operations:
         """Plain saved details for the selected run; called by the menu's preview worker, never by curses."""
         record = self.load_run(run_dir)
         advancing = self.run_operation(run_dir)
+        try:
+            pending = pending_change(record)
+        except Exception as error:  # an unreadable file: the advance says the same
+            pending = "bundle/recipe.yml cannot be read: %s" % (error)
+        types = {stage.get("id"): stage.get("stage") for stage in record.recipe.get("stages", ())}
+        can_advance = self.can_advance(record)
         return dict(run_id=record.run_id, run_dir=record.run_dir, state=str(record.state), updated=record.updated,
-                    stages=[dict(id=stage.name, state=str(stage.state), message=stage.message)
-                            for stage in record.stages],
-                    can_advance=self.can_advance(record), retry=self.retry_info(record),
-                    lock=self.run_lock(run_dir), advancing=advancing is not None)
+                    stages=[dict(id=stage.name, type=types.get(stage.name, ""), state=str(stage.state),
+                                 message=stage.message, attempts=len(stage.attempts)) for stage in record.stages],
+                    can_advance=can_advance, retry=self.retry_info(record), next=next_stage(record) if can_advance
+                    else None, pending=pending, lock=self.run_lock(run_dir), advancing=advancing is not None)
 
     def runs(self):
         """The rows of every run (run_directories), newest first."""
@@ -405,17 +422,21 @@ class _Operations:
         return self._start_run(loaded.name, ["start", str(recipe)],
                                dict(run_id=loaded.name, run_dir="", stages=stages))
 
-    def advance_run(self, record, next_only=False, take_lock=False):
-        """`taufw.py advance RUN_DIR` behind the menu: to the end (waiting for the jobs), or with next_only only
-        the next stage (--next: the run is then PAUSED); take_lock: take over the lock of a lost advance
-        (--take-lock). The earlier advances of the run count as seen."""
-        argv = ["advance", record.run_dir] + (["--next"] if next_only else []) + (["--take-lock"] if take_lock else [])
+    def advance_run(self, record, next_only=False, take_lock=False, until=None):
+        """`taufw.py advance RUN_DIR` behind the menu: to the end (waiting for the jobs), with next_only only the
+        next stage (--next), or until a stage (--until ID; the run is then PAUSED); take_lock: take over the lock of
+        a lost advance (--take-lock). The earlier advances of the run count as seen."""
+        argv = (["advance", record.run_dir] + (["--next"] if next_only else []) +
+                (["--until", until] if until else []) + (["--take-lock"] if take_lock else []))
         return self._run_of(record, argv)
 
-    def retry_run(self, record, take_lock=False):
-        """`taufw.py rerun RUN_DIR` behind the menu: the failed stage and those after it again, then to the end
-        (CL §44, §55); take_lock: take over the lock of a lost advance (--take-lock)."""
-        return self._run_of(record, ["rerun", record.run_dir] + (["--take-lock"] if take_lock else []))
+    def rerun_run(self, record, stage_id=None, next_only=False, take_lock=False):
+        """`taufw.py rerun RUN_DIR [ID]` behind the menu: the stage (default: the failed one) and every stage after
+        it again, then to the end, or with next_only that stage only (--next) (CL §44, §55); take_lock: take over
+        the lock of a lost advance (--take-lock)."""
+        argv = (["rerun", record.run_dir] + ([stage_id] if stage_id else []) + (["--next"] if next_only else []) +
+                (["--take-lock"] if take_lock else []))
+        return self._run_of(record, argv)
 
     @staticmethod
     def retry_info(record):
@@ -445,7 +466,8 @@ class _Operations:
         stages = []
         for stage in record.recipe.get("stages", ()):
             saved = record.stage(stage.get("id"))
-            info = _stage_info(stage) + ([["Attempt", str(saved.attempt)]] if saved.attempt else [])
+            info = (_stage_info(stage) + ([["Attempt", str(saved.attempt)]] if saved.attempt else []) +
+                    ([["Earlier attempts", str(len(saved.attempts))]] if saved.attempts else []))
             stages.append(dict(id=stage.get("id"), type=stage.get("stage"), state=saved.state, message=saved.message,
                                info=info, **_earlier_time(saved)))
         return self._start_run(record.run_id, argv, dict(run_id=record.run_id, run_dir=record.run_dir,
@@ -503,6 +525,200 @@ class _Operations:
     @staticmethod
     def mark_seen(operation):
         operation.mark_seen()
+
+    # =========================================================================
+    # ======================== ITERATIVE RUNS (CL §55) ========================
+
+    def stage_choices(self, record):
+        """What Continue's stage pickers show (Rerun from..., Advance until...), as plain data: dict(run_id,
+        next (the first stage that is not DONE, or None), pending (pending_change, or None), error (the run's
+        edited recipe would be refused: why; nothing can be chosen), stages). A stage: dict(id, type, state,
+        attempts, plan (a dry rerun from it: dict(rows, kept, recipe_changes, bundle_changed, production); None:
+        it cannot start a rerun), why (then: the reason), tag (its short form: fixed, blocked or cannot), until
+        (True: Advance until can stop there: the next stage or one after it)). The stages are those of the run's
+        recipe as its next advance sees it (an edit that passes its checks)."""
+        record = self.load_run(record.run_dir)
+        view = dict(run_id=record.run_id, next=next_stage(record), pending=None, error=None, stages=[])
+        try:
+            view["pending"] = pending_change(record)
+            plans = Framework.from_record(record, reporter=SilentReporter()).plan_reruns(record)
+        except RecipeError as error:
+            view["error"] = str(error)
+            plans = [(stage.name, None) for stage in record.stages]
+        saved = {stage.name: stage for stage in record.stages}
+        types = {stage.get("id"): stage.get("stage") for stage in record.recipe.get("stages", ())}
+        ids = [stage_id for stage_id, _ in plans]
+        nexts = [stage_id for stage_id in ids if stage_id not in saved or saved[stage_id].state != "DONE"]
+        first = ids.index(nexts[0]) if nexts else len(ids)
+        for index, (stage_id, plan) in enumerate(plans):
+            stage = saved.get(stage_id)
+            row = dict(id=stage_id, type=types.get(stage_id, ""),
+                       state=stage.state if stage else "NEW", attempts=len(stage.attempts) if stage else 0,
+                       plan=None, why=None, tag=None, until=view["error"] is None and index >= first)
+            if isinstance(plan, RerunError):
+                row["why"] = str(plan)
+                row["tag"] = ("fixed" if "cannot run again in this run" in row["why"] else
+                              "blocked" if "is FAILED: rerun from it" in row["why"] else "cannot")
+            elif plan is not None:
+                row["plan"] = dict(rows=[dict(item) for item in plan.rows], kept=ids[:ids.index(plan.start)],
+                                   recipe_changes=plan.recipe_changes, bundle_changed=plan.bundle_changed,
+                                   production=plan.production)
+            view["stages"].append(row)
+        recipe = _edited_recipe(record)
+        for row in view["stages"]:
+            row["type"] = row["type"] or (recipe.stage(row["id"]).stage if recipe and recipe.stage(row["id"]) else "")
+        return view
+
+    def run_files(self, record):
+        """The files of Edit run config, as plain data: the run's recipe (bundle/recipe.yml) first, then the text
+        files of its bundle copy (TEXT_SUFFIXES). A file: dict(path (relative to bundle/), file (absolute), recipe
+        (True for the recipe), read_by ([stage ids]: the path options naming it), state ("" or what changed:
+        "edited, not taken yet", "edited since the start", "added since the start"))."""
+        record = self.load_run(record.run_dir)
+        bundle = os.path.join(record.run_dir, BUNDLE_DIR_NAME)
+        recipe_file = os.path.join(bundle, RECIPE_NAME)
+        try:
+            pending = pending_change(record)
+        except Exception:
+            pending = "unreadable"
+        start = record.bundle.get("sha256")
+        changes = bundle_changes(start, bundle_hashes(bundle)) if start is not None else {}
+        listed = [dict(path=RECIPE_NAME, file=recipe_file, recipe=True, read_by=[],
+                       state="edited, not taken yet" if pending else "")] if os.path.isfile(recipe_file) else []
+        states = {"changed": "edited since the start", "added": "added since the start"}
+        return listed + _text_files(bundle, _run_recipe(record), lambda path: states.get(changes.get(path), ""))
+
+    def analysis_files(self, path):
+        """The files the Start screen's E lists for an analysis bundle (Analyses/<name>/), as run_files does (the
+        state is always "")."""
+        directory = Path(path)
+        directory = directory if directory.is_dir() else directory.parent
+        try:
+            recipe = Recipe.load(str(directory))
+        except Exception:
+            recipe = None  # a broken recipe: no read_by
+        listed = [dict(path=RECIPE_NAME, file=str(directory / RECIPE_NAME), recipe=True, read_by=[], state="")]
+        return listed + _text_files(str(directory), recipe, lambda relative: "")
+
+    @staticmethod
+    def file_text(path):
+        """The first PREVIEW_LINES lines of a text file, for the file screen's preview (tabs as spaces)."""
+        try:
+            with open(path, encoding="utf-8", errors="replace") as stream:
+                lines = [line.rstrip("\n").expandtabs(4) for _, line in zip(range(PREVIEW_LINES), stream)]
+        except OSError as error:
+            return ["Cannot read %s: %s" % (path, error)]
+        return lines or ["(empty file)"]
+
+    def run_file_validator(self, record, relative):
+        """The editor's check before it saves a file of Edit run config: refused while an advance holds the run's
+        lock (S15); the run's recipe also passes every check of `taufw check` and the run's edit rules (the
+        samples check is the next advance's). Returns validate(draft_path) -> problems or None."""
+        run_dir = record.run_dir
+
+        def validate(draft):
+            lock = read_lock(run_dir)
+            if lock is not None:
+                return ["An advance works on this run now (pid %s on %s): save once it ends; your edits stay here."
+                        % (lock.get("pid", "?"), lock.get("host", "?"))]
+            if relative != RECIPE_NAME:
+                return None
+            loaded = self.load_run(run_dir)
+            recipe, issues = read_run_recipe(loaded, path=str(draft))
+            if issues:
+                return [str(issue) for issue in issues]
+            return [str(issue) for issue in edit_problems(loaded.recipe, saved_dict(recipe))] or None
+        return validate
+
+    @staticmethod
+    def analysis_validator(path, relative):
+        """The editor's check before it saves a file of an analysis bundle: its recipe.yml passes `taufw check`
+        (its warnings do not stop a save; a draft without stages is allowed); the other files are not checked."""
+        def validate(draft):
+            if relative != RECIPE_NAME:
+                return None
+            data, source, directory = read_recipe(str(draft))
+            check = check_recipe_data(data, "%s/%s" % (os.path.basename(directory), RECIPE_NAME), directory, str(draft),
+                                      allow_draft=True)  # a new analysis may stay without stages
+            return [str(issue) for issue in check.issues] or None
+        return validate
+
+    def rerun_suggestion(self, record, relative):
+        """After a save of Edit run config: dict(stage, text) of the first stage (recipe order) the change concerns
+        that is DONE and can start a rerun, or None. The recipe: a changed stage (recipe_changes); another file: a
+        stage whose path options name it."""
+        record = self.load_run(record.run_dir)
+        saved = {stage.name: stage for stage in record.stages}
+        if relative == RECIPE_NAME:
+            recipe, issues = read_run_recipe(record, full=False)
+            if recipe is None or issues:
+                return None
+            changes = recipe_changes(record.recipe, saved_dict(recipe))
+            touched = [stage_id for stage_id, change in changes.items() if change == "changed"]
+            what = "You changed %%s in %s" % (RECIPE_NAME)
+        else:
+            recipe = _run_recipe(record)
+            touched = [stage_spec.id for stage_spec in recipe.stages
+                       if relative in _bundle_paths(stage_spec, recipe.bundle_dir)]
+            what = "%s is read by %%s" % (relative)
+        done = [stage_id for stage_id in touched if stage_id in saved and saved[stage_id].state == "DONE"]
+        if not done:
+            return None
+        try:
+            plans = dict(Framework.from_record(record, reporter=SilentReporter()).plan_reruns(record))
+        except RecipeError:
+            return None
+        for stage_id in done:
+            if not isinstance(plans.get(stage_id), RerunError) and plans.get(stage_id) is not None:
+                return dict(stage=stage_id, text="%s; it is DONE with the old %s. To use the new ones, %s and the "
+                            "stages after it run again." % (what % (stage_id), "options" if relative == RECIPE_NAME
+                                                             else "file", stage_id))
+        return None
+
+    def run_history(self, record):
+        """What History shows, as plain data: dict(run_id, versions, stages, removed). versions: the run's recipe
+        versions, dict(version, time, text, done, file); stages: dict(id, type, state, message, time (of its last
+        history entry), attempts: [dict(attempt, reason, from, state, time, message, archive)], newest first);
+        removed: the stages an edit removed, dict(id, type, state, time, archive)."""
+        record = self.load_run(record.run_dir)
+
+        def copy(version):
+            relative = os.path.join(RECIPES_DIR_NAME, RECIPE_COPY % (version))
+            return relative if os.path.isfile(os.path.join(record.run_dir, relative)) else None
+
+        versions = [dict(version=0, time=record.created, text="start", done=[], file=copy(0))]
+        versions += [dict(version=change.get("version"), time=change.get("time", ""),
+                          text=changes_text(change.get("stages", {})) or "no stage changed",
+                          done=list(change.get("done", ())), file=copy(change.get("version")))
+                     for change in record.recipe_changed]
+        types = {stage.get("id"): stage.get("stage") for stage in record.recipe.get("stages", ())}
+        stages = [dict(id=stage.name, type=types.get(stage.name, ""), state=stage.state, message=stage.message,
+                       time=stage.history[-1].get("time", "") if stage.history else "",
+                       attempts=[dict(attempt=entry.get("attempt"), reason=entry.get("reason", "failed"),
+                                      start=entry.get("from") or "", state=entry.get("state") or "",
+                                      time=entry.get("time", ""), message=entry.get("message") or "",
+                                      archive=entry.get("archive")) for entry in reversed(stage.attempts)])
+                  for stage in record.stages]
+        removed = [dict(id=entry.get("name"), state=entry.get("state"), time=entry.get("removed", {}).get("time", ""),
+                        archive=entry.get("removed", {}).get("archive")) for entry in record.removed]
+        return dict(run_id=record.run_id, versions=versions, stages=stages, removed=removed)
+
+    @staticmethod
+    def attempt_log(record, archive):
+        """The last LOG_LINES lines of each log file of an earlier attempt (archive: relative to the run directory,
+        logs/<id>/attempt<N>), each after a line with its name; or why there are none."""
+        directory = os.path.join(record.run_dir, archive or "")
+        if not archive or not os.path.isdir(directory):
+            return ["Nothing was kept for this attempt (production keeps its job files in place)." if not archive
+                    else "%s does not exist any more." % (archive)]
+        lines = []
+        for name in sorted(os.listdir(directory)):
+            if not name.endswith(".log"):
+                continue
+            with open(os.path.join(directory, name), encoding="utf-8", errors="replace") as stream:
+                tail = stream.read().splitlines()[-LOG_LINES:]
+            lines += ["== %s ==" % (name)] + [line.expandtabs(4) for line in tail] + [""]
+        return lines or ["No log files in %s (its output is in %s)." % (archive, os.path.join(archive, "stage"))]
 
     def needs_grid_proxy(self, recipe=None, record=None):
         """Whether starting the recipe, or advancing the run, may submit jobs (a production stage that is not
@@ -711,6 +927,34 @@ def _proxy_file():
     except OSError:
         return None
     return status.st_mtime_ns, status.st_size
+
+
+def _text_files(directory, recipe, state_of):
+    """The text files of a bundle directory (bundle_hashes' files, TEXT_SUFFIXES; not recipe.yml) as run_files
+    lists them; recipe (or None): which stages read each one."""
+    found = []
+    for relative in sorted(bundle_hashes(directory)):
+        if not relative.endswith(TEXT_SUFFIXES):
+            continue
+        readers = [stage_spec.id for stage_spec in (recipe.stages if recipe else ())
+                   if relative in _bundle_paths(stage_spec, recipe.bundle_dir)]
+        found.append(dict(path=relative, file=os.path.join(directory, relative), recipe=False, read_by=readers,
+                          state=state_of(relative)))
+    return found
+
+
+def _bundle_paths(stage_spec, bundle_dir):
+    """The bundle files (relative paths) a stage's path options name."""
+    return {os.path.normpath(value) for _, value, _, where in path_rows(stage_spec.spec, bundle_dir)
+            if where == 'bundle'}
+
+
+def _edited_recipe(record):
+    """The run's recipe file as a Recipe if it can be parsed (else None): the type of a stage an edit added."""
+    try:
+        return read_run_recipe(record, full=False)[0]
+    except Exception:
+        return None
 
 
 def _stage_info(stage):

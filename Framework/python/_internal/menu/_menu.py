@@ -371,7 +371,7 @@ class ConsoleUI:
                 add([""] + self._wrap("Cannot preview: " + view["error"], width), "error")
             elif view.get("draft"):
                 add([""] + self._wrap("Draft - no stages configured.", width) + [""])
-                add(self._wrap("Press E to configure this analysis in Run editor before starting a run.", width))
+                add(self._wrap("Press E to edit its recipe.yml before starting a run.", width))
             else:
                 problems, warnings = len(view.get("problems", ())), len(view.get("warnings", ()))
                 if problems:
@@ -1119,45 +1119,105 @@ class ConsoleUI:
     def run_path(self, launch_dir):
         return self.prompt("Run directory (relative to %s)" % launch_dir)
 
-    def terminal_run_actions(self, state, retry=None):
-        """A run that cannot advance: "inspect", "back", or with retry (dict(stage, type, message, changed; a
-        production stage also tries: (made, limit after the retry)): its failed stage can run again, CL §44, §48)
-        also "retry"."""
-        if not retry:
-            return self._action("Run is %s; it cannot advance." % state,
-                                ["Inspect status", "Back"], ["inspect", "back"])
-        stage, changed = retry["stage"], retry.get("changed")
-        if changed is None:
-            bundle = "Changes of the run's bundle copy are not known (a run without bundle hashes)."
-        elif changed:
-            bundle = "The run's bundle copy changed since the start: %s." % ", ".join(
-                "%s %s" % (path, change) for path, change in changed.items())
-        else:
-            bundle = "The run's bundle copy is as it started."
-        if retry.get("tries"):  # production after max_tries (CL §48)
-            made, limit = retry["tries"]
-            what = ("Resubmit the failed chunks of %s with %d more tries (up to try %d), then go on to the end; the "
-                    "finished stages are kept. It failed with: %s. %s The job files and merged tuples stay where they "
-                    "are." % (stage, limit - made, limit, retry.get("message") or "?", bundle))
-        else:
-            what = ("Run %s again once its cause is fixed, then go on to the end; the finished stages are kept. It "
-                    "failed with: %s. %s The failed attempt is kept in logs/%s/attempt<N>/."
-                    % (stage, retry.get("message") or "?", bundle, stage))
-        return self._action("Run failed at %s" % stage, ["Retry %s" % stage, "Inspect status", "Back"],
-                            ["retry", "inspect", "back"],
-                            descriptions=[what,
-                                          "Show the saved state of every stage.",
-                                          "Choose another run."])
+    def run_actions(self, view):
+        """The actions of a run (a run_preview view, see _run_picker._actions) as a list, for a terminal too narrow
+        for the run picker's two panes: the action's key, or "back"."""
+        from ._run_picker import ACTION_HELP, _actions, help_key
+        choices = _actions(view)
+        title = "Continue: %s (%s)" % (view.get("run_id", "?"), view.get("state", "?"))
+        return self._action(title, [label for _, label in choices] + ["Back"], [key for key, _ in choices] + ["back"],
+                            descriptions=[ACTION_HELP.get(help_key(key, view), "") for key, _ in choices] +
+                            ["Choose another run."])
 
-    def continue_actions(self, run_id):
-        """"wait" (advance to the end), "next" (the next stage only) or "back"; both run behind the menu."""
-        return self._action("Continue: %s" % run_id, ["Advance to the end", "Next stage only", "Back"],
-                            ["wait", "next", "back"],
-                            descriptions=["Advance behind the menu until the run is done or failed; jobs are "
-                                          "checked every 10 minutes. You can leave the screen.",
-                                          "Run the next stage that is not done (waiting for its jobs), then stop: "
-                                          "the run is paused, look at its output and Continue when you like it.",
-                                          "Choose another run."])
+    def stage_choice(self, title, view, mode, position=None):
+        """Rerun from... (mode "rerun") or Advance until... ("until"): ("pick", stage id) or ("back", None); view:
+        the operations' stage_choices (see _run_tools.pick_stage)."""
+        from ._run_tools import pick_stage
+        position = position if position is not None else {}
+        return self._run(lambda screen: pick_stage(self, screen, title, view, mode, position))
+
+    def confirm_rerun(self, row, pending=None, failed=None):
+        """The panel before a rerun from a stage (a stage_choices row with its plan): "all" (to the end), "one"
+        (that stage only, the others wait: --next) or None (cancel). failed: the retry_info of a FAILED run's
+        stage, which this rerun starts from (its message; production: its tries)."""
+        from ._run_tools import rerun_lines
+        plan, stage = row["plan"], row["id"]
+        lines = [("It failed with: " + (failed.get("message") or "?"), "error"), ("", None)] if failed else []
+        if plan.get("production"):
+            made, limit = failed["tries"] if failed and failed.get("tries") else (0, 0)
+            lines += [("Resubmit the failed chunks of %s with %d more tries (up to try %d), then go on to the end. "
+                       "The job files and merged tuples stay where they are; the stages before it are kept."
+                       % (stage, limit - made, limit), None)]
+            choices, answers = ["Resubmit %s and go on" % stage, "Cancel"], ["all", None]
+        else:
+            moved = [item["stage"] for item in plan["rows"]]
+            lines += [("%s run%s again: %s." % ("%d stages" % len(moved) if len(moved) > 1 else "1 stage",
+                                               "" if len(moved) > 1 else "s", ", ".join(moved)), None),
+                      ("Nothing is deleted: what they made before stays in logs/<id>/attempt<N>/ (History shows "
+                       "it).", None)]
+            lines += [line for line in rerun_lines(row, pending) if line[1] == "warning"]
+            if len(moved) > 1:
+                choices = ["Rerun to the end", "Rerun %s only (the others wait)" % stage, "Cancel"]
+                answers = ["all", "one", None]
+            else:
+                choices, answers = ["Rerun %s" % stage, "Cancel"], ["all", None]
+        index = self.ask("Rerun from %s?" % stage, lines, choices)
+        return None if index is None else answers[index]
+
+    def run_files(self, title, files, read, position=None):
+        """The files of a run or an analysis bundle with the selected one beside them: ("edit", index) or ("back",
+        None) (see _run_tools.pick_file); read(path): its lines."""
+        from ._run_tools import pick_file
+        position = position if position is not None else {}
+        return self._run(lambda screen: pick_file(self, screen, title, files, read, position))
+
+    def run_history(self, title, view, read_log, position=None):
+        """History of a run (the operations' run_history; see _run_tools.show_history) until Esc."""
+        from ._run_tools import show_history
+        position = position if position is not None else {}
+        return self._run(lambda screen: show_history(self, screen, title, view, read_log, position))
+
+    def ask(self, title, lines, choices):
+        """A panel over the current screen with text and a choice: the index of the choice, or None (Esc).
+        lines: (text, role) pairs."""
+        def draw(screen):
+            self._setup(screen)
+            selected, size = 0, screen.getmaxyx()
+            while True:
+                size = self._below(screen, size)
+                rows = list(lines) + [("", None)] + [(("> " if index == selected else "  ") + choice,
+                                                      "accent" if index == selected else None)
+                                                     for index, choice in enumerate(choices)]
+                self._overlay(screen, title, rows, "Up/Down Choose | Enter Select | Esc Cancel", offset=len(rows))
+                try:
+                    key = screen.getch()
+                except KeyboardInterrupt:
+                    return None
+                if key in (27, 3):
+                    return None
+                if key in (10, 13, self.curses.KEY_ENTER):
+                    return selected
+                if key in (self.curses.KEY_UP, self.curses.KEY_DOWN):
+                    selected = (selected + (1 if key == self.curses.KEY_DOWN else -1)) % len(choices)
+        return self._run(draw)
+
+    def _log_panel(self, screen, title, lines):
+        """A long text (a log) in a panel over the screen it is drawn on, until Enter or Esc; Up/Down/PgUp/PgDn
+        scroll it."""
+        rows, offset, size = [(line, None) for line in lines], 0, screen.getmaxyx()
+        while True:
+            size = self._below(screen, size)
+            offset, page = self._overlay(screen, title, rows, "Up/Down/PgUp/PgDn Scroll | Enter or Esc Close", offset)
+            try:
+                key = screen.getch()
+            except KeyboardInterrupt:
+                key = 3
+            if key in (10, 13, 27, 3, self.curses.KEY_ENTER):
+                screen.erase()
+                return
+            step = {self.curses.KEY_UP: -1, self.curses.KEY_DOWN: 1, self.curses.KEY_PPAGE: -page,
+                    self.curses.KEY_NPAGE: page}
+            offset = max(0, offset + step.get(key, 0))
 
     def grid_proxy_needed(self):
         """The run may submit jobs and the grid proxy is not valid: "renew" or "back"."""

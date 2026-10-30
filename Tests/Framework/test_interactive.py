@@ -31,6 +31,8 @@ class FakeUI(ConsoleUI):
         self.outputs = []  # (title, argv after taufw.py, refresh) of each command shown
         self.plans = []  # the view of each plan screen shown
         self.output_answers = iter(())  # what command_output answers ("back" once these are used)
+        self.choice_views = []  # the view of each stage picker shown
+        self.edits = []  # (title, path, validate) of each file the editor opened
 
     def choose(self, title, choices, welcome=None, **layout):
         self.screens.append((title, choices))
@@ -63,6 +65,29 @@ class FakeUI(ConsoleUI):
         self.outputs.append((title, process.argv, refresh))
         return next(self.output_answers, "back")
 
+    def stage_choice(self, title, view, mode, position=None):
+        """The stage picker: the next choice is the index of the stage picked, or None (back)."""
+        self.screens.append((title, [row["id"] for row in view["stages"]]))
+        self.choice_views.append(view)
+        index = next(self.choices)
+        return ("back", None) if index is None else ("pick", view["stages"][index]["id"])
+
+    def ask(self, title, lines, choices):
+        self.screens.append((title, choices))
+        return next(self.choices)
+
+    def run_files(self, title, files, read, position=None):
+        self.screens.append((title, [item["path"] for item in files]))
+        index = next(self.choices)
+        return ("back", None) if index is None else ("edit", index)
+
+    def run_history(self, title, view, read_log, position=None):
+        self.screens.append((title, view))
+
+    def edit_file(self, path, validate=None, *, title="Text editor", reference=None):
+        self.edits.append((title, path, validate))
+        return True
+
 
 # A small valid recipe: shapes of tuples made outside the run (a directory that exists, as the check wants), then the
 # fit of those shapes (inputs are never null, CL §37).
@@ -70,6 +95,21 @@ SHAPES = {"stage": "shapes", "id": "shapes", "eras": [2025], "jet_wps": ["Tight"
           "inputs": {"tuples": {"external": os.path.join(os.path.dirname(os.path.abspath(__file__)), "$ERA", "$GROUP")}}}
 FIT = {"stage": "fit", "id": "fit", "inputs": {"shapes": "shapes"}}
 STAGES = [SHAPES, FIT]
+
+
+def _plan_reruns(record):
+    """Framework.plan_reruns of a run without an edited recipe: _rerun_rows of each stage (no module APIs)."""
+    from TauFW.Framework._internal.runtime.framework import _rerun_rows, _run_recipe, RerunError, RerunPlan
+    recipe, found = _run_recipe(record), []
+    for stage_spec in recipe.stages:
+        try:
+            start, production, rows = _rerun_rows(record, recipe, stage_spec.id)
+        except RerunError as error:
+            found.append((stage_spec.id, error))
+            continue
+        found.append((stage_spec.id, RerunPlan(run_id=record.run_id, start=start, production=production,
+                                               rows=tuple(rows))))
+    return found
 
 
 class MenuTests(unittest.TestCase):
@@ -367,6 +407,7 @@ class MenuTests(unittest.TestCase):
         self.framework.return_value.plan.return_value = SimpleNamespace(
             stages=(), bundle_dir=None, pico_config=None, sample_problems=(), sample_warnings=())
         self.framework.return_value.recipe.first.return_value = None  # no production stage
+        self.framework.return_value.plan_reruns.side_effect = _plan_reruns  # the real rule, without stage APIs
         self.started = []  # (argv after taufw.py, keyword arguments) of each run started behind the menu
         launch = mock.patch.object(interactive.OperationStore, "start", autospec=True,
                                    side_effect=lambda store, kind, title, argv, cwd, **kw:
@@ -526,26 +567,87 @@ class MenuTests(unittest.TestCase):
         self.menu(FakeUI([0, 1])).continue_run()
         self.assertEqual([argv for argv, _ in self.started], [["advance", record.run_dir, "--next"]])
 
-    def test_terminal_runs_offer_inspection_without_advancing(self):
-        for state, title in (("DONE", "DONE"), ("FAILED", "Run failed at fit"), ("NOT_IMPLEMENTED", "BLOCKED")):
+    def test_finished_runs_offer_rerun_edit_history_and_inspection(self):
+        """CL §55 step 4: a DONE, FAILED or BLOCKED run cannot advance; its actions are Rerun (failed), Rerun
+        from..., Edit run config, History and Inspect status."""
+        for state, title, actions in (
+                ("DONE", "(DONE)", ["Rerun from...", "Edit run config", "History", "Inspect status", "Back"]),
+                ("FAILED", "(FAILED)", ["Rerun fit (failed)", "Rerun from...", "Edit run config", "History",
+                                        "Inspect status", "Back"]),
+                ("NOT_IMPLEMENTED", "(BLOCKED)", ["Rerun from...", "Edit run config", "History", "Inspect status",
+                                                 "Back"])):
             with self.subTest(state=state):
                 record = self.record(state=state)
-                retry = state == "FAILED"  # CL §44: a failed fit can be retried: Retry fit comes first
-                ui = FakeUI([0, 1, 2, None] if retry else [0, 0, 1, None])
+                ui = FakeUI([0, actions.index("Inspect status"), None])
                 self.menu(ui).continue_run()
                 self.assertIn(title, ui.screens[1][0])
+                self.assertEqual(ui.screens[1][1], actions)
                 self.assertEqual(ui.outputs, [("Run status: " + record.run_id, ["status", record.run_dir], True)])
         self.assertEqual([argv[0] for argv, _ in self.started], ["status"] * 3)  # never an advance
 
-    def test_retry_of_a_failed_run(self):
-        """CL §44: Continue on a FAILED run whose stage can be retried runs `taufw.py retry RUN`."""
+    def test_rerun_of_a_failed_run(self):
+        """CL §44, §55: Rerun fit (failed) goes to the confirm panel at once, then `taufw.py rerun RUN fit`."""
         record = self.record(state="FAILED")
-        ui = FakeUI([0, 0])
+        ui = FakeUI([0, 0, 0])
         self.menu(ui).continue_run()
-        self.assertEqual([argv for argv, _ in self.started], [["rerun", record.run_dir]])
-        self.assertEqual(ui.screens[1][1][0], "Retry fit")
+        self.assertEqual([argv for argv, _ in self.started], [["rerun", record.run_dir, "fit"]])
+        self.assertEqual(ui.screens[1][1][0], "Rerun fit (failed)")
+        self.assertEqual(ui.screens[2], ("Rerun from fit?", ["Rerun fit", "Cancel"]))
         self.assertEqual(self.started[0][1]["data"]["stages"][1]["state"], "FAILED")
         self.assertEqual(ui.screens[-1][0], "Run " + record.run_id)
+
+    def test_rerun_from_a_stage_of_a_done_run(self):
+        """CL §55 step 4: Rerun from... lists the stages with a dry rerun of each; the confirm panel's "only" runs
+        `taufw.py rerun RUN shapes --next`."""
+        record = self.record(state="DONE")
+        ui = FakeUI([0, 0, 0, 1])  # the run, Rerun from..., shapes, Rerun shapes only
+        self.menu(ui).continue_run()
+        view = ui.choice_views[0]
+        self.assertEqual([row["id"] for row in view["stages"]], ["shapes", "fit"])
+        shapes = view["stages"][0]
+        self.assertEqual([(row["stage"], row["state"], row["archive"]) for row in shapes["plan"]["rows"]],
+                         [("shapes", "DONE", None), ("fit", "DONE", None)])  # nothing was left in the test's run
+        self.assertEqual((shapes["plan"]["kept"], shapes["until"]), ([], False))
+        self.assertEqual(ui.screens[3], ("Rerun from shapes?", ["Rerun to the end", "Rerun shapes only (the others "
+                                                                "wait)", "Cancel"]))
+        self.assertEqual([argv for argv, _ in self.started], [["rerun", record.run_dir, "shapes", "--next"]])
+
+    def test_advance_until_a_stage(self):
+        record = self.record(state="WAITING")
+        record.stage("fit").state = "NEW"
+        record.save()
+        ui = FakeUI([0, 2, 1])  # the run, Advance until..., fit
+        self.menu(ui).continue_run()
+        self.assertEqual([row["until"] for row in ui.choice_views[0]["stages"]], [False, True])
+        self.assertEqual([argv for argv, _ in self.started], [["advance", record.run_dir, "--until", "fit"]])
+
+    def test_edit_run_config_lists_the_run_files_and_checks_its_recipe(self):
+        """CL §55 step 4: the run's recipe first, then its bundle files; the recipe's validator refuses an edit of
+        the run's rules and is refused while an advance holds the lock; History shows the versions."""
+        record = self.record(state="DONE")
+        bundle = Path(record.run_dir) / "bundle"
+        (bundle / "steps").mkdir(parents=True)
+        (bundle / "recipe.yml").write_text(json.dumps(record.recipe), encoding="utf-8")
+        (bundle / "steps" / "x.py").write_text("print(1)\n", encoding="utf-8")
+        (bundle / "data.root").write_text("not text", encoding="utf-8")
+        ui = FakeUI([0, 1, 0, None, None])  # the run, Edit run config, recipe.yml (the editor), back, back
+        menu = self.menu(ui)
+        menu.continue_run()
+        self.assertEqual(ui.screens[2], ("Edit run config / " + record.run_id, ["recipe.yml", os.path.join("steps", "x.py")]))
+        (title, path, validate), = ui.edits
+        self.assertEqual((title, path), ("Edit run config / %s / recipe.yml" % record.run_id, str(bundle / "recipe.yml")))
+        draft = bundle / ".recipe.yml.draft"
+        draft.write_text(json.dumps(dict(record.recipe, name="other")), encoding="utf-8")
+        self.assertIn("name: cannot change in a run", validate(draft)[0])
+        draft.write_text(json.dumps(record.recipe), encoding="utf-8")
+        self.assertIsNone(validate(draft))
+        with mock.patch.object(interactive, "read_lock", return_value=dict(pid=5, host="lxplus1")):
+            self.assertIn("An advance works on this run now (pid 5 on lxplus1)", validate(draft)[0])
+        operations = menu.operations
+        self.assertEqual(operations.file_text(str(bundle / "steps" / "x.py")), ["print(1)"])
+        history = operations.run_history(record)
+        self.assertEqual([item["text"] for item in history["versions"]], ["start"])
+        self.assertEqual([stage["id"] for stage in history["stages"]], ["shapes", "fit"])
 
     def test_the_run_screen_gets_the_times_of_the_earlier_advances(self):
         """Continue and Retry: how long the DONE and FAILED stages took, from run.json (commands of a local stage;
@@ -557,7 +659,7 @@ class MenuTests(unittest.TestCase):
         record.stage("fit").history = [{"time": "2026-10-01 10:00:00", "event": "submitted"},
                                        {"time": "2026-10-02 12:30:05", "event": "failed"}]
         record.save()
-        ui = FakeUI([0, 0])
+        ui = FakeUI([0, 0, 0])  # the run, Rerun fit (failed), Rerun fit
         self.menu(ui).continue_run()
         shapes, fit = self.started[0][1]["data"]["stages"]
         self.assertEqual({key: shapes[key] for key in ("seconds", "commands", "log")}, dict(
@@ -633,7 +735,7 @@ class MenuTests(unittest.TestCase):
 
     def test_back_from_continue_goes_back_to_the_picker(self):
         self.record()
-        ui = FakeUI([0, 2, None])
+        ui = FakeUI([0, 7, None])  # Back: the last of the 8 actions of a WAITING run
         self.menu(ui).continue_run()
         self.assertTrue(ui.screens[1][0].startswith("Continue:"))
         self.assertEqual(ui.screens[2][0], "Select an existing run")

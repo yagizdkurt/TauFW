@@ -8,27 +8,51 @@ from ._operation_screen import printable
 
 MIN_WIDTH, MIN_HEIGHT = 120, 18
 ACTION_HELP = {
-    "wait": "Check jobs every 10 minutes and advance until done or failed. You can leave the progress screen.",
-    "next": "Run the next stage that is not done (waiting for its jobs), then stop: the run is paused.",
-    "retry": "Run the failed stage again, then continue to the end. Finished stages and the failed log are kept.",
-    "retry_production": "Resubmit the failed chunks with more tries, then continue to the end. Job files stay.",
+    "wait": "Run every stage that is not done, checking the jobs every 10 minutes, until the run is done or "
+            "failed. You can leave the progress screen.",
+    "next": "Run the next stage that is not done (waiting for its jobs), then stop: the run is paused. Look at its "
+            "output, then go on.",
+    "until": "Choose a stage: the run goes on until that stage is done, then pauses.",
+    "rerun_failed": "Run the failed stage again once its cause is fixed, then go on to the end. Its failed attempt "
+                    "is kept in logs/<id>/attempt<N>/; the stages before it are kept.",
+    "rerun_failed_production": "Resubmit the failed chunks with more tries, then go on to the end. Job files stay.",
+    "rerun": "Choose a stage: it and every stage after it are set aside (kept in logs/<id>/attempt<N>/) and run "
+             "again.",
+    "edit": "Edit the run's own recipe and bundle files (not those in Analyses/). The next advance or rerun reads "
+            "them.",
+    "history": "The run's recipe versions and every earlier attempt of its stages, with their logs.",
     "inspect": "Show the saved stage states and live job counts without changing the run.",
 }
 
 
+def help_key(key, view):
+    """The ACTION_HELP key of an action of a run view (a failed production has its own)."""
+    retry = view.get("retry") or {}
+    return "rerun_failed_production" if key == "rerun_failed" and retry.get("tries") else key
+
+
 def _actions(view):
+    """The actions of a run view (interactive.run_preview), in their fixed order; what cannot be done is left out
+    (CL §55 step 4, M1)."""
     if not view or view.get("loading") or view.get("error"):
         return []
     if view.get("advancing"):
-        return [("select", "Follow the running advance")]
+        return [("select", "Follow the running advance"), ("history", "History"), ("inspect", "Inspect status")]
+    lock = view.get("lock")
+    if lock and not (lock.get("lost") and lock.get("local")):
+        return [("select", "Review lost advance / take over" if lock.get("lost") else "View advance lock"),
+                ("history", "History"), ("inspect", "Inspect status")]
+    choices = []
     if view.get("can_advance"):
-        lock = view.get("lock")
-        if lock and not (lock.get("lost") and lock.get("local")):
-            return [("select", "Review lost advance / take over" if lock.get("lost") else "View advance lock"),
-                    ("inspect", "Inspect status")]
-        return [("wait", "Advance to the end"), ("next", "Next stage only"), ("inspect", "Inspect status")]
+        following = view.get("next")
+        choices += [("wait", "Advance to the end"), ("next", "Next stage only" + (": " + following if following
+                                                                                  else "")),
+                    ("until", "Advance until...")]
     retry = view.get("retry")
-    return ([("retry", "Retry %s" % retry["stage"])] if retry else []) + [("inspect", "Inspect status")]
+    if retry:
+        choices.append(("rerun_failed", "Rerun %s (failed)" % retry["stage"]))
+    return choices + [("rerun", "Rerun from..."), ("edit", "Edit run config"), ("history", "History"),
+                      ("inspect", "Inspect status")]
 
 
 def _details(ui, screen, rect, view, mode, focused, action, offset):
@@ -62,10 +86,12 @@ def _details(ui, screen, rect, view, mode, focused, action, offset):
         colors.append("accent" if focused and index == action else None)
     retry, lock = view.get("retry"), view.get("lock")
     if focused and choices:
-        key = choices[action][0]
-        help_text = ACTION_HELP.get("retry_production" if key == "retry" and retry.get("tries") else key)
+        help_text = ACTION_HELP.get(help_key(choices[action][0], view))
         if help_text:
             lines += ["", help_text]
+    if view.get("pending"):
+        lines += ["", "! " + view["pending"]]
+        colors += [None] * (len(lines) - len(colors) - 1) + ["warning"]
     if retry:
         lines += ["", "Failed: " + retry.get("message", "")]
         if retry.get("tries"):
@@ -77,9 +103,14 @@ def _details(ui, screen, rect, view, mode, focused, action, offset):
         lines += ["", "Advance on %s (pid %s)" % (lock.get("host", "?"), lock.get("pid", "?")),
                   "No sign of life for %ds." % lock.get("quiet", 0) if lock.get("lost") else
                   "Another advance holds this run's lock."]
-    lines += ["", "Stages"] + ["%-12s %s%s" % (stage["state"], stage["id"],
-                                               (": " + stage["message"]) if stage.get("message") else "")
-                                for stage in view.get("stages", ())]
+    width_id = max([len(stage["id"]) for stage in view.get("stages", ())] + [4])
+    lines += ["", "Stages"] + ["%-8s %s%s%s" % (stage["state"], stage["id"].ljust(width_id),
+                                              "  <- next" if stage["id"] == view.get("next") else "",
+                                              "  %d earlier attempt%s" % (stage["attempts"], "s" if
+                                                                          stage["attempts"] > 1 else "")
+                                              if stage.get("attempts") else "") +
+                               ((": " + stage["message"]) if stage.get("message") else "")
+                               for stage in view.get("stages", ())]
     colors += [None] * (len(lines) - len(colors))
     wrapped = [(part, color) for line, color in zip(lines, colors) for part in ui._wrap(printable(line), width)]
     return ui._viewport(screen, body, [line for line, _ in wrapped], offset,
@@ -141,9 +172,14 @@ def pick(ui, screen, labels, colors, summaries, preview, mode, position, live, f
                     offset, page = _details(ui, screen, right, view, mode, focused, action, offset)
             else:
                 focused = False
+            editable = mode == "continue" and any(key == "edit" for key, _ in choices)
             footer = ("Up/Down Move | Enter Select | Esc Back" if not wide else
-                      "Up/Down Action | Enter Select | Tab Runs | PgUp/Dn Details | R Refresh | Esc Runs" if focused else
-                      "Up/Down Run | Enter Actions | Tab Pane | PgUp/Dn Details | R Refresh | Esc Back" if mode == "continue" else
+                      "Up/Down Action | Enter Select | Tab Runs | E Edit | R Refresh | Esc Runs" if focused and editable
+                      else "Up/Down Action | Enter Select | Tab Runs | PgUp/Dn Details | R Refresh | Esc Runs" if focused
+                      else "Up/Down Run | Enter Actions | Tab Pane | E Edit | PgUp/Dn Details | R Refresh | Esc Back"
+                      if editable else
+                      "Up/Down Run | Enter Actions | Tab Pane | PgUp/Dn Details | R Refresh | Esc Back"
+                      if mode == "continue" else
                       "Up/Down Run | Enter Full screen | PgUp/Dn Status | R Refresh | Esc Back")
             ui._footer(screen, footer)
             screen.refresh()
@@ -171,6 +207,8 @@ def pick(ui, screen, labels, colors, summaries, preview, mode, position, live, f
                 offset = max(0, offset - page)
             elif key in (ord("r"), ord("R")) and wide and selected < count:
                 preview(selected, refresh=True)
+            elif key in (ord("e"), ord("E")) and wide and selected < count and editable:
+                return "edit", selected
             elif key in (10, 13, ui.curses.KEY_ENTER):
                 if selected == count:
                     return "manual", None

@@ -539,6 +539,26 @@ def _plan(errors=()):
     return lambda ui, directory: ui.recipe_plan("Start a new run / tes_2025", _plan_view(errors), position={})
 
 
+RUN_STATES = {  # the stage states of each made-up run of RUNS
+    "WAITING": ("WAITING", "NEW", "NEW", "NEW", "NEW"), "DONE": ("DONE",) * 5,
+    "FAILED": ("DONE", "DONE", "FAILED", "NEW", "NEW"), "PAUSED": ("DONE", "DONE", "DONE", "NEW", "NEW")}
+
+
+def _run_view(run_id, state, updated="2026-10-18 14:02"):
+    """A made-up run_preview view of a run of RUNS."""
+    states = RUN_STATES[state]
+    retry = dict(stage="plots", message="plot.py: exit code 1", changed={}) if state == "FAILED" else None
+    following = next((name for (name, *_), saved in zip(STAGES, states) if saved != "DONE"), None)
+    can_advance = state in ("WAITING", "PAUSED")
+    return dict(run_id=run_id, state=state, updated=updated, loading=False, can_advance=can_advance, retry=retry,
+                next=following if can_advance else None,
+                pending="bundle/recipe.yml was edited (fit changed): the next advance takes it" if state == "PAUSED"
+                else None,
+                stages=[dict(id=name, type=kind, state=saved, message="plot.py: exit code 1" if saved == "FAILED"
+                             else "", attempts=1 if name == "plots" and state in ("PAUSED", "DONE") else 0)
+                        for (name, kind, *_), saved in zip(STAGES, states)])
+
+
 def _run_picker(mode, loading=False):
     """The real adaptive picker with plain made-up data; no threads, commands or Framework reads."""
     def show(ui, directory):
@@ -548,17 +568,84 @@ def _run_picker(mode, loading=False):
             run_id, state, updated = RUNS[index]
             if state is None:
                 return dict(error="run.json cannot be read")
-            retry = dict(stage="plots", message="plot.py: exit code 1", changed={}) if state == "FAILED" else None
-            return dict(run_id=run_id, state=state, updated=updated, loading=False, reading=loading,
-                        can_advance=state in ("WAITING", "PAUSED"), retry=retry,
-                        stages=[dict(id=name, state="WAITING" if n == 0 else "NEW", message="")
-                                for n, (name, *_) in enumerate(STAGES)],
+            return dict(_run_view(run_id, state, updated), reading=loading,
                         output=() if loading else ("=== Run %s: %s ===" % (run_id, state),
                             "stage       state    attempt  message",
                             "ntuples     WAITING  1        jobs: 540 done, 300 running, 12 idle",
                             "histograms  NEW      0", "plots       NEW      0", "fit         NEW      0"))
         return ui.select_run(RUNS, preview=view, mode=mode)
     return show
+
+
+# ----------------------------------------------- iterative runs (CL §55 step 4)
+
+FIXED = ("Stage ntuples (production) cannot run again in this run: production can run again only after its chunks "
+         "failed max_tries times; it is DONE. To change it, start a new run; it can reuse the finished stages of "
+         "this one through {path: %s/stages/<id>}" % RUN_DIR)
+
+
+def _rerun_plan(start, states, attempts=None):
+    """A made-up dry rerun from a stage of STAGES (stage_choices' plan)."""
+    names = [name for name, *_ in STAGES]
+    rows = [dict(stage=name, state=saved, attempt=(attempts or {}).get(name, 1),
+                 archive="logs/%s/attempt%d" % (name, (attempts or {}).get(name, 1)) if saved != "NEW" else None)
+            for name, saved in zip(names, states)][names.index(start):]
+    return dict(rows=rows, kept=names[:names.index(start)], recipe_changes={"fit": "changed"}, bundle_changed={},
+                production=False)
+
+
+def _choices(error=None):
+    """A made-up stage_choices view of the PAUSED run (the next stage: fit)."""
+    states = RUN_STATES["PAUSED"]
+    stages = []
+    for index, ((name, kind, *_), saved) in enumerate(zip(STAGES, states)):
+        plan = None if index == 0 or error else _rerun_plan(name, states, {"plots": 2})
+        stages.append(dict(id=name, type=kind, state=saved, attempts=1 if name == "plots" else 0, plan=plan,
+                           why=FIXED if index == 0 else None, tag="fixed" if index == 0 else None,
+                           until=error is None and index >= 3))
+    return dict(run_id="mutau_fr_2025", next="fit", error=error, stages=stages,
+                pending=None if error else "bundle/recipe.yml was edited (fit changed): the next advance takes it")
+
+
+RUN_FILES = [
+    dict(path="recipe.yml", file="recipe", recipe=True, read_by=[], state="edited, not taken yet"),
+    dict(path="config_mutau_2025.yml", file="config", recipe=False, read_by=["histograms", "plots"],
+         state="edited since the start"),
+    dict(path="samples/v15_2025.yml", file="samples", recipe=False, read_by=["histograms"], state=""),
+    dict(path="steps/summary.py", file="step", recipe=False, read_by=["results"], state=""),
+    dict(path="sf/scale_factors_of_the_team_2025/tauid_pnet_tight_vs_jet.json", file="sf", recipe=False,
+         read_by=[], state="added since the start")]
+FILE_TEXT = {
+    "recipe": ["# The TES measurement of 2025, made-up for the UI preview.", "name: tes_2025", "", "stages:",
+               "  - stage: production", "    id: ntuples", "    inputs: null", "    eras: [2025]",
+               "  - stage: controlhists", "    id: histograms", "    inputs: {tuples: ntuples}",
+               "    configs: [config_mutau_2025.yml]", "  - stage: controlplots", "    id: plots",
+               "    inputs: {hists: histograms}", "  - stage: fit", "    id: fit", "    inputs: {shapes: histograms}",
+               "    pois: [tes]          # changed: was [tes, tid]", "  - stage: python", "    id: results",
+               "    inputs: {fit: fit, plots: plots}", "    file: steps/summary.py"],
+    "config": ["channel: mutau", "baseline: \"pt_1>26 && pt_2>20 && iso_1<0.15\"", "regions:",
+               "  signal: {cut: \"q_1*q_2<0\", bins: [0, 50, 70, 90, 110, 150, 250]}",
+               "  ss:     {cut: \"q_1*q_2>0\"}", "variables: [m_vis, pt_2, eta_2, mt_1]"]}
+
+HISTORY = dict(
+    run_id="mutau_fr_2025",
+    versions=[dict(version=0, time="2026-10-30 16:00:12", text="start", done=[], file="recipes/recipe_0.yml"),
+              dict(version=1, time="2026-10-30 16:41:03", text="plots changed", done=["plots"],
+                   file="recipes/recipe_1.yml"),
+              dict(version=2, time="2026-10-30 17:02:47", text="fit changed, results added", done=[],
+                   file="recipes/recipe_2.yml")],
+    stages=[dict(id=name, type=kind, state=saved, message="", time="2026-10-30 17:20:05", attempts=[])
+            for (name, kind, *_), saved in zip(STAGES, RUN_STATES["PAUSED"])],
+    removed=[dict(id="old_check", state="DONE", time="2026-10-30 17:02:47", archive="logs/old_check/attempt1")])
+HISTORY["stages"][2]["attempts"] = [
+    dict(attempt=2, reason="rerun", start="plots", state="DONE", time="2026-10-30 16:45:30", message="7 command(s)",
+         archive="logs/plots/attempt2"),
+    dict(attempt=1, reason="failed", start="plots", state="FAILED", time="2026-10-30 16:30:02",
+         message="1 of 7 command(s) failed: plot.py mutau 2025: exit code 1", archive="logs/plots/attempt1")]
+ATTEMPT_LOG = ["== 01_plots_mutau_2025.log ==", "cwd: /eos/user/u/username/taufw_runs/.../stages/plots",
+               "command: python3 Plotter/plot.py -c mutau -y 2025", "Info in <TCanvas::Print>: m_vis.png created",
+               "Traceback (most recent call last):", '  File "Plotter/plot.py", line 212, in <module>',
+               "KeyError: 'pt_2'", "exit code 1 after 12.4 s"]
 
 
 def _runs(directory, *kinds):
@@ -625,20 +712,54 @@ SCENARIOS = [
     Scenario("Continue", "select a run (one advancing)",
              lambda ui, directory: ui.select_run(RUNS, advances=_runs(directory, ("advancing", None, 14.0))
                                                  + [None] * (len(RUNS) - 1))),
-    Scenario("Continue", "actions", lambda ui, directory: ui.continue_actions("tes_2025")),
+    Scenario("Continue", "actions of a paused run (a narrow terminal)",
+             lambda ui, directory: ui.run_actions(_run_view("mutau_fr_2025", "PAUSED"))),
+    Scenario("Continue", "actions of a done run (a narrow terminal)",
+             lambda ui, directory: ui.run_actions(_run_view("etau_fr_2024", "DONE"))),
     Scenario("Continue", "adaptive run list and actions", _run_picker("continue")),
+    Scenario("Rerun from", "stage picker, an edited recipe",
+             lambda ui, directory: ui.stage_choice("Rerun from / mutau_fr_2025", _choices(), "rerun")),
+    Scenario("Rerun from", "the edited recipe cannot be taken",
+             lambda ui, directory: ui.stage_choice("Rerun from / mutau_fr_2025", _choices(
+                 error="mutau_fr_2025/bundle/recipe.yml: stages[3] (fit).inputs.shapes: no stage 'hist' in the "
+                       "recipe"), "rerun")),
+    Scenario("Rerun from", "confirm panel",
+             lambda ui, directory: _over_blank(ui, lambda: ui.confirm_rerun(
+                 _choices()["stages"][2], pending="bundle/recipe.yml was edited (fit changed)"))),
+    Scenario("Rerun from", "failed stage: confirm panel",
+             lambda ui, directory: _over_blank(ui, lambda: ui.confirm_rerun(
+                 dict(id="plots", plan=_rerun_plan("plots", RUN_STATES["FAILED"])),
+                 failed=dict(stage="plots", type="controlplots", message="1 of 7 command(s) failed: exit code 1",
+                             changed={})))),
+    Scenario("Rerun from", "failed production: more tries",
+             lambda ui, directory: _over_blank(ui, lambda: ui.confirm_rerun(
+                 dict(id="ntuples", plan=dict(rows=[], kept=[], recipe_changes=None, bundle_changed={},
+                                              production=True)),
+                 failed=dict(stage="ntuples", type="production", tries=(3, 6),
+                             message="2 chunk(s) still failed or missing after 3 tries")))),
+    Scenario("Advance until", "stage picker",
+             lambda ui, directory: ui.stage_choice("Advance until / mutau_fr_2025", _choices(), "until")),
+    Scenario("Edit run config", "the run's files and the selected one",
+             lambda ui, directory: ui.run_files("Edit run config / mutau_fr_2025", RUN_FILES,
+                                                lambda path: FILE_TEXT.get(path, ["{}"]))),
+    Scenario("Edit run config", "after a save: rerun from the stage",
+             lambda ui, directory: _over_blank(ui, lambda: ui.ask(
+                 "plots is DONE with its old file", [("config_mutau_2025.yml is read by plots; it is DONE with the "
+                                                      "old file. To use the new ones, plots and the stages after it "
+                                                      "run again.", None)], ["Rerun from plots...", "Later"]))),
+    Scenario("Edit run config", "refused while an advance works on the run",
+             lambda ui, directory: _over_blank(ui, lambda: ui.message("An advance works on this run", [(
+                 "An advance of this run runs on %s (pid 23411): edit its files once it ends, so the stages it "
+                 "runs read one version of them." % REMOTE_HOST, "warning")]))),
+    Scenario("Start a run", "edit an analysis (E)",
+             lambda ui, directory: ui.run_files("Edit analysis / tes_2025", [
+                 dict(item, state="") for item in RUN_FILES[:4]], lambda path: FILE_TEXT.get(path, ["{}"]))),
+    Scenario("History", "recipe versions and attempts",
+             lambda ui, directory: ui.run_history("History / mutau_fr_2025", HISTORY, lambda archive: ATTEMPT_LOG,
+                                                  position={"selected": 2})),
     Scenario("Inspect", "adaptive run list and status", _run_picker("inspect")),
     Scenario("Inspect", "adaptive run list while status loads", _run_picker("inspect", loading=True)),
     Scenario("Start / Continue", "grid proxy needed", lambda ui, directory: ui.grid_proxy_needed()),
-    Scenario("Continue", "run that cannot advance", lambda ui, directory: ui.terminal_run_actions("DONE")),
-    Scenario("Continue", "failed run: retry its stage",
-             lambda ui, directory: ui.terminal_run_actions("FAILED", retry=dict(
-                 stage="sf_tauid", type="python", message="1 command(s) ran: sf_tauid: exit code 1",
-                 changed={"sf/tauid.json": "added"}))),
-    Scenario("Continue", "failed production: retry with more tries",
-             lambda ui, directory: ui.terminal_run_actions("FAILED", retry=dict(
-                 stage="production", type="production",
-                 message="2 chunk(s) still failed or missing after 3 tries", changed={}, tries=(3, 6)))),
     Scenario("Inspect", "run status, HTCondor answers after 4 s",
              lambda ui, directory: ui.command_output("Run status: %s" % RUN_ID, _status(directory), refresh=True)),
     Scenario("Tests", "menu, last run failed",

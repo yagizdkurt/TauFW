@@ -27,7 +27,8 @@ FAQ = (
      "Use [Create a new run] at the top of the list to choose an analysis name and create "
      "Analyses/<name>/recipe.yml with an empty pipeline. Esc cancels; existing files are never overwritten. "
      "The new analysis is selected and labelled Draft. A draft cannot start until stages are configured. "
-     "E opens the Run editor entry point for the selected analysis (the editor screen is coming next). "
+     "E opens the files of the selected analysis (Analyses/<name>/): choose one, Enter edits it; its "
+     "recipe.yml is checked before it is saved. Edits here are for new runs; a run has its own copy. "
      "Choose a recipe on the left; its pipeline appears on the right as a table: each stage, what it reads "
      "and its description, with the number of errors and warnings above it. "
      "Select a recipe to open its plan: Overview, Errors and Warnings (when there are "
@@ -43,11 +44,15 @@ FAQ = (
      "and the selected run's actions and saved stages appear on the right. Enter or Tab focuses the actions; "
      "choose one and press Enter to run it. Esc returns to the list. Page Up/Down scrolls details; R reloads "
      "them. In smaller terminals, Enter opens the selected run as before. Discovery and previews load "
-     "behind the menu: you can keep moving or leave. Advance "
-     "once checks jobs and may resubmit failed chunks or merge output. Keep "
-     "checking repeats while the run waits, every 600 seconds by default. "
-     "Ctrl+C stops the foreground operation; it does not cancel batch jobs. "
-     "Resume using the saved run record."),
+     "behind the menu: you can keep moving or leave. Advance to the end checks the jobs every 600 seconds "
+     "until the run is done or failed; Next stage only and Advance until... stop after a stage (the run is "
+     "PAUSED). Rerun from... sets a stage and every stage after it aside (kept in logs/<id>/attempt<N>/) and "
+     "runs them again: choose the stage, see what moves on the right, confirm. Edit run config (E) lists the "
+     "run's own recipe and bundle files with the selected one beside them; Enter edits it. The run's "
+     "recipe is checked before it is saved, nothing can be saved while an advance works on the run, and "
+     "after a save that made a DONE stage stale the menu offers to rerun from it. History shows the run's "
+     "recipe versions and every earlier attempt of its stages; Tab and Enter open an attempt's log. "
+     "Stopping the progress screen does not cancel batch jobs."),
 
     ("Status and run states", 
      "Inspect status shows saved stage states and "
@@ -70,7 +75,7 @@ FAQ = (
      "failures (no samples, a merged tuple that failed validation) need a new "
      "run. A failed local stage (histograms, "
      "plots, shapes, fit, python step) can run again: fix the cause, then "
-     "Continue offers Retry (taufw rerun). The stages before it are kept, "
+     "Continue offers Rerun <stage> (failed) (taufw rerun). The stages before it are kept, "
      "the failed attempt is moved to logs/<id>/attempt<N>/, and run.json "
      "records the attempt. If the run's bundle copy was edited, every advance "
      "warns once and run.json and the manifests say so (bundle_changed)."),

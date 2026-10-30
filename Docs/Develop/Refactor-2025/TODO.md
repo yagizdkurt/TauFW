@@ -159,6 +159,14 @@ The lxplus checks (ROOT, CMSSW, HTCondor, a real terminal) of a new change go he
       tagger_roc`. run.json `attempts` (reason rerun, from plots). `taufw rerun <run> production` of a production
       run: refused, nothing changes. `taufw retry`: an argparse error. Menu > Continue > Retry of a FAILED run still
       works (`rerun` behind it). Tab: `taufw rer<Tab>`, `taufw rerun <run> --d<Tab>`.
+- [ ] **The menu of iterative runs (CL §55 step 4):** Tests > UI preview: the 13 new screens (Continue, Rerun from,
+      Advance until, Edit run config, Start a run > edit an analysis, History). With the cmsdas26_ztt run: Continue >
+      the run: the actions of its state and the pending recipe line; Advance until… sf_nominal (stops, PAUSED);
+      Edit run config (E): the files with their markers, edit an option of `plots` in recipe.yml, save, the panel
+      "plots is DONE with its old options" > Rerun from plots…: the picker on plots, its right panel; the confirm
+      panel > Rerun plots only. A bad edit of recipe.yml (a stage type changed): the editor refuses the save. Start a
+      `taufw advance` in a second terminal, then Edit run config: refused. History: the versions, plots with 1 attempt,
+      Tab + Enter: its log. Start > an analysis > E: its files, a save of recipe.yml with an error refused. At 80x24.
 - [ ] **User config settings (CL §41):** in an installed checkout without `Analyses/UserConfig.yaml`,
       `taufw userconfig` writes the lxplus guesses (`taufw/` on EOS; `run_root` if the AFS work area
       exists; values of `PicoProducer/config/config.json` if it exists); `taufw plan

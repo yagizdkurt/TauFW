@@ -181,7 +181,8 @@ class RunProgress(ScreenModel):
                                 if stage else "Continue resumes the run.", None), where]
         if self.run_state == "DONE":
             return "Run complete", [("All %d stages done.   started %s, finished %s" % (
-                len(self.stages), _hour(self.started), _hour(self.finished)), "good"), where]
+                len(self.stages), _hour(self.started), _hour(self.finished)), "good"),
+                ("To change a stage: Continue > Edit run config, then Rerun from... it.", None), where]
         if self.run_state == "WAITING":
             return "Waiting for jobs", [("Stage %s: %s" % (name, stage["message"] or "jobs are running"), "waiting"),
                                         ("Nothing more to do now: Continue later, or Advance to the end to follow it.",
@@ -195,11 +196,13 @@ class RunProgress(ScreenModel):
             last = _last_done(self.stages)
             return "Paused", [("Stopped after %s; %s is next." % (last, name) if last else "%s is next." % name,
                                "waiting"),
-                              ("Look at its output, then Continue (Next stage only, or to the end).", None), where]
+                              ("Look at its output, then Continue: Next stage only, to the end, or Edit run "
+                               "config and Rerun from... if it needs a change.", None), where]
         if stage is not None and stage["state"] == "FAILED":
-            then = ("If its chunks still failed after max_tries, Continue offers Retry %s (more tries); other "
-                    "production failures need a new run." % name if stage["type"] == "production" else
-                    "Fix the cause, then Continue offers Retry %s: the finished stages are kept." % name)
+            then = ("If its chunks still failed after max_tries, Continue offers Rerun %s (failed) (more tries); "
+                    "other production failures need a new run." % name if stage["type"] == "production" else
+                    "Fix the cause (Edit run config), then Continue offers Rerun %s (failed): the stages before it "
+                    "are kept." % name)
             return "Failed at %s" % name, [(stage["message"] or "The stage failed.", "error"), (then, None), where]
         return "Failed", [("taufw.py ended with exit code %s; see Output (L)." % self.returncode, "error"), where]
 

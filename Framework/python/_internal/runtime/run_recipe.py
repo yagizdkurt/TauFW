@@ -25,8 +25,8 @@ Outputs: write_run_recipe() writes the two files above; the rest only reads.
 Public API:
   write_run_recipe(recipe, run_dir, files)    start(): the run's recipe and recipes/recipe_0.yml
   run_recipe_file(run_dir), recipe_copy(run_dir, version)
-  read_run_recipe(record, full=True)          (Recipe or None, issues); (None, ()) without the file (a run started
-                                              before CL §55: its run.json recipe is the only one)
+  read_run_recipe(record, full=True, path=None)   (Recipe or None, issues); (None, ()) without the file (a run
+                                              started before CL §55: its run.json recipe is the only one)
   recipe_changes(old, new)                    {stage id: added|removed|changed|moved} of two recipe dicts
   edit_problems(old, new, changes)            the Issues of the edit rules
   pending_change(record)                      what the next advance does with an edited file (taufw status), or None
@@ -77,11 +77,12 @@ def write_run_recipe(recipe, run_dir, files):
     files.copy_file(target, recipe_copy(run_dir, 0))
 
 
-def read_run_recipe(record, full=True):
+def read_run_recipe(record, full=True, path=None):
     """(Recipe or None, issues) of the run's recipe file. full: every check of `taufw check` (the files it names,
     the stage directories of {path} inputs, ...); otherwise only what Recipe.parse checks (fast: taufw status, and
-    whether the file changed at all). (None, ()) if the run has no such file."""
-    path = run_recipe_file(record.run_dir)
+    whether the file changed at all). (None, ()) if the run has no such file. path: another file read as the run's
+    recipe (the editor's draft next to it, the menu)."""
+    path = path or run_recipe_file(record.run_dir)
     if not os.path.isfile(path):
         return None, ()
     source = "%s/%s/%s" % (record.run_id, BUNDLE_DIR_NAME, RECIPE_NAME)
@@ -89,7 +90,7 @@ def read_run_recipe(record, full=True):
         data = default_file_io().read_yaml(path)
     except Exception as error:  # a YAML syntax error, ...
         return None, (Issue("", "cannot read %s: %s" % (path, error)),)
-    bundle_dir = os.path.dirname(path)
+    bundle_dir = os.path.join(record.run_dir, BUNDLE_DIR_NAME)
     outside = record.bundle.get('source') or bundle_dir  # ../x: as when the run started
     if full:
         check = check_recipe_data(data, source, bundle_dir, path, outside)

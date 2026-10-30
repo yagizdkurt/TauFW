@@ -70,6 +70,7 @@ Public API:
   from_record(record, ...)
   plan, start, advance, rerun, run, status    pipelines
   plan_rerun(record, stage_id) -> RerunPlan   what rerun() would do (`taufw rerun --dry-run`)
+  plan_reruns(record)                         plan_rerun() of every stage (the menu's Rerun from...)
   make_bundle(target)                         a new analysis bundle with copies of the module configs used
   load_run(run_dir)                           the RunRecord of a run directory
   failed_stage(record), retryable_stage(record)   the FAILED stage of a run; the one rerun() without a stage id
@@ -251,6 +252,24 @@ class Framework:
         return RerunPlan(run_id=record.run_id, start=start, production=production, rows=tuple(rows),
                          recipe_changes=changes, bundle_changed=self._bundle_changed(record),
                          lock=read_lock(record.run_dir))
+
+    def plan_reruns(self, record):
+        """plan_rerun() of every stage of the run as its next advance sees it (the edited recipe, if it passes its
+        checks), with one read of the run's recipe (the menu's Rerun from...): [(stage id, RerunPlan, or the
+        RerunError that refuses that start)] in recipe order. RecipeError for an edit that would be refused."""
+        recipe, changes = self._pending_recipe(record)
+        recipe = recipe or self._recipe_of(record)
+        changed, lock, found = self._bundle_changed(record), read_lock(record.run_dir), []
+        for stage_spec in recipe.stages:
+            try:
+                start, production, rows = _rerun_rows(record, recipe, stage_spec.id)
+            except RerunError as error:
+                found.append((stage_spec.id, error))
+                continue
+            found.append((stage_spec.id, RerunPlan(run_id=record.run_id, start=start, production=production,
+                                                   rows=tuple(rows), recipe_changes=changes, bundle_changed=changed,
+                                                   lock=lock)))
+        return found
 
     def _locked(self, record, wait, poll, take_lock, rerun=False, start=None, until=None):
         """advance() or rerun(): check the stop point and the run directory, take the run's advance lock, read the

@@ -828,6 +828,8 @@ taufw rerun <run dir> plots --next      # only plots; the later stages wait
 ```
 
 Each earlier attempt is kept in `<run dir>/logs/<stage id>/attempt<N>/`.
+In the menu (`taufw`): Continue > a run > Edit run config, Rerun from... and
+History do the same.
 `start --run-root /path/to/runs` puts the run there instead of the recipe's
 [`run_root`](#where-the-runs-go-run_root).
 `status` reads recorded and live state without submitting jobs or saving changes.
@@ -939,7 +941,7 @@ prints the last 20 lines of its log.
 | `tuple directory ... not found` | The fixed part of an `{external: ...}` pattern does not exist on this machine (EOS not mounted, a typo). |
 | Exit code zero but the local stage fails | Read the command log for missing/stale expected outputs and nested ROOT/Combine failures. |
 | Editing YAML or a bundle file does not affect `advance` | The run reads its own copies: `<run_dir>/bundle/recipe.yml` (its recipe) and its bundle copy, not `Analyses/`. Edit those, or start a new run. A file fixed in the run's `bundle/` copy is read by the stages that run after it (warned once, recorded in `run.json` `bundle.changed`; CL §44). A stage that is already `DONE` keeps its output: `taufw rerun <run_dir> <stage id>`. |
-| A local stage is `FAILED` and Continue says it cannot advance | Fix the cause, then `taufw rerun <run_dir>` (menu: Continue > Retry). The stages before it do not run again; the failed attempt is in `logs/<id>/attempt<N>/`. |
+| A local stage is `FAILED` and Continue says it cannot advance | Fix the cause, then `taufw rerun <run_dir>` (menu: Continue > Rerun X (failed)). The stages before it do not run again; the failed attempt is in `logs/<id>/attempt<N>/`. |
 
 Preflight problems leave a local stage `NEW`, so they can be fixed and retried
 in the same run. A command failure leaves it `FAILED`: `advance` stops there;

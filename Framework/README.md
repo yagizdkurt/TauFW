@@ -82,11 +82,15 @@ standard-library `curses`). Up/Down moves, Enter selects, Esc goes back, Ctrl+L 
 
 - **Start a new run**: pick an analysis in `Analyses/` (or type a path) and see its stages. A recipe with
   problems is red and cannot start. **[Create a new run]** makes an empty draft analysis, `Analyses/<name>/`;
-  **E** opens the Run editor (coming next). Selecting a recipe opens its plan, computed in the menu's own process
+  **E** lists the analysis' files and edits the one chosen (its `recipe.yml` is checked before it is saved).
+  Selecting a recipe opens its plan, computed in the menu's own process
   (nothing is written): the overview, errors, warnings and each stage's details. **Start run** launches it.
 - **Continue an existing run**: the runs in `taufw_runs/`, in the user config's `runs.run_root` and in every
   recipe's `run_root` (newest first), or another run directory. Advance to the end (the jobs are checked every
-  600 s by default) or only the next stage, then the run is `PAUSED`; a failed stage can be retried.
+  600 s by default), only the next stage, or until a stage (then the run is `PAUSED`); rerun a failed stage, or
+  rerun from any stage (a picker shows what each start would set aside, then a confirm panel); edit the run's
+  own recipe and bundle files (**E**; refused while an advance works on the run); History: the recipe versions
+  and the earlier attempts of each stage, with their logs.
 - **Inspect run status**: the read-only `taufw status` of a run, with Refresh.
 - **Tests**: the automated tests on a live screen ([Tests/README.md](../Tests/README.md)).
 - **Grid Certificate**: the state of your grid proxy; select it to create or renew it.
@@ -214,7 +218,7 @@ The local stages (`controlhists`, `controlplots`, `shapes`, `fit`, `python`) tak
 | preflight finds a problem (no `cmsenv`, ROOT or `combine` missing, a config file missing, no shapes for the fit; a python step's file or function missing) | the stage stays `NEW`; the problem is its message and in its history; fix it and run `advance` again |
 | every command exits with 0 **and** writes its expected outputs | `DONE`, with the artifacts |
 | a command exits with another code, or does not write an expected output | `FAILED`; the message names the command, the exit code or the missing output, and the log; the last 20 log lines are printed |
-| the stage is `FAILED` and its cause is fixed | `taufw rerun <run dir>` (menu: Continue > Retry): the failed attempt moves to `logs/<stage id>/attempt<N>/`, the stage is `NEW` again, then the run goes on like `advance`; the stages before it do not run again; `run.json` records the attempt in the stage's `attempts` (CL §44, §55) |
+| the stage is `FAILED` and its cause is fixed | `taufw rerun <run dir>` (menu: Continue > Rerun X (failed)): the failed attempt moves to `logs/<stage id>/attempt<N>/`, the stage is `NEW` again, then the run goes on like `advance`; the stages before it do not run again; `run.json` records the attempt in the stage's `attempts` (CL §44, §55) |
 
 Each command's output goes to `<run dir>/logs/<stage id>/NN_<label>.log`, and `run.json` lists every command with its exit
 code and duration (`last_status.commands`). The expected outputs must be written by the command itself (modified

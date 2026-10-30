@@ -18,7 +18,7 @@ it in a process of their own (update(): None, or the whole plan that then replac
 comes, the stages that have them say checking and Start is closed.
 
 F switches the commands of a local stage between one cut line each and the full, wrapped command. E opens the
-Run editor. Also here: stage_table() (the stage table of the recipe list) and there_are() ("There are 2 errors").
+file screen of the analysis (Edit analysis: its files, the editor on one; navigation.edit_analysis). Also here: stage_table() (the stage table of the recipe list) and there_are() ("There are 2 errors").
 """
 
 import time

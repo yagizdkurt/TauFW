@@ -783,9 +783,22 @@ class ScreenTests(unittest.TestCase):
         operations.can_advance.return_value = True
         operations.run_lock.return_value = dict(lock) if lock else None
         operations.advance_run.return_value = mock.Mock(running=False, data=dict(run_id="example"))
+        operations.rerun_run.return_value = mock.Mock(running=False, data=dict(run_id="example"))
+        operations.run_preview.side_effect = lambda run_dir: dict(run_id="example", state=record.state,
+                                                                  lock=operations.run_lock.return_value)
         ui.select_run.side_effect = [("select", 0), ("back", None)]
-        ui.continue_actions.return_value = "wait"
+        ui.run_actions.return_value = "wait"
         return ui, operations, record
+
+    @staticmethod
+    def failed_choices(stage="sf_tauid", production=False):
+        """stage_choices of a run whose `stage` FAILED: a rerun from it moves it (production: nothing)."""
+        plan = dict(rows=[] if production else [dict(stage=stage, state="FAILED", attempt=1,
+                                                     archive="logs/%s/attempt1" % stage)],
+                    kept=[], recipe_changes=None, bundle_changed={}, production=production)
+        return dict(run_id="example", next=None, pending=None, error=None,
+                    stages=[dict(id=stage, type="production" if production else "python", state="FAILED",
+                                 attempts=0, plan=plan, why=None, tag=None, until=False)])
 
     def test_the_plan_checks_behind_its_screen_until_the_screen_is_left(self):
         ui, operations = mock.Mock(), idle_operations()
@@ -794,6 +807,7 @@ class ScreenTests(unittest.TestCase):
         first, second = dict(name="first"), dict(name="second")
         operations.prepare_plan.return_value = second
         ui.recipe_plan.side_effect = ["edit", "back"]
+        ui.run_files.return_value = ("back", None)  # E: the analysis' files, left at once
         self.assertFalse(MenuNavigation(ui, operations)._plan("r.yml", first))
         self.assertEqual(operations.check_plan.call_args_list, [mock.call("r.yml", first), mock.call("r.yml", second)])
         self.assertEqual([c.kwargs["update"] for c in ui.recipe_plan.call_args_list], [checks[0].poll, checks[1].poll])
@@ -823,7 +837,7 @@ class ScreenTests(unittest.TestCase):
         operations.start_command.assert_not_called()  # no plan or status was asked for
         self.assertEqual(ui.select_run.call_args.kwargs["advances"], [None])
         operations.load_run.assert_called_once_with("runs/example")
-        operations.can_advance.assert_called_once_with(record)
+        operations.run_preview.assert_called_once_with("runs/example")  # the run's actions come from its view
         operations.prepare_plan.assert_called_once_with(str(Path("recipes/example.yml")), quick=True)
         ui.operation_error.assert_not_called()
 
@@ -848,7 +862,7 @@ class ScreenTests(unittest.TestCase):
         ui.operation_error.assert_not_called()
 
     def test_the_plan_screen_opens_at_once_and_status_on_the_command_screen(self):
-        """A selected recipe opens its plan screen (no review in between); E opens the Run editor and plans the
+        """A selected recipe opens its plan screen (no review in between); E opens the analysis' files and plans the
         recipe again; only the status of a run is a command behind the menu."""
         ui, operations, record = self.runs_menu()
         operations.recipes.return_value = [Path("recipes/example.yml")]
@@ -856,6 +870,7 @@ class ScreenTests(unittest.TestCase):
         ui.main_menu.side_effect = ["start", "inspect", "exit"]
         ui.select_recipe.side_effect = [("select", 0), ("back", None)]
         ui.recipe_plan.side_effect = ["edit", "back"]
+        ui.run_files.return_value = ("back", None)
         ui.command_output.side_effect = ["refresh", "refresh", "back"]
         self.assertEqual(MenuNavigation(ui, operations).run(), 0)
         path = str(Path("recipes/example.yml"))
@@ -865,7 +880,8 @@ class ScreenTests(unittest.TestCase):
                           ("Start a new run / example 2", dict(name="example 2"))])
         first, second = ui.recipe_plan.call_args_list
         self.assertIs(first.kwargs["position"], second.kwargs["position"])  # the selection stays
-        ui.message.assert_called_once()  # the Run editor (a message until it exists)
+        operations.analysis_files.assert_called_once_with(path)  # E: the file screen of the analysis (CL §55, M8)
+        self.assertEqual(ui.run_files.call_args.args[0], "Edit analysis / example.yml")
         self.assertEqual(operations.start_command.call_args_list, [mock.call("status", "runs/example")] * 3)
         titles = [(call.args[0], call.kwargs) for call in ui.command_output.call_args_list]
         self.assertEqual(titles, [("Run status: example", dict(refresh=True))] * 3)  # R twice
@@ -882,12 +898,12 @@ class ScreenTests(unittest.TestCase):
         MenuNavigation(ui, operations).continue_run()
         ui.run_progress.assert_called_once_with("Run example", advancing)
         operations.advance_run.assert_not_called()
-        ui.continue_actions.assert_not_called()
+        ui.run_actions.assert_not_called()
         operations.mark_seen.assert_not_called()
 
     def test_continue_next_stage_and_the_run_lock(self):
         ui, operations, record = self.runs_menu()
-        ui.continue_actions.return_value = "next"
+        ui.run_actions.return_value = "next"
         MenuNavigation(ui, operations).continue_run()
         operations.advance_run.assert_called_once_with(record, next_only=True, take_lock=False)
         live = dict(host="lxplus999", pid=1, since="14:02", quiet=10, lost=False, local=False)
@@ -913,42 +929,47 @@ class ScreenTests(unittest.TestCase):
                 ui.select_run.side_effect = [("next", 0), ("back", None)]
                 record.state = state
                 operations.can_advance.return_value = allowed
-                ui.terminal_run_actions.return_value = "back"
+                ui.run_actions.return_value = "back"
                 MenuNavigation(ui, operations).continue_run()
                 if allowed:
                     operations.advance_run.assert_called_once_with(record, next_only=True, take_lock=False)
-                    ui.continue_actions.assert_not_called()
-                else:
+                    ui.run_actions.assert_not_called()
+                else:  # finished since the picker drew it: its actions are asked again
                     operations.advance_run.assert_not_called()
-                    ui.terminal_run_actions.assert_called_once()
+                    ui.run_actions.assert_called_once()
 
-    def test_continue_on_a_failed_run_offers_its_retry(self):
-        """CL §44: a FAILED run whose stage can be retried: Retry runs it again behind the menu (to the end)."""
-        for action, retried, inspected in (("retry", True, False), ("inspect", False, True), ("back", False, False)):
-            with self.subTest(action=action):
+    def test_continue_on_a_failed_run_offers_its_rerun(self):
+        """CL §44, §55: a FAILED run: Rerun X (failed) opens the confirm panel at once (no picker), then reruns it
+        behind the menu (to the end); Inspect and Back start nothing."""
+        for action, answer, rerun, inspected in (("rerun_failed", "all", True, False),
+                                                 ("rerun_failed", None, False, False),
+                                                 ("inspect", None, False, True), ("back", None, False, False)):
+            with self.subTest(action=action, answer=answer):
                 ui, operations, record = self.runs_menu()
                 record.state = "FAILED"
                 operations.can_advance.return_value = False
                 info = dict(stage="sf_tauid", type="python", message="exit code 1", changed={"sf/tauid.json": "added"})
                 operations.retry_info.return_value = info
-                ui.terminal_run_actions.side_effect = [action, "back"]
+                operations.stage_choices.return_value = self.failed_choices()
+                ui.run_actions.return_value = action
+                ui.confirm_rerun.return_value = answer
                 ui.command_output.return_value = "back"
-                operations.retry_run.return_value = mock.Mock(running=False, data=dict(run_id="example"))
                 MenuNavigation(ui, operations).continue_run()
-                ui.terminal_run_actions.assert_any_call("FAILED", retry=info)
-                operations.retry_info.assert_called_with(record)
-                self.assertEqual(operations.retry_run.called, retried)
-                if retried:
-                    operations.retry_run.assert_called_once_with(record, take_lock=False)
-                    ui.run_progress.assert_called_once_with("Run example", operations.retry_run.return_value)
+                ui.stage_choice.assert_not_called()
+                if action == "rerun_failed":
+                    ui.confirm_rerun.assert_called_once_with(self.failed_choices()["stages"][0], pending=None,
+                                                             failed=info)
+                self.assertEqual(operations.rerun_run.called, rerun)
+                if rerun:
+                    operations.rerun_run.assert_called_once_with(record, "sf_tauid", next_only=False, take_lock=False)
+                    ui.run_progress.assert_called_once_with("Run example", operations.rerun_run.return_value)
                 self.assertEqual(operations.start_command.called, inspected)
                 operations.advance_run.assert_not_called()
-                ui.continue_actions.assert_not_called()
 
-    def test_a_retry_asks_for_the_lock_and_the_grid_proxy(self):
-        """CL §48: a retry shows a locked run like an advance (a lost lock can be taken over), and a production
-        retry, which resubmits, needs a valid grid proxy."""
-        for lock, lock_answer, proxy, proxy_answers, retried, take in (
+    def test_a_rerun_asks_for_the_lock_and_the_grid_proxy(self):
+        """CL §48, §55: a rerun shows a locked run like an advance (a lost lock can be taken over), and a
+        production retry, which resubmits, needs a valid grid proxy."""
+        for lock, lock_answer, proxy, proxy_answers, rerun, take in (
                 ({"host": "other", "pid": 7}, "back", False, [], False, None),            # held: back
                 ({"host": "other", "lost": True}, "take", False, [], True, True),          # lost elsewhere: taken
                 ({"host": "here", "lost": True, "local": True}, None, False, [], True, False),  # taufw.py takes it
@@ -960,47 +981,122 @@ class ScreenTests(unittest.TestCase):
                 operations.can_advance.return_value = False
                 operations.retry_info.return_value = dict(stage="production", type="production", message="x",
                                                           changed={}, tries=(3, 6))
+                operations.stage_choices.return_value = self.failed_choices("production", production=True)
                 operations.run_lock.return_value = lock
                 ui.run_lock.return_value = lock_answer
                 operations.needs_grid_proxy.return_value = proxy
                 operations.grid_proxy_valid.side_effect = [False, True]
                 ui.grid_proxy_needed.side_effect = proxy_answers
-                ui.terminal_run_actions.side_effect = ["retry", "back"]
-                operations.retry_run.return_value = mock.Mock(running=False, data=dict(run_id="example"))
+                ui.run_actions.return_value = "rerun_failed"
+                ui.confirm_rerun.return_value = "all"
                 MenuNavigation(ui, operations).continue_run()
                 self.assertEqual(ui.run_lock.called, bool(lock) and not lock.get("local"))
-                self.assertEqual(operations.retry_run.called, retried)
-                if retried:
-                    operations.retry_run.assert_called_once_with(record, take_lock=take)
+                self.assertEqual(operations.rerun_run.called, rerun)
+                if rerun:
+                    operations.rerun_run.assert_called_once_with(record, "production", next_only=False, take_lock=take)
                 if lock is None:
                     operations.needs_grid_proxy.assert_called_with(record=record)
 
-    def test_the_production_retry_choice_says_how_many_tries(self):
-        ui = ConsoleUI(mock.Mock())
-        with mock.patch.object(ui, "choose", side_effect=[0]) as choose:
-            retry = dict(stage="production", type="production", message="2 chunk(s) still failed", changed={},
-                         tries=(3, 6))
-            self.assertEqual(ui.terminal_run_actions("FAILED", retry=retry), "retry")
-        description = choose.call_args.kwargs["descriptions"][0]
-        self.assertIn("Resubmit the failed chunks of production with 3 more tries (up to try 6)", description)
-        self.assertIn("It failed with: 2 chunk(s) still failed.", description)
-        self.assertNotIn("attempt<N>", description)
+    def test_rerun_from_and_advance_until_use_the_stage_picker(self):
+        """CL §55 step 4: Rerun from... opens the picker, then its confirm panel (to the end, or that stage only;
+        a cancel goes back to the picker on the same stage); Advance until... starts once a stage is chosen."""
+        view = dict(run_id="example", next="fit", pending=None, error=None, stages=[
+            dict(id="plots", type="controlplots", state="DONE", attempts=0, until=False, why=None, tag=None,
+                 plan=dict(rows=[dict(stage="plots", state="DONE", attempt=1, archive="logs/plots/attempt1"),
+                                 dict(stage="fit", state="NEW", attempt=1, archive=None)], kept=[],
+                           recipe_changes=None, bundle_changed={}, production=False)),
+            dict(id="fit", type="fit", state="NEW", attempts=0, until=True, why=None, tag=None, plan=None)])
+        ui, operations, record = self.runs_menu()
+        operations.stage_choices.return_value = view
+        ui.run_actions.return_value = "rerun"
+        ui.stage_choice.side_effect = [("pick", "plots"), ("pick", "plots")]
+        ui.confirm_rerun.side_effect = [None, "one"]
+        MenuNavigation(ui, operations).continue_run()
+        self.assertEqual([call.args[3] for call in ui.stage_choice.call_args_list], [{}, {"selected": "plots"}])
+        operations.rerun_run.assert_called_once_with(record, "plots", next_only=True, take_lock=False)
+        ui, operations, record = self.runs_menu()
+        operations.stage_choices.return_value = view
+        ui.run_actions.return_value = "until"
+        ui.stage_choice.return_value = ("pick", "fit")
+        MenuNavigation(ui, operations).continue_run()
+        self.assertEqual(ui.stage_choice.call_args.args[2], "until")
+        operations.advance_run.assert_called_once_with(record, take_lock=False, until="fit")
+        ui, operations, record = self.runs_menu()  # Back from the picker: nothing starts
+        operations.stage_choices.return_value = view
+        ui.run_actions.return_value = "until"
+        ui.stage_choice.return_value = ("back", None)
+        MenuNavigation(ui, operations).continue_run()
+        operations.advance_run.assert_not_called()
 
-    def test_the_retry_choice_says_what_it_does(self):
+    def test_edit_run_config_and_the_rerun_hint(self):
+        """CL §55 step 4: refused while an advance holds the run's lock; the file screen, the editor with the run's
+        validator; a save that made a DONE stage stale offers Rerun from it (the picker opens on it)."""
+        ui, operations, record = self.runs_menu(host="lxplus999", pid=4, lost=False)
+        ui.run_lock.return_value = "back"
+        ui.select_run.side_effect = [("edit", 0), ("back", None)]
+        MenuNavigation(ui, operations).continue_run()
+        self.assertEqual(ui.message.call_args.args[0], "An advance works on this run")
+        ui.run_files.assert_not_called()
+        files = [dict(path="recipe.yml", file="/r/bundle/recipe.yml", recipe=True, read_by=[], state=""),
+                 dict(path="tt.yml", file="/r/bundle/tt.yml", recipe=False, read_by=["plots"], state="")]
+        for hint, answer, rerun in ((None, None, False), (dict(stage="plots", text="..."), 1, False),
+                                    (dict(stage="plots", text="..."), 0, True)):
+            with self.subTest(hint=hint, answer=answer):
+                ui, operations, record = self.runs_menu()
+                ui.select_run.side_effect = [("edit", 0), ("back", None)]
+                operations.run_files.return_value = files
+                ui.run_files.side_effect = [("edit", 1), ("back", None)]
+                ui.edit_file.return_value = True
+                operations.rerun_suggestion.return_value = hint
+                ui.ask.return_value = answer
+                ui.stage_choice.return_value = ("back", None)
+                MenuNavigation(ui, operations).continue_run()
+                operations.run_file_validator.assert_called_once_with(record, "tt.yml")
+                ui.edit_file.assert_called_once_with("/r/bundle/tt.yml", operations.run_file_validator.return_value,
+                                                     title="Edit run config / example / tt.yml")
+                operations.rerun_suggestion.assert_called_once_with(record, "tt.yml")
+                self.assertEqual(ui.ask.called, hint is not None)
+                if rerun:
+                    self.assertEqual(ui.stage_choice.call_args.args[3], {"selected": "plots"})
+                else:
+                    ui.stage_choice.assert_not_called()
+                    self.assertEqual(ui.run_files.call_count, 2)  # back to the file screen after the editor
+
+    def test_history_shows_the_run_and_its_logs(self):
+        ui, operations, record = self.runs_menu()
+        ui.run_actions.return_value = "history"
+        MenuNavigation(ui, operations).continue_run()
+        title, view, read_log = ui.run_history.call_args.args
+        self.assertEqual((title, view), ("History / example", operations.run_history.return_value))
+        read_log("logs/plots/attempt1")
+        operations.attempt_log.assert_called_once_with(record, "logs/plots/attempt1")
+        operations.advance_run.assert_not_called()
+
+    def test_the_rerun_confirm_panel_says_what_it_does(self):
         ui = ConsoleUI(mock.Mock())
-        for changed, words in (({"sf/tauid.json": "added"}, "changed since the start: sf/tauid.json added."),
-                               ({}, "is as it started."), (None, "are not known")):
-            with self.subTest(changed=changed):
-                with mock.patch.object(ui, "choose", side_effect=[0, 1, 2, None]) as choose:
-                    retry = dict(stage="sf_tauid", type="python", message="exit code 1", changed=changed)
-                    self.assertEqual([ui.terminal_run_actions("FAILED", retry=retry) for _ in range(4)],
-                                     ["retry", "inspect", "back", "back"])
-                self.assertEqual(choose.call_args.args[:2], ("Run failed at sf_tauid",
-                                                             ["Retry sf_tauid", "Inspect status", "Back"]))
-                description = choose.call_args.kwargs["descriptions"][0]
-                self.assertIn("It failed with: exit code 1.", description)
-                self.assertIn(words, description)
-                self.assertIn("logs/sf_tauid/attempt<N>/", description)
+        row = self.failed_choices()["stages"][0]
+        with mock.patch.object(ui, "ask", side_effect=[0, 1]) as ask:
+            self.assertEqual(ui.confirm_rerun(row, failed=dict(message="exit code 1")), "all")
+            self.assertIsNone(ui.confirm_rerun(row))
+        title, lines, choices = ask.call_args_list[0].args
+        self.assertEqual((title, choices), ("Rerun from sf_tauid?", ["Rerun sf_tauid", "Cancel"]))
+        text = " ".join(line for line, _ in lines)
+        self.assertIn("It failed with: exit code 1", text)
+        self.assertIn("1 stage runs again: sf_tauid.", text)
+        self.assertIn("logs/<id>/attempt<N>/", text)
+        two = dict(row, plan=dict(row["plan"], rows=row["plan"]["rows"] + [dict(stage="after", state="DONE",
+                                                                                 attempt=1, archive="a")]))
+        with mock.patch.object(ui, "ask", return_value=1) as ask:
+            self.assertEqual(ui.confirm_rerun(two, pending="bundle/recipe.yml was edited"), "one")
+        self.assertEqual(ask.call_args.args[2], ["Rerun to the end", "Rerun sf_tauid only (the others wait)", "Cancel"])
+        self.assertIn("! The edited recipe is taken first (bundle/recipe.yml was edited).",
+                      [line for line, _ in ask.call_args.args[1]])
+        production = self.failed_choices("production", production=True)["stages"][0]
+        with mock.patch.object(ui, "ask", return_value=0) as ask:
+            self.assertEqual(ui.confirm_rerun(production, failed=dict(message="2 chunk(s)", tries=(3, 6))), "all")
+        self.assertIn("Resubmit the failed chunks of production with 3 more tries (up to try 6)",
+                      " ".join(line for line, _ in ask.call_args.args[1]))
+        self.assertEqual(ask.call_args.args[2], ["Resubmit production and go on", "Cancel"])
 
     def test_a_run_that_may_submit_needs_a_valid_grid_proxy(self):
         for answers, valid, started in ((["back"], [False], False), (["renew"], [False, True], True),
@@ -1010,7 +1106,6 @@ class ScreenTests(unittest.TestCase):
                 operations.needs_grid_proxy.return_value = True
                 operations.grid_proxy_valid.side_effect = valid
                 ui.grid_proxy_needed.side_effect = answers
-                ui.continue_actions.side_effect = ["wait", "back"]
                 MenuNavigation(ui, operations).continue_run()
                 operations.needs_grid_proxy.assert_called_with(record=record)
                 self.assertEqual(operations.renew_grid_proxy.call_count, answers.count("renew"))
@@ -1035,8 +1130,11 @@ class ScreenTests(unittest.TestCase):
                                 "tests", "help", "exit"]),
             (ui.tests_menu, (), ["all", "checks", "normal", "bbb", "environment", "preview", "back"]),
             (ui.test_family, ("Normal",), ["all", "choose", "back"]),
-            (ui.terminal_run_actions, ("DONE",), ["inspect", "back"]),
-            (ui.continue_actions, ("run",), ["wait", "next", "back"]),
+            (ui.run_actions, (dict(run_id="run", state="DONE"),), ["rerun", "edit", "history", "inspect", "back"]),
+            (ui.run_actions, (dict(run_id="run", state="PAUSED", can_advance=True, next="fit"),),
+             ["wait", "next", "until", "rerun", "edit", "history", "inspect", "back"]),
+            (ui.run_actions, (dict(run_id="run", state="FAILED", retry=dict(stage="fit")),),
+             ["rerun_failed", "rerun", "edit", "history", "inspect", "back"]),
             (ui.grid_proxy_needed, (), ["renew", "back"]),
             (ui.select_recipe, (["example.yml"],),
              [("create", None), ("select", 0), ("manual", None), ("examples", None), ("back", None)]),
@@ -1240,13 +1338,15 @@ ConsoleUI(None)
         operations.create_analysis.side_effect = [ValueError("name taken"), path]
         ui.select_recipe.side_effect = [("create", None), ("select", 0), ("edit", 0), ("back", None)]
         ui.analysis_name.side_effect = ["taken", "new_analysis"]
+        ui.run_files.return_value = ("back", None)
         MenuNavigation(ui, operations).start()
         self.assertEqual(ui.analysis_name.call_args_list, [mock.call(default=""), mock.call(default="taken")])
         self.assertEqual(operations.create_analysis.call_args_list, [mock.call("taken"), mock.call("new_analysis")])
         self.assertEqual(ui.select_recipe.call_args_list[1].kwargs["position"]["selected"], 1)
         self.assertEqual(ui.select_recipe.call_args_list[1].kwargs["drafts"], [True])
         self.assertEqual([call.args[0] for call in ui.message.call_args_list],
-                         ["Analysis created", "Analysis draft", "Run editor"])
+                         ["Analysis created", "Analysis draft"])
+        operations.analysis_files.assert_called_once_with(str(path))  # E: its files (CL §55, M8)
         operations.prepare_plan.assert_not_called()
         operations.start_run.assert_not_called()
         operations.start_command.assert_not_called()
@@ -1264,7 +1364,7 @@ ConsoleUI(None)
         operations.create_analysis.assert_not_called()
         operations.prepare_plan.assert_not_called()
         operations.start_run.assert_not_called()
-        ui.message.assert_called_once_with("Analysis draft", "No stages configured. Press E for Run editor.")
+        ui.message.assert_called_once_with("Analysis draft", "No stages configured. Press E to edit its recipe.yml.")
 
     def test_picker_updates_errors_and_special_row_hints(self):
         ui, screen, frames = self.rendered_terminal([1002, 1002, 1002, 1002, 1002, 27])

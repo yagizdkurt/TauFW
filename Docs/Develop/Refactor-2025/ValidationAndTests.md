@@ -999,3 +999,26 @@ unchanged; to confirm on lxplus without re-lock: [TODO.md](TODO.md) section 1.
   a --next` (the edit taken, `a` and `b` archived, only `a` runs, PAUSED), `rerun RUN` of a PAUSED run (the stages
   named), `retry` an argparse error.
 - Windows: `Tests/Framework` 471 tests OK (4 skipped); `Tests/check_harness.py` OK. lxplus: TODO section 1.
+
+### Step 4: the menu
+
+- `Tests/Framework/test_menu.py`: Continue (`run_actions`, the run's view for its lock), Rerun X (failed) without the
+  picker (to the end, cancel, Inspect, Back), the lock and grid proxy of a rerun, Rerun from… (cancel goes back to the
+  picker on the same stage, then "only" = `--next`) and Advance until… (Back starts nothing), Edit run config (refused
+  under the lock; the editor with the run's validator; the rerun hint: none, Later, Rerun from it on the picker),
+  History (`attempt_log` of the run), the confirm panel's texts (one stage, two stages with the edited recipe,
+  production); `run_actions` lists of DONE, PAUSED and FAILED runs; Start > E opens `analysis_files`.
+- `Tests/Framework/test_interactive.py` (the real adapter with `FakeUI`): the actions of DONE, FAILED and BLOCKED runs;
+  Rerun fit (failed) → `rerun RUN fit`; Rerun from… of a DONE run with the dry plan of each stage → `rerun RUN shapes
+  --next`; Advance until fit → `advance RUN --until fit`; Edit run config lists `recipe.yml` and the text files (not
+  `.root`), the validator refuses a new `name`, accepts the run's recipe, and is refused under a lock; `file_text`;
+  `run_history`.
+- `Tests/Framework/test_preview.py`: every new scenario draws. By hand (a text render of the preview at 120x30,
+  130x32, 100x24, 90x24 and 80x24): the pickers, the file screen (markers kept, names cut from the front), History
+  with Tab and the log panel, the confirm panel, the run picker with a PAUSED run.
+- `Tests/Framework/test_python_step.py` `test_the_menu_data_of_a_run_with_an_edited_recipe` (the adapter on a real
+  run): `run_files` (the recipe first, "edited, not taken yet", which stages read `steps/make.py` and `steps/use.py`),
+  `rerun_suggestion` (the recipe: the changed DONE stage; a step file: its stage), `stage_choices` (the pending edit,
+  the kept stages of each start), nothing taken.
+- `test_run_screen.py`: the FAILED card's new text. Windows: `Tests/Framework` 477 tests OK (4 skipped);
+  `Tests/check_harness.py` OK.
