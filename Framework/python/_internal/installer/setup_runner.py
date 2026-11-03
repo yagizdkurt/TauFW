@@ -21,12 +21,14 @@ import time
 if __package__:
     from ..menu import ConsoleUI
     from ..notifications import bell
+    from ..version import current_version
     from ._installer import COMPONENTS
 else:
     sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "Utilities" / "python"))  # UserConfig
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from menu import ConsoleUI
     from notifications import bell
+    from version import current_version
     from installer import COMPONENTS
 
 
@@ -447,6 +449,10 @@ def main(argv=None):
     ui = ConsoleUI.open(parser)
     if ui is None:
         return text_setup(args)
+    try:
+        ui.set_version("V" + current_version())
+    except (OSError, TypeError, ValueError):
+        pass  # Invalid release metadata must not prevent installation; keep the UI fallback.
     worker = None
     failure = None
 

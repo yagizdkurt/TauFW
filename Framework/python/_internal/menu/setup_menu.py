@@ -15,8 +15,10 @@ else:
     from menu import ConsoleUI
 if __package__ and "." in __package__:  # TauFW.Framework._internal.menu
     from ..installer import COMPONENTS  # (ID, label) of every optional component
+    from ..version import current_version
 else:  # a script, or Menu imported from Framework/python/_internal by the installer (before scram b)
     from installer import COMPONENTS
+    from version import current_version
 
 
 def main(argv=None):
@@ -27,6 +29,10 @@ def main(argv=None):
     ui = ConsoleUI.open(parser)
     if ui is None:
         return 1
+    try:
+        ui.set_version("V" + current_version())
+    except (OSError, TypeError, ValueError):
+        pass  # Invalid release metadata must not prevent installation; keep the UI fallback.
     try:
         selected = ui.setup_checklist(COMPONENTS, args.selected)
     except KeyboardInterrupt:

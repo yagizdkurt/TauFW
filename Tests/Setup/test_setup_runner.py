@@ -143,12 +143,14 @@ class RunnerTests(unittest.TestCase):
         worker = Mock()
         worker.result.return_value = "Setup complete"
         with patch.object(runner.ConsoleUI, "open", return_value=ui), \
+                patch.object(runner, "current_version", return_value="1.2.3"), \
                 patch.object(runner, "Worker", return_value=worker) as launch, \
                 patch.object(runner, "progress", return_value=0) as progress, \
                 patch("builtins.print"):
             self.assertEqual(runner.main(["--script", "/clone/Utilities/FastSetup.sh", "--selected",
                                           "tauidsfs", "--", "--jobs=4"]), 0)
         ui.curses.wrapper.assert_called_once()
+        ui.set_version.assert_called_once_with("V1.2.3")
         self.assertIs(ui.setup_checklist.call_args.kwargs["screen"], screen)
         self.assertIs(progress.call_args.args[1], screen)
         self.assertIn("--skip-tauidsfs", launch.call_args.args[1])
